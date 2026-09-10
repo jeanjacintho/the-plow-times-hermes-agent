@@ -1,0 +1,41 @@
+# The declarative half of ~/.hermes-the-plow-times -- everything that is a
+# deliberate choice for this deployment. Keys equal to the image's own defaults
+# are deliberately absent, so the pinned image supplies its current defaults
+# rather than a frozen snapshot of them.
+#
+# No model pin, unlike property-hunt-hermes-agent's config: that pin exists to
+# close a compression-fallback hole a sibling agent lost ~30h to, and this
+# agent starts on the same defaults that incident produced. Add one only with
+# the same evidence, verified against this agent's own auth.
+#
+# No group_sessions_per_user override at MVP scope: this agent has one private
+# chat and no groups (design doc §3.2), so the image default is fine.
+
+mcp_servers:
+  # Plow Latch, reached over the Plow relay. This is the whole point of this
+  # agent: the browser it researches with is the operator's own Mac, not this
+  # container -- the same mechanism property-hunt-hermes-agent uses to browse
+  # listings. The relay authorises the connection and tells the Mac who is
+  # asking; the Mac authorises each action.
+  #
+  # Same shape the rentals agent uses for Hostex: a URL and a bearer header,
+  # both from the instance dotenv. The credential never appears in the URL.
+  #
+  # This block is the declaration. Latch is the ONLY mcp_server here: research
+  # rides plow_browser_* against the owner's Mac, and this agent installs no
+  # connectors (skills.tsv is empty for the same reason).
+  latch:
+    url: https://api.plow.co/v1/relay/devices/${DOMO_DEVICE_UID}/mcp
+    headers:
+      Authorization: Bearer ${DOMO_MCP_TOKEN}
+    enabled: true
+plugins:
+  enabled:
+  - plow-chat-platform
+platforms:
+  plow_chat:
+    enabled: true
+    # No extra.group_prompts: one private chat, no groups. The plugin keys
+    # group prompts by display name from PLOW_CHAT_GROUP_UIDS, and a prompt
+    # naming no configured group is logged and skipped rather than fatal --
+    # so adding one here before the group exists is a silent no-op.
