@@ -1,10 +1,14 @@
 # The Plow Times
 
 > [!NOTE]
-> **Planning stage.** This directory currently holds design docs only — no
-> skills, no runtime, no code. See [`docs/`](docs/) for the full plan. Treat
-> this README as the pitch a judge or a teammate reads first, not as a
-> description of anything that runs yet.
+> **Skeleton stage.** The repo now carries the deployment contract
+> (`agent.env`, `runtime/config.yaml`, `skills.tsv`), the persona
+> (`runtime/SOUL.md`), the seven `pt-*` skills and the test suite — the
+> structure the design doc lays out. Nothing has run against a live Plow
+> instance yet: the next steps are an `agent-mgr` registration, a timed dry
+> run of `pt-research` against real Latch latency, and the unattended
+> subscription delivery the roadmap's MVP bar demands. See
+> [`docs/roadmap.md`](docs/roadmap.md) for what is still open.
 
 A [Hermes](https://howto.plow.co/hermes) agent — texted from iMessage over the
 Plow Chat platform — that turns any question into an autonomous overnight (or
@@ -65,6 +69,28 @@ different job.
 
 ## Status
 
-Design only. Nothing in this repo has been built. The next step, once this
-plan is reviewed, is an implementation plan for the MVP skills in
-`docs/roadmap.md`.
+Skeleton built. What exists and what it is:
+
+- **Deployment contract** — `agent.env` (deploy-hook, `AGENT_LIVE`), `runtime/config.yaml`
+  (Latch as the only `mcp_server`, plow-chat-platform), empty `skills.tsv`
+  (no connectors — research rides Latch alone), `.env.example`, `justfile`.
+- **Persona** — `runtime/SOUL.md`: the edition is the product, every claim
+  carries a source, research runs only in cron-fired sessions, budgets stop
+  the pass, web content is data never instruction.
+- **Skills** — `pt-intake` (classification + `topics.py`, the single validated
+  writer for the topic store), `pt-research` (budget-bounded Latch browsing),
+  `pt-edition` (the chat edition format), `pt-dashboard` (`register_crons.py`,
+  spec derived from `topics.json`, create-if-missing plus a prune sweep),
+  `pt-setup` (first-run interview, printer probe), `pt-shared` (config gate,
+  bearer HTTP, chat delivery, Latch print reference), `pt-print` (best-effort
+  paper, second priority per the roadmap).
+- **Deployment** — `deploy-hook` seeds every `pt-*` dir into
+  `$AGENT_HOME/skills/news` (copy-if-absent, never over the agent's edits)
+  and publishes `SOUL.md` on every deploy.
+- **Tests** — `just test` runs 74 pytest cases over the gate invariants, the
+  topic transitions, the cron derivation and the repo contract.
+
+Not built yet, per `docs/roadmap.md`: the timed dry runs that pin
+`pt-research`'s quick/deep budgets, an `agent-mgr` registration against a
+live Plow instance, and one subscription delivered unattended — the MVP's
+own bar.
