@@ -38,6 +38,7 @@ live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import pathlib
@@ -248,7 +249,10 @@ def _run(argv):
 
 def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, env=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.parse_args(argv)
+    # The script takes no flags; parse_args(None) on the CLI is sys.argv[1:]
+    # == empty, but in-process callers pass [] so argparse never reads
+    # the test runner's argv.
+    parser.parse_args(argv if argv is not None else [])
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
