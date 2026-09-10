@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Shared structural gate for the pt-config (the Plow Times' pt/config.json).
+
+This is the SINGLE shared definition of "installed" for the pt-config. It runs
+in the agent container, invoked as:
+
+    python3 .../pt-shared/scripts/pt_config_gate.py <config.json>
+
+at setup time (after pt-setup writes the config) and before anything schedules
+against it, so the structural contract lives in one place, single-homed with
+references/config.example.json, and no caller can drift from it.
+
+Output contract (the ld_config_gate.py shape, minus the jq-equivalence
+requirement this repo does not carry):
+  - Prints the failing invariant name(s) to stdout, joined by "; ".
+  - Empty stdout == PASS. Never prints anything else on pass.
+  - Prints exactly "not valid JSON" (and nothing else) when the file does not
+    parse as JSON, is unreadable, or has a shape the checks themselves could
+    not inspect (indexing a non-object, testing a non-string).
+  - Never prints PII. There is none by design: the config holds a timezone, a
+    delivery hour, and whether a printer exists.
+
+The five checks:
+  1. owner.timezone must contain a non-whitespace char. register_crons.py
+     refuses to register unless the container's TZ equals it, and SOUL.md
+     routes first-run onboarding from the keys' presence -- a blank one
+     satisfies neither.
+  2. delivery.hour must be the exact "HH:MM" shape (00-23 : 00-59). The cron
+     spec is built as "0 <hour> * * *" from its hour part; a shape anything
+     else would either break the expression or silently shift the delivery.
+  3. printer.configured must be a boolean. It is the print path's only gate,
+     so a truthy string ("false" reads truthy) would hand pt-print a printer
+     that does not exist -- a print leg that fails on every nightly run.
+  4. printer.name must be a non-blank string when configured is true: `lp -d`
+     needs a destination. When configured is false, name may be null or
+     absent.
+  5. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
+
+The owner's name, location, or any other personal fact is deliberately not
+among the checks, and not in the schema at all: this agent holds nothing
+durable beyond the topics the owner gave it and these delivery preferences
+(design doc §2).
+"""
+import json
+import re
+import sys
+
+_PLACEHOLDER_RE = re.compile(r"^\[[A-Z][A-Z0-9_]*\]$")
+_NONBLANK_RE = re.compile(r"\S")
+# The only shape the delivery hour may take. The dashboard derives
+# "0 <hour> * * *" from the hour part; minutes exist in the format so the
+# owner-facing config reads as a time, and pt-setup asks for "07:00" -- but
+# the cron fires at the hour, so minutes other than "00" would be a silent
+# lie between what the owner was told and when the edition lands. Held to
+# :00 here, at the one place that can refuse it.
+_DELIVERY_HOUR_RE = re.compile(r"^([01][0-9]|2[0-3]):00$")
+
+
+class GateError(Exception):
+    """A structural shape the checks themselves cannot inspect.
+
+    Collapses to "not valid JSON" in main(), exactly as the jq-era gate
+    collapsed a filter-level error and a parse failure into that one line.
+    """
+
+
+def _index(value, key):
+    """dict get with a loud refusal on non-object shapes."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value.get(key)
+    raise GateError("cannot index non-object")
+
+
+def _nonblank(value):
+    """True when value is a string containing a non-whitespace char."""
+    if not isinstance(value, str):
+        raise GateError("non-string where a string is required")
+    return bool(_NONBLANK_RE.search(value))
+
+
+def _all_strings(node):
+    """Every string reachable by recursive descent."""
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for v in node.values():
+            yield from _all_strings(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _all_strings(v)
+
+
+def gate(config):
+    """Return the "; "-joined failures for a parsed config (empty == pass).
+
+    Raises GateError for shapes the checks cannot inspect; the caller maps
+    that to "not valid JSON".
+    """
+    failures = []
+
+    # 1. owner.timezone non-blank -- the zone every schedule is written
+    #    against and the one thing pt-setup must confirm out loud.
+    tz = _index(_index(config, "owner"), "timezone")
+    if not _nonblank(tz):
+        failures.append("owner.timezone is blank")
+
+    # 2. delivery.hour is "HH:00" exactly. See _DELIVERY_HOUR_RE for why
+    #    minutes are refused, not merely validated.
+    hour = _index(_index(config, "delivery"), "hour")
+    if not (isinstance(hour, str) and _DELIVERY_HOUR_RE.fullmatch(hour)):
+        failures.append('delivery.hour is not "HH:00"')
+
+    # 3. printer.configured is a boolean, unambiguously.
+    configured = _index(_index(config, "printer"), "configured")
+    if not isinstance(configured, bool):
+        failures.append("printer.configured is not a boolean")
+
+    # 4. a configured printer has a name; an unconfigured one may not.
+    if configured is True:
+        name = _index(_index(config, "printer"), "name")
+        if not _nonblank(name):
+            failures.append("printer.name is blank while printer.configured is true")
+
+    # 5. no leftover [UPPER_SNAKE] placeholder anywhere.
+    if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):
+        failures.append("an unfilled [UPPER_SNAKE] placeholder remains")
+
+    return "; ".join(failures)
+
+
+def main(argv):
+    if len(argv) != 2:
+        sys.stderr.write("usage: pt_config_gate.py <config.json>\n")
+        return 2
+    try:
+        with open(argv[1], encoding="utf-8") as f:
+            # parse_constant fail-closes NaN/Infinity the same way the ld
+            # gate does: both parsers accept the non-standard tokens, and a
+            # config that parse but cannot be trusted is not valid here.
+            config = json.load(
+                f, parse_constant=lambda token: (_ for _ in ()).throw(
+                    ValueError(f"non-standard JSON constant {token}")))
+        failures = gate(config)
+    except (OSError, ValueError, GateError):
+        print("not valid JSON")
+        return 0
+    if failures:
+        print(failures)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
