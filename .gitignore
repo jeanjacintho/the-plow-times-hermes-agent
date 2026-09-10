@@ -1,0 +1,13 @@
+# Plan artifacts superpowers regenerates locally; the specs beside them are
+# the reviewed record and stay tracked.
+docs/superpowers/plans/
+.env
+__pycache__/
+.pytest_cache/
+.DS_Store
+
+# The agent credential `plow-agents mint` writes here. A live bearer token.
+plow-credentials
+
+# knightwatch materializes declared review siblings here during a review.
+.siblings/
