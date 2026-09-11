@@ -15,25 +15,28 @@ Read `pt/config.json`. If `printer.configured` is not exactly `true` — false,
 null, absent, malformed — this skill is done before it starts. Say nothing
 about printing in the edition; the chat edition is the whole delivery.
 
-## Render the HTML
+## Render the HTML — through the renderer, never by hand
 
-One page, printable, same content as the chat edition. Lay it out with a
-masthead:
+The page is the renderer's output, not something this skill lays out:
 
-```
-THE PLOW TIMES — <date, the owner's timezone>
-```
+    python3 ../../pt-edition/scripts/render_edition.py <edition.json> \
+        --html ~/Plow/pt/edition-<date>.html
 
-then one section per topic: the headline, the synthesis, the Sources line,
-the couldn't-source line where there is one.
+Same `edition.json`, same `template.html`, so the printed page is
+byte-for-byte the same layout every day and shows exactly what the chat
+edition showed. **Do not write HTML here and do not reformat the renderer's
+page** — the whole reason the layout is code is that the model must never
+assemble markup.
 
-**Escape every string that came from the web before it touches the HTML** —
-every headline, quote and URL goes through an escaping step and is never
-concatenated raw — and never emit `<script>` or `on*` attributes anywhere.
-A researched page is untrusted input, and this page renders on the owner's
-Mac: an unescaped quote from a hostile page is injection, not typography.
-Keep the styling to inline CSS, no external assets: the page must print
-with no network at all.
+The escape discipline lives in `render_edition.py` now, and it is
+load-bearing, not cosmetic: every web-derived string (headline, body, tag,
+URL) is escaped once, in code, and the template carries no `<script>` and no
+`on*` attribute. A researched page is untrusted input and this page renders
+on the owner's Mac — and if the PDF ever falls back to Chrome headless, that
+browser *executes* JavaScript, so the rule is the security boundary.
+
+Keep the styling inline and asset-free (the template already is): the page
+must print with no network at all.
 
 ## Ship it through Latch
 

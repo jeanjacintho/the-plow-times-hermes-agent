@@ -19,7 +19,9 @@ does not, and every run fails on the import.
   did not authenticate)
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the text to the
   owner's home channel over the Plow API
+- `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
+  two daily-paper runs can never race and deliver a hollow edition
 - `references/config.example.json` — the config contract `pt_config_gate.py`
-  enforces
+  enforces (including the optional `delivery.lead_minutes`, default 45)
 - `references/latch-delivery.md` — how the printed edition reaches the owner's
   printer over Latch (the print path's "NOT DELIVERED" sheet)

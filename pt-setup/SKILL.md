@@ -27,7 +27,7 @@ or a new printer is a one-line conversation that updates
 `pt/config.json` directly and re-runs the gate — not an interview from the
 top.
 
-## The three questions, in order
+## The questions, in order
 
 **1. The timezone.** The container already runs in `TZ` (from AGENT_TZ at
 boot), and the cron system will fire in it — so the point of this question
@@ -65,6 +65,16 @@ nightly run. The probe:
   delivers in chat — printing joins automatically if a printer shows up
   later (that is the changing-one-setting path, plus a re-probe).
 
+**4. The paper's sections (optional).** Ask what they want in their paper
+every day — "clima, dólar, as notícias do Grêmio", anything. This is the one
+question with no required answer: an empty paper is a valid install, and
+they can add sections later in chat. Take each thing they name as a `section`
+topic via `pt-intake`'s writer (`topics.py add --kind section --depth quick`),
+in the order they say it — that order is the paper's order. If they name more
+than eight, take the first eight and say the cap; the daily run researches
+every section in one session and eight is the honest ceiling. Never invent a
+section they did not ask for.
+
 ## Writing and proving the config
 
 After each answer, write `/var/lib/hermes/pt/config.json` (create
@@ -78,7 +88,14 @@ prints is an invariant you have not satisfied yet — fix it before the next
 question, not after the interview. The example shape lives beside the gate
 at `pt-shared/references/config.example.json`.
 
-When all three keys are in and the gate is silent, setup is done. Say so in
-one line — the timezone, the hour, and whether the paper will print — and
-invite the first topic. Then stop; the first research job is pt-intake's,
-not this skill's, and a cron may not be registered from a setup turn.
+When all three keys are in and the gate is silent, setup is done — and if
+they named any sections, run `../../pt-dashboard/scripts/register_crons.py`
+once as setup's closing bring-up step so `pt-daily-edition` exists the
+moment setup ends; paste its output and report its exit status. This is the
+one cron registration a setup turn may do (it is the reviewed bring-up
+script, not a hand-built schedule). If they named no sections, skip it — the
+job is created by the first intake that adds a section or an assignment.
+
+Then say so in one line — the timezone, the hour, whether the paper will
+print, and that their sections are in — and invite the first topic. A first
+research job is still pt-intake's, not this skill's.
