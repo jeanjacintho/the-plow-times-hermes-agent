@@ -160,3 +160,70 @@ class TestBrokenStore:
     def test_missing_store_is_a_fresh_instance(self, pt_home, capsys):
         topics.main(["list"])
         assert json.loads(capsys.readouterr().out) == {"topics": []}
+
+
+class TestSections:
+    def test_section_cycles_like_a_subscription(self, pt_home, capsys):
+        topics.main(["add", "--text", "clima", "--kind", "section", "--depth", "quick"])
+        tid = read_store(pt_home)[-1]["id"]
+        topics.main(["mark", tid, "--status", "running"])
+        topics.main(["mark", tid, "--status", "delivered"])
+        topics.main(["mark", tid, "--status", "pending"])
+        (topic,) = read_store(pt_home)
+        assert topic["status"] == "pending"
+        assert topic["last_edition_at"] is not None
+
+    def test_section_has_no_run_on(self, pt_home, capsys):
+        topics.main(["add", "--text", "clima", "--kind", "section", "--depth", "quick"])
+        assert "run_on" not in read_store(pt_home)[-1]
+
+    def test_run_on_refused_on_non_assignment(self, pt_home):
+        with pytest.raises(SystemExit, match="only meaningful for an assignment"):
+            topics.main(["add", "--text", "clima", "--kind", "section",
+                         "--depth", "quick", "--run-on", "2026-09-11"])
+
+
+class TestAssignments:
+    def add(self, pt_home, run_on="2026-09-11"):
+        topics.main(["add", "--text", "valor do iPhone 15", "--kind",
+                     "assignment", "--depth", "quick", "--run-on", run_on])
+        return read_store(pt_home)[-1]
+
+    def test_run_on_required(self, pt_home):
+        with pytest.raises(SystemExit, match="required for an assignment"):
+            topics.main(["add", "--text", "x", "--kind", "assignment",
+                         "--depth", "quick"])
+
+    @pytest.mark.parametrize("bad", ["2026-9-1", "11/09/2026", "2026-13-01",
+                                     "2026-02-30", "hoje"])
+    def test_malformed_run_on_refused(self, pt_home, bad):
+        with pytest.raises(SystemExit):
+            topics.main(["add", "--text", "x", "--kind", "assignment",
+                         "--depth", "quick", "--run-on", bad])
+
+    def test_run_on_stored(self, pt_home):
+        topic = self.add(pt_home)
+        assert topic["run_on"] == "2026-09-11"
+        assert topic["status"] == "pending"
+
+    def test_assignment_delivered_is_terminal(self, pt_home, capsys):
+        topic = self.add(pt_home)
+        tid = topic["id"]
+        topics.main(["mark", tid, "--status", "running"])
+        topics.main(["mark", tid, "--status", "delivered"])
+        with pytest.raises(SystemExit, match="cannot go"):
+            topics.main(["mark", tid, "--status", "pending"])
+
+    def test_delivered_assignment_cannot_be_cancelled(self, pt_home, capsys):
+        topic = self.add(pt_home)
+        tid = topic["id"]
+        topics.main(["mark", tid, "--status", "running"])
+        topics.main(["mark", tid, "--status", "delivered"])
+        with pytest.raises(SystemExit, match="nothing to cancel"):
+            topics.main(["cancel", tid])
+
+    def test_pending_assignment_is_cancellable(self, pt_home, capsys):
+        topic = self.add(pt_home)
+        topics.main(["cancel", topic["id"]])
+        (stored,) = read_store(pt_home)
+        assert stored["status"] == "cancelled"

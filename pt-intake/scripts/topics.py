@@ -15,23 +15,31 @@ malformed file from dropping every subscription on the floor (the same rule
 ld-dashboard's register_crons.py holds for jobs.json).
 
 Subcommands:
-  add      --text TEXT --kind {one_off,subscription} --depth {quick,deep}
+  add      --text TEXT --kind {one_off,subscription,section,assignment}
+           --depth {quick,deep} [--run-on YYYY-MM-DD] [--scheduled-for ISO8601]
   cancel   <id>            any topic the owner says stop on
   mark     <id> --status {pending,running,delivered} [--at ISO8601]
   list     [--kind K]      prints the topics array as JSON
+
+`--run-on` is the date a `section`/`assignment` belongs to the paper:
+required for `assignment` (the one day its result appears) and refused for
+every other kind. Strict `YYYY-MM-DD`, never a parsed guess.
 
 Every mutating subcommand prints a JSON envelope with the affected topic.
 Exit status is non-zero on any refusal, and the refusal names the reason.
 
 Status transitions (design doc §3.3):
-  pending  -> running                  both kinds (a run started)
-  running  -> delivered                both kinds (an edition shipped)
-  running  -> pending                  subscription only (awaiting next run;
-                                       a one-off that fails stays running so
-                                       the failure is visible, not silent)
-  delivered -> pending                 subscription only (the nightly cycle)
+  pending  -> running                  every kind (a run started)
+  running  -> delivered                every kind (an edition shipped)
+  running  -> pending                  subscription/section only (awaiting
+                                       the next run; a one-off/assignment that
+                                       fails stays running so the failure is
+                                       visible, not silent)
+  delivered -> pending                 subscription/section only (the nightly
+                                       cycle)
   anything non-terminal -> cancelled   the owner said stop; a delivered
-                                       one-off is terminal and cannot be
+                                       one-off OR assignment is terminal and
+                                       cannot be cancelled
 
 `PT_HOME` overrides the state directory (tests use it); it defaults to
 /var/lib/hermes/pt. Timestamps are ISO 8601 with the container's offset.
@@ -44,13 +52,14 @@ import os
 import pathlib
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 TOPICS_FILE = "topics.json"
-KINDS = ("one_off", "subscription")
+KINDS = ("one_off", "subscription", "section", "assignment")
 DEPTHS = ("quick", "deep")
 STATUSES = ("pending", "running", "delivered", "cancelled")
 ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
+RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def home():
@@ -117,8 +126,32 @@ def new_id(topics):
             return candidate
 
 
+def checked_run_on(args):
+    """The strict YYYY-MM-DD date, or a refusal naming why.
+
+    An assignment without `run_on` has no day to appear -- an edition
+    promise with no date. A non-assignment with one is a date nothing
+    reads. Both refuses, rather than storing a date that means nothing.
+    """
+    raw = (args.run_on or "").strip()
+    if args.kind == "assignment":
+        if not raw:
+            sys.exit("error: --run-on YYYY-MM-DD is required for an assignment")
+        if not RUN_ON_RE.fullmatch(raw):
+            sys.exit(f"error: --run-on {raw!r} is not a strict YYYY-MM-DD date")
+        try:
+            date.fromisoformat(raw)
+        except ValueError:
+            sys.exit(f"error: --run-on {raw!r} is not a real calendar date")
+        return raw
+    if raw:
+        sys.exit(f"error: --run-on is only meaningful for an assignment, not a {args.kind}")
+    return None
+
+
 def cmd_add(args):
     topics = load_topics()
+    run_on = checked_run_on(args)
     topic = {
         "id": new_id(topics),
         "text": args.text.strip(),
@@ -131,20 +164,29 @@ def cmd_add(args):
         # can answer "when will it land" from the file, not from memory.
         "scheduled_for": args.scheduled_for.strip() if args.scheduled_for else None,
     }
+    # Assignments carry the day their edition belongs to; sections don't
+    # (they are evergreen) and the key is omitted so a section never looks
+    # like a dated one-day item.
+    if run_on is not None:
+        topic["run_on"] = run_on
     if not topic["text"]:
         sys.exit("error: --text is required and may not be blank")
     topics.append(topic)
     save_topics(topics)
     print(json.dumps({"added": topic["id"], "kind": topic["kind"],
-                      "depth": topic["depth"], "status": topic["status"]}))
+                      "depth": topic["depth"], "status": topic["status"],
+                      "run_on": topic.get("run_on")}))
     return 0
 
 
 def cmd_cancel(args):
     topics = load_topics()
     topic = find_topic(topics, args.id)
-    if topic["kind"] == "one_off" and topic["status"] == "delivered":
-        sys.exit(f"error: {topic['id']} is a delivered one-off -- nothing to cancel")
+    # A delivered one-off or assignment has already run its one day/life:
+    # there is nothing left to cancel, and marking it cancelled would be a
+    # second terminal state for the same finished thing.
+    if topic["kind"] in ("one_off", "assignment") and topic["status"] == "delivered":
+        sys.exit(f"error: {topic['id']} is a delivered {topic['kind']} -- nothing to cancel")
     topic["status"] = "cancelled"
     save_topics(topics)
     print(json.dumps({"cancelled": topic["id"], "text": topic["text"]}))
@@ -155,8 +197,8 @@ def cmd_cancel(args):
 TRANSITIONS = {
     ("pending", "running"): KINDS,
     ("running", "delivered"): KINDS,
-    ("running", "pending"): ("subscription",),
-    ("delivered", "pending"): ("subscription",),
+    ("running", "pending"): ("subscription", "section"),
+    ("delivered", "pending"): ("subscription", "section"),
     ("pending", "cancelled"): KINDS,
     ("running", "cancelled"): KINDS,
 }
@@ -199,6 +241,8 @@ def main(argv=None):
     p_add.add_argument("--text", required=True)
     p_add.add_argument("--kind", required=True, choices=KINDS)
     p_add.add_argument("--depth", required=True, choices=DEPTHS)
+    p_add.add_argument("--run-on", default=None,
+                       help="YYYY-MM-DD; assignment only (the day it appears)")
     p_add.add_argument("--scheduled-for", default=None,
                        help="ISO8601 moment the one-off is scheduled to run")
     p_add.set_defaults(func=cmd_add)
