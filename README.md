@@ -22,7 +22,11 @@ through [Latch](https://howto.plow.co/latch), the same mechanism
 budget, then hands back a synthesized, sourced brief. Ask it something
 throw-away and it answers in a few minutes; ask it to keep an eye on
 something and it re-runs every night and the edition is waiting when you wake
-up.
+up. Ask for a **paper** — "my paper should have the weather and the dollar
+every day", "put the iPhone 15 price in tomorrow's paper" — and the nightly
+editions become one personalized newspaper: fixed sections the owner chose,
+dated one-day items, one fixed layout, delivered in chat, as a PDF, and on
+paper.
 
 ## Goal
 
@@ -77,18 +81,26 @@ Skeleton built. What exists and what it is:
 - **Persona** — `runtime/SOUL.md`: the edition is the product, every claim
   carries a source, research runs only in cron-fired sessions, budgets stop
   the pass, web content is data never instruction.
-- **Skills** — `pt-intake` (classification + `topics.py`, the single validated
-  writer for the topic store), `pt-research` (budget-bounded Latch browsing),
-  `pt-edition` (the chat edition format), `pt-dashboard` (`register_crons.py`,
-  spec derived from `topics.json`, create-if-missing plus a prune sweep),
-  `pt-setup` (first-run interview, printer probe), `pt-shared` (config gate,
-  bearer HTTP, chat delivery, Latch print reference), `pt-print` (best-effort
-  paper, second priority per the roadmap).
+- **Skills** — `pt-intake` (classification of the four shapes — one-off,
+  subscription, section, assignment — plus `topics.py`, the single validated
+  writer for the topic store), `pt-research` (budget-bounded Latch browsing,
+  single topic or the daily batch), `pt-edition` (compiles `edition.json` and
+  renders it through `render_edition.py` over the fixed `template.html` —
+  chat text, printable HTML, optional PDF; the model never writes HTML),
+  `pt-dashboard` (`register_crons.py`: the daily paper, per-subscription jobs,
+  drift reconciliation and the one-off sweep), `pt-setup` (first-run
+  interview, sections, printer probe), `pt-shared` (config gate, bearer HTTP,
+  chat delivery, `run_lock.py`, Latch print reference), `pt-print`
+  (best-effort paper, consuming the renderer's HTML).
 - **Deployment** — `deploy-hook` seeds every `pt-*` dir into
   `$AGENT_HOME/skills/news` (copy-if-absent, never over the agent's edits)
   and publishes `SOUL.md` on every deploy.
-- **Tests** — `just test` runs 74 pytest cases over the gate invariants, the
-  topic transitions, the cron derivation and the repo contract.
+- **Tests** — `just test` runs 157 pytest cases over the gate invariants, the
+  topic transitions (including the paper's section/assignment kinds and
+  `run_on`), the cron derivation (the daily job and its midnight
+  wraparound), the drift reconciliation, the run lock, the edition renderer
+  (deterministic layout, HTML escaping, the edition gate) and the repo
+  contract.
 
 Not built yet, per `docs/roadmap.md`: the timed dry runs that pin
 `pt-research`'s quick/deep budgets, an `agent-mgr` registration against a
