@@ -1,0 +1,26 @@
+# Which inference provider/model plow-init writes into runtime/config.yaml at
+# every boot. The config's own model: block is NOT authoritative for this
+# image -- /etc/s6-overlay/scripts/plow-init.py reads HERMES_PROVIDER and
+# HERMES_MODEL from the real process environment (never from the home .env:
+# it only ever WRITES specific derived keys there, it does not load arbitrary
+# ones back out) and rewrites model.provider/model.default from them on every
+# boot, defaulting to the Plow-hosted model when either is unset. This is the
+# one way to reach that environment: agent-mgr's own compose layers this
+# instance's override BEFORE its current-contract template, which reasserts
+# HERMES_HOME but leaves any other key here alone.
+#
+# The same fix memory-vault-hermes-agent landed after measuring it live: with
+# these two only in the home .env (not here), the model still reset to the
+# Plow-hosted default under provider: plow every boot, with `docker exec ...
+# printenv` showing neither variable in the container's actual environment at
+# all. Matching that deployment, this pins openrouter and its gemini model so
+# the paper's inference route cannot drift on a restart.
+#
+# Register the matching key once with `hermes auth add openrouter --type
+# api-key`: these two name which provider/model to use, not the credential to
+# use it with.
+services:
+  hermes:
+    environment:
+      - HERMES_PROVIDER=openrouter
+      - HERMES_MODEL=google/gemini-2.5-flash-lite

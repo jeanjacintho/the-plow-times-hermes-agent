@@ -68,6 +68,32 @@ class TestDeployment:
         # The credential is interpolated from the dotenv, never a literal.
         assert "DOMO_MCP_TOKEN" in config and "DOMO_DEVICE_UID" in config
 
+    def test_compose_override_carries_no_skill_mounts(self):
+        # Skills ride the deploy-hook seed into the agent's home, not :ro
+        # mounts -- a :ro mount makes the agent's own skill edits die with
+        # EROFS. The override file is legitimate for the env vars below; only
+        # a `volumes:` section reintroducing the old mount delivery is the
+        # regression this guards against. Same guard memory-vault adopted.
+        override = ROOT / "compose.override.yml"
+        assert override.is_file(), "compose.override.yml pins HERMES_PROVIDER/HERMES_MODEL"
+        assert "volumes:" not in override.read_text(), (
+            "compose.override.yml declares volumes: -- skills are seeded by "
+            "the deploy-hook now, not mounted read-only"
+        )
+
+    def test_compose_override_pins_provider_and_model(self):
+        # plow-init reads these two from the real container environment on
+        # every boot and rewrites model.provider/model.default from them, so
+        # the pair must live here -- the home .env cannot reach that
+        # environment. Assert both are present and non-empty.
+        import re
+
+        text = (ROOT / "compose.override.yml").read_text()
+        provider = re.search(r"HERMES_PROVIDER=(\S+)", text)
+        model = re.search(r"HERMES_MODEL=(\S+)", text)
+        assert provider and provider.group(1) == "openrouter"
+        assert model and model.group(1) == "google/gemini-2.5-flash-lite"
+
 
 class TestImportability:
     def test_gate_imports_and_runs(self, tmp_path):
