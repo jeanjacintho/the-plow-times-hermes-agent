@@ -18,10 +18,10 @@ CONFIG = {
 }
 
 
-def topic(tid, kind="subscription", status="pending", depth="deep"):
+def topic(tid, kind="subscription", status="pending", depth="deep", run_on=None):
     return {"id": tid, "text": f"topic {tid}", "kind": kind, "depth": depth,
             "status": status, "created_at": "now", "last_edition_at": None,
-            "scheduled_for": None}
+            "scheduled_for": None, "run_on": run_on}
 
 
 def write_config(tmp_path, config=CONFIG):
@@ -247,3 +247,201 @@ class TestMain:
         with pytest.raises(SystemExit, match="PLOW_HOME_CHANNEL"):
             self.run_main(tmp_path, monkeypatch, [topic("t_9f2a")], [],
                           env={"TZ": TZ})
+
+
+class TestDailySchedule:
+    def test_plain_lead(self):
+        assert crons.daily_schedule("07:00", 45) == "15 6 * * *"
+
+    def test_zero_lead_is_the_hour(self):
+        assert crons.daily_schedule("07:00", 0) == "0 7 * * *"
+
+    def test_midnight_wraps_to_previous_day(self):
+        # 00:00 - 45min is 23:15 the day before -- a valid daily expression,
+        # not "45 -1 * * *".
+        assert crons.daily_schedule("00:00", 45) == "15 23 * * *"
+
+    def test_lead_over_the_hour_wraps(self):
+        # 00:00 - 90min is 22:30 the day before.
+        assert crons.daily_schedule("00:00", 90) == "30 22 * * *"
+
+
+class TestHasPaper:
+    def test_section_keeps_the_paper(self):
+        assert crons.has_paper([topic("t_1", kind="section", status="pending")])
+
+    def test_delivered_section_still_counts(self):
+        assert crons.has_paper([topic("t_1", kind="section", status="delivered")])
+
+    def test_cancelled_section_does_not(self):
+        assert not crons.has_paper([topic("t_1", kind="section", status="cancelled")])
+
+    def test_pending_assignment_keeps_the_paper(self):
+        assert crons.has_paper([topic("t_1", kind="assignment", status="pending",
+                                      run_on="2026-09-11")])
+
+    def test_running_assignment_keeps_the_paper(self):
+        assert crons.has_paper([topic("t_1", kind="assignment", status="running",
+                                      run_on="2026-09-11")])
+
+    def test_delivered_assignment_does_not(self):
+        assert not crons.has_paper([topic("t_1", kind="assignment", status="delivered",
+                                          run_on="2026-09-11")])
+
+    def test_subscription_alone_has_no_paper(self):
+        assert not crons.has_paper([topic("t_1")])
+
+
+class TestDailyJob:
+    def test_included_when_a_section_exists(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section", status="pending")], "07:00", {}, 45)
+        assert jobs[0]["name"] == crons.DAILY_NAME
+        assert jobs[0]["schedule"] == "15 6 * * *"
+        assert jobs[0]["deliver"] == crons.DELIVER_TARGET
+        assert jobs[0]["skill"] == "pt-research"
+
+    def test_included_when_an_assignment_is_due(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="assignment", status="pending", run_on="2026-09-11")],
+            "07:00", {}, 45)
+        assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
+
+    def test_absent_without_paper(self):
+        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00", {}, 45)
+        assert [j["name"] for j in jobs] == ["pt-subscription-t_9f2a"]
+
+    def test_daily_precedes_subscriptions(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section"), topic("t_9f2a")], "07:00", {}, 45)
+        assert [j["name"] for j in jobs] == [
+            crons.DAILY_NAME, "pt-subscription-t_9f2a"]
+
+
+class TestDailyStale:
+    def test_daily_pruned_when_no_paper_left(self):
+        assert crons.stale_names([], {crons.DAILY_NAME: True}) == [crons.DAILY_NAME]
+
+    def test_daily_kept_while_a_section_lives(self):
+        stale = crons.stale_names(
+            [topic("t_1", kind="section")], {crons.DAILY_NAME: True})
+        assert stale == []
+
+    def test_daily_kept_while_an_assignment_runs(self):
+        stale = crons.stale_names(
+            [topic("t_1", kind="assignment", status="running", run_on="2026-09-11")],
+            {crons.DAILY_NAME: True})
+        assert stale == []
+
+
+class TestDrift:
+    def test_schedule_drift_detected(self):
+        job = {"name": "pt-daily-edition", "schedule": "15 6 * * *", "skill": "pt-research"}
+        spec = {"schedule": "0 7 * * *", "skill": "pt-research", "deliver": None}
+        assert crons.job_drift(job, spec) is True
+
+    def test_absent_schedule_is_not_drift(self):
+        job = {"name": "pt-subscription-t_9f2a", "schedule": "0 7 * * *",
+               "skill": "pt-research"}
+        assert crons.job_drift(job, {}) is False
+
+    def test_matching_spec_is_not_drift(self):
+        job = {"name": "pt-daily-edition", "schedule": "15 6 * * *", "skill": "pt-research"}
+        spec = {"schedule": "15 6 * * *", "skill": "pt-research", "deliver": "x"}
+        assert crons.job_drift(job, spec) is False
+
+    def test_skill_drift_detected(self):
+        job = {"name": "pt-daily-edition", "schedule": "15 6 * * *", "skill": "pt-edition"}
+        spec = {"schedule": "15 6 * * *", "skill": "pt-research", "deliver": None}
+        assert crons.job_drift(job, spec) is True
+
+    def test_registered_specs_reads_fields(self, tmp_path):
+        path = tmp_path / "jobs.json"
+        path.write_text(json.dumps({"jobs": [
+            {"name": "pt-daily-edition", "schedule": "15 6 * * *",
+             "skill": "pt-research", "deliver": "plow_chat:c", "enabled": True,
+             "paused_at": None},
+        ]}))
+        specs = crons.registered_specs(path)
+        assert specs["pt-daily-edition"]["schedule"] == "15 6 * * *"
+
+
+class TestDriftMain:
+    @pytest.fixture
+    def hermes(self, tmp_path, monkeypatch):
+        fake = tmp_path / "hermes"
+        fake.write_text("#!/bin/sh\nexit 0\n")
+        fake.chmod(0o755)
+        monkeypatch.setattr(crons, "HERMES", str(fake))
+        return fake
+
+    def run_main(self, tmp_path, monkeypatch, topics_list, registered, runner):
+        pt_home = tmp_path / "pt"
+        pt_home.mkdir(exist_ok=True)
+        (pt_home / "config.json").write_text(json.dumps(CONFIG))
+        (pt_home / "topics.json").write_text(json.dumps({"topics": topics_list}))
+        jobs_path = write_jobs(tmp_path, registered)
+        monkeypatch.setenv("PT_HOME", str(pt_home))
+        monkeypatch.chdir(tmp_path)
+        return crons.main(
+            jobs_path=jobs_path,
+            config_path=pt_home / "config.json",
+            env={"TZ": TZ, "PLOW_HOME_CHANNEL": "chat_123"},
+            runner=runner,
+        )
+
+    def test_drifted_job_removed_and_recreated(self, tmp_path, monkeypatch, hermes):
+        calls = []
+        def runner(argv):
+            calls.append(argv)
+            return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+        code = self.run_main(
+            tmp_path, monkeypatch,
+            [topic("t_1", kind="section")],
+            [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
+              "schedule": "0 7 * * *", "skill": "pt-research"}],
+            runner)
+        assert code == 0
+        assert any("remove" in c for c in calls)
+        assert any("create" in " ".join(c) for c in calls)
+        assert not any(c == ["already present"] for c in calls)
+
+    def test_stale_daily_removed(self, tmp_path, monkeypatch, hermes):
+        calls = []
+        def runner(argv):
+            calls.append(argv)
+            return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+        # A subscription keeps no paper; the daily job is stale.
+        self.run_main(
+            tmp_path, monkeypatch,
+            [topic("t_9f2a")],
+            [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None}],
+            runner)
+        assert any("remove" in c and crons.DAILY_NAME in c for c in calls)
+
+
+class TestPrune:
+    def test_old_lock_pruned_today_kept(self, tmp_path):
+        run = tmp_path / "run"
+        run.mkdir()
+        old = run / "daily-2020-01-01.lock"
+        old.write_text("x")
+        from datetime import date
+        today = run / f"daily-{date.today().isoformat()}.lock"
+        today.write_text("x")
+        removed = crons.prune_runtime([], tmp_path)
+        assert str(old) in removed
+        assert not old.exists()
+        assert today.exists()
+
+    def test_terminal_topic_notes_pruned(self, tmp_path):
+        run = tmp_path / "run"
+        (run / "t_dead").mkdir(parents=True)
+        (run / "t_live").mkdir()
+        topics = [topic("t_dead", kind="assignment", status="delivered",
+                        run_on="2026-09-11"),
+                  topic("t_live", kind="section", status="pending")]
+        removed = crons.prune_runtime(topics, tmp_path)
+        assert str(run / "t_dead") in removed
+        assert not (run / "t_dead").exists()
+        assert (run / "t_live").exists()
