@@ -20,7 +20,7 @@ requirement this repo does not carry):
   - Never prints PII. There is none by design: the config holds a timezone, a
     delivery hour, and whether a printer exists.
 
-The five checks:
+The six checks:
   1. owner.timezone must contain a non-whitespace char. register_crons.py
      refuses to register unless the container's TZ equals it, and SOUL.md
      routes first-run onboarding from the keys' presence -- a blank one
@@ -34,7 +34,13 @@ The five checks:
   4. printer.name must be a non-blank string when configured is true: `lp -d`
      needs a destination. When configured is false, name may be null or
      absent.
-  5. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
+  5. delivery.lead_minutes, when present, is an integer 0-59: it is how many
+     minutes before delivery.hour the daily paper's run starts, and a bool
+     (True is an int in Python), a string, or a value >= 60 would compute a
+     fire time on a different day than the one the schedule promises. Absent
+     is valid -- readers default it to 45, so an install written before the
+     key existed does not start failing this gate.
+  6. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
 
 The owner's name, location, or any other personal fact is deliberately not
 among the checks, and not in the schema at all: this agent holds nothing
@@ -123,7 +129,17 @@ def gate(config):
         if not _nonblank(name):
             failures.append("printer.name is blank while printer.configured is true")
 
-    # 5. no leftover [UPPER_SNAKE] placeholder anywhere.
+    # 5. delivery.lead_minutes, when present, is an int 0-59. Absent stays
+    #    valid: the daily-paper readers apply the 45-minute default, so an
+    #    install written before this key existed keeps passing the gate.
+    lead = _index(_index(config, "delivery"), "lead_minutes")
+    if lead is not None:
+        # bool is a subclass of int -- True is 1, False is 0, and neither is
+        # a number of minutes. Refused explicitly, not silently accepted.
+        if isinstance(lead, bool) or not isinstance(lead, int) or not (0 <= lead <= 59):
+            failures.append("delivery.lead_minutes is not an integer 0-59")
+
+    # 6. no leftover [UPPER_SNAKE] placeholder anywhere.
     if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):
         failures.append("an unfilled [UPPER_SNAKE] placeholder remains")
 
