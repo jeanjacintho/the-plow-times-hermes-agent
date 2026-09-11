@@ -21,8 +21,21 @@ class TestSkills:
 
     def test_shared_helpers_exist_and_are_referenced(self):
         shared = ROOT / "pt-shared" / "scripts"
-        for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py"):
+        for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
+                     "run_lock.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
+
+    def test_edition_renderer_and_template_exist(self):
+        edition = ROOT / "pt-edition"
+        assert (edition / "scripts" / "render_edition.py").is_file()
+        assert (edition / "template.html").is_file()
+
+    def test_template_carries_no_script(self):
+        # The Chrome-on-Mac PDF fallback executes JavaScript; the template
+        # must stay inert, and the renderer is the only writer of markup.
+        template = (ROOT / "pt-edition" / "template.html").read_text()
+        assert "<script" not in template.lower()
+        assert "onload=" not in template.lower()
 
     def test_cross_skill_imports_resolve(self):
         # register_crons.py imports topics from pt-intake/scripts at run time;

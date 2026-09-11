@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  The Plow Times -- the fixed edition layout.
+
+  This file is deliberately plain: inline CSS, no external assets, no
+  JavaScript.   The renderer (scripts/render_edition.py) substitutes exactly
+  three placeholders and escapes every value it inserts, so a page from the
+  web can never inject markup here. Keep it that way: a script tag or an
+  inline event attribute makes the Chrome-on-Mac PDF fallback execute
+  untrusted content on the owner's machine.
+
+  The masthead is drawn from PT_MASTHEAD (default "THE PLOW TIMES"),
+  resolved by the renderer -- not from edition.json, so the chat edition and
+  the printed page can never show two different names. Layout edits here
+  survive redeploys: the deploy hook copies a skill into the agent's home
+  only when absent.
+-->
+<style>
+  @page { size: Letter; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #111; margin: 0; line-height: 1.45;
+  }
+  header { text-align: center; border-bottom: 3px double #111; padding-bottom: 8px; }
+  .masthead { font-size: 42px; letter-spacing: 2px; margin: 0; font-weight: 700; }
+  .dateline { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: #444; margin-top: 6px; }
+  .section { border-bottom: 1px solid #ccc; padding: 14px 0; }
+  .section:last-child { border-bottom: none; }
+  .section h2 { font-size: 20px; margin: 0 0 6px; }
+  .section p { margin: 0 0 6px; font-size: 14px; }
+  .tag {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    border: 1px solid #111; padding: 1px 5px; vertical-align: middle;
+    margin-left: 6px; white-space: nowrap;
+  }
+  .sources { font-size: 11px; color: #555; word-break: break-all; }
+  .sources a { color: #555; }
+  .unsourced { font-size: 12px; font-style: italic; color: #666; }
+  footer { margin-top: 18px; border-top: 3px double #111; padding-top: 6px; text-align: center; font-size: 10px; color: #777; }
+</style>
+</head>
+<body>
+  <header>
+    <h1 class="masthead">{{MASTHEAD}}</h1>
+    <div class="dateline">{{DATE}}</div>
+  </header>
+
+  <main>
+{{SECTIONS}}
+  </main>
+
+  <footer>
+    Researched overnight and delivered to its reader alone. Every claim carries its source.
+  </footer>
+</body>
+</html>
