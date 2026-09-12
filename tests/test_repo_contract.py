@@ -108,11 +108,17 @@ class TestDeployment:
         # mismatch imports clean and dies on the first write_pdf.
         assert "write_pdf" in text
         assert "pydyf" in text
-        # Installed into the system interpreter's dist-packages, so a login
-        # shell cannot hide it (PATH resets) and `--system`'s wrong path is
-        # avoided. Both mistakes were measured on this base.
-        assert "--target /usr/local/lib/python3.13/dist-packages" in text
-        assert "--python /usr/bin/python3" in text
+        # Installed into the hermes venv, because that is the `python3` a
+        # plain (non-login) command actually resolves to in this container --
+        # confirmed live: the container's real PATH puts
+        # /opt/hermes/.venv/bin ahead of /usr/bin, so packages placed in the
+        # system dist-packages (the previous fix here) are invisible to the
+        # skill's own `python3 render_edition.py ...` invocation. `--system`
+        # and a system-dist-packages `--target` were both measured and wrong.
+        assert "--python /opt/hermes/.venv/bin/python3" in text
+        # The probe must run as a plain command, not a login shell (`-lc`
+        # resets PATH and would hide a regression back to the system python).
+        assert "sh -lc" not in text
         # Pinned by digest, like the fleet pin -- a tag re-resolves on pull.
         from_line = next(
             line for line in text.splitlines() if line.startswith("FROM ")

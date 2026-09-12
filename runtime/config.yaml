@@ -29,6 +29,16 @@ mcp_servers:
     headers:
       Authorization: Bearer ${DOMO_MCP_TOKEN}
     enabled: true
+# Hermes wraps every cron-delivered message in a "Cronjob Response: <job>
+# (job_id: ...) ------- <content> To stop or manage this job..." envelope by
+# default (cron/scheduler.py, wrap_response: True unless set otherwise). Every
+# edition ships over exactly that path (--deliver plow_chat:${PLOW_HOME_CHANNEL}
+# on pt-oneoff-*, pt-subscription-* and pt-daily-edition), and pt-edition/
+# SKILL.md's whole promise is that the chat text is the renderer's output
+# pasted verbatim -- the wrapper breaks that promise on every single delivery,
+# not as an edge case. Disabled here, not worked around per-skill.
+cron:
+  wrap_response: false
 plugins:
   enabled:
   - plow-chat-platform

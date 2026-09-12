@@ -50,20 +50,34 @@ HTML.** Hand-write `edition.json` under the run directory:
 
 ## Render and deliver
 
-1. Run the renderer — it is the only thing that writes the edition:
+1. Run the renderer — it is the only thing that writes the edition. Always
+   pass `--pdf`, writing under the run directory (e.g. `--pdf
+   run/<id>/edition.pdf`), not just `--html`:
 
-       python3 ../../pt-edition/scripts/render_edition.py <edition.json>
-       # chat text on stdout; add --html PATH and --pdf PATH for the other legs
+       python3 ../../pt-edition/scripts/render_edition.py <edition.json> \
+           --pdf run/<id>/edition.pdf
+       # chat text on stdout; add --html PATH too when a printer is configured
 
    A malformed `edition.json` is refused by name. Fix it and re-run; never
-   hand-assemble a page to route around the gate.
-2. **The renderer's chat output is the final response, pasted verbatim.**
-   That is the chat leg (`--deliver plow_chat:${PLOW_HOME_CHANNEL}` relays
-   it). Do not paraphrase, reformat or "improve" it — the promise is that the
-   chat text and the printed page are the same edition, and a paraphrase
-   breaks it. If the run has no deliver arm (a manual run), pipe the same
-   text through `../../pt-shared/scripts/post_to_chat.py` and report its
-   output.
+   hand-assemble a page to route around the gate. If the renderer's own
+   stderr says weasyprint is not installed, that costs only the PDF file —
+   proceed with the chat text, do not treat it as a reason to write the
+   edition by hand.
+2. **The renderer's chat output is the final response, pasted verbatim, with
+   one line prepended: `MEDIA:<absolute path to the PDF>`.** That line is not
+   part of the edition's prose — it is the literal directive Hermes' delivery
+   path (`cron/scheduler.py` on the `--deliver plow_chat:${PLOW_HOME_CHANNEL}`
+   leg, the same `send_message` tool convention documented as "include
+   MEDIA:<local_path> in the message") scans for, strips out, and turns into
+   a native file attachment; nothing about the rendered text itself is
+   paraphrased, reformatted or "improved". Skip the `MEDIA:` line only when
+   `--pdf` produced no file (weasyprint absent or the write failed) — a
+   `MEDIA:` line pointing at a file that does not exist is reported as a
+   dropped attachment, not silently ignored, so never emit it speculatively.
+   The promise is that the chat text and the printed page are the same
+   edition, and a paraphrase breaks it. If the run has no deliver arm (a
+   manual run), pipe the same text (with its `MEDIA:` line, if any) through
+   `../../pt-shared/scripts/post_to_chat.py` and report its output.
 3. **Mark every topic the edition carried** from its `topic_id`:
    `../../pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
@@ -75,10 +89,11 @@ HTML.** Hand-write `edition.json` under the run directory:
      the edition already left without it. Report it and carry on — do not
      crash the delivery over a valid cancellation.
 4. **If `pt/config.json` says `printer.configured: true`, hand the print leg
-   to `pt-print`.** The PDF leg is the same class of best-effort: generate it
-   with `--pdf` when the renderer can, attach it per the platform's
-   capability, and treat any failure as costing only the file. Neither the
-   print nor the PDF ever blocks the chat edition or re-runs research.
+   to `pt-print`.** That leg is separate from the PDF the chat already
+   carried in step 2 (Latch printing needs the HTML, not the PDF) and is the
+   same class of best-effort: treat any failure as costing only the page.
+   Neither the print leg nor a failed PDF ever blocks the chat edition or
+   re-runs research.
 
 ## Repo note — the edition gate
 

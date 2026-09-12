@@ -33,19 +33,29 @@ RUN apt-get update \
       fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
-# Install into the system interpreter's own dist-packages, so ANY `python3`
-# -- login shell or not -- finds weasyprint. Two approaches that look right
-# and are not, both measured on this base:
+# Install into the hermes venv, because that is the `python3` skills actually
+# get. Three approaches that look right and are not, all measured on this
+# base and this running container:
 #   * `uv pip install --system`: reports the environment as /usr but installs
 #     to /usr/lib/python3.13/site-packages, which Debian's python3 does not
 #     have on sys.path (it uses /usr/lib/python3/dist-packages), so the
 #     install succeeds and `import weasyprint` still fails.
-#   * a venv first on PATH: works in a normal shell, but a login shell
-#     (`sh -lc`, which some tool invocations use) resets PATH and the venv
-#     disappears -- the same import failure from a different cause.
-# `/usr/local/lib/python3.13/dist-packages` IS on the system python's sys.path
-# (confirmed in the running image), so --target lands where python3 already
-# looks.
+#   * `--target /usr/local/lib/python3.13/dist-packages` against
+#     /usr/bin/python3 (the previous fix here): that path IS on the *system*
+#     python's sys.path, and `docker exec ... sh -lc python3 -c "import
+#     weasyprint"` succeeds -- but `-lc` resets PATH to the container's
+#     default, dropping `/opt/hermes/.venv/bin`. The skill's own `python3
+#     render_edition.py ...` runs as a plain command, not a login shell, and
+#     the real container PATH (`agent.env` / the running container's env) is
+#     `/opt/hermes/bin:/opt/hermes/.venv/bin:...:/usr/bin:...` -- the hermes
+#     venv wins, `import weasyprint` fails there, and the PDF leg silently
+#     no-ops (best-effort) while the chat edition still ships as plain text.
+#     Confirmed live: `docker exec hermes-the-plow-times sh -c 'python3 -c
+#     "import weasyprint"'` (no `-l`) is a ModuleNotFoundError on that image.
+#   * The fix is to install where the PATH that is actually used points:
+#     the hermes venv's own site-packages, via `--python
+#     /opt/hermes/.venv/bin/python3` with no `--target` override (a normal
+#     venv install, no PEP 668 fight).
 #
 # pydyf is pinned alongside weasyprint, not left to resolver choice: measured
 # on this base, weasyprint 62.3 declares only `pydyf>=0.10.0`, so a fresh
@@ -53,13 +63,12 @@ RUN apt-get update \
 # write_pdf() die with "AttributeError: 'super' object has no attribute
 # 'transform'". 0.10.0 is the version 62.3 was written against.
 #
-# The build check RENDERS a PDF, not just imports the module: the pydyf bug
-# above passed an import check and failed at first write. A build that ships
-# an image whose PDF leg raises on the first real edition is worse than a
-# build that fails here.
+# The build check renders a PDF through a PLAIN `sh -c`, not `sh -lc` and not
+# an explicit interpreter path -- `python3 -c "..."` exactly as the skill
+# invokes it -- so a PATH regression like the one above fails the build
+# instead of shipping quietly.
 ARG WEASYPRINT_VERSION=62.3
 ARG PYDYF_VERSION=0.10.0
-RUN uv pip install --python /usr/bin/python3 \
-      --target /usr/local/lib/python3.13/dist-packages \
+RUN uv pip install --python /opt/hermes/.venv/bin/python3 \
       "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" \
- && /usr/bin/python3 -c "import weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)"
+ && sh -c "python3 -c \"import weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)\""
