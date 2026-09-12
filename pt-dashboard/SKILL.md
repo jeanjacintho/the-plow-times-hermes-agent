@@ -11,13 +11,13 @@ topic list:
 
 | job | schedule | notes |
 |---|---|---|
-| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 45) in the owner's zone, wraparound exact | one job; exists as soon as setup can register (weather and calendar desks always run). Researches those desks, mail if configured, every active news section, and every assignment due, and delivers one edition |
+| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 20) in the owner's zone, wraparound exact | one job; exists as soon as setup can register (weather and calendar desks always run). Researches those desks, mail if configured, every active news section, and every assignment due, and delivers one edition |
 | `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | one per entry in `delivery.extra_hours` — the SAME paper, re-researched and re-delivered again at another hour the same day (e.g. a second edition at 10:30 besides the morning one). Numbered in list order; exists only alongside `pt-daily-edition` (no paper, no extra slots either) and only up to `len(delivery.extra_hours) + 1` — a slot the owner removed is pruned like any other stale job |
 | `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` (container TZ, both parts) | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-time, `now + 3m` (quick) or next `delivery.hour` (deep) | created by pt-intake at the scheduled minute; its own prompt self-removes it after firing — this script's sweep is the backstop |
 
 The daily schedule is computed in minutes and taken modulo a day, so
-`00:00 − 45min` is `15 23 * * *` (the previous evening), not a malformed
+`00:00 − 20min` is `40 23 * * *` (the previous evening), not a malformed
 expression — `00:00` is a real delivery hour and the wraparound is a tested
 case, not an accident.
 

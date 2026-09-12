@@ -101,7 +101,7 @@ DAILY_NAME = "pt-daily-edition"
 # reruns, matching the lock-name convention (daily2-<date>, daily3-<date>)
 # a hand-registered job already used before this existed as a real spec.
 _EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
-DEFAULT_LEAD_MINUTES = 45
+DEFAULT_LEAD_MINUTES = 20
 
 SUBSCRIPTION_PROMPT = (
     "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
@@ -285,7 +285,7 @@ def load_extra_hours(config_path=CONFIG_FILE):
 
 
 def load_lead_minutes(config_path=CONFIG_FILE):
-    """delivery.lead_minutes from pt/config.json, defaulting to 45.
+    """delivery.lead_minutes from pt/config.json, defaulting to 20.
 
     The key is optional on purpose (the gate only validates it when present):
     an install written before the personalized paper existed has no

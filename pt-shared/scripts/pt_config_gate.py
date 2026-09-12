@@ -41,7 +41,7 @@ The nine checks:
      minutes before delivery.hour the daily paper's run starts, and a bool
      (True is an int in Python), a string, or a value >= 60 would compute a
      fire time on a different day than the one the schedule promises. Absent
-     is valid -- readers default it to 45, so an install written before the
+     is valid -- readers default it to 20, so an install written before the
      key existed does not start failing this gate.
   6. delivery.extra_hours, when present, is a list of "HH:MM" strings: one
      more full-paper delivery time the same day (register_crons.py registers
@@ -151,7 +151,7 @@ def gate(config):
             failures.append("printer.name is blank while printer.configured is true")
 
     # 5. delivery.lead_minutes, when present, is an int 0-59. Absent stays
-    #    valid: the daily-paper readers apply the 45-minute default, so an
+    #    valid: the daily-paper readers apply the 20-minute default, so an
     #    install written before this key existed keeps passing the gate.
     lead = _index(_index(config, "delivery"), "lead_minutes")
     if lead is not None:
