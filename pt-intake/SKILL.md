@@ -5,6 +5,12 @@ description: Classify a chat message into a research topic — new topic or stat
 
 # pt-intake — a chat message becomes a scheduled research job
 
+This is the entry skill: load it by its exact name, `pt-intake`. It lives
+under the `news` category — the category name (`news`) is not a skill and
+will not load. Every research or paper request starts here; if this skill is
+not loaded, nothing downstream runs and the agent will improvise an
+unsourced answer instead.
+
 You classify; a later session researches. **Never run pt-research inside the
 turn that received the request** — a chat turn that blocks for minutes while
 a browser crawls is the single worst thing this agent can do. The turn's job
