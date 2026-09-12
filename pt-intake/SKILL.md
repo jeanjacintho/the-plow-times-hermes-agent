@@ -24,9 +24,10 @@ Two local files, both cheap:
 - `/var/lib/hermes/pt/config.json` — delivery preferences (run
   `/var/lib/hermes/skills/news/pt-shared/scripts/pt_config_gate.py` on it if it looks wrong)
 
-If the config is missing keys, this is a first run: SOUL.md routes that to
-`pt-setup`. Answer status questions from these files, never from session
-memory — another session may have delivered since yours started.
+If the config is missing keys, this is a first run: SOUL.md already routed
+that to `pt-setup`. Do not treat a greeting as a casual hello — load
+`pt-setup` instead. Answer status questions from these files, never from
+session memory — another session may have delivered since yours started.
 
 **Keep `owner.language` current, silently, before anything else this turn.**
 It is the plain-English name of the language the owner's OWN message (not a
@@ -114,10 +115,12 @@ These are ordinary turns, not classifications. Do them and end:
 
 Decide, in this order:
 
-**1. Is this a topic at all?** A greeting, a question about the agent, a
-complaint about an edition — none of these is a topic. Answer it like a
-person and stop. A question the OWNER wants researched is a topic only when
-the answer must be *looked up* on the web, not when it's something you know
+**1. Is this a topic at all?** If setup is not finished (`setup_needed.py`
+prints `SETUP_NEEDED`), stop and load `pt-setup` — even for a greeting.
+Once setup is ready: a greeting, a question about the agent, a complaint
+about an edition — none of these is a topic. Answer it like a person and
+stop. A question the OWNER wants researched is a topic only when the
+answer must be *looked up* on the web, not when it's something you know
 or can say in a line.
 
 **2. Which of the four shapes is it?**

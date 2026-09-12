@@ -1,6 +1,6 @@
 ---
 name: pt-setup
-description: First-run interview over chat — confirm the timezone, settle the delivery hour, ask about a printer and probe it once through Latch before trusting the answer, ask whether today's mail should join as a letters desk — writing pt/config.json as each answer lands and validating it with the pt-config gate. Use in the owner's solo DM while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never in a group, never in someone else's DM, and never to change one already-stored setting.
+description: First-run interview over chat — confirm the timezone, settle the delivery hour, ask about a printer and probe it once through Latch before trusting the answer, ask whether today's mail should join as a letters desk — writing pt/config.json as each answer lands and validating it with the pt-config gate. Use on the owner's first DM, including greetings (oi, oi de novo, hi, hello, hey), while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never a generic assistant intro, never a personal-profile interview, never in a group, never in someone else's DM, and never to change one already-stored setting.
 ---
 
 # pt-setup — the first conversation
@@ -23,6 +23,23 @@ One or two short lines per message, no bullet lists — this lands on a
 phone. Answer what the owner actually said first. And never narrate the
 mechanics: no "let me run setup", no announcing a step. Send the message the
 step calls for.
+
+**A greeting is this interview.** "oi", "oi de novo", "hi", "hello", "hey"
+with a missing config is the opener below, not a hello-plus-help-menu and
+not a continuation of a profile interview that already happened in this
+chat. Do not introduce a personal assistant, do not offer `/help`, do not
+ask their name or how they like to work.
+
+**Opener — send this, then stop and wait.** Match the owner's language.
+Portuguese:
+
+> Sou o The Plow Times, seu jornal. Qual seu fuso (ex.: horário de Brasília) e a que horas quer o jornal da manhã? Se não disser, uso 7h.
+
+English:
+
+> I'm The Plow Times, your newspaper. What timezone are you in, and what time should the morning paper land? Default is 7:00.
+
+Do not add a name question, a profile offer, or `/help` around that.
 
 **Changing one setting later** is not this skill: a different delivery hour,
 **a second (or third) daily delivery time** (`delivery.extra_hours`, a list

@@ -38,6 +38,23 @@ class TestSoul:
             "silence this assertion"
         )
 
+    def test_soul_says_platform_intro_is_not_first_contact(self):
+        text = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "not a first-contact script" in text
+        assert "pt-setup" in text
+
+
+class TestUserStub:
+    def test_runtime_user_md_forbids_a_profile_interview(self):
+        text = (ROOT / "runtime" / "USER.md").read_text()
+        assert "not a personal profile" in text.lower()
+        assert "pt-setup" in text
+
+    def test_deploy_hook_publishes_user_md(self):
+        hook = (ROOT / "deploy-hook").read_text()
+        assert "runtime/USER.md" in hook
+        assert "memories/USER.md" in hook
+
 
 class TestSkills:
     def test_every_pt_dir_carries_a_skill_manifest(self):
@@ -53,7 +70,7 @@ class TestSkills:
     def test_shared_helpers_exist_and_are_referenced(self):
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
-                     "run_lock.py"):
+                     "run_lock.py", "setup_needed.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_edition_renderer_and_template_exist(self):

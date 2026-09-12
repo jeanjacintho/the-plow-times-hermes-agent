@@ -19,6 +19,8 @@ does not, and every run fails on the import.
 
 - `scripts/pt_config_gate.py` — the single definition of a valid `pt/config.json`;
   prints failing invariant names, empty stdout is pass
+- `scripts/setup_needed.py` — live-chat first-run gate: prints `SETUP_NEEDED`
+  or `READY` (missing file is needed)
 - `scripts/bearer_http.py` — one bearer JSON call that never follows a redirect
   (a forwarded Authorization header is the credential walking to a host the API
   did not authenticate)

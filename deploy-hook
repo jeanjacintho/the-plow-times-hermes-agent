@@ -52,3 +52,17 @@ else
     echo "the-plow-times: no runtime/SOUL.md -- broken checkout" >&2
     exit 1
 fi
+
+# USER.md is also repo-owned: an empty memories/USER.md is what makes the
+# Hermes/Plow first-run offer a personal-profile interview (name, how they
+# like to work). We publish a stub that forbids that interview so a wiped
+# home still opens on the newspaper setup, not Alder.
+mkdir -p "$home/memories"
+if [ -f runtime/USER.md ]; then
+    cp runtime/USER.md "$home/memories/USER.md.incoming"
+    mv "$home/memories/USER.md.incoming" "$home/memories/USER.md"
+    echo "the-plow-times: published USER.md to $home/memories"
+else
+    echo "the-plow-times: no runtime/USER.md -- broken checkout" >&2
+    exit 1
+fi
