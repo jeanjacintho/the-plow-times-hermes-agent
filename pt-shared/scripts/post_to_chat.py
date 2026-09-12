@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""post_to_chat.py -- the edition's chat leg: POST the text (and, optionally,
-a PDF attachment) to the owner's home channel over the Plow Chat API,
-directly, with no dependency on a connected live platform adapter.
+"""post_to_chat.py -- the edition's chat leg: POST the PDF (or, if none, the
+chat text) to the owner's home channel over the Plow Chat API, directly,
+with no dependency on a connected live platform adapter.
 
 Originally the fallback for a run with no --deliver arm. Promoted to the
 PRIMARY chat leg (not a fallback) after measuring cron/scheduler.py's own
@@ -16,9 +16,14 @@ attachment_uids), needs no live adapter and is not subject to that race --
 it is a plain HTTP call that either succeeds or exits loudly, same as the
 text-only POST below always was.
 
-The text is read on STDIN only -- never argv. An edition is web-derived
-content, and argv is the one surface another process could read; a quoted
-heredoc keeps it inert data on its way in. The endpoint and credential come
+The text is read on STDIN only -- never argv -- and only when there is no
+PDF. With ``--pdf`` the message is the attachment alone (empty body), the
+same envelope plow-chat-platform uses for photo-only sends. An edition is
+the newspaper file; piping the chat transcript in as a caption is how the
+owner got the PDF *and* a wall of text. Omit ``--pdf`` to post text only
+(the fallback when weasyprint could not write the file).
+
+The endpoint and credential come
 from the process environment alone (PLOW_API_BASE, PLOW_HOME_CHANNEL,
 PLOW_AGENT_TOKEN), which first boot publishes from the credential the host
 dropped in: a file the agent can write is not a place to look for the API
@@ -26,7 +31,7 @@ base its own bearer is sent to. Any of the three unset or blank is refused
 BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
-attachment_uids); omit it to post text only. `--dry-run` prints the
+attachment_uids) and sends no caption. `--dry-run` prints the
 redacted envelope and never sends.
 """
 from __future__ import annotations
@@ -48,10 +53,21 @@ def resolve_chat():
 
 
 def read_message():
-    text = sys.stdin.read().strip()
+    return sys.stdin.read().strip()
+
+
+def compose_payload(text, attachment_uid=None):
+    """One chat message: PDF-only when attached, otherwise the chat edition.
+
+    plow-chat-platform posts ``{"body": "", "attachment_uids": [...]}`` for
+    attachment-only sends; an empty body with a PDF is the newspaper, not a
+    missing caption.
+    """
+    if attachment_uid:
+        return {"body": "", "attachment_uids": [attachment_uid]}
     if not text:
         sys.exit("error: no edition text on stdin")
-    return text
+    return {"body": text}
 
 
 def declare_and_upload(base, uid, token, pdf_path):
@@ -90,22 +106,28 @@ def main():
 
     base, uid, token = resolve_chat()
     text = read_message()
+    if not args.pdf and not text:
+        sys.exit("error: no edition text on stdin")
 
     if args.dry_run:
         attach_note = f" + attach {args.pdf}" if args.pdf else ""
+        kind = "pdf-only" if args.pdf else f"{len(text)} chars"
         print(
-            f"dry-run: would POST {len(text)} chars to {base}/v1/chats/{uid}/messages"
-            f'{attach_note} body={{"body": "<redacted>"}}'
+            f"dry-run: would POST {kind} to {base}/v1/chats/{uid}/messages"
+            f'{attach_note}'
         )
         return
 
-    body = {"body": text}
+    attachment_uid = None
     if args.pdf:
-        body["attachment_uids"] = [declare_and_upload(base, uid, token, args.pdf)]
+        attachment_uid = declare_and_upload(base, uid, token, args.pdf)
+    body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    suffix = f" + attachment {args.pdf}" if args.pdf else ""
-    print(f"chat edition posted ({len(text)} chars){suffix}")
+    if args.pdf:
+        print(f"chat edition posted (pdf only) {args.pdf}")
+    else:
+        print(f"chat edition posted ({len(text)} chars)")
 
 
 if __name__ == "__main__":

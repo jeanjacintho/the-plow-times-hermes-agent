@@ -177,6 +177,29 @@ class TestSections:
         topics.main(["add", "--text", "weather", "--kind", "section", "--depth", "quick"])
         assert "run_on" not in read_store(pt_home)[-1]
 
+    def test_deliver_at_stored_on_section(self, pt_home, capsys):
+        topics.main(["add", "--text", "sports", "--kind", "section",
+                     "--depth", "quick", "--deliver-at", "12:30"])
+        topic = read_store(pt_home)[-1]
+        assert topic["deliver_at"] == "12:30"
+        envelope = json.loads(capsys.readouterr().out)
+        assert envelope["deliver_at"] == "12:30"
+
+    def test_deliver_at_omitted_on_main_paper_section(self, pt_home):
+        topics.main(["add", "--text", "dollar", "--kind", "section", "--depth", "quick"])
+        assert "deliver_at" not in read_store(pt_home)[-1]
+
+    def test_deliver_at_refused_on_non_section(self, pt_home):
+        with pytest.raises(SystemExit, match="only meaningful for a section"):
+            topics.main(["add", "--text", "x", "--kind", "subscription",
+                         "--depth", "deep", "--deliver-at", "12:30"])
+
+    @pytest.mark.parametrize("bad", ["12:3", "25:00", "12:60", "noon", "7:00"])
+    def test_malformed_deliver_at_refused(self, pt_home, bad):
+        with pytest.raises(SystemExit, match="strict HH:MM"):
+            topics.main(["add", "--text", "sports", "--kind", "section",
+                         "--depth", "quick", "--deliver-at", bad])
+
     def test_run_on_refused_on_non_assignment(self, pt_home):
         with pytest.raises(SystemExit, match="only meaningful for an assignment"):
             topics.main(["add", "--text", "clima", "--kind", "section",

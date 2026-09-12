@@ -107,14 +107,26 @@ nightly run. The probe:
 **3. The letters desk.** Ask whether the paper should carry today's mail
 (a letters column: sender and subject, not full bodies). Weather and
 calendar always run; mail is opt-in. Whatever they answer, **probe once
-through Latch before writing `mail.configured: true`**:
+through Latch before writing `mail.configured: true`**, Google first,
+Mail.app only if that fails:
+
+1. `plow_run_command` argv (exact):
 
 ```json
-{ "command": ["osascript", "-e", "tell application \"Mail\" to get name"] }
+{ "argv": ["plow-gog", "gmail", "search", "newer_than:1d", "--max", "5", "--json", "--fields", "id,date,from,subject"] }
 ```
 
-- They said yes and Mail answers: write `mail.configured: true`.
-- They said no, Mail is locked, or the Mac is unreachable: write
+   A result (including zero messages) means the Google account in Latch
+   works — write `mail.configured: true`.
+2. Only if that call is denied, 401/412, or Latch has no Google account:
+   probe Mail.app:
+
+```json
+{ "argv": ["osascript", "-e", "tell application \"Mail\" to get name"] }
+```
+
+- They said yes and **either** probe works: write `mail.configured: true`.
+- They said no, or both probes fail / the Mac is unreachable: write
   `mail.configured: false` and say the letters column can join later the
   same way a printer does. Never invent an inbox.
 
@@ -123,7 +135,8 @@ every day — "the dollar, sports news", anything. Weather and the diary
 already have their own departments; do not also add a "weather" news
 section unless they insist on a second, different weather beat. This is
 the one question with no required answer: a paper of only weather and
-calendar is a valid install, and they can add news sections later in chat.
+calendar is a valid install, and they can add news sections later in chat
+(including a different newspaper at another hour).
 Take each thing they name as a `section`
 topic via `pt-intake`'s writer (`topics.py add --kind section --depth quick`),
 in the order they say it — that order is the news desk's order. If they name more

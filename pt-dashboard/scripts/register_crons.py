@@ -12,12 +12,18 @@ spec that is data-driven rather than fixed: the topic list changes.
 
 The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
 
-  pt-daily-edition       <min> <hour> * * *        one job; exists while at
-                         computed as                least one section topic is
-                         delivery.hour -            not cancelled OR one
-                         lead_minutes (owner         assignment is pending/
-                         zone, wraparound           running
+  pt-daily-edition       <min> <hour> * * *        one job; exists while
+                         computed as                setup can register
+                         delivery.hour -
+                         lead_minutes (owner
+                         zone, wraparound
                          exact)
+  pt-daily-edition-<n>   same, extra_hours         reprint of the MAIN paper
+                         (n ≥ 2)                    (unscoped sections), not
+                                                    a different roster
+  pt-paper-HHMM          same computation          one job per distinct
+                         against a section's        section deliver_at that
+                         deliver_at                 is not delivery.hour
   pt-subscription-<id>   0 <delivery.hour> * * *   one per subscription topic
                                                    not yet cancelled
   pt-oneoff-<id>         created by pt-intake at   one-time; its own prompt
@@ -30,13 +36,14 @@ change", the design doc calls it. It never touches a job whose name does
 not start with pt-: those are not this agent's to manage.
 
 It also RECONCILES drift, which create-if-missing alone does not: a job
-that is registered with a different schedule or skill than the spec calls
-for (the owner changed delivery.hour, the lead changed, the prompt's
-contract moved) is removed and recreated. Without this, "already present,
-skipped" means a changed delivery hour is silently ignored forever -- the
-exact class of failure this script exists to prevent. Drift is only judged
-when hermes's own jobs.json carries the field; a fixture or an older row
-without a schedule is left alone rather than recreated on a guess.
+that is registered with a different schedule, skill or prompt than the spec
+calls for (the owner changed delivery.hour, the lead changed, the delivery
+contract moved -- PDF-only vs transcript) is removed and recreated. Without
+this, "already present, skipped" means a changed delivery hour or a new
+chat payload is silently ignored forever -- the exact class of failure this
+script exists to prevent. Drift is only judged when hermes's own jobs.json
+carries the field; a fixture or an older row without a schedule is left
+alone rather than recreated on a guess.
 
 One refusal is the point of the script, inherited from ld-dashboard: an
 unreadable or unexpected jobs.json aborts. Never read "I could not tell what
@@ -101,14 +108,21 @@ DAILY_NAME = "pt-daily-edition"
 # reruns, matching the lock-name convention (daily2-<date>, daily3-<date>)
 # a hand-registered job already used before this existed as a real spec.
 _EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
-DEFAULT_LEAD_MINUTES = 20
+# A focused paper at a section's deliver_at, named from the hour so two
+# sections at 12:30 share one job and a dropped hour is sweepable by name.
+_PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
+_LOCK_RE = re.compile(
+    r"^(?:daily\d*|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
+)
+DEFAULT_LEAD_MINUTES = 0
 
 SUBSCRIPTION_PROMPT = (
     "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
-    "pt-edition writes edition.json, runs render_edition.py, and returns the "
-    "renderer's chat output as the final response. When the edition is out, "
-    "mark the topic delivered with pt-intake's topics.py and then mark it "
-    "pending again, so tomorrow's run finds it."
+    "pt-edition writes edition.json, runs render_edition.py, and posts the PDF "
+    "only with post_to_chat.py --pdf (empty body, no chat transcript). When "
+    "the edition is out, mark the topic delivered with pt-intake's topics.py "
+    "and then mark it pending again, so tomorrow's run finds it. Final "
+    "response is NO_REPLY so --deliver does not send the text a second time."
 )
 
 
@@ -122,7 +136,9 @@ def daily_prompt(lock_name):
     slot's lock as "held" and silently skip the whole edition. It works in
     one cron-fired session: acquire the run lock (two runs racing on the
     SAME slot would deliver a hollow edition), research every active section
-    and every assignment due today, compile one edition.json, render it,
+    that belongs to the MAIN paper (no deliver_at, or deliver_at equal to
+    delivery.hour in pt/config.json — not a section that owns another paper
+    hour) and every assignment due today, compile one edition.json, render it,
     deliver, then release the lock.
     """
     return (
@@ -131,18 +147,45 @@ def daily_prompt(lock_name):
         f"zone> --stale-minutes 120; if its output is 'held', another run owns "
         f"this slot -- say NO_REPLY and stop. Then run pt-research: first the "
         f"standing desks (location via Latch then weather; calendar today and "
-        f"upcoming; mail only if pt/config.json has mail.configured true), "
-        f"then every active news section and every assignment with run_on <= "
+        f"upcoming; mail only if pt/config.json has mail.configured true — "
+        f"Gmail via plow-gog first, Mail.app only if that fails), "
+        f"then every active news section with no deliver_at (or deliver_at "
+        f"equal to delivery.hour in pt/config.json — skip sections that belong "
+        f"to another paper hour) and every assignment with run_on <= "
         f"today, writing each topic's notes and desk notes under run/desk-*. "
         f"Then run pt-edition for the batch -- it compiles edition.json from "
         f"those notes (weather, calendar, mail, then news, each as its own "
         f"desk), renders it (--pdf, then "
-        f"post_to_chat.py per pt-edition/SKILL.md step 2 -- do not skip the "
-        f"PDF leg just because this is a rerun), and returns the chat edition "
-        f"as the final response. Mark every news topic it carried: sections "
+        f"post_to_chat.py --pdf only per pt-edition/SKILL.md step 2 -- do not skip the "
+        f"PDF leg just because this is a rerun; do not pipe the chat text). "
+        f"Mark every news topic it carried: sections "
         f"delivered then pending, assignments delivered. Do not mark desks. "
         f"Release the lock "
-        f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>."
+        f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>. "
+        f"Final response is NO_REPLY so --deliver does not send the transcript."
+    )
+
+
+def paper_prompt(lock_name, hour):
+    """Run prompt for a focused paper at ``hour`` (a section deliver_at)."""
+    return (
+        f"Run the {hour} paper now, in one session. First run pt-shared's "
+        f"run_lock.py acquire --name {lock_name}-<today's date in the owner's "
+        f"zone> --stale-minutes 120; if its output is 'held', another run owns "
+        f"this slot -- say NO_REPLY and stop. Then run pt-research: first the "
+        f"standing desks (location via Latch then weather; calendar today and "
+        f"upcoming; mail only if pt/config.json has mail.configured true — "
+        f"Gmail via plow-gog first, Mail.app only if that fails), "
+        f"then ONLY active news sections whose deliver_at is {hour} "
+        f"(read topics.json; do not research unscoped sections, sections of "
+        f"another hour, or assignments). Write notes under run/<id>/ and "
+        f"run/desk-*. Then run pt-edition for that batch -- desks plus those "
+        f"news notes, renders it (--pdf, then post_to_chat.py --pdf only per "
+        f"pt-edition/SKILL.md step 2 -- do not pipe the chat text). "
+        f"Mark every news topic it carried: sections delivered then pending. "
+        f"Do not mark desks. Do not mark assignments. Release the lock "
+        f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>. "
+        f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
 
 DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
@@ -285,7 +328,7 @@ def load_extra_hours(config_path=CONFIG_FILE):
 
 
 def load_lead_minutes(config_path=CONFIG_FILE):
-    """delivery.lead_minutes from pt/config.json, defaulting to 20.
+    """delivery.lead_minutes from pt/config.json, defaulting to 0.
 
     The key is optional on purpose (the gate only validates it when present):
     an install written before the personalized paper existed has no
@@ -353,6 +396,48 @@ def daily_job(delivery_hour, lead_minutes, env=None, *, name=DAILY_NAME, lock_na
     }
 
 
+def paper_job_name(hour):
+    """pt-paper-HHMM from a strict HH:MM (12:30 → pt-paper-1230)."""
+    hh, mm = hour.split(":")
+    return f"pt-paper-{hh}{mm}"
+
+
+def paper_hour_from_name(name):
+    match = _PAPER_RE.fullmatch(name)
+    if match is None:
+        return None
+    hhmm = match.group("hhmm")
+    return f"{hhmm[:2]}:{hhmm[2:]}"
+
+
+def focused_paper_hours(topics, delivery_hour):
+    """Distinct section deliver_at values that are not the main paper hour."""
+    hours = []
+    seen = set()
+    for topic in topics:
+        if topic.get("kind") != "section" or topic.get("status") == "cancelled":
+            continue
+        at = topic.get("deliver_at")
+        if not at or at == delivery_hour or at in seen:
+            continue
+        seen.add(at)
+        hours.append(at)
+    return sorted(hours)
+
+
+def paper_job(hour, lead_minutes, env=None):
+    """One focused paper: desks plus sections whose deliver_at is this hour."""
+    name = paper_job_name(hour)
+    lock_name = f"paper-{hour.replace(':', '')}"
+    return {
+        "name": name,
+        "schedule": daily_schedule(hour, lead_minutes),
+        "prompt": paper_prompt(lock_name, hour),
+        "skill": "pt-research",
+        "deliver": DELIVER_TARGET,
+    }
+
+
 def subscription_job(topic, delivery_hour, env=None):
     """The job spec for one subscription topic: nightly at the delivery hour."""
     hour, minute = _hour_minute(delivery_hour)
@@ -369,11 +454,11 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
                   extra_hours=()):
     """The jobs the topic store calls for, in spec order.
 
-    The daily edition comes first (it is the paper), then one job per extra
-    delivery time (delivery.extra_hours -- the same paper, re-researched and
-    re-delivered again later the same day), then one job per subscription.
-    All three are separate products: subscriptions deliver their own
-    edition, sections/assignments ride the paper (every slot of it).
+    The daily edition comes first (it is the main paper), then one job per
+    extra delivery time (delivery.extra_hours -- the same MAIN roster,
+    re-researched later the same day), then one job per distinct section
+    deliver_at that is not delivery.hour (a different newspaper), then one
+    job per subscription.
     """
     jobs = []
     if has_paper(topics):
@@ -381,6 +466,8 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
         for n, hour in enumerate(extra_hours, start=2):
             jobs.append(daily_job(hour, lead_minutes, env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
+        for hour in focused_paper_hours(topics, delivery_hour):
+            jobs.append(paper_job(hour, lead_minutes, env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
         for t in topics
@@ -389,21 +476,23 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     return jobs
 
 
-def stale_names(topics, registered, extra_hours_count=0):
+def stale_names(topics, registered, extra_hours_count=0, delivery_hour=None):
     """Registered pt-* jobs the topic store no longer calls for.
 
     A subscription job outlives only its non-cancelled topic; a one-off job
     outlives only a topic still pending or running (its prompt self-removes
     it after firing -- this sweep is the backstop, and prunes delivered,
     cancelled or vanished topics' leftovers). The daily job and every
-    numbered extra-daily job outlive only a paper that still exists -- any
-    section not cancelled, or any assignment that can still run; an extra
+    numbered extra-daily job outlive only a paper that still exists; an extra
     job also goes stale the moment the owner removes that many delivery
-    times (pt-daily-edition-3 with only one extra hour configured now is a
-    dropped slot, not a live one). Names not starting with pt- are never
-    ours to remove.
+    times. A pt-paper-HHMM job outlives only an active section still at that
+    hour (and not the main delivery.hour). Names not starting with pt- are
+    never ours to remove.
     """
     by_id = {t["id"]: t for t in topics}
+    live_papers = set()
+    if delivery_hour is not None:
+        live_papers = {paper_job_name(h) for h in focused_paper_hours(topics, delivery_hour)}
     stale = []
     for name in registered:
         if name == DAILY_NAME:
@@ -416,10 +505,10 @@ def stale_names(topics, registered, extra_hours_count=0):
             if n > extra_hours_count + 1:
                 stale.append(name)
             continue
-        # One shape to match, pinned exactly: pt-subscription-t_9f2a or
-        # pt-oneoff-t_0c11. A name that does not parse as one of those is
-        # not this spec's to interpret, and a parse that half-matches an id
-        # must not remove a job -- hence fullmatch, not prefix tests.
+        if _PAPER_RE.fullmatch(name):
+            if delivery_hour is not None and name not in live_papers:
+                stale.append(name)
+            continue
         match = _JOB_NAME_RE.fullmatch(name)
         if match is None:
             continue
@@ -470,6 +559,7 @@ def registered_specs(jobs_path=JOBS_FILE):
         job["name"]: {
             "schedule": _persisted_schedule_expr(job),
             "skill": job.get("skill"),
+            "prompt": job.get("prompt"),
             "deliver": job.get("deliver"),
         }
         for job in jobs
@@ -480,12 +570,13 @@ def job_drift(job, spec):
     """True when a registered job's persisted fields contradict the spec.
 
     Only a field that is BOTH persisted and different is a drift; an absent
-    field is silence, not a mismatch. Schedule and skill are the fields a
-    spec change actually moves (the delivery hour, the lead, the contract);
-    deliver is not compared because its resolved form depends on the turn's
-    environment and a false drift would recreate every job on every run.
+    field is silence, not a mismatch. Schedule, skill and prompt are the
+    fields a spec change actually moves (the delivery hour, the lead, the
+    PDF-only vs transcript contract); deliver is not compared because its
+    resolved form depends on the turn's environment and a false drift would
+    recreate every job on every run.
     """
-    for key in ("schedule", "skill"):
+    for key in ("schedule", "skill", "prompt"):
         stored = spec.get(key)
         if stored is not None and stored != job[key]:
             return True
@@ -513,8 +604,9 @@ def prune_runtime(topics, home):
     }
     for entry in sorted(run_dir.iterdir()):
         try:
-            if entry.name.startswith("daily-") and entry.name.endswith(".lock"):
-                stamp = entry.name[len("daily-"):-len(".lock")]
+            lock_match = _LOCK_RE.fullmatch(entry.name)
+            if lock_match is not None:
+                stamp = lock_match.group(1)
                 if stamp < today:
                     entry.unlink()
                     removed.append(str(entry))
@@ -597,7 +689,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
             )
         print(f"registered: {job['name']} ({job['schedule']})")
 
-    for name in stale_names(topics, registered, len(extra_hours)):
+    for name in stale_names(topics, registered, len(extra_hours), delivery_hour):
         proc = runner([HERMES, "cron", "remove", name])
         if proc.returncode != 0:
             raise SystemExit(

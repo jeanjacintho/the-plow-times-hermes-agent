@@ -18,10 +18,14 @@ CONFIG = {
 }
 
 
-def topic(tid, kind="subscription", status="pending", depth="deep", run_on=None):
-    return {"id": tid, "text": f"topic {tid}", "kind": kind, "depth": depth,
-            "status": status, "created_at": "now", "last_edition_at": None,
-            "scheduled_for": None, "run_on": run_on}
+def topic(tid, kind="subscription", status="pending", depth="deep", run_on=None,
+          deliver_at=None):
+    row = {"id": tid, "text": f"topic {tid}", "kind": kind, "depth": depth,
+           "status": status, "created_at": "now", "last_edition_at": None,
+           "scheduled_for": None, "run_on": run_on}
+    if deliver_at is not None:
+        row["deliver_at"] = deliver_at
+    return row
 
 
 def write_config(tmp_path, config=CONFIG):
@@ -268,11 +272,11 @@ class TestDailySchedule:
     def test_plain_lead(self):
         assert crons.daily_schedule("07:00", 45) == "15 6 * * *"
 
-    def test_default_lead_is_twenty(self):
+    def test_default_lead_is_zero(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "07:00", {})
-        assert jobs[0]["schedule"] == "40 6 * * *"
-        assert crons.DEFAULT_LEAD_MINUTES == 20
+        assert jobs[0]["schedule"] == "0 7 * * *"
+        assert crons.DEFAULT_LEAD_MINUTES == 0
 
     def test_zero_lead_is_the_hour(self):
         assert crons.daily_schedule("07:00", 0) == "0 7 * * *"
@@ -333,6 +337,7 @@ class TestExtraDailyHours:
         prompt = jobs[1]["prompt"]
         assert "daily2-<today's date" in prompt
         assert "post_to_chat.py" in prompt
+        assert "NO_REPLY" in prompt
 
     def test_no_extra_hours_is_unchanged(self):
         jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", {}, 45)
@@ -366,6 +371,82 @@ class TestExtraDailyHours:
     def test_extra_jobs_kept_when_news_topics_are_gone(self):
         stale = crons.stale_names(
             [], ["pt-daily-edition", "pt-daily-edition-2"], extra_hours_count=1,
+        )
+        assert stale == []
+
+
+class TestFocusedPapers:
+    def test_name_from_hour(self):
+        assert crons.paper_job_name("12:30") == "pt-paper-1230"
+        assert crons.paper_hour_from_name("pt-paper-1230") == "12:30"
+
+    def test_desired_jobs_adds_one_job_per_distinct_hour(self):
+        jobs = crons.desired_jobs(
+            [
+                topic("t_1", kind="section"),
+                topic("t_2", kind="section", deliver_at="12:30"),
+                topic("t_3", kind="section", deliver_at="12:30"),
+                topic("t_4", kind="section", deliver_at="18:00"),
+            ],
+            "07:00", {}, 0,
+        )
+        names = [j["name"] for j in jobs]
+        assert names == [
+            "pt-daily-edition", "pt-paper-1230", "pt-paper-1800",
+        ]
+        assert jobs[1]["schedule"] == "30 12 * * *"
+        assert jobs[2]["schedule"] == "0 18 * * *"
+        assert "deliver_at is 12:30" in jobs[1]["prompt"]
+        assert "paper-1230-<today's date" in jobs[1]["prompt"]
+        assert "NO_REPLY" in jobs[1]["prompt"]
+
+    def test_deliver_at_equal_to_main_hour_rides_the_daily_job(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section", deliver_at="07:00")],
+            "07:00", {}, 0,
+        )
+        assert [j["name"] for j in jobs] == ["pt-daily-edition"]
+
+    def test_cancelled_timed_section_is_not_a_paper(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section", deliver_at="12:30", status="cancelled")],
+            "07:00", {}, 0,
+        )
+        assert [j["name"] for j in jobs] == ["pt-daily-edition"]
+
+    def test_papers_sit_between_extra_hours_and_subscriptions(self):
+        jobs = crons.desired_jobs(
+            [
+                topic("t_1", kind="section", deliver_at="12:30"),
+                topic("t_9f2a"),
+            ],
+            "07:00", {}, 0, extra_hours=["10:30"],
+        )
+        assert [j["name"] for j in jobs] == [
+            "pt-daily-edition", "pt-daily-edition-2", "pt-paper-1230",
+            "pt-subscription-t_9f2a",
+        ]
+
+    def test_stale_paper_is_pruned_when_hour_is_empty(self):
+        stale = crons.stale_names(
+            [topic("t_1", kind="section")],
+            ["pt-daily-edition", "pt-paper-1230"],
+            delivery_hour="07:00",
+        )
+        assert stale == ["pt-paper-1230"]
+
+    def test_live_paper_is_kept(self):
+        stale = crons.stale_names(
+            [topic("t_1", kind="section", deliver_at="12:30")],
+            ["pt-daily-edition", "pt-paper-1230"],
+            delivery_hour="07:00",
+        )
+        assert stale == []
+
+    def test_paper_without_delivery_hour_is_left_alone(self):
+        stale = crons.stale_names(
+            [],
+            ["pt-paper-1230"],
         )
         assert stale == []
 
@@ -436,8 +517,23 @@ class TestDrift:
         assert crons.job_drift(job, {}) is False
 
     def test_matching_spec_is_not_drift(self):
-        job = {"name": "pt-daily-edition", "schedule": "15 6 * * *", "skill": "pt-research"}
-        spec = {"schedule": "15 6 * * *", "skill": "pt-research", "deliver": "x"}
+        job = {"name": "pt-daily-edition", "schedule": "15 6 * * *",
+               "skill": "pt-research", "prompt": "same"}
+        spec = {"schedule": "15 6 * * *", "skill": "pt-research",
+                "prompt": "same", "deliver": "x"}
+        assert crons.job_drift(job, spec) is False
+
+    def test_prompt_drift_detected(self):
+        job = {"name": "pt-daily-edition", "schedule": "15 6 * * *",
+               "skill": "pt-research", "prompt": "post the PDF only"}
+        spec = {"schedule": "15 6 * * *", "skill": "pt-research",
+                "prompt": "return the edition as the final response"}
+        assert crons.job_drift(job, spec) is True
+
+    def test_absent_prompt_is_not_drift(self):
+        job = {"name": "pt-daily-edition", "schedule": "15 6 * * *",
+               "skill": "pt-research", "prompt": "new prompt"}
+        spec = {"schedule": "15 6 * * *", "skill": "pt-research"}
         assert crons.job_drift(job, spec) is False
 
     def test_skill_drift_detected(self):
@@ -517,7 +613,7 @@ class TestDriftMain:
             tmp_path, monkeypatch,
             [topic("t_1", kind="section")],
             [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
-              "schedule": "0 7 * * *", "skill": "pt-research"}],
+              "schedule": "15 6 * * *", "skill": "pt-research"}],
             runner)
         assert code == 0
         assert any("remove" in c for c in calls)
@@ -549,6 +645,21 @@ class TestPrune:
         removed = crons.prune_runtime([], tmp_path)
         assert str(old) in removed
         assert not old.exists()
+        assert today.exists()
+
+    def test_old_paper_lock_pruned(self, tmp_path):
+        run = tmp_path / "run"
+        run.mkdir()
+        old = run / "paper-1230-2020-01-01.lock"
+        old.write_text("x")
+        from datetime import date
+        today = run / f"paper-1230-{date.today().isoformat()}.lock"
+        today.write_text("x")
+        extra = run / "daily2-2020-01-01.lock"
+        extra.write_text("x")
+        removed = crons.prune_runtime([], tmp_path)
+        assert str(old) in removed
+        assert str(extra) in removed
         assert today.exists()
 
     def test_terminal_topic_notes_pruned(self, tmp_path):

@@ -41,7 +41,7 @@ The nine checks:
      minutes before delivery.hour the daily paper's run starts, and a bool
      (True is an int in Python), a string, or a value >= 60 would compute a
      fire time on a different day than the one the schedule promises. Absent
-     is valid -- readers default it to 20, so an install written before the
+     is valid -- readers default it to 0, so an install written before the
      key existed does not start failing this gate.
   6. delivery.extra_hours, when present, is a list of "HH:MM" strings: one
      more full-paper delivery time the same day (register_crons.py registers
@@ -58,7 +58,8 @@ The nine checks:
   8. mail.configured, when the mail object is present, must be a boolean.
      Absent mail is valid and means the letters desk is off -- this agent
      does not invent an inbox. True means the daily paper reads today's
-     mail through Latch (Mail.app on the Mac); false is an explicit no.
+     mail through Latch (Gmail via plow-gog first, Mail.app if that fails);
+     false is an explicit no.
   9. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
 
 The owner's name, location, or any other personal fact is deliberately not
@@ -151,7 +152,7 @@ def gate(config):
             failures.append("printer.name is blank while printer.configured is true")
 
     # 5. delivery.lead_minutes, when present, is an int 0-59. Absent stays
-    #    valid: the daily-paper readers apply the 20-minute default, so an
+    #    valid: the daily-paper readers apply the 0-minute default, so an
     #    install written before this key existed keeps passing the gate.
     lead = _index(_index(config, "delivery"), "lead_minutes")
     if lead is not None:

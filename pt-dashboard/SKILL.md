@@ -11,20 +11,23 @@ topic list:
 
 | job | schedule | notes |
 |---|---|---|
-| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 20) in the owner's zone, wraparound exact | one job; exists as soon as setup can register (weather and calendar desks always run). Researches those desks, mail if configured, every active news section, and every assignment due, and delivers one edition |
-| `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | one per entry in `delivery.extra_hours` — the SAME paper, re-researched and re-delivered again at another hour the same day (e.g. a second edition at 10:30 besides the morning one). Numbered in list order; exists only alongside `pt-daily-edition` (no paper, no extra slots either) and only up to `len(delivery.extra_hours) + 1` — a slot the owner removed is pruned like any other stale job |
+| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 0) in the owner's zone, wraparound exact | one job; the **main** paper: desks, sections with no `deliver_at` (or `deliver_at` equal to this hour), and assignments due today |
+| `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | reprint of that **same main** roster later the same day — not a different newspaper |
+| `pt-paper-HHMM` | `<min> <hour> * * *` from a section `deliver_at` that is not `delivery.hour` (same lead subtraction) | one job per distinct hour; desks plus only the sections at that hour. Two sections at 12:30 share `pt-paper-1230`. A cancelled last section at that hour is pruned |
 | `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` (container TZ, both parts) | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-time, `now + 3m` (quick) or next `delivery.hour` (deep) | created by pt-intake at the scheduled minute; its own prompt self-removes it after firing — this script's sweep is the backstop |
 
 The daily schedule is computed in minutes and taken modulo a day, so
-`00:00 − 20min` is `40 23 * * *` (the previous evening), not a malformed
-expression — `00:00` is a real delivery hour and the wraparound is a tested
-case, not an accident.
+`00:00 − 0min` is `0 0 * * *` (midnight itself). A non-zero lead still
+wraps: `00:00 − 20min` is `40 23 * * *` (the previous evening). `00:00` is
+a real delivery hour and the wraparound is a tested case, not an accident.
 
-Every row's chat leg is `plow_chat:${PLOW_HOME_CHANNEL}`: the run's final
-response IS the edition, and the gateway relays it. An unset or blank
-`PLOW_HOME_CHANNEL` refuses the registration by name — an empty target is a
-chat leg that silently delivers nowhere.
+Every row still carries `--deliver plow_chat:${PLOW_HOME_CHANNEL}` (an
+unset or blank `PLOW_HOME_CHANNEL` refuses the registration by name). The
+edition itself is posted mid-run as the PDF only (`post_to_chat.py --pdf`,
+empty body). The job's final response is `NO_REPLY` so that `--deliver`
+does not also send the research transcript. An empty target is a chat
+leg that silently delivers nowhere.
 
 The daily run additionally takes a **run lock** with
 `pt-shared/scripts/run_lock.py` (see the prompt this script writes): two runs
@@ -65,12 +68,13 @@ Without that, "already present, skipped" would mean a changed delivery hour
 is silently ignored forever. Drift is judged only against fields hermes
 actually persisted; an absent field is left alone, not recreated on a guess.
 It removes `pt-daily-edition-<n>` whose number exceeds the current
-`delivery.extra_hours` count, `pt-subscription-*` jobs whose
+`delivery.extra_hours` count, `pt-paper-HHMM` jobs whose hour no longer has
+an active section, `pt-subscription-*` jobs whose
 topic is cancelled, and `pt-oneoff-*` jobs whose topic is delivered,
 cancelled or missing. The canonical `pt-daily-edition` stays registered
 after setup — weather and calendar still need a run even with no news
 topics. It never touches a job whose name is not one of
-`pt-daily-edition`, `pt-daily-edition-<n>`, `pt-subscription-*` or
+`pt-daily-edition`, `pt-daily-edition-<n>`, `pt-paper-*`, `pt-subscription-*` or
 `pt-oneoff-*` with a real topic id behind it: those are not this spec's to
 interpret or remove — **hand-registering a job by shell command instead of
 adding a `delivery.extra_hours` entry and re-running this script is exactly

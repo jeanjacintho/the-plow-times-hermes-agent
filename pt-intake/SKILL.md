@@ -1,6 +1,6 @@
 ---
 name: pt-intake
-description: Classify a chat message into a research topic — new topic or status question, and which of the four shapes it is (one-off, subscription, section, assignment) and depth (quick/deep) — write it to pt/topics.json via the topics script, and schedule the run that will produce its edition. Use on every owner chat turn that is not a status question. Status questions (list my topics, list my paper, stop watching X, cancel a dated item, when will it land, add/remove a second daily delivery time) are answered from the files, not this skill's scheduling path. Never research inside the turn.
+description: Classify a chat message into a research topic — new topic or status question, and which of the four shapes it is (one-off, subscription, section, assignment) and depth (quick/deep) — write it to pt/topics.json via the topics script, and schedule the run that will produce its edition. Use on every owner chat turn that is not a status question. Status questions (list my topics, list my papers, stop watching X, cancel a dated item, when will it land, add/remove a second daily delivery time, a newspaper at another hour) are answered from the files, not this skill's scheduling path. Never research inside the turn.
 ---
 
 # pt-intake — a chat message becomes a scheduled research job
@@ -48,11 +48,14 @@ These are ordinary turns, not classifications. Do them and end:
 - **"what are you watching" / "list my topics"** — run
   `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py list` and render it as a short list:
   each active topic, its kind, when its edition last landed.
-- **"list my paper" / "what's in my paper"** — run `topics.py list` and
-  show the standing desks first (weather and calendar always; letters if
-  `mail.configured` is true), then only the `section` topics in creation
-  order (the news desk)
-  plus every `assignment` still pending/running, each with its `run_on` date.
+- **"list my paper" / "what's in my paper" / "list my papers"** — run
+  `topics.py list` and group by paper. Show the main paper first (hour from
+  `delivery.hour`): standing desks, then `section` topics with no
+  `deliver_at` (or `deliver_at` equal to that hour), then pending
+  assignments. Then one block per distinct `deliver_at` that is not the
+  main hour: that hour, then its sections. Extra reprint times
+  (`delivery.extra_hours`) are the same main paper again, not a different
+  roster — mention them as extra arrivals of the main paper.
 - **"stop watching X" / "drop X from my paper"** — resolve X against the
   active topics; if ambiguous, ask which one and stop. Then
   `topics.py cancel <id>`, and immediately run
@@ -82,9 +85,29 @@ These are ordinary turns, not classifications. Do them and end:
   but a human noticing). Confirm in one line, in the owner's own terms —
   "got it, the paper now arrives at 03:00 and 10:30" — never mention the
   container's zone or the conversion.
+- **"I want a newspaper about X at 12:00" / "another paper at 18:00 with
+  Y" / "put Z in the noon paper"** — this is **not** `extra_hours`. It is a
+  `section` with `--deliver-at HH:MM` (container-local, converted the same
+  way as `delivery.hour`). Sections that share an hour share one paper;
+  a different hour is a different paper (`pt-paper-HHMM`). Convert the
+  owner's local time, then:
+
+      topics.py add --text "<topic>" --kind section --depth quick --deliver-at HH:MM
+
+  If `deliver_at` equals `delivery.hour`, omit `--deliver-at` — it rides
+  the main paper. Count news sections **per paper** (max 8 on that hour's
+  roster, standing desks do not count). Then run `register_crons.py` so
+  `pt-paper-HHMM` exists now. Confirm in the owner's terms: "you'll get a
+  sports paper at 12:00".
+- **"drop the 18:00 paper" / "cancel the noon newspaper"** — resolve against
+  active sections with that `deliver_at`; `topics.py cancel` each, then
+  `register_crons.py` so the `pt-paper-*` job is swept. Confirm in one line.
+  Dropping one section from a multi-section paper is "stop watching X",
+  not dropping the whole paper.
 - **"put my mail in the paper" / "drop the letters column"** — `mail.configured`
-  in `pt/config.json`. Probe Mail.app through Latch before writing true (same
-  osascript as pt-setup). Validate with the gate, then confirm in one line.
+  in `pt/config.json`. Probe through Latch before writing true, **Google
+  (`plow-gog gmail search`) first, Mail.app only if that fails** (same
+  argv order as pt-setup). Validate with the gate, then confirm in one line.
   The daily job already exists; no extra cron.
 
 ## New topic — classify, then write
@@ -101,7 +124,8 @@ or can say in a line.
 
 | The owner says | Shape | What it becomes |
 |---|---|---|
-| "my paper should have X" / "X in the paper every day" | `section` | a fixed block in the daily paper, every day |
+| "my paper should have X" / "X in the paper every day" | `section` | a fixed block in the **main** daily paper (no `deliver_at`) |
+| "a paper about X at 12:00" / "Y in the noon newspaper" | `section` with `--deliver-at` | a block in that hour's paper, not the main one |
 | "X in tomorrow's paper" / "Y in Friday's paper" | `assignment` | one research pass whose result appears **only** in that day's paper |
 | "research X, tell me later" | `one_off` | its own edition, delivered once |
 | "update me on Y every night" / "keep an eye on Z" | `subscription` | its own edition, re-run on the delivery hour |
@@ -128,18 +152,22 @@ Two rules that keep the paper honest:
   should have the dollar" when a dollar section is already active → point at
   the existing one. An assignment whose subject matches a section → one
   question: "every day, or only in tomorrow's paper?".
-- **The news desk holds at most 8 sections.** Weather, calendar and mail do
-  not count against it. If the owner asks for a ninth news section,
-  refuse with the count and ask which one to drop — the daily run researches
-  every news section in one session, and context is the budget that dies first.
+- **The news desk holds at most 8 sections per paper.** Weather, calendar
+  and mail do not count against it. Count only sections that share the same
+  paper hour (unscoped + main `delivery.hour` together; each other
+  `deliver_at` is its own roster). If the owner asks for a ninth on that
+  paper, refuse with the count and ask which one to drop.
 
 Then write it — this script is the ONLY writer for topics.json:
 
     /var/lib/hermes/skills/news/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" \
         --kind one_off|subscription|section|assignment --depth quick|deep \
-        [--run-on YYYY-MM-DD]
+        [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
 
 `--run-on` is required for an assignment and refused for every other kind.
+`--deliver-at` is section-only: a container-local `HH:MM` for a paper other
+than the main daily edition. Omit it for the main paper. Convert the owner's
+stated local time the same way pt-setup converts `delivery.hour`.
 Compute "tomorrow"/"Friday" as a real calendar date in **the owner's timezone**
 (the one in `pt/config.json`), never from the container's clock reading past
 midnight. If the day is ambiguous ("the 15th", "next Friday"), ask — never
@@ -154,9 +182,11 @@ container time is owner time). Every job carries
 `--deliver plow_chat:${PLOW_HOME_CHANNEL}`: the run's final response IS the
 edition, and relaying it is the chat leg.
 
-- **Section** — nothing to schedule by hand: write the topic, then run
-  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so `pt-daily-edition` is
-  created (or its schedule reconciled) **now**, not at the next bring-up.
+- **Section** — nothing to schedule by hand: write the topic (with
+  `--deliver-at` when it belongs to a non-main paper), then run
+  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so
+  `pt-daily-edition` or `pt-paper-HHMM` is created (or its schedule
+  reconciled) **now**, not at the next bring-up.
   Paste the script's output and report its exit status.
 - **Assignment** — **never gets a cron of its own**: it rides the daily
   edition. The daily job exists because the assignment is pending (the
@@ -173,8 +203,9 @@ edition, and relaying it is the chat leg.
   which bakes the deliver target in; measured live, a run built by hand
   without it completes with a real final response that never reaches chat
   at all — the job succeeds and the owner gets nothing), prompt "Run
-  pt-research on topic <id> now, then pt-edition for it, and return the
-  edition as the final response. When the edition is delivered, mark the
+  pt-research on topic <id> now, then pt-edition for it. Post the PDF only
+  (post_to_chat.py --pdf, empty body). Final response is NO_REPLY. When the
+  edition is delivered, mark the
   topic delivered with topics.py and remove this job with `hermes cron
   remove pt-oneoff-<id>`." Record the scheduled moment at add time via
   `--scheduled-for`.
@@ -194,8 +225,9 @@ owner must hear it rather than wait for an edition that will never come.
 
 The turn's final response is a confirmation with a time, not a progress
 report: "On it — an edition on <topic> lands here in ~3 minutes" or "You'll
-get one on <topic> every morning at 7" or "Weather joins your paper tomorrow at
-7" or "The iPhone 15 price goes in Friday's paper". Never narrate the
+get one on <topic> every morning at 7" or "A sports paper at 12:00" or
+"Weather joins your paper tomorrow at 7" or "The iPhone 15 price goes in
+Friday's paper". Never narrate the
 mechanics (no "writing topics.json", no "scheduling a cron"). The edition,
 when it lands, speaks for itself.
 

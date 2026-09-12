@@ -1,6 +1,6 @@
 ---
 name: pt-research
-description: One budget-bounded research pass — for a single topic, or for the daily paper (standing desks plus news sections and assignments due today) — driving the owner's Mac through Latch (plow_run_command for location/calendar/mail, plow_browser_* for the web), producing structured sourced notes. Runs only in a cron-fired session -- never in a live chat turn. Stops at the budget, not when it feels done.
+description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail, plow_run_command for location/calendar/Mail.app fallback, plow_browser_* for the web), producing structured sourced notes. Runs only in a cron-fired session -- never in a live chat turn. Stops at the budget, not when it feels done.
 ---
 
 # pt-research — gather sourced notes within the budget
@@ -27,7 +27,7 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
 
 ## The loop
 
-0. **Daily batch only — standing desks first.** Follow
+0. **Paper batch only — standing desks first.** Follow
    `pt-research/references/desks.md` before any news topic: location via
    Latch, then weather in the browser; calendar today and upcoming; mail
    only if configured. Flush each desk's notes as you go.
@@ -65,19 +65,25 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
    silent return to `pending` would make a failed pass look like no pass at
    all.)
 
-## The daily batch
+## The daily batch, and a focused paper
 
-The daily paper's run hands you several topics at once: every active
-`section`, plus every `assignment` with `run_on` on or before today. Two
-rules make that survivable in one session:
+The **main** paper's run hands you several topics at once: every active
+`section` with no `deliver_at` (or `deliver_at` equal to `delivery.hour`),
+plus every `assignment` with `run_on` on or before today. A **focused
+paper** (`pt-paper-HHMM`) is the same desks, then **only** active sections
+whose `deliver_at` is that hour — never unscoped sections, never another
+hour's sections, never assignments.
+
+Two rules make a batch survivable in one session:
 
 - **Sections are always `quick`; assignments default `quick` too.** A section
   is researched fresh every day, so depth there would multiply the run's wall
   clock by the section count. Only an assignment the owner explicitly asked
   to be "properly" done runs `deep`.
-- **Standing desks run first, every daily batch, and they are not topics.**
+- **Standing desks run first, every paper batch, and they are not topics.**
   Follow `pt-research/references/desks.md`: location via Latch then weather;
-  calendar (today and upcoming); mail only if `mail.configured` is true.
+  calendar (today and upcoming); mail only if `mail.configured` is true
+  (Gmail via `plow-gog` first, Mail.app only if that fails).
   Notes at `run/desk-weather/notes.json`, `run/desk-calendar/notes.json`,
   `run/desk-mail/notes.json`. Do not `topics.py mark` a desk.
 - **The batch budget is global, and the per-topic budget is a slice of it.**

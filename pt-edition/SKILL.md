@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into the chat text, printable HTML and (when available) PDF, return the renderer's chat output verbatim as the final response, mark the topics it carried, and hand the print leg to pt-print when a printer is configured. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into printable HTML and PDF, post the PDF only via post_to_chat.py, end the turn with NO_REPLY, mark the topics it carried, and hand the print leg to pt-print when a printer is configured. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -34,7 +34,7 @@ HTML.** Hand-write `edition.json` under the run directory:
       "title": "Letters",
       "headline": "Three messages overnight",
       "body": "Sender — subject. Sender — subject.",
-      "sources": ["Mail.app"] },
+      "sources": ["Gmail"] },
     { "kind": "section", "topic_id": "t_8c1d", "desk": "news",
       "title": "The dollar",
       "headline": "The real headline",
@@ -81,7 +81,10 @@ HTML.** Hand-write `edition.json` under the run directory:
   slot. The daily paper always includes weather and calendar from
   `run/desk-*/notes.json`. Mail only when `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
-  otherwise omit the mail block entirely so that slot stays empty. Owner
+  otherwise omit the mail block entirely so that slot stays empty. A focused
+  paper at another hour uses the same desks plus **only** the news topics
+  this run researched (the sections whose `deliver_at` is that hour). Never
+  compile a main-paper section into a noon paper, or the reverse. Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
 - **Pagination is the renderer's job.** News that does not fit one Letter
@@ -103,53 +106,40 @@ HTML.** Hand-write `edition.json` under the run directory:
 ## Render and deliver
 
 1. Run the renderer — it is the only thing that writes the edition. Always
-   pass both `--chat` and `--pdf`, writing under the run directory (e.g.
-   `run/<id>/edition.chat.txt` and `run/<id>/edition.pdf`) rather than
-   relying on stdout — step 2 needs the chat text as a file to pipe into
-   `post_to_chat.py`:
+   pass `--pdf`, writing under the run directory (e.g.
+   `run/<id>/edition.pdf`). `--chat` is optional now (the chat transcript
+   is not posted). Add `--html PATH` when a printer is configured:
 
        python3 /var/lib/hermes/skills/news/pt-edition/scripts/render_edition.py <edition.json> \
-           --chat run/<id>/edition.chat.txt --pdf run/<id>/edition.pdf
+           --pdf run/<id>/edition.pdf
        # add --html PATH too when a printer is configured
 
    A malformed `edition.json` is refused by name. Fix it and re-run; never
    hand-assemble a page to route around the gate. If the renderer's own
    stderr says weasyprint is not installed, that costs only the PDF file —
-   proceed with the chat text, do not treat it as a reason to write the
+   then post the chat text as the fallback (omit `--pdf`), do not write the
    edition by hand.
-2. **Send the edition yourself, by running `post_to_chat.py`, instead of only
-   returning it as your final response.** Measured live, three separate real
-   runs: the passive path (your final response getting picked up by
-   `--deliver plow_chat:${PLOW_HOME_CHANNEL}` after the job finishes) is
-   racy on this fleet — the same content, unchanged, has both delivered fine
-   and been silently discarded with "fire claim ownership lost" in
-   back-to-back runs. Asking you to call a tool mid-run instead
-   (`send_message`) was tried and measured too: it does not reliably happen
-   — two full research-and-render runs never called it, only ever returned
-   a final response for the passive relay to gamble on. Running a script is
-   not optional or forgettable the way remembering a tool call is — do it:
+2. **Send the PDF yourself, by running `post_to_chat.py --pdf`, instead of
+   returning the transcript as your final response.** The owner asked for
+   the newspaper file, not the file plus the chat dump. `post_to_chat.py`
+   with `--pdf` posts an empty body and the attachment — the same envelope
+   plow-chat-platform uses for photo-only sends. Do not pipe
+   `edition.chat.txt` into it:
 
        python3 /var/lib/hermes/skills/news/pt-shared/scripts/post_to_chat.py \
-           --pdf run/<id>/edition.pdf < run/<id>/edition.chat.txt
+           --pdf run/<id>/edition.pdf
 
-   The chat text goes on stdin from the file step 1 wrote — never retyped,
-   never passed as a shell argument (an edition is web-derived content; argv
-   is a surface another process could read). This is a plain HTTP call —
-   declare the attachment, upload its bytes, post the message with it
-   attached — verified live against the real API with no
-   dependency on a connected live adapter or the cron scheduler's fire-claim
-   machinery, the two things the other two paths both stood on. Omit `--pdf`
-   only when `render_edition.py` produced no PDF (weasyprint absent or the
-   write failed) — pointing `--pdf` at a file that does not exist is refused
-   by name, not silently ignored, so never pass it speculatively.
+   Omit `--pdf` only when `render_edition.py` produced no PDF (weasyprint
+   absent or the write failed) — then pass the chat text on stdin. Pointing
+   `--pdf` at a file that does not exist is refused by name.
    `PLOW_API_BASE`, `PLOW_HOME_CHANNEL` and `PLOW_AGENT_TOKEN` come from the
    process environment already; nothing to pass for those.
 
-   Still also return that same text (with a `MEDIA:<path>` line prepended)
-   as your final response — the explicit `post_to_chat.py` call is the
-   reliable leg, the passive `--deliver` relay is a second, harmless attempt
-   at the same content if it lands too; never a reason to send a different
-   or shortened version through either path.
+   **Final response is `NO_REPLY` and nothing else.** The cron job still
+   carries `--deliver`, and a final response that is the chat transcript
+   would send the text a second time (or as a second message). `NO_REPLY`
+   is the token the gateway already treats as silence. Never return the
+   renderer’s chat output as the turn’s last line once the PDF has posted.
 3. **Mark every topic the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered

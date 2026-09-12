@@ -16,7 +16,8 @@ ld-dashboard's register_crons.py holds for jobs.json).
 
 Subcommands:
   add      --text TEXT --kind {one_off,subscription,section,assignment}
-           --depth {quick,deep} [--run-on YYYY-MM-DD] [--scheduled-for ISO8601]
+           --depth {quick,deep} [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
+           [--scheduled-for ISO8601]
   cancel   <id>            any topic the owner says stop on
   mark     <id> --status {pending,running,delivered} [--at ISO8601]
   list     [--kind K]      prints the topics array as JSON
@@ -24,6 +25,11 @@ Subcommands:
 `--run-on` is the date a `section`/`assignment` belongs to the paper:
 required for `assignment` (the one day its result appears) and refused for
 every other kind. Strict `YYYY-MM-DD`, never a parsed guess.
+
+`--deliver-at` is the container-local `HH:MM` a `section` belongs to a
+different paper than the main daily edition. Required for nothing: absent
+means the section rides the main paper at `delivery.hour`. Refused for
+every kind except `section`. Same `HH:MM` shape as `delivery.hour`.
 
 Every mutating subcommand prints a JSON envelope with the affected topic.
 Exit status is non-zero on any refusal, and the refusal names the reason.
@@ -60,6 +66,7 @@ DEPTHS = ("quick", "deep")
 STATUSES = ("pending", "running", "delivered", "cancelled")
 ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+DELIVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 
 
 def home():
@@ -149,9 +156,31 @@ def checked_run_on(args):
     return None
 
 
+def checked_deliver_at(args):
+    """The strict HH:MM paper hour, or a refusal naming why.
+
+    A section without one rides the main daily paper. Any other kind with
+    one is an hour nothing reads -- refuse rather than store a slot that
+    would never fire.
+    """
+    raw = (getattr(args, "deliver_at", None) or "").strip()
+    if args.kind != "section":
+        if raw:
+            sys.exit(
+                f"error: --deliver-at is only meaningful for a section, not a {args.kind}"
+            )
+        return None
+    if not raw:
+        return None
+    if not DELIVER_AT_RE.fullmatch(raw):
+        sys.exit(f"error: --deliver-at {raw!r} is not a strict HH:MM hour")
+    return raw
+
+
 def cmd_add(args):
     topics = load_topics()
     run_on = checked_run_on(args)
+    deliver_at = checked_deliver_at(args)
     topic = {
         "id": new_id(topics),
         "text": args.text.strip(),
@@ -169,13 +198,18 @@ def cmd_add(args):
     # like a dated one-day item.
     if run_on is not None:
         topic["run_on"] = run_on
+    # Timed papers: omit the key when the section rides the main edition,
+    # so a main-paper section never looks like it owns a second slot.
+    if deliver_at is not None:
+        topic["deliver_at"] = deliver_at
     if not topic["text"]:
         sys.exit("error: --text is required and may not be blank")
     topics.append(topic)
     save_topics(topics)
     print(json.dumps({"added": topic["id"], "kind": topic["kind"],
                       "depth": topic["depth"], "status": topic["status"],
-                      "run_on": topic.get("run_on")}))
+                      "run_on": topic.get("run_on"),
+                      "deliver_at": topic.get("deliver_at")}))
     return 0
 
 
@@ -245,6 +279,10 @@ def main(argv=None):
                        help="YYYY-MM-DD; assignment only (the day it appears)")
     p_add.add_argument("--scheduled-for", default=None,
                        help="ISO8601 moment the one-off is scheduled to run")
+    p_add.add_argument(
+        "--deliver-at", default=None,
+        help="HH:MM; section only (a paper other than the main daily edition)",
+    )
     p_add.set_defaults(func=cmd_add)
 
     p_cancel = sub.add_parser("cancel", help="stop watching a topic")
