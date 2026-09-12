@@ -1,6 +1,6 @@
 ---
 name: pt-setup
-description: First-run interview over chat — confirm the timezone, settle the delivery hour, ask about a printer and probe it once through Latch before trusting the answer — writing pt/config.json as each answer lands and validating it with the pt-config gate. Use in the owner's solo DM while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never in a group, never in someone else's DM, and never to change one already-stored setting.
+description: First-run interview over chat — confirm the timezone, settle the delivery hour, ask about a printer and probe it once through Latch before trusting the answer, ask whether today's mail should join as a letters desk — writing pt/config.json as each answer lands and validating it with the pt-config gate. Use in the owner's solo DM while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never in a group, never in someone else's DM, and never to change one already-stored setting.
 ---
 
 # pt-setup — the first conversation
@@ -8,7 +8,9 @@ description: First-run interview over chat — confirm the timezone, settle the 
 This is a conversation, not a form, and `/var/lib/hermes/pt/config.json` is
 the only record of how far it got. Read it first, every time, and continue
 from the first key missing: `owner.timezone`, `delivery.hour`,
-`printer.configured`. Never re-ask something it already holds — a resumed
+`printer.configured`. (`mail.configured` is asked in this interview too,
+but a missing mail key is a valid older install — treat it as false, do
+not restart setup for it.) Never re-ask something it already holds — a resumed
 session that asks the timezone twice is the failure this file exists to
 prevent.
 
@@ -25,7 +27,8 @@ step calls for.
 **Changing one setting later** is not this skill: a different delivery hour,
 **a second (or third) daily delivery time** (`delivery.extra_hours`, a list
 of "HH:MM" strings alongside `delivery.hour` — same conversion recipe above,
-run once per additional time the owner names), or a new printer is a
+run once per additional time the owner names), **turning the letters desk
+on or off** (`mail.configured`), or a new printer is a
 one-line conversation that updates `pt/config.json` directly, re-runs the
 gate, and then re-runs
 `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so the
@@ -101,14 +104,31 @@ nightly run. The probe:
   delivers in chat — printing joins automatically if a printer shows up
   later (that is the changing-one-setting path, plus a re-probe).
 
-**3. The paper's sections (optional).** Ask what they want in their paper
-every day — "the weather, the dollar, sports news", anything. This is the one
-question with no required answer: an empty paper is a valid install, and
-they can add sections later in chat. Take each thing they name as a `section`
+**3. The letters desk.** Ask whether the paper should carry today's mail
+(a letters column: sender and subject, not full bodies). Weather and
+calendar always run; mail is opt-in. Whatever they answer, **probe once
+through Latch before writing `mail.configured: true`**:
+
+```json
+{ "command": ["osascript", "-e", "tell application \"Mail\" to get name"] }
+```
+
+- They said yes and Mail answers: write `mail.configured: true`.
+- They said no, Mail is locked, or the Mac is unreachable: write
+  `mail.configured: false` and say the letters column can join later the
+  same way a printer does. Never invent an inbox.
+
+**4. The news sections (optional).** Ask what they want on the news desk
+every day — "the dollar, sports news", anything. Weather and the diary
+already have their own departments; do not also add a "weather" news
+section unless they insist on a second, different weather beat. This is
+the one question with no required answer: a paper of only weather and
+calendar is a valid install, and they can add news sections later in chat.
+Take each thing they name as a `section`
 topic via `pt-intake`'s writer (`topics.py add --kind section --depth quick`),
-in the order they say it — that order is the paper's order. If they name more
+in the order they say it — that order is the news desk's order. If they name more
 than eight, take the first eight and say the cap; the daily run researches
-every section in one session and eight is the honest ceiling. Never invent a
+every news section in one session and eight is the honest ceiling. Never invent a
 section they did not ask for.
 
 ## Writing and proving the config
@@ -124,14 +144,14 @@ prints is an invariant you have not satisfied yet — fix it before the next
 question, not after the interview. The example shape lives beside the gate
 at `pt-shared/references/config.example.json`.
 
-When all three keys are in and the gate is silent, setup is done — and if
-they named any sections, run `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py`
+When all three keys are in and the gate is silent, setup is done — run
+`/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py`
 once as setup's closing bring-up step so `pt-daily-edition` exists the
-moment setup ends; paste its output and report its exit status. This is the
+moment setup ends (the paper always has weather and calendar, even with
+zero news sections); paste its output and report its exit status. This is the
 one cron registration a setup turn may do (it is the reviewed bring-up
-script, not a hand-built schedule). If they named no sections, skip it — the
-job is created by the first intake that adds a section or an assignment.
+script, not a hand-built schedule).
 
 Then say so in one line — the timezone, the hour, whether the paper will
-print, and that their sections are in — and invite the first topic. A first
-research job is still pt-intake's, not this skill's.
+print, whether letters join, and that their news sections are in — and invite
+the first topic. A first research job is still pt-intake's, not this skill's.

@@ -7,7 +7,9 @@
 
   This file is deliberately plain: inline CSS, no external assets, no
   JavaScript. The renderer (scripts/render_edition.py) substitutes five
-  placeholders and escapes every value it inserts, so a page from the web
+  placeholders (MASTHEAD, DATE, LOCATION, PAGE_CLASS, SECTIONS, WEATHER,
+  CALENDAR, MAIL, and SIDEBAR for older templates) and escapes every value
+  it inserts, so a page from the web
   can never inject markup here. Keep it that way: a script tag or an inline
   event attribute makes the Chrome-on-Mac PDF fallback execute untrusted
   content on the owner's machine.
@@ -18,106 +20,173 @@
   survive redeploys: the deploy hook copies a skill into the agent's home
   only when absent.
 
-  Retro-newspaper layout: {{SECTIONS}} is every section NOT marked
-  layout:"sidebar" in edition.json, laid out as a two-up grid of story
-  columns; {{SIDEBAR}} is every section marked layout:"sidebar" (the
-  weather box, say), laid out as a single fixed-width rail with a
-  high-contrast header bar. {{PAGE_CLASS}} is "page" normally, or
-  "page page--no-sidebar" when no section opted into the sidebar that day
-  -- the CSS below collapses the rail rather than leaving an empty column.
+  Newspaper layout on a white sheet: each story and each standing desk is
+  a bordered card. News and the standing desks are SEPARATE page slots, not one
+  mixed sidebar: {{SECTIONS}} is the news desk only (two-up columns that
+  WeasyPrint paginates onto page 2+ when they overflow a Letter sheet);
+  {{WEATHER}}, {{CALENDAR}} and {{MAIL}} are each their own boxed
+  department in a third column. {{LOCATION}} is this run's city from Latch,
+  or "One copy" if unknown. {{PAGE_CLASS}} is "page" when any desk has
+  copy, or "page page--no-desks" when the rail is empty.
+
+  display:table, not grid and not float+multicol: both were measured live
+  and broken in weasyprint's paginated engine -- grid lost whole columns of
+  content across page breaks, and a float beside a multicol block let the
+  second text column overlap the float instead of wrapping around it.
+  table-cell is the old, boring, print-stable way to reserve two real
+  side-by-side regions; multicol only ever applies INSIDE the news cell.
+  Overflow: the table row fragments across pages; news columns use
+  column-fill:auto so leftover stories continue on the next sheet; each
+  desk box stays intact (break-inside:avoid) and the next desk can start
+  on the following page rather than splitting a box in half.
 -->
 <style>
-  @page { size: Letter; margin: 16mm 14mm; }
+  @page { size: Letter; margin: 10mm 11mm; background: #fff; }
   * { box-sizing: border-box; }
+  html { background: #fff; }
   body {
-    font-family: Georgia, "Times New Roman", serif;
-    color: #111; margin: 0; line-height: 1.4; font-size: 13px;
+    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+    color: #111;
+    margin: 0;
+    line-height: 1.38;
+    font-size: 12.5px;
+    background: #fff;
+    padding: 8px 4px 10px;
   }
 
   /* -- Masthead ------------------------------------------------------- */
-  header { text-align: center; padding-bottom: 6px; }
+  header { text-align: center; padding: 2px 0 0; }
   .masthead {
-    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 46px; font-weight: 900; letter-spacing: 1px;
+    font-family: "Bodoni MT", Didot, "Playfair Display", "Times New Roman", Georgia, serif;
+    font-size: 54px; font-weight: 900; letter-spacing: 0.5px;
     margin: 0; text-transform: uppercase;
+    line-height: 0.88;
   }
-  .rule-thick { border: none; border-top: 4px solid #111; margin: 6px 0 2px; }
+  .rule-double {
+    border: none; border-top: 3px solid #111; border-bottom: 1px solid #111;
+    height: 4px; margin: 4px 0 0;
+  }
   .rule-thin  { border: none; border-top: 1px solid #111; margin: 0; }
   .dateline {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
-    color: #111; padding: 5px 0; border-bottom: 4px solid #111;
-    margin-bottom: 16px;
+    display: table; width: 100%; table-layout: fixed;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: #111; padding: 5px 0 6px;
+    border-bottom: 2px solid #111;
+    margin-bottom: 12px;
   }
-  .dateline .bar { flex: 1; border-top: 1px solid #111; }
+  .dateline span { display: table-cell; vertical-align: middle; }
+  .dateline .meta-left { text-align: left; letter-spacing: 1px; }
+  .dateline .meta-center { text-align: center; font-weight: 700; letter-spacing: 2.4px; }
+  .dateline .meta-right { text-align: right; letter-spacing: 1px; }
 
-  /* -- Page layout: story columns + a fixed sidebar rail ---------------
-     display:table, not grid and not float+multicol: both were measured
-     live and broken in weasyprint's paginated engine -- grid lost whole
-     columns of content across page breaks, and a float beside a multicol
-     block let the second text column overlap the float instead of
-     wrapping around it. table-cell is the old, boring, print-stable way
-     to reserve two real side-by-side regions; multicol only ever applies
-     INSIDE one cell, never across the boundary, so it can't leak into the
-     other cell the way it did against a float. */
+  /* -- Page layout: news columns | desks column ----------------------- */
   .page { display: table; width: 100%; table-layout: fixed; }
-  .main-col-wrap { display: table-cell; vertical-align: top; padding-right: 22px; }
-  .sidebar { display: table-cell; vertical-align: top; width: 190px; }
-  .page--no-sidebar .sidebar { display: none; }
-  .page--no-sidebar .main-col-wrap { padding-right: 0; }
+  .main-col-wrap { display: table-cell; vertical-align: top; padding-right: 12px; }
+  .desks {
+    display: table-cell; vertical-align: top; width: 200px;
+  }
+  .page--no-desks .desks { display: none; }
+  .page--no-desks .main-col-wrap { padding-right: 0; }
+  .desk-slot:empty { display: none; }
+  .desk-slot + .desk-slot { margin-top: 10px; }
 
   .main-col {
-    column-count: 2; column-gap: 22px;
+    column-count: 2; column-gap: 12px;
+    column-fill: auto;
+  }
+  .page--no-desks .main-col {
+    column-count: 3; column-gap: 12px;
   }
 
-  /* -- Story blocks (main column) --------------------------------------- */
+  /* Lead story: full-width card across the news columns, page 1. */
+  .main-col > .section:first-child {
+    column-span: all;
+    margin-bottom: 10px;
+    padding: 12px 14px 10px;
+    break-after: avoid-page;
+  }
+  .main-col > .section:first-child h2 {
+    font-size: 26px; letter-spacing: -0.4px; line-height: 1.05;
+  }
+  .main-col > .section:first-child p { font-size: 13px; }
+
+  /* -- Story cards (news columns) --------------------------------------- */
   .section {
-    border-top: 3px solid #111; padding: 8px 0 4px;
+    border: 1.5px solid #111;
+    background: #fff;
+    padding: 10px 11px 8px;
+    margin: 0 0 10px;
     break-inside: avoid-column; -webkit-column-break-inside: avoid;
+    orphans: 3; widows: 3;
   }
   .section h2 {
-    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 16px; font-weight: 900; line-height: 1.15;
+    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+    font-size: 15px; font-weight: 800; line-height: 1.12;
     text-transform: uppercase; margin: 0 0 4px;
+    letter-spacing: 0.2px;
+    break-after: avoid;
   }
   .headline {
-    font-size: 12px; font-weight: 700; font-style: italic;
-    margin: 0 0 7px; color: #333;
+    font-size: 11.5px; font-weight: 700; font-style: italic;
+    margin: 0 0 6px; color: #111;
   }
-  .section p { margin: 0 0 6px; font-size: 12.5px; }
+  .section p {
+    margin: 0 0 6px; font-size: 11.5px;
+    text-align: justify; hyphens: auto; -webkit-hyphens: auto;
+  }
   .tag {
-    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-    font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
-    background: #111; color: #fff; padding: 2px 6px; vertical-align: middle;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 8px; text-transform: uppercase; letter-spacing: 1px;
+    background: #111; color: #fff; padding: 1px 5px; vertical-align: middle;
     margin-left: 6px; white-space: nowrap;
   }
-  .sources { font-size: 10px; color: #555; word-break: break-all; }
+  .sources { font-size: 9px; color: #555; word-break: break-all; text-align: left; }
   .sources a { color: #555; }
-  .unsourced { font-size: 11px; font-style: italic; color: #666; }
+  .unsourced { font-size: 10px; font-style: italic; color: #666; text-align: left; }
 
-  /* -- Sidebar rail: boxed, high-contrast, same every day -------------- */
-  .sidebar { display: flex; flex-direction: column; gap: 14px; }
-  .section--sidebar {
-    border: 2px solid #111; padding: 0; break-inside: avoid;
+  /* -- Desk cards: one bordered department per slot ------------------- */
+  .section--desk {
+    padding: 0;
+    break-inside: avoid; page-break-inside: avoid;
   }
-  .section--sidebar h2 {
-    background: #111; color: #fff; margin: 0; padding: 7px 8px;
-    font-size: 13px; letter-spacing: 0.5px;
+  .section--desk h2 {
+    background: #111; color: #fff; margin: 0; padding: 7px 10px 6px;
+    font-size: 11px; letter-spacing: 1.4px;
+    border-bottom: 1.5px solid #111;
   }
-  .section--sidebar .headline,
-  .section--sidebar p,
-  .section--sidebar .sources,
-  .section--sidebar .unsourced { padding: 0 8px; }
-  .section--sidebar .headline { margin-top: 8px; }
-  .section--sidebar p:last-of-type { margin-bottom: 8px; }
-  .section--sidebar .sources,
-  .section--sidebar .unsourced { padding-bottom: 8px; }
+  .section--desk .headline,
+  .section--desk p,
+  .section--desk .sources,
+  .section--desk .unsourced { padding: 0 10px; }
+  .section--desk .headline { margin-top: 8px; }
+  .section--desk p:last-of-type { margin-bottom: 8px; }
+  .section--desk .sources,
+  .section--desk .unsourced { padding-bottom: 8px; }
 
   footer {
-    margin-top: 16px; border-top: 4px solid #111; padding-top: 6px;
-    text-align: center; font-size: 9px; letter-spacing: 0.5px;
-    text-transform: uppercase; color: #777;
+    margin-top: 12px;
+    border: 1.5px solid #111;
+    background: #fff;
+    padding: 10px 12px 8px;
+    text-align: center;
+    font-size: 10px; letter-spacing: 0.6px;
+    text-transform: uppercase; color: #111;
+    break-inside: avoid;
+  }
+  footer .ad-kicker {
+    display: block; font-size: 8px; letter-spacing: 2.4px;
+    margin-bottom: 2px;
+  }
+  footer .ad-line {
+    display: block;
+    font-family: "Bodoni MT", Didot, "Times New Roman", Georgia, serif;
+    font-size: 22px; font-weight: 900; letter-spacing: 1px;
+    line-height: 1; text-transform: uppercase;
+  }
+  footer .ad-sub {
+    display: block; margin-top: 4px; font-size: 9px;
+    letter-spacing: 0.4px; text-transform: none; font-style: italic;
   }
 </style>
 </head>
@@ -125,8 +194,12 @@
   <header>
     <h1 class="masthead">{{MASTHEAD}}</h1>
   </header>
-  <hr class="rule-thick">
-  <div class="dateline"><span class="bar"></span>{{DATE}}<span class="bar"></span></div>
+  <hr class="rule-double">
+  <div class="dateline">
+    <span class="meta-left">Vol. 1 &mdash; No. 1</span>
+    <span class="meta-center">{{DATE}}</span>
+    <span class="meta-right">{{LOCATION}}</span>
+  </div>
 
   <div class="{{PAGE_CLASS}}">
     <div class="main-col-wrap">
@@ -134,13 +207,13 @@
 {{SECTIONS}}
       </div>
     </div>
-    <aside class="sidebar">
-{{SIDEBAR}}
-    </aside>
+    <aside class="desks">{{WEATHER}}{{CALENDAR}}{{MAIL}}</aside>
   </div>
 
   <footer>
-    Researched overnight and delivered to its reader alone. Every claim carries its source.
+    <span class="ad-kicker">The evening paper</span>
+    <span class="ad-line">Researched overnight</span>
+    <span class="ad-sub">Delivered to its reader alone. Every claim carries its source.</span>
   </footer>
 </body>
 </html>

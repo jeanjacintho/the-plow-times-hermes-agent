@@ -69,6 +69,22 @@ class TestValidate:
         }])
         assert "layout is not main|sidebar" in render.validate(bad)
 
+    def test_desk_must_be_known(self):
+        bad = edition(sections=[{
+            "kind": "section", "title": "x", "body": "y", "desk": "sports",
+        }])
+        assert "desk" in render.validate(bad)
+
+    def test_desk_optional(self):
+        assert render.validate(edition()) == ""
+        assert render.validate(edition(sections=[{
+            "kind": "section", "title": "x", "body": "y", "desk": "weather",
+        }])) == ""
+
+    def test_location_must_be_a_string_when_present(self):
+        bad = edition(location=12)
+        assert "location is not a string" in render.validate(bad)
+
     def test_layout_optional(self):
         assert render.validate(edition()) == ""
         assert render.validate(edition(sections=[{
@@ -179,25 +195,109 @@ class TestHtml:
         assert "<b>headline</b>" not in page
         assert "&lt;b&gt;headline&lt;/b&gt;" in page
 
-    TEMPLATE = "{{PAGE_CLASS}}|{{SECTIONS}}|{{SIDEBAR}}"
+    TEMPLATE = "{{PAGE_CLASS}}|{{SECTIONS}}|{{WEATHER}}|{{CALENDAR}}|{{MAIL}}|{{SIDEBAR}}"
 
-    def test_sidebar_section_goes_to_the_sidebar_slot(self):
+    def split_slots(self, page):
+        return page.split("|", 5)
+
+    def test_news_stays_in_the_news_slot(self):
         data = edition(sections=[
             {"kind": "section", "title": "News", "body": "y", "sources": []},
-            {"kind": "section", "title": "Weather", "layout": "sidebar", "body": "z", "sources": []},
+            {"kind": "section", "title": "Weather", "layout": "sidebar", "body": "z",
+             "sources": []},
         ])
         page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
-        page_class, main_html, sidebar_html = page.split("|", 2)
-        assert page_class == "page"
-        assert "News" in main_html and "Weather" not in main_html
-        assert "Weather" in sidebar_html and "News" not in sidebar_html
-        assert 'class="section section--sidebar"' in sidebar_html
+        page_class, main_html, weather, calendar, mail, desks = self.split_slots(page)
+        assert page_class == "page page--no-desks"
+        assert "News" in main_html and "Weather" in main_html
+        assert weather == "" and calendar == "" and mail == ""
+        assert desks == ""
 
-    def test_no_sidebar_section_collapses_the_rail(self):
+    def test_no_desks_collapses_the_rail(self):
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, self.TEMPLATE)
-        page_class, _main_html, sidebar_html = page.split("|", 2)
-        assert page_class == "page page--no-sidebar"
-        assert sidebar_html == ""
+        page_class, _main, weather, calendar, mail, desks = self.split_slots(page)
+        assert page_class == "page page--no-desks"
+        assert weather == calendar == mail == desks == ""
+
+    def test_weather_desk_has_its_own_slot(self):
+        data = edition(sections=[
+            {"kind": "section", "title": "Dollar", "desk": "news", "body": "up",
+             "sources": []},
+            {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain",
+             "sources": []},
+        ])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
+        page_class, main_html, weather, calendar, mail, desks = self.split_slots(page)
+        assert page_class == "page"
+        assert "Dollar" in main_html and "Weather" not in main_html
+        assert "Weather" in weather and "section--weather" in weather
+        assert "Dollar" not in weather
+        assert calendar == "" and mail == ""
+        assert "Weather" in desks
+
+    def test_each_desk_is_a_separate_field(self):
+        data = edition(sections=[
+            {"kind": "section", "title": "News", "desk": "news", "body": "n",
+             "sources": []},
+            {"kind": "section", "title": "Mail", "desk": "mail", "body": "m",
+             "sources": []},
+            {"kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+             "sources": []},
+            {"kind": "section", "title": "Diary", "desk": "calendar", "body": "c",
+             "sources": []},
+        ])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
+        _cls, main_html, weather, calendar, mail, _desks = self.split_slots(page)
+        assert "News" in main_html
+        assert "Weather" in weather and "Diary" not in weather and "Mail" not in weather
+        assert "Diary" in calendar and "Weather" not in calendar
+        assert "Mail" in mail and "Diary" not in mail
+        assert "News" not in weather + calendar + mail
+
+    def test_empty_desk_emits_no_card(self):
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD,
+                                  "{{WEATHER}}|{{CALENDAR}}|{{MAIL}}")
+        assert page == "||"
+
+    def test_desks_render_in_newspaper_order(self):
+        data = edition(sections=[
+            {"kind": "section", "title": "News", "desk": "news", "body": "n",
+             "sources": []},
+            {"kind": "section", "title": "Mail", "desk": "mail", "body": "m",
+             "sources": []},
+            {"kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+             "sources": []},
+            {"kind": "section", "title": "Diary", "desk": "calendar", "body": "c",
+             "sources": []},
+        ])
+        text = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        weather_at = text.index("Weather")
+        diary_at = text.index("Diary")
+        mail_at = text.index("Mail")
+        news_at = text.index("News")
+        assert weather_at < diary_at < mail_at < news_at
+
+    def test_location_in_header_and_placeholder(self):
+        data = edition(location="Sao Paulo")
+        text = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert text.startswith("THE PLOW TIMES \u2014 Sep 11, 2026 \u2014 Sao Paulo")
+        page = render.render_html(data, "The Daily", "{{LOCATION}}|{{SECTIONS}}")
+        assert page.startswith("Sao Paulo|")
+
+    def test_blank_paragraphs_split(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "Diary", "desk": "calendar",
+            "body": "Today: dentist at 9.\n\nUpcoming: flight on Friday.",
+            "sources": ["Calendar.app"],
+        }])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
+        assert "Today: dentist at 9." in page
+        assert "Upcoming: flight on Friday." in page
+        assert "<a href=" not in page
+
+    def test_http_sources_still_link(self):
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{SECTIONS}}")
+        assert 'href="https://example.com/weather"' in page
 
 
 class TestMain:

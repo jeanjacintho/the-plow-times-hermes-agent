@@ -27,6 +27,7 @@ does not, and every run fails on the import.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition
 - `references/config.example.json` — the config contract `pt_config_gate.py`
-  enforces (including the optional `delivery.lead_minutes`, default 45)
+  enforces (including the optional `delivery.lead_minutes`, default 45, and
+  optional `mail.configured`, default off)
 - `references/latch-delivery.md` — how the printed edition reaches the owner's
   printer over Latch (the print path's "NOT DELIVERED" sheet)

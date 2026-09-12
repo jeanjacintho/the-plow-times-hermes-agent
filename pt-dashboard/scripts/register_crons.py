@@ -129,14 +129,19 @@ def daily_prompt(lock_name):
         f"Run the daily edition now, in one session. First run pt-shared's "
         f"run_lock.py acquire --name {lock_name}-<today's date in the owner's "
         f"zone> --stale-minutes 120; if its output is 'held', another run owns "
-        f"this slot -- say NO_REPLY and stop. Then run pt-research over every "
-        f"active section and every assignment with run_on <= today, writing "
-        f"each topic's notes. Then run pt-edition for the batch -- it compiles "
-        f"edition.json from those notes, renders it (--pdf, then "
+        f"this slot -- say NO_REPLY and stop. Then run pt-research: first the "
+        f"standing desks (location via Latch then weather; calendar today and "
+        f"upcoming; mail only if pt/config.json has mail.configured true), "
+        f"then every active news section and every assignment with run_on <= "
+        f"today, writing each topic's notes and desk notes under run/desk-*. "
+        f"Then run pt-edition for the batch -- it compiles edition.json from "
+        f"those notes (weather, calendar, mail, then news, each as its own "
+        f"desk), renders it (--pdf, then "
         f"post_to_chat.py per pt-edition/SKILL.md step 2 -- do not skip the "
         f"PDF leg just because this is a rerun), and returns the chat edition "
-        f"as the final response. Mark every topic it carried: sections "
-        f"delivered then pending, assignments delivered. Release the lock "
+        f"as the final response. Mark every news topic it carried: sections "
+        f"delivered then pending, assignments delivered. Do not mark desks. "
+        f"Release the lock "
         f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>."
     )
 
@@ -328,19 +333,13 @@ def daily_schedule(delivery_hour, lead_minutes):
 
 
 def has_paper(topics):
-    """True when the daily paper has anything to carry.
+    """The daily paper always exists once setup can register crons.
 
-    A section is evergreen (pending, running or delivered all count); an
-    assignment only counts while it can still appear (pending or running --
-    a crashed run leaves it running on purpose, and the next edition must
-    still exist to carry it late). Cancelled and delivered assignments are
-    done, and must not keep the job alive forever.
+    Weather and calendar desks run even with zero news sections; mail joins
+    when configured. Topics only add news blocks. `topics` is unused and
+    kept so callers and tests stay the same shape.
     """
-    return any(
-        (t["kind"] == "section" and t["status"] != "cancelled")
-        or (t["kind"] == "assignment" and t["status"] in ("pending", "running"))
-        for t in topics
-    )
+    return True
 
 
 def daily_job(delivery_hour, lead_minutes, env=None, *, name=DAILY_NAME, lock_name="daily"):
@@ -414,7 +413,7 @@ def stale_names(topics, registered, extra_hours_count=0):
         extra_match = _EXTRA_DAILY_RE.fullmatch(name)
         if extra_match is not None:
             n = int(extra_match.group("n"))
-            if not has_paper(topics) or n > extra_hours_count + 1:
+            if n > extra_hours_count + 1:
                 stale.append(name)
             continue
         # One shape to match, pinned exactly: pt-subscription-t_9f2a or

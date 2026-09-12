@@ -20,7 +20,7 @@ requirement this repo does not carry):
   - Never prints PII. There is none by design: the config holds a timezone, a
     delivery hour, and whether a printer exists.
 
-The eight checks:
+The nine checks:
   1. owner.timezone must contain a non-whitespace char. register_crons.py
      refuses to register unless the container's TZ equals it, and SOUL.md
      routes first-run onboarding from the keys' presence -- a blank one
@@ -55,12 +55,16 @@ The eight checks:
      is valid: an install that predates this field, or one where the owner
      has only ever written in one language pt-intake hasn't needed to
      record yet, defaults elsewhere (pt-edition) rather than failing here.
-  8. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
+  8. mail.configured, when the mail object is present, must be a boolean.
+     Absent mail is valid and means the letters desk is off -- this agent
+     does not invent an inbox. True means the daily paper reads today's
+     mail through Latch (Mail.app on the Mac); false is an explicit no.
+  9. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
 
 The owner's name, location, or any other personal fact is deliberately not
-among the checks, and not in the schema at all: this agent holds nothing
-durable beyond the topics the owner gave it, these delivery preferences,
-and the language they write in (design doc §2).
+among the checks, and not in the schema: location is fetched each run via
+Latch and printed that day, never stored here. The durable record is still
+the topics, these delivery preferences, language, and whether mail is on.
 """
 import json
 import re
@@ -177,7 +181,15 @@ def gate(config):
     if language is not None and not _nonblank(language):
         failures.append("owner.language is blank")
 
-    # 8. no leftover [UPPER_SNAKE] placeholder anywhere.
+    # 8. mail.configured, when mail is present, is a boolean. Absent mail
+    #    is an unconfigured letters desk -- the daily paper skips it.
+    mail = _index(config, "mail")
+    if mail is not None:
+        mail_configured = _index(mail, "configured")
+        if not isinstance(mail_configured, bool):
+            failures.append("mail.configured is not a boolean")
+
+    # 9. no leftover [UPPER_SNAKE] placeholder anywhere.
     if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):
         failures.append("an unfilled [UPPER_SNAKE] placeholder remains")
 

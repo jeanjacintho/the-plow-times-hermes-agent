@@ -1,6 +1,6 @@
 ---
 name: pt-research
-description: One budget-bounded research pass — for a single topic, or for the daily paper's whole batch of active sections plus assignments due today — driving the owner's Mac browser through Latch's plow_browser_* tools, producing structured sourced notes per topic. Runs only in a cron-fired session -- never in a live chat turn. Stops at the budget, not when it feels done.
+description: One budget-bounded research pass — for a single topic, or for the daily paper (standing desks plus news sections and assignments due today) — driving the owner's Mac through Latch (plow_run_command for location/calendar/mail, plow_browser_* for the web), producing structured sourced notes. Runs only in a cron-fired session -- never in a live chat turn. Stops at the budget, not when it feels done.
 ---
 
 # pt-research — gather sourced notes within the budget
@@ -27,7 +27,11 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
 
 ## The loop
 
-1. Read the topic (or each topic of the batch) from `pt/topics.json` (the id
+0. **Daily batch only — standing desks first.** Follow
+   `pt-research/references/desks.md` before any news topic: location via
+   Latch, then weather in the browser; calendar today and upcoming; mail
+   only if configured. Flush each desk's notes as you go.
+1. Read the topic (or each news topic of the batch) from `pt/topics.json` (the id
    is in your prompt). Mark it running first:
    `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py mark <id> --status running`. If it is
    already `running`, another run is working on it — skip it rather than
@@ -71,13 +75,21 @@ rules make that survivable in one session:
   is researched fresh every day, so depth there would multiply the run's wall
   clock by the section count. Only an assignment the owner explicitly asked
   to be "properly" done runs `deep`.
+- **Standing desks run first, every daily batch, and they are not topics.**
+  Follow `pt-research/references/desks.md`: location via Latch then weather;
+  calendar (today and upcoming); mail only if `mail.configured` is true.
+  Notes at `run/desk-weather/notes.json`, `run/desk-calendar/notes.json`,
+  `run/desk-mail/notes.json`. Do not `topics.py mark` a desk.
 - **The batch budget is global, and the per-topic budget is a slice of it.**
   Keep a running total: when the batch budget is spent, stop starting new
   topics and write down what each one got. The edition ships with what was
   found — a section that got nothing says so — it never runs over to finish.
+  Desks take a thin slice (they are local Latch reads plus one weather
+  search), then news sections share the rest.
 
 Notes go to each topic's own `run/<topic_id>/notes.json`, flushed as you go,
-so a session that dies halfway keeps every topic it finished.
+so a session that dies halfway keeps every topic it finished. Desk notes
+flush the same way.
 
 ## Rules that are not negotiable
 
@@ -105,8 +117,9 @@ so a session that dies halfway keeps every topic it finished.
 
 ## When you finish — close the browser
 
-Once every topic in the batch has its notes written (or the budget ran out),
-close the session you opened in step 2 with `plow_browser_close`. This is
+Once every desk and every topic in the batch has its notes written (or the
+budget ran out), close the session you opened in step 2 with
+`plow_browser_close`. This is
 not optional cleanup: the browser runs on the owner's own Mac, so a tab left
 open after a `quick` pass or a nightly batch is a window sitting on their
 screen indefinitely, and the next research pass opens another one on top of

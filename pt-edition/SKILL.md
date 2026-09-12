@@ -17,15 +17,32 @@ HTML.** Hand-write `edition.json` under the run directory:
 ```json
 {
   "date": "2026-09-11",
+  "location": "Sao Paulo",
   "sections": [
-    { "kind": "section", "topic_id": "t_8c1d",
-      "title": "Weather in Sao Paulo",
+    { "kind": "section", "desk": "weather",
+      "title": "Weather",
       "headline": "Rain in the afternoon",
-      "layout": "sidebar",
+      "body": "3–6 sentences from desk-weather notes, city named.",
+      "sources": ["https://…"],
+      "could_not_source": [] },
+    { "kind": "section", "desk": "calendar",
+      "title": "Calendar",
+      "headline": "Two meetings before noon",
+      "body": "Today: …\n\nUpcoming: …",
+      "sources": ["Calendar.app"] },
+    { "kind": "section", "desk": "mail",
+      "title": "Letters",
+      "headline": "Three messages overnight",
+      "body": "Sender — subject. Sender — subject.",
+      "sources": ["Mail.app"] },
+    { "kind": "section", "topic_id": "t_8c1d", "desk": "news",
+      "title": "The dollar",
+      "headline": "The real headline",
       "body": "3–6 sentences, every one traceable to a note.",
       "sources": ["https://…"],
       "could_not_source": ["…"] },
     { "kind": "assignment", "topic_id": "t_3f2a", "run_on": "2026-09-11",
+      "desk": "news",
       "title": "iPhone 15 price",
       "body": "…", "sources": ["https://…"],
       "tag": "special for this edition",
@@ -57,17 +74,31 @@ HTML.** Hand-write `edition.json` under the run directory:
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block
   it qualifies. Unsourced claims are named, not hidden.
-- **`layout` is optional, `"main"` (the default) or `"sidebar"`.** The
-  printed page (HTML/PDF only — the chat text ignores it and lists every
-  section in order regardless) puts every `"sidebar"` section in a boxed
-  rail beside the two-column news, and everything else in that news column.
-  Use it for the one section that should read as a fixed daily panel — the
-  weather, say — not for whichever section happens to feel important today;
-  no `"sidebar"` section at all is a normal, fully supported day and the
-  rail just doesn't appear.
+- **`desk` is the newspaper department, and each one is its own page
+  slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
+  `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"news"` (the default) →
+  `{{SECTIONS}}`. Same title / headline / body / sources shape in every
+  slot. The daily paper always includes weather and calendar from
+  `run/desk-*/notes.json`. Mail only when `pt/config.json` has
+  `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
+  otherwise omit the mail block entirely so that slot stays empty. Owner
+  `section` and `assignment` topics are always `"desk": "news"`. Do not put
+  a news topic on the weather desk to make it look important.
+- **Pagination is the renderer's job.** News that does not fit one Letter
+  sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
+  Each desk box stays whole; if the rail itself overflows, the next desk
+  starts on the following page. Never hand-split copy across pages.
+- **`location` is this run's city** from the Latch location step, a string,
+  optional. It is the dateline, not a stored profile: if location failed,
+  omit the field.
+- **`layout` is optional, `"main"` (the default) or `"sidebar"`.** Only news
+  blocks honor it — a news story the owner wanted as a boxed panel. Standing
+  desks ignore it; the renderer already puts them on the rail.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
   sentence ("nothing usable in the budget this time"), and what was tried.
+  A thin weather or calendar desk is still printed; it is a department of
+  the paper, not optional filler.
 
 ## Render and deliver
 
@@ -129,6 +160,8 @@ HTML.** Hand-write `edition.json` under the run directory:
      the run worked is expected, not an error**: the owner said stop at 6h20;
      the edition already left without it. Report it and carry on — do not
      crash the delivery over a valid cancellation.
+   - **Never mark a standing desk.** Weather, calendar and mail have no
+     topic id on purpose.
 4. **If `pt/config.json` says `printer.configured: true`, hand the print leg
    to `pt-print`.** That leg is separate from the PDF the chat already
    carried in step 2 (Latch printing needs the HTML, not the PDF) and is the

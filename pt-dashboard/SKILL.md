@@ -11,7 +11,7 @@ topic list:
 
 | job | schedule | notes |
 |---|---|---|
-| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 45) in the owner's zone, wraparound exact | one job; exists while at least one `section` topic is not cancelled OR one `assignment` is `pending`/`running`. This is the personalized paper: it researches every active section plus every assignment due, and delivers one edition |
+| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 45) in the owner's zone, wraparound exact | one job; exists as soon as setup can register (weather and calendar desks always run). Researches those desks, mail if configured, every active news section, and every assignment due, and delivers one edition |
 | `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | one per entry in `delivery.extra_hours` — the SAME paper, re-researched and re-delivered again at another hour the same day (e.g. a second edition at 10:30 besides the morning one). Numbered in list order; exists only alongside `pt-daily-edition` (no paper, no extra slots either) and only up to `len(delivery.extra_hours) + 1` — a slot the owner removed is pruned like any other stale job |
 | `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` (container TZ, both parts) | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-time, `now + 3m` (quick) or next `delivery.hour` (deep) | created by pt-intake at the scheduled minute; its own prompt self-removes it after firing — this script's sweep is the backstop |
@@ -64,12 +64,12 @@ delivery hour or lead, the prompt's contract moved — is removed and recreated.
 Without that, "already present, skipped" would mean a changed delivery hour
 is silently ignored forever. Drift is judged only against fields hermes
 actually persisted; an absent field is left alone, not recreated on a guess.
-It removes `pt-daily-edition` (and every `pt-daily-edition-<n>`) when no
-paper is left (no active section, no runnable assignment), a
-`pt-daily-edition-<n>` whose number exceeds the current `delivery.extra_hours`
-count even while the paper itself lives on, `pt-subscription-*` jobs whose
+It removes `pt-daily-edition-<n>` whose number exceeds the current
+`delivery.extra_hours` count, `pt-subscription-*` jobs whose
 topic is cancelled, and `pt-oneoff-*` jobs whose topic is delivered,
-cancelled or missing. It never touches a job whose name is not one of
+cancelled or missing. The canonical `pt-daily-edition` stays registered
+after setup — weather and calendar still need a run even with no news
+topics. It never touches a job whose name is not one of
 `pt-daily-edition`, `pt-daily-edition-<n>`, `pt-subscription-*` or
 `pt-oneoff-*` with a real topic id behind it: those are not this spec's to
 interpret or remove — **hand-registering a job by shell command instead of

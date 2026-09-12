@@ -49,7 +49,9 @@ These are ordinary turns, not classifications. Do them and end:
   `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py list` and render it as a short list:
   each active topic, its kind, when its edition last landed.
 - **"list my paper" / "what's in my paper"** — run `topics.py list` and
-  show only the `section` topics in creation order (the daily paper's blocks)
+  show the standing desks first (weather and calendar always; letters if
+  `mail.configured` is true), then only the `section` topics in creation
+  order (the news desk)
   plus every `assignment` still pending/running, each with its `run_on` date.
 - **"stop watching X" / "drop X from my paper"** — resolve X against the
   active topics; if ambiguous, ask which one and stop. Then
@@ -80,6 +82,10 @@ These are ordinary turns, not classifications. Do them and end:
   but a human noticing). Confirm in one line, in the owner's own terms —
   "got it, the paper now arrives at 03:00 and 10:30" — never mention the
   container's zone or the conversion.
+- **"put my mail in the paper" / "drop the letters column"** — `mail.configured`
+  in `pt/config.json`. Probe Mail.app through Latch before writing true (same
+  osascript as pt-setup). Validate with the gate, then confirm in one line.
+  The daily job already exists; no extra cron.
 
 ## New topic — classify, then write
 
@@ -116,13 +122,16 @@ line" lowers anything.
 Two rules that keep the paper honest:
 
 - **Dedup.** Resolve the new ask against what already exists. "My paper
-  should have weather" when a weather section is already active → point at the
-  existing one instead of adding a second nightly search for the same thing.
-  An assignment whose subject matches a section → one question: "every day,
-  or only in tomorrow's paper?".
-- **The paper holds at most 8 sections.** If the owner asks for a ninth,
+  should have weather" when the weather desk already runs every day → point
+  at that desk instead of adding a news section that would search the same
+  forecast twice. Same for calendar and, when configured, mail. "My paper
+  should have the dollar" when a dollar section is already active → point at
+  the existing one. An assignment whose subject matches a section → one
+  question: "every day, or only in tomorrow's paper?".
+- **The news desk holds at most 8 sections.** Weather, calendar and mail do
+  not count against it. If the owner asks for a ninth news section,
   refuse with the count and ask which one to drop — the daily run researches
-  every section in one session, and context is the budget that dies first.
+  every news section in one session, and context is the budget that dies first.
 
 Then write it — this script is the ONLY writer for topics.json:
 

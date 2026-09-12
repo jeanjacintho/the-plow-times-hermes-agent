@@ -117,29 +117,32 @@ class TestDesiredJobs:
         topics = [topic("t_9f2a"), topic("t_0c11")]
         jobs = crons.desired_jobs(topics, "07:00", {"PLOW_HOME_CHANNEL": "c"})
         assert [j["name"] for j in jobs] == [
+            crons.DAILY_NAME,
             "pt-subscription-t_9f2a", "pt-subscription-t_0c11"]
-        assert all(j["schedule"] == "0 7 * * *" for j in jobs)
+        subs = [j for j in jobs if j["name"].startswith("pt-subscription-")]
+        assert all(j["schedule"] == "0 7 * * *" for j in subs)
         assert all(j["deliver"] == crons.DELIVER_TARGET for j in jobs)
         assert path.name == "config.json"  # config untouched
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
             [topic("t_9f2a", status="cancelled")], "07:00", {})
-        assert jobs == []
+        assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
     def test_one_offs_never_get_subscription_jobs(self):
         jobs = crons.desired_jobs(
             [topic("t_0c11", kind="one_off", status="pending", depth="quick")],
             "07:00", {})
-        assert jobs == []
+        assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
     def test_running_subscription_still_has_its_job(self):
         jobs = crons.desired_jobs([topic("t_9f2a", status="running")], "07:00", {})
-        assert len(jobs) == 1
+        assert [j["name"] for j in jobs] == [crons.DAILY_NAME, "pt-subscription-t_9f2a"]
 
     def test_hour_derived_without_leading_zero(self):
         jobs = crons.desired_jobs([topic("t_9f2a")], "23:00", {})
-        assert jobs[0]["schedule"] == "0 23 * * *"
+        sub = next(j for j in jobs if j["name"] == "pt-subscription-t_9f2a")
+        assert sub["schedule"] == "0 23 * * *"
 
 
 class TestStaleNames:
@@ -178,7 +181,8 @@ class TestCreateArgv:
     def test_argv_shape(self):
         jobs = crons.desired_jobs([topic("t_9f2a")], "07:00",
                                   {"PLOW_HOME_CHANNEL": "chat_123"})
-        argv = crons.create_argv(jobs[0], {"PLOW_HOME_CHANNEL": "chat_123"})
+        sub = next(j for j in jobs if j["name"] == "pt-subscription-t_9f2a")
+        argv = crons.create_argv(sub, {"PLOW_HOME_CHANNEL": "chat_123"})
         assert argv[0:5] == [crons.HERMES, "cron", "create", "0 7 * * *",
                              argv[4]]
         assert "--name" in argv and "pt-subscription-t_9f2a" in argv
@@ -229,7 +233,8 @@ class TestMain:
     def test_idempotent_run_skips_present(self, tmp_path, monkeypatch, hermes):
         calls = []
         code = self.run_main(tmp_path, monkeypatch, [topic("t_9f2a")],
-                             [job("pt-subscription-t_9f2a")], calls=calls)
+                             [job(crons.DAILY_NAME), job("pt-subscription-t_9f2a")],
+                             calls=calls)
         assert code == 0
         assert calls == []  # nothing created, nothing removed
 
@@ -352,37 +357,23 @@ class TestExtraDailyHours:
         )
         assert stale == []
 
-    def test_extra_jobs_pruned_with_the_paper_when_it_is_gone(self):
+    def test_extra_jobs_kept_when_news_topics_are_gone(self):
         stale = crons.stale_names(
             [], ["pt-daily-edition", "pt-daily-edition-2"], extra_hours_count=1,
         )
-        assert set(stale) == {"pt-daily-edition", "pt-daily-edition-2"}
+        assert stale == []
 
 
 class TestHasPaper:
-    def test_section_keeps_the_paper(self):
+    def test_always_true_with_a_section(self):
         assert crons.has_paper([topic("t_1", kind="section", status="pending")])
 
-    def test_delivered_section_still_counts(self):
-        assert crons.has_paper([topic("t_1", kind="section", status="delivered")])
+    def test_always_true_with_no_news_topics(self):
+        # Weather and calendar desks still fill a paper.
+        assert crons.has_paper([])
 
-    def test_cancelled_section_does_not(self):
-        assert not crons.has_paper([topic("t_1", kind="section", status="cancelled")])
-
-    def test_pending_assignment_keeps_the_paper(self):
-        assert crons.has_paper([topic("t_1", kind="assignment", status="pending",
-                                      run_on="2026-09-11")])
-
-    def test_running_assignment_keeps_the_paper(self):
-        assert crons.has_paper([topic("t_1", kind="assignment", status="running",
-                                      run_on="2026-09-11")])
-
-    def test_delivered_assignment_does_not(self):
-        assert not crons.has_paper([topic("t_1", kind="assignment", status="delivered",
-                                          run_on="2026-09-11")])
-
-    def test_subscription_alone_has_no_paper(self):
-        assert not crons.has_paper([topic("t_1")])
+    def test_always_true_with_only_a_subscription(self):
+        assert crons.has_paper([topic("t_1")])
 
 
 class TestDailyJob:
@@ -400,9 +391,9 @@ class TestDailyJob:
             "07:00", {}, 45)
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
-    def test_absent_without_paper(self):
+    def test_present_even_without_news_sections(self):
         jobs = crons.desired_jobs([topic("t_9f2a")], "07:00", {}, 45)
-        assert [j["name"] for j in jobs] == ["pt-subscription-t_9f2a"]
+        assert [j["name"] for j in jobs] == [crons.DAILY_NAME, "pt-subscription-t_9f2a"]
 
     def test_daily_precedes_subscriptions(self):
         jobs = crons.desired_jobs(
@@ -412,8 +403,8 @@ class TestDailyJob:
 
 
 class TestDailyStale:
-    def test_daily_pruned_when_no_paper_left(self):
-        assert crons.stale_names([], {crons.DAILY_NAME: True}) == [crons.DAILY_NAME]
+    def test_daily_kept_with_no_news_topics(self):
+        assert crons.stale_names([], {crons.DAILY_NAME: True}) == []
 
     def test_daily_kept_while_a_section_lives(self):
         stale = crons.stale_names(
@@ -527,18 +518,17 @@ class TestDriftMain:
         assert any("create" in " ".join(c) for c in calls)
         assert not any(c == ["already present"] for c in calls)
 
-    def test_stale_daily_removed(self, tmp_path, monkeypatch, hermes):
+    def test_daily_kept_while_only_a_subscription_lives(self, tmp_path, monkeypatch, hermes):
         calls = []
         def runner(argv):
             calls.append(argv)
             return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
-        # A subscription keeps no paper; the daily job is stale.
         self.run_main(
             tmp_path, monkeypatch,
             [topic("t_9f2a")],
             [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None}],
             runner)
-        assert any("remove" in c and crons.DAILY_NAME in c for c in calls)
+        assert not any("remove" in c and crons.DAILY_NAME in c for c in calls)
 
 
 class TestPrune:

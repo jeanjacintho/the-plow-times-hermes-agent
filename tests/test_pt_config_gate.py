@@ -188,6 +188,18 @@ class TestInvariants:
         )
         assert "owner.language is blank" in out
 
+    def test_mail_absent_is_valid(self, tmp_path):
+        out, _ = run_gate(VALID, tmp_path)
+        assert out == ""
+
+    def test_mail_configured_true_passes(self, tmp_path):
+        out, _ = run_gate({**VALID, "mail": {"configured": True}}, tmp_path)
+        assert out == ""
+
+    def test_mail_configured_must_be_boolean(self, tmp_path):
+        out, _ = run_gate({**VALID, "mail": {"configured": "yes"}}, tmp_path)
+        assert "mail.configured is not a boolean" in out
+
     def test_placeholder_anywhere(self, tmp_path):
         out, _ = run_gate(
             {**VALID, "owner": {"timezone": "[OWNER_TZ]"}}, tmp_path

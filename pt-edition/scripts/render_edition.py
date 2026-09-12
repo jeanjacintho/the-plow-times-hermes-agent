@@ -39,6 +39,11 @@ from datetime import date
 
 DEFAULT_MASTHEAD = "THE PLOW TIMES"
 KINDS = ("section", "assignment")
+# Standing newspaper desks. weather and calendar always run; mail only when
+# pt/config.json says mail.configured. news is every owner-chosen section
+# and assignment -- same story shape, different page slot.
+DESKS = ("news", "weather", "calendar", "mail")
+DESK_ORDER = {"weather": 0, "calendar": 1, "mail": 2, "news": 3}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
@@ -79,6 +84,10 @@ def validate(edition):
         except ValueError:
             failures.append("date is not a real calendar date")
 
+    location = edition.get("location")
+    if location is not None and not isinstance(location, str):
+        failures.append("location is not a string")
+
     sections = edition.get("sections")
     if not isinstance(sections, list):
         return "; ".join(failures + ["sections is not a list"])
@@ -101,6 +110,9 @@ def validate(edition):
         layout = section.get("layout")
         if layout is not None and layout not in ("main", "sidebar"):
             failures.append(f"{where}.layout is not main|sidebar")
+        desk = section.get("desk")
+        if desk is not None and desk not in DESKS:
+            failures.append(f"{where}.desk is not news|weather|calendar|mail")
         sources = section.get("sources", [])
         if not isinstance(sources, list) or not all(isinstance(u, str) for u in sources):
             failures.append(f"{where}.sources is not a list of strings")
@@ -127,11 +139,60 @@ def dedupe(values):
     return seen
 
 
+def desk_of(section):
+    """Which newspaper desk this block belongs to. Default news."""
+    desk = section.get("desk")
+    return desk if desk in DESKS else "news"
+
+
+def ordered_sections(sections):
+    """Weather, calendar, mail, then news -- the paper's fixed departments."""
+    return sorted(
+        enumerate(sections),
+        key=lambda item: (DESK_ORDER.get(desk_of(item[1]), 9), item[0]),
+    )
+
+
+def is_news_section(section):
+    """Owner news and assignments -- never a standing desk."""
+    return desk_of(section) == "news"
+
+
+def join_articles(sections):
+    return "\n".join(html_section(s) for s in sections)
+
+
+def wrap_desk(html):
+    """A desk card exists only when it has copy -- no empty bordered box."""
+    html = (html or "").strip()
+    if not html:
+        return ""
+    return f'<div class="desk-slot">{html}</div>'
+
+
+def body_paragraphs(body):
+    """Split a body on blank lines so a desk can have today / upcoming grafs."""
+    text = (body or "").strip()
+    if not text:
+        return []
+    return [part.strip() for part in text.split("\n\n") if part.strip()]
+
+
+def source_markup(url):
+    """http(s) sources are links; Latch/Calendar labels stay plain text."""
+    escaped = html.escape(url)
+    if url.startswith(("http://", "https://")):
+        return f'<a href="{html.escape(url, quote=True)}">{escaped}</a>'
+    return escaped
+
+
 def chat_section(section):
     """One topic's block in the chat edition."""
     title = section["title"].strip()
     tag = section.get("tag")
-    lines = [f"\u25b8 {title}" + (f" \u2014 {tag}" if tag else "")]
+    desk = desk_of(section)
+    kicker = f"{desk} \u2014 " if desk != "news" else ""
+    lines = [f"\u25b8 {kicker}{title}" + (f" \u2014 {tag}" if tag else "")]
     headline = (section.get("headline") or "").strip()
     if headline:
         lines.append(f"  {headline}")
@@ -147,9 +208,13 @@ def chat_section(section):
 
 
 def render_chat(edition, name):
-    lines = [f"{name} \u2014 {pretty_date(edition['date'])}"]
+    header = f"{name} \u2014 {pretty_date(edition['date'])}"
+    location = (edition.get("location") or "").strip()
+    if location:
+        header = f"{header} \u2014 {location}"
+    lines = [header]
     if edition["sections"]:
-        for section in edition["sections"]:
+        for _index, section in ordered_sections(edition["sections"]):
             lines.append("")
             lines.append(chat_section(section))
     else:
@@ -161,34 +226,36 @@ def render_chat(edition, name):
 def html_section(section):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
-    ``layout: "sidebar"`` (optional, default "main") gets the boxed,
-    high-contrast treatment for a section that should read as a fixed panel
-    every day -- the weather box, say -- rather than another column story.
-    Same fields, same escaping; only the wrapping class differs.
+    ``desk`` (optional, default ``news``) is the newspaper department.
+    Each standing desk is a slot of its own ({{WEATHER}}, {{CALENDAR}},
+    {{MAIL}}); news fills {{SECTIONS}}. Same story fields, same escaping;
+    only the wrapping class and the page slot differ.
     """
     title = html.escape(section["title"].strip())
     tag = section.get("tag")
     tag_html = f' <span class="tag">{html.escape(tag)}</span>' if tag else ""
     headline = (section.get("headline") or "").strip()
-    body = section.get("body", "").strip()
-    body_html = (
-        html.escape(body)
-        if body
-        else "(nothing usable in the budget this time)"
-    )
-    is_sidebar = section.get("layout") == "sidebar"
-    article_class = "section section--sidebar" if is_sidebar else "section"
+    paras = body_paragraphs(section.get("body", ""))
+    desk = desk_of(section)
+    classes = ["section"]
+    if desk != "news":
+        classes.append("section--desk")
+        classes.append(f"section--{desk}")
+    elif section.get("layout") == "sidebar":
+        classes.append("section--sidebar")
+    article_class = " ".join(classes)
     blocks = [f'<article class="{article_class}">',
               f'  <h2>{title}{tag_html}</h2>']
     if headline:
         blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
-    blocks.append(f'  <p>{body_html}</p>')
+    if paras:
+        for para in paras:
+            blocks.append(f"  <p>{html.escape(para)}</p>")
+    else:
+        blocks.append("  <p>(nothing usable in the budget this time)</p>")
     sources = dedupe(section.get("sources", []))
     if sources:
-        links = ", ".join(
-            f'<a href="{html.escape(url, quote=True)}">{html.escape(url)}</a>'
-            for url in sources
-        )
+        links = ", ".join(source_markup(url) for url in sources)
         blocks.append(f'  <p class="sources">Sources: {links}</p>')
     could_not = section.get("could_not_source", [])
     if could_not:
@@ -199,25 +266,37 @@ def html_section(section):
 
 
 def render_html(edition, name, template_text):
-    main_sections = [s for s in edition["sections"] if s.get("layout") != "sidebar"]
-    sidebar_sections = [s for s in edition["sections"] if s.get("layout") == "sidebar"]
+    ordered = [section for _index, section in ordered_sections(edition["sections"])]
+    news = [s for s in ordered if is_news_section(s)]
+    weather = [s for s in ordered if desk_of(s) == "weather"]
+    calendar = [s for s in ordered if desk_of(s) == "calendar"]
+    mail = [s for s in ordered if desk_of(s) == "mail"]
 
-    main_html = "\n".join(html_section(s) for s in main_sections) or (
+    main_html = join_articles(news) or (
         '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
     )
-    sidebar_html = "\n".join(html_section(s) for s in sidebar_sections)
+    weather_html = wrap_desk(join_articles(weather))
+    calendar_html = wrap_desk(join_articles(calendar))
+    mail_html = wrap_desk(join_articles(mail))
+    # {{SIDEBAR}} is the desks column as a whole, for older templates that
+    # still have one rail slot instead of three. New template.html uses the
+    # three named slots and leaves this empty of news.
+    desks_html = "\n".join(part for part in (weather_html, calendar_html, mail_html) if part)
 
-    # No sidebar-flagged section today -- most owners won't have one -- so
-    # the page drops to a single column instead of leaving an empty rail.
-    page_class = "page" if sidebar_html else "page page--no-sidebar"
+    page_class = "page" if desks_html else "page page--no-desks"
+    location = html.escape((edition.get("location") or "").strip() or "One copy")
 
     return (
         template_text
         .replace("{{MASTHEAD}}", html.escape(name))
         .replace("{{DATE}}", html.escape(pretty_date(edition["date"])))
+        .replace("{{LOCATION}}", location)
         .replace("{{PAGE_CLASS}}", page_class)
         .replace("{{SECTIONS}}", main_html)
-        .replace("{{SIDEBAR}}", sidebar_html)
+        .replace("{{WEATHER}}", weather_html)
+        .replace("{{CALENDAR}}", calendar_html)
+        .replace("{{MAIL}}", mail_html)
+        .replace("{{SIDEBAR}}", desks_html)
     )
 
 
