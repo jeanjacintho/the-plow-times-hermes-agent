@@ -106,24 +106,24 @@ class TestDeployment:
         # a `volumes:` section reintroducing the old mount delivery is the
         # regression this guards against. Same guard memory-vault adopted.
         override = ROOT / "compose.override.yml"
-        assert override.is_file(), "compose.override.yml pins HERMES_PROVIDER/HERMES_MODEL"
+        assert override.is_file(), "compose.override.yml builds the local image + sets TERMINAL_CWD"
         assert "volumes:" not in override.read_text(), (
             "compose.override.yml declares volumes: -- skills are seeded by "
             "the deploy-hook now, not mounted read-only"
         )
 
-    def test_compose_override_pins_provider_and_model(self):
-        # plow-init reads these two from the real container environment on
-        # every boot and rewrites model.provider/model.default from them, so
-        # the pair must live here -- the home .env cannot reach that
-        # environment. Assert both are present and non-empty.
-        import re
-
+    def test_compose_override_does_not_pin_a_model(self):
+        # Measured live: google/gemini-2.5-flash-lite (the previous pin) never
+        # once called skills_list/skill_view for a news request -- it went
+        # straight to a generic web_search tool and answered inline, so every
+        # pt-* skill sat wired and discoverable but unused. Unpinned,
+        # provider/model fall back to the Plow-hosted default (Anthropic,
+        # cloud-hosted by Plow), the same choice life-assistant-hermes-agent's
+        # own compose.yml makes by omission. This guards against a pin
+        # creeping back in without the same live measurement as evidence.
         text = (ROOT / "compose.override.yml").read_text()
-        provider = re.search(r"HERMES_PROVIDER=(\S+)", text)
-        model = re.search(r"HERMES_MODEL=(\S+)", text)
-        assert provider and provider.group(1) == "openrouter"
-        assert model and model.group(1) == "google/gemini-2.5-flash-lite"
+        assert "HERMES_PROVIDER=" not in text
+        assert "HERMES_MODEL=" not in text
 
     def test_dockerfile_installs_weasyprint_for_the_pdf_leg(self):
         # The base image has no HTML-to-PDF engine; the renderer's --pdf leg

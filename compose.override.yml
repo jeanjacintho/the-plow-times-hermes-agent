@@ -1,5 +1,4 @@
-# The Plow Times' instance override: its own image, and the two inference
-# knobs plow-init reads from the real container environment.
+# The Plow Times' instance override: its own image, plus TERMINAL_CWD.
 #
 # --- Why the image is built here -----------------------------------------
 # The edition renderer emits the paper's PDF leg with weasyprint, which the
@@ -16,30 +15,20 @@
 # pulled over the local build and run with the agent's credentials. Build with
 # `agent-mgr compose the-plow-times build`, then `agent-mgr restart`.
 #
-# --- Why the environment is here -----------------------------------------
-# Which inference provider/model plow-init writes into runtime/config.yaml at
-# every boot. The config's own model: block is NOT authoritative for this
-# image -- /etc/s6-overlay/scripts/plow-init.py reads HERMES_PROVIDER and
-# HERMES_MODEL from the real process environment (never from the home .env:
-# it only ever WRITES specific derived keys there, it does not load arbitrary
-# ones back out) and rewrites model.provider/model.default from them on every
-# boot, defaulting to the Plow-hosted model when either is unset. This is the
-# one way to reach that environment: agent-mgr's own compose layers this
-# instance's override BEFORE its current-contract template, which reasserts
-# HERMES_HOME but leaves any other key here alone.
+# --- No model pin, matching life-assistant-hermes-agent -------------------
+# This agent no longer pins HERMES_PROVIDER/HERMES_MODEL to openrouter's
+# google/gemini-2.5-flash-lite. Measured live: that model never once called
+# skills_list/skill_view for a news request -- it went straight to a generic
+# web_search tool and answered inline from that, so pt-intake (and every
+# other pt-* skill) sat fully wired and discoverable but simply unused, no
+# matter how the SOUL.md/SKILL.md instructions were worded. Leaving provider/
+# model unset falls back to the Plow-hosted default (Anthropic, cloud-hosted
+# by Plow) -- the same choice life-assistant-hermes-agent's own compose.yml
+# makes by omission, and the one lever left that isn't a wording or a path
+# fix. Re-pin only with the same live measurement this comment describes as
+# evidence, not a hunch.
 #
-# The same fix memory-vault-hermes-agent landed after measuring it live: with
-# these two only in the home .env (not here), the model still reset to the
-# Plow-hosted default under provider: plow every boot, with `docker exec ...
-# printenv` showing neither variable in the container's actual environment at
-# all. Matching that deployment, this pins openrouter and its gemini model so
-# the paper's inference route cannot drift on a restart.
-#
-# Register the matching key once with `hermes auth add openrouter --type
-# api-key`: these two name which provider/model to use, not the credential to
-# use it with.
-#
-# --- TERMINAL_CWD, the same class of bug as the two above -----------------
+# --- TERMINAL_CWD, the same "config.yaml doesn't reach the process" bug ---
 # runtime/config.yaml sets terminal.cwd, which gateway/run.py documents as
 # "bridged to TERMINAL_CWD by the config bridge" at startup -- measured live
 # on this deployment, it is not: `docker exec ... cat /proc/<gateway
@@ -60,6 +49,4 @@ services:
     image: ${AGENT_IMAGE}
     pull_policy: never
     environment:
-      - HERMES_PROVIDER=openrouter
-      - HERMES_MODEL=google/gemini-2.5-flash-lite
       - TERMINAL_CWD=/var/lib/hermes
