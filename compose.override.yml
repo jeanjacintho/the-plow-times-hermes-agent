@@ -1,3 +1,22 @@
+# The Plow Times' instance override: its own image, and the two inference
+# knobs plow-init reads from the real container environment.
+#
+# --- Why the image is built here -----------------------------------------
+# The edition renderer emits the paper's PDF leg with weasyprint, which the
+# fleet base does not carry (measured: `import weasyprint` is a
+# ModuleNotFoundError in a running container). Dockerfile installs it. agent-mgr
+# inspects the image named by AGENT_IMAGE in agent.env to pick the boot
+# contract, so the `image:` below and that descriptor line must be the same
+# tag -- a mismatch boots one image under another's derivation, silently.
+#
+# The build context is ${AGENT_DIR}, never `.`: agent-mgr runs
+# `docker compose -f <this file> build` without changing directory, so a
+# relative context resolves against agent-mgr's own directory, not this repo.
+# `pull_policy: never` is required -- without it a registry image could be
+# pulled over the local build and run with the agent's credentials. Build with
+# `agent-mgr compose the-plow-times build`, then `agent-mgr restart`.
+#
+# --- Why the environment is here -----------------------------------------
 # Which inference provider/model plow-init writes into runtime/config.yaml at
 # every boot. The config's own model: block is NOT authoritative for this
 # image -- /etc/s6-overlay/scripts/plow-init.py reads HERMES_PROVIDER and
@@ -21,6 +40,9 @@
 # use it with.
 services:
   hermes:
+    build: { context: "${AGENT_DIR}" }
+    image: ${AGENT_IMAGE}
+    pull_policy: never
     environment:
       - HERMES_PROVIDER=openrouter
       - HERMES_MODEL=google/gemini-2.5-flash-lite

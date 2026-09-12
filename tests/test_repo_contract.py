@@ -94,6 +94,42 @@ class TestDeployment:
         assert provider and provider.group(1) == "openrouter"
         assert model and model.group(1) == "google/gemini-2.5-flash-lite"
 
+    def test_dockerfile_installs_weasyprint_for_the_pdf_leg(self):
+        # The base image has no HTML-to-PDF engine; the renderer's --pdf leg
+        # only works because this image installs weasyprint. The build's own
+        # import check is the guard that it actually imports (native Pango/
+        # Cairo binding fails at import, not at install).
+        dockerfile = ROOT / "Dockerfile"
+        assert dockerfile.is_file(), "Dockerfile installs weasyprint for the PDF leg"
+        text = dockerfile.read_text()
+        assert "weasyprint" in text
+        assert "python3 -c \"import weasyprint" in text
+        # Pinned by digest, like the fleet pin -- a tag re-resolves on pull.
+        from_line = next(
+            line for line in text.splitlines() if line.startswith("FROM ")
+        )
+        assert "@sha256:" in from_line
+
+    def test_compose_override_builds_its_own_image(self):
+        # agent-mgr runs `docker compose -f <override> build` without changing
+        # directory, so the context must be an absolute variable, never `.`;
+        # and a build-based agent must carry pull_policy: never so a registry
+        # image cannot be pulled over the local build.
+        import re
+
+        text = (ROOT / "compose.override.yml").read_text()
+        assert re.search(r"build:\s*\{\s*context:\s*\"\$\{AGENT_DIR\}\"", text), (
+            "build context must be ${AGENT_DIR}, never a relative path"
+        )
+        assert "image: ${AGENT_IMAGE}" in text
+        assert "pull_policy: never" in text
+
+    def test_agent_env_names_the_built_image(self):
+        env = (ROOT / "agent.env").read_text()
+        assert "AGENT_IMAGE=the-plow-times-hermes-agent:local" in env, (
+            "agent.env must name the built tag agent-mgr inspects for the contract"
+        )
+
 
 class TestImportability:
     def test_gate_imports_and_runs(self, tmp_path):
