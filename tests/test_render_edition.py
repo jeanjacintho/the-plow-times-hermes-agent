@@ -17,8 +17,8 @@ def edition(**overrides):
             {
                 "kind": "section",
                 "topic_id": "t_8c1d",
-                "title": "Clima em Sao Paulo",
-                "body": "Vai chover a tarde.",
+                "title": "Weather in Sao Paulo",
+                "body": "Rain in the afternoon.",
                 "sources": ["https://example.com/weather"],
             }
         ],
@@ -109,20 +109,20 @@ class TestChat:
     def test_header_and_section(self):
         text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
         assert text.startswith("THE PLOW TIMES \u2014 Sep 11, 2026")
-        assert "\u25b8 Clima em Sao Paulo" in text
+        assert "\u25b8 Weather in Sao Paulo" in text
         assert "Sources: https://example.com/weather" in text
 
     def test_assignment_tag_and_unsourced(self):
         data = edition(sections=[{
             "kind": "assignment", "topic_id": "t_3f2a", "run_on": "2026-09-11",
-            "title": "Valor do iPhone 15", "body": "R$ 4.299.",
-            "sources": ["https://loja.example/x"],
-            "tag": "especial para esta edicao",
-            "could_not_source": ["preco da versao Pro"],
+            "title": "iPhone 15 price", "body": "$4,299.",
+            "sources": ["https://shop.example/x"],
+            "tag": "special for this edition",
+            "could_not_source": ["the Pro model's price"],
         }])
         text = render.render_chat(data, render.DEFAULT_MASTHEAD)
-        assert "especial para esta edicao" in text
-        assert "Couldn't source: preco da versao Pro" in text
+        assert "special for this edition" in text
+        assert "Couldn't source: the Pro model's price" in text
 
     def test_empty_budget_is_still_an_edition(self):
         text = render.render_chat(edition(sections=[]), render.DEFAULT_MASTHEAD)
@@ -142,15 +142,15 @@ class TestChat:
         # line") but silently dropped by the renderer -- the model wrote it,
         # nobody ever saw it.
         data = edition(sections=[{
-            "kind": "section", "title": "x", "headline": "A manchete real",
+            "kind": "section", "title": "x", "headline": "The real headline",
             "body": "y", "sources": [],
         }])
         text = render.render_chat(data, render.DEFAULT_MASTHEAD)
-        assert "A manchete real" in text
+        assert "The real headline" in text
 
     def test_missing_headline_is_fine(self):
         text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
-        assert "▸ Clima em Sao Paulo\n  Vai chover a tarde." in text
+        assert "▸ Weather in Sao Paulo\n  Rain in the afternoon." in text
 
 
 class TestHtml:
@@ -167,30 +167,30 @@ class TestHtml:
     def test_placeholders_substituted(self):
         page = render.render_html(edition(), "The Daily", "{{MASTHEAD}}|{{DATE}}|{{SECTIONS}}")
         assert page.startswith("The Daily|Sep 11, 2026|")
-        assert "Clima em Sao Paulo" in page
+        assert "Weather in Sao Paulo" in page
 
     def test_headline_renders_escaped(self):
         data = edition(sections=[{
-            "kind": "section", "title": "x", "headline": "<b>manchete</b>",
+            "kind": "section", "title": "x", "headline": "<b>headline</b>",
             "body": "y", "sources": [],
         }])
         page = render.render_html(data, render.DEFAULT_MASTHEAD, "<p>{{SECTIONS}}</p>")
         assert 'class="headline"' in page
-        assert "<b>manchete</b>" not in page
-        assert "&lt;b&gt;manchete&lt;/b&gt;" in page
+        assert "<b>headline</b>" not in page
+        assert "&lt;b&gt;headline&lt;/b&gt;" in page
 
     TEMPLATE = "{{PAGE_CLASS}}|{{SECTIONS}}|{{SIDEBAR}}"
 
     def test_sidebar_section_goes_to_the_sidebar_slot(self):
         data = edition(sections=[
-            {"kind": "section", "title": "Noticia", "body": "y", "sources": []},
-            {"kind": "section", "title": "Tempo", "layout": "sidebar", "body": "z", "sources": []},
+            {"kind": "section", "title": "News", "body": "y", "sources": []},
+            {"kind": "section", "title": "Weather", "layout": "sidebar", "body": "z", "sources": []},
         ])
         page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
         page_class, main_html, sidebar_html = page.split("|", 2)
         assert page_class == "page"
-        assert "Noticia" in main_html and "Tempo" not in main_html
-        assert "Tempo" in sidebar_html and "Noticia" not in sidebar_html
+        assert "News" in main_html and "Weather" not in main_html
+        assert "Weather" in sidebar_html and "News" not in sidebar_html
         assert 'class="section section--sidebar"' in sidebar_html
 
     def test_no_sidebar_section_collapses_the_rail(self):
@@ -210,13 +210,13 @@ class TestMain:
         path = write(tmp_path, edition())
         out = tmp_path / "chat.txt"
         render.main([str(path), "--chat", str(out)])
-        assert "Clima em Sao Paulo" in out.read_text()
+        assert "Weather in Sao Paulo" in out.read_text()
 
     def test_writes_html(self, tmp_path):
         path = write(tmp_path, edition())
         out = tmp_path / "edition.html"
         render.main([str(path), "--html", str(out)])
-        assert "Clima em Sao Paulo" in out.read_text()
+        assert "Weather in Sao Paulo" in out.read_text()
 
     def test_malformed_refused_by_name(self, tmp_path):
         path = write(tmp_path, {"date": "x", "sections": []})

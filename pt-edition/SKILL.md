@@ -19,16 +19,16 @@ HTML.** Hand-write `edition.json` under the run directory:
   "date": "2026-09-11",
   "sections": [
     { "kind": "section", "topic_id": "t_8c1d",
-      "title": "Clima em Sao Paulo",
-      "headline": "Chuva a tarde",
+      "title": "Weather in Sao Paulo",
+      "headline": "Rain in the afternoon",
       "layout": "sidebar",
       "body": "3–6 sentences, every one traceable to a note.",
       "sources": ["https://…"],
       "could_not_source": ["…"] },
     { "kind": "assignment", "topic_id": "t_3f2a", "run_on": "2026-09-11",
-      "title": "Valor do iPhone 15",
+      "title": "iPhone 15 price",
       "body": "…", "sources": ["https://…"],
-      "tag": "especial para esta edição",
+      "tag": "special for this edition",
       "could_not_source": ["…"] }
   ]
 }

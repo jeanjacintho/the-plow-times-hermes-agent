@@ -164,7 +164,7 @@ class TestBrokenStore:
 
 class TestSections:
     def test_section_cycles_like_a_subscription(self, pt_home, capsys):
-        topics.main(["add", "--text", "clima", "--kind", "section", "--depth", "quick"])
+        topics.main(["add", "--text", "weather", "--kind", "section", "--depth", "quick"])
         tid = read_store(pt_home)[-1]["id"]
         topics.main(["mark", tid, "--status", "running"])
         topics.main(["mark", tid, "--status", "delivered"])
@@ -174,7 +174,7 @@ class TestSections:
         assert topic["last_edition_at"] is not None
 
     def test_section_has_no_run_on(self, pt_home, capsys):
-        topics.main(["add", "--text", "clima", "--kind", "section", "--depth", "quick"])
+        topics.main(["add", "--text", "weather", "--kind", "section", "--depth", "quick"])
         assert "run_on" not in read_store(pt_home)[-1]
 
     def test_run_on_refused_on_non_assignment(self, pt_home):
@@ -185,7 +185,7 @@ class TestSections:
 
 class TestAssignments:
     def add(self, pt_home, run_on="2026-09-11"):
-        topics.main(["add", "--text", "valor do iPhone 15", "--kind",
+        topics.main(["add", "--text", "iPhone 15 price", "--kind",
                      "assignment", "--depth", "quick", "--run-on", run_on])
         return read_store(pt_home)[-1]
 
@@ -195,7 +195,7 @@ class TestAssignments:
                          "--depth", "quick"])
 
     @pytest.mark.parametrize("bad", ["2026-9-1", "11/09/2026", "2026-13-01",
-                                     "2026-02-30", "hoje"])
+                                     "2026-02-30", "today"])
     def test_malformed_run_on_refused(self, pt_home, bad):
         with pytest.raises(SystemExit):
             topics.main(["add", "--text", "x", "--kind", "assignment",

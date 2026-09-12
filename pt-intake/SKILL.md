@@ -35,22 +35,22 @@ These are ordinary turns, not classifications. Do them and end:
 - **"what are you watching" / "list my topics"** — run
   `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py list` and render it as a short list:
   each active topic, its kind, when its edition last landed.
-- **"o que tem no meu jornal" / "list my paper"** — run `topics.py list` and
+- **"list my paper" / "what's in my paper"** — run `topics.py list` and
   show only the `section` topics in creation order (the daily paper's blocks)
   plus every `assignment` still pending/running, each with its `run_on` date.
-- **"stop watching X" / "tira X do meu jornal"** — resolve X against the
+- **"stop watching X" / "drop X from my paper"** — resolve X against the
   active topics; if ambiguous, ask which one and stop. Then
   `topics.py cancel <id>`, and immediately run
   `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so the nightly job is
   removed now rather than at the next bring-up. Confirm in one line.
-- **"cancela o que eu pedi pro jornal de amanhã"** — resolve against pending
+- **"cancel what I asked for in tomorrow's paper"** — resolve against pending
   `assignment` topics and `topics.py cancel <id>`. A delivered assignment is
   terminal; say so rather than pretending to cancel it.
 - **"when will it land" / "did it come?"** — read the topic's `status` and
   `scheduled_for` / `run_on` / `last_edition_at` and answer. A missing
   edition in this session's history is not evidence it never landed.
-- **"quero o jornal duas vezes por dia" / "manda também às 10:30" / "tira a
-  segunda edição"** — a second (or third) full-paper delivery time is not a
+- **"I want the paper twice a day" / "send it at 10:30 too" / "drop the
+  second edition"** — a second (or third) full-paper delivery time is not a
   topic, so it never goes through `topics.py`: it is `delivery.extra_hours`
   in `pt/config.json`, a list of "HH:MM" strings alongside `delivery.hour`.
   Ask the local time they want (in their own zone), convert it to the
@@ -65,7 +65,7 @@ These are ordinary turns, not classifications. Do them and end:
   to every future reconcile forever (measured live: exactly this mistake
   once put a second edition at the wrong hour with nothing able to fix it
   but a human noticing). Confirm in one line, in the owner's own terms —
-  "beleza, o jornal chega às 03:00 e às 10:30 agora" — never mention the
+  "got it, the paper now arrives at 03:00 and 10:30" — never mention the
   container's zone or the conversion.
 
 ## New topic — classify, then write
@@ -82,10 +82,10 @@ or can say in a line.
 
 | The owner says | Shape | What it becomes |
 |---|---|---|
-| "meu jornal deve ter X" / "todo dia X no jornal" | `section` | a fixed block in the daily paper, every day |
-| "no jornal de amanhã, X" / "no jornal de sexta, Y" | `assignment` | one research pass whose result appears **only** in that day's paper |
-| "research X, tell me later" / "pesquisa X e me diz" | `one_off` | its own edition, delivered once |
-| "toda noite me atualiza sobre Y" / "keep an eye on Z" | `subscription` | its own edition, re-run on the delivery hour |
+| "my paper should have X" / "X in the paper every day" | `section` | a fixed block in the daily paper, every day |
+| "X in tomorrow's paper" / "Y in Friday's paper" | `assignment` | one research pass whose result appears **only** in that day's paper |
+| "research X, tell me later" | `one_off` | its own edition, delivered once |
+| "update me on Y every night" / "keep an eye on Z" | `subscription` | its own edition, re-run on the delivery hour |
 
 A subscription/section is anything with a cadence in it. A one-off/assignment
 is a single ask. When the owner genuinely cannot be read as one or the other,
@@ -102,11 +102,11 @@ line" lowers anything.
 
 Two rules that keep the paper honest:
 
-- **Dedup.** Resolve the new ask against what already exists. "Meu jornal
-  deve ter clima" when a clima section is already active → point at the
+- **Dedup.** Resolve the new ask against what already exists. "My paper
+  should have weather" when a weather section is already active → point at the
   existing one instead of adding a second nightly search for the same thing.
-  An assignment whose subject matches a section → one question: "todo dia ou
-  só no jornal de amanhã?".
+  An assignment whose subject matches a section → one question: "every day,
+  or only in tomorrow's paper?".
 - **The paper holds at most 8 sections.** If the owner asks for a ninth,
   refuse with the count and ask which one to drop — the daily run researches
   every section in one session, and context is the budget that dies first.
@@ -118,9 +118,9 @@ Then write it — this script is the ONLY writer for topics.json:
         [--run-on YYYY-MM-DD]
 
 `--run-on` is required for an assignment and refused for every other kind.
-Compute "amanhã"/"sexta" as a real calendar date in **the owner's timezone**
+Compute "tomorrow"/"Friday" as a real calendar date in **the owner's timezone**
 (the one in `pt/config.json`), never from the container's clock reading past
-midnight. If the day is ambiguous ("dia 15", "próxima sexta"), ask — never
+midnight. If the day is ambiguous ("the 15th", "next Friday"), ask — never
 guess a date onto a promise. Paste the script's output; the `id` it prints is
 the topic's identity everywhere else.
 
@@ -172,7 +172,7 @@ owner must hear it rather than wait for an edition that will never come.
 
 The turn's final response is a confirmation with a time, not a progress
 report: "On it — an edition on <topic> lands here in ~3 minutes" or "You'll
-get one on <topic> every morning at 7" or "Clima joins your paper tomorrow at
+get one on <topic> every morning at 7" or "Weather joins your paper tomorrow at
 7" or "The iPhone 15 price goes in Friday's paper". Never narrate the
 mechanics (no "writing topics.json", no "scheduling a cron"). The edition,
 when it lands, speaks for itself.

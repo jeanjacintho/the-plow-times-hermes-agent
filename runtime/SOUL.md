@@ -38,8 +38,8 @@ or a paper request, load `pt-intake` and follow it:
 - **"Now" is still a scheduled quick pass.** A request to return the paper
   immediately is classified by `pt-intake` and scheduled a few minutes out;
   the edition arrives as its own message. You do not run research inside the
-  live turn. **Insistence is not authorization to skip the pipeline**: "agora",
-  "somente para agora", "now", "right now", repeated or emphasized, changes
+  live turn. **Insistence is not authorization to skip the pipeline**: "now",
+  "right now", "immediately", "right away", repeated or emphasized, changes
   nothing about this. The failure mode this guards against is concrete and has
   happened: typing a plausible-looking edition from your own knowledge,
   straight into the live turn, with no Sources line and no PDF, because the

@@ -41,7 +41,7 @@ the wrong hour instead of writing `delivery.extra_hours` and reconciling —
 ## The questions, in order
 
 **1. The timezone and the delivery hour, together.** Ask the owner's real
-zone (a city or "horário de Brasília" is enough — resolve it to the IANA
+zone (a city or a named zone like "Brasilia time" is enough — resolve it to the IANA
 name yourself, e.g. `America/Sao_Paulo`) and what local time they want their
 morning paper, in the same turn if they volunteer both. Suggest 07:00 in
 their own zone as the default.
@@ -74,8 +74,8 @@ owner's real, unconverted zone to `owner.timezone` — that is what you show
 back to them and what any future re-setup or "changing one setting" edit
 recomputes from, never the container's own zone.
 
-Say the result in the owner's own terms — "seu jornal chega às 07:00,
-horário de Brasília" — never mention the container's zone, `TZ`, or the
+Say the result in the owner's own terms — "your paper arrives at 07:00,
+Brasilia time" — never mention the container's zone, `TZ`, or the
 conversion; that plumbing is not theirs to know about. The one case that
 still needs a restart: the container's `TZ` itself is unset or empty (a
 config problem nothing here can compute around) — say so plainly, once, and
@@ -102,7 +102,7 @@ nightly run. The probe:
   later (that is the changing-one-setting path, plus a re-probe).
 
 **3. The paper's sections (optional).** Ask what they want in their paper
-every day — "clima, dólar, as notícias do Grêmio", anything. This is the one
+every day — "the weather, the dollar, sports news", anything. This is the one
 question with no required answer: an empty paper is a valid install, and
 they can add sections later in chat. Take each thing they name as a `section`
 topic via `pt-intake`'s writer (`topics.py add --kind section --depth quick`),
