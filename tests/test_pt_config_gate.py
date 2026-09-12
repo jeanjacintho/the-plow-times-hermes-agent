@@ -171,6 +171,23 @@ class TestInvariants:
         )
         assert out == ""
 
+    def test_language_absent_is_valid(self, tmp_path):
+        out, _ = run_gate(VALID, tmp_path)
+        assert out == ""
+
+    def test_language_accepts_a_plain_name(self, tmp_path):
+        out, _ = run_gate(
+            {**VALID, "owner": {"timezone": "UTC", "language": "Mandarin Chinese"}},
+            tmp_path,
+        )
+        assert out == ""
+
+    def test_language_blank_refused(self, tmp_path):
+        out, _ = run_gate(
+            {**VALID, "owner": {"timezone": "UTC", "language": "   "}}, tmp_path
+        )
+        assert "owner.language is blank" in out
+
     def test_placeholder_anywhere(self, tmp_path):
         out, _ = run_gate(
             {**VALID, "owner": {"timezone": "[OWNER_TZ]"}}, tmp_path

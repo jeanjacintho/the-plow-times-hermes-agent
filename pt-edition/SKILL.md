@@ -41,6 +41,18 @@ HTML.** Hand-write `edition.json` under the run directory:
   forbids. `run_on` is required for an assignment.
 - **The title is the topic's text**, trimmed of pleasantries; it is the
   owner's own words.
+- **Write `headline` and `body` in `pt/config.json`'s `owner.language`** —
+  Portuguese in, Portuguese out; English in, English out; Mandarin in,
+  Mandarin out, whatever pt-intake last recorded there. This is the whole
+  edition's reading language, not a translation step: research the sources
+  in whatever language they're actually in, then write the synthesis in the
+  owner's. `title` stays exactly as the owner phrased their topic (it may
+  legitimately be in a different language than today's `owner.language`
+  if they asked for it earlier, in another language — never retranslate
+  someone's own words). No `owner.language` at all (an install from before
+  pt-intake started keeping it, or one where the owner has only ever
+  written once) is the one case to fall back on the language the sourced
+  notes themselves read most naturally in, never a hardcoded default.
 - **3–6 sentences per body, every one traceable to a note.** If a claim is
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block

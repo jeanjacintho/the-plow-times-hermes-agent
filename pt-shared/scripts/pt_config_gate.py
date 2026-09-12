@@ -20,7 +20,7 @@ requirement this repo does not carry):
   - Never prints PII. There is none by design: the config holds a timezone, a
     delivery hour, and whether a printer exists.
 
-The seven checks:
+The eight checks:
   1. owner.timezone must contain a non-whitespace char. register_crons.py
      refuses to register unless the container's TZ equals it, and SOUL.md
      routes first-run onboarding from the keys' presence -- a blank one
@@ -47,12 +47,20 @@ The seven checks:
      more full-paper delivery time the same day (register_crons.py registers
      one job per entry, numbered pt-daily-edition-2, -3, ...). Absent is
      valid -- one delivery a day is the common case.
-  7. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
+  7. owner.language, when present, is a non-blank string: the language the
+     owner writes to this agent in, plain-English name ("Portuguese",
+     "Mandarin Chinese"), kept current by pt-intake on every turn so a
+     scheduled edition -- which has no live message to detect a language
+     from -- still writes in whatever the owner most recently used. Absent
+     is valid: an install that predates this field, or one where the owner
+     has only ever written in one language pt-intake hasn't needed to
+     record yet, defaults elsewhere (pt-edition) rather than failing here.
+  8. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
 
 The owner's name, location, or any other personal fact is deliberately not
 among the checks, and not in the schema at all: this agent holds nothing
-durable beyond the topics the owner gave it and these delivery preferences
-(design doc §2).
+durable beyond the topics the owner gave it, these delivery preferences,
+and the language they write in (design doc §2).
 """
 import json
 import re
@@ -162,7 +170,14 @@ def gate(config):
         ):
             failures.append('delivery.extra_hours is not a list of "HH:MM" strings')
 
-    # 7. no leftover [UPPER_SNAKE] placeholder anywhere.
+    # 7. owner.language, when present, is non-blank. Absent is valid --
+    #    pt-edition falls back elsewhere, and pt-intake sets this the first
+    #    time it has an owner message to detect a language from.
+    language = _index(_index(config, "owner"), "language")
+    if language is not None and not _nonblank(language):
+        failures.append("owner.language is blank")
+
+    # 8. no leftover [UPPER_SNAKE] placeholder anywhere.
     if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):
         failures.append("an unfilled [UPPER_SNAKE] placeholder remains")
 

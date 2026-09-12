@@ -28,6 +28,19 @@ If the config is missing keys, this is a first run: SOUL.md routes that to
 `pt-setup`. Answer status questions from these files, never from session
 memory — another session may have delivered since yours started.
 
+**Keep `owner.language` current, silently, before anything else this turn.**
+It is the plain-English name of the language the owner's OWN message (not a
+quoted page, not a name) is written in — "Portuguese", "English", "Mandarin
+Chinese". A scheduled edition has no live message to read a language from,
+so this field is what it falls back to; without it kept current, a paper
+scheduled overnight would default to whatever pt-edition guesses instead of
+the language the owner actually wants. If this turn's language differs from
+`pt/config.json`'s stored `owner.language` (or the key is absent), update it
+— write the config, validate with the gate — before classifying the rest of
+the turn. This is not a confirmation to ask about and not a change to
+narrate: just keep the field true, the same way you never announce reading
+`topics.json`.
+
 ## Status questions — answer from the file, then stop
 
 These are ordinary turns, not classifications. Do them and end:
