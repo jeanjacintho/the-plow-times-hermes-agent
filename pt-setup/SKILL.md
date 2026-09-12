@@ -37,25 +37,25 @@ their own zone as the default.
 
 You do **not** need the container restarted to serve an owner in a different
 zone than this container's `TZ` (from `AGENT_TZ` at boot) — `hermes cron
-create` fires bare hour expressions in the container's own zone, so convert:
-compute the container-local clock hour that corresponds to the owner's
-chosen local time, on today's date (so a DST boundary on either side resolves
-correctly), and write that converted value to `delivery.hour` as "HH:00"
-only — never a half-hour; minutes are refused at the gate because the cron
-fires at the hour, and a "07:30" promise the paper cannot keep. Do the
-conversion in code, never by mental UTC-offset arithmetic (DST makes that
-wrong twice a year in either zone):
+create` fires bare cron expressions (minute-precise) in the container's own
+zone, so convert: compute the container-local clock time, to the minute,
+that corresponds to the owner's chosen local time, on today's date (so a DST
+boundary on either side resolves correctly), and write that converted value
+to `delivery.hour` as "HH:MM" — any real minute is fine, the gate and the
+cron spec both carry it through exactly. Do the conversion in code, never by
+mental UTC-offset arithmetic (DST makes that wrong twice a year in either
+zone):
 
     python3 -c "
     from datetime import datetime
     from zoneinfo import ZoneInfo
     import os
-    owner_hour = 7  # the hour the owner asked for, in THEIR zone
+    owner_hour, owner_minute = 10, 25  # what the owner asked for, in THEIR zone
     owner_tz = ZoneInfo('America/Sao_Paulo')  # resolved from what they said
     container_tz = ZoneInfo(os.environ['TZ'])
     today = datetime.now(owner_tz).date()
-    moment = datetime(today.year, today.month, today.day, owner_hour, tzinfo=owner_tz)
-    print(moment.astimezone(container_tz).strftime('%H:00'))
+    moment = datetime(today.year, today.month, today.day, owner_hour, owner_minute, tzinfo=owner_tz)
+    print(moment.astimezone(container_tz).strftime('%H:%M'))
     "
 
 Write the

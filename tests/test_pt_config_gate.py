@@ -98,10 +98,19 @@ class TestInvariants:
         )
         assert "owner.timezone is blank" in out
 
-    @pytest.mark.parametrize("hour", ["7:00", "07:30", "24:00", "0700", 700, None])
+    @pytest.mark.parametrize("hour", ["7:00", "24:00", "0700", "07:60", 700, None])
     def test_malformed_delivery_hour(self, tmp_path, hour):
         out, _ = run_gate({**VALID, "delivery": {"hour": hour}}, tmp_path)
-        assert 'delivery.hour is not "HH:00"' in out
+        assert 'delivery.hour is not "HH:MM"' in out
+
+    @pytest.mark.parametrize("hour", ["07:30", "10:25", "00:05", "23:59"])
+    def test_delivery_hour_accepts_any_real_minute(self, tmp_path, hour):
+        # Minutes were once refused on the theory that "the cron fires at
+        # the hour" was a hard limit -- register_crons.py's own
+        # daily_schedule() has always produced a non-zero minute field, so
+        # any real HH:MM is a promise the schedule can keep.
+        out, _ = run_gate({**VALID, "delivery": {"hour": hour}}, tmp_path)
+        assert out == ""
 
     @pytest.mark.parametrize("lead", [60, -1, 100, "45", 4.5])
     def test_malformed_lead_minutes(self, tmp_path, lead):
@@ -148,7 +157,7 @@ class TestInvariants:
             {"owner": {"timezone": "UTC"}, "delivery": {"hour": "nope"},
              "printer": {"configured": "no"}}, tmp_path
         )
-        assert out == ('delivery.hour is not "HH:00"; '
+        assert out == ('delivery.hour is not "HH:MM"; '
                        "printer.configured is not a boolean")
 
 

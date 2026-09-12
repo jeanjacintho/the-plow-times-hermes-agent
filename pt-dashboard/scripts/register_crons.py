@@ -43,9 +43,10 @@ unreadable or unexpected jobs.json aborts. Never read "I could not tell what
 is registered" as "nothing is" -- that re-registers every job and duplicates
 all of them.
 
-`delivery.hour` is always the CONTAINER's local hour, "HH:00" -- `hermes cron
-create` takes no per-job zone, so every schedule fires in the container's
-zone regardless of what `owner.timezone` says. This used to be enforced by
+`delivery.hour` is always the CONTAINER's local time, "HH:MM" -- `hermes
+cron create` takes no per-job zone, so every schedule fires in the
+container's zone regardless of what `owner.timezone` says. This used to be
+enforced by
 refusing to register at all unless owner.timezone equalled the container's
 TZ (the only way delivery.hour could safely be read as the owner's own local
 hour with zero conversion). That traded a real product cost for the safety:
@@ -216,8 +217,8 @@ def resolve_deliver(deliver, env=None):
 
 
 def load_delivery_hour(config_path=CONFIG_FILE):
-    """delivery.hour from pt/config.json -- its exact 'HH:00' shape is the
-    gate's contract; the hour part is all a schedule needs."""
+    """delivery.hour from pt/config.json -- its exact 'HH:MM' shape is the
+    gate's contract; both parts feed the schedule."""
     path = pathlib.Path(config_path)
     try:
         config = json.loads(path.read_text())
@@ -256,18 +257,25 @@ def load_lead_minutes(config_path=CONFIG_FILE):
     return raw
 
 
+def _hour_minute(delivery_hour):
+    """Parse a gate-shaped "HH:MM" into (hour, minute) ints."""
+    hour_part, minute_part = delivery_hour.split(":")
+    return int(hour_part), int(minute_part)
+
+
 def daily_schedule(delivery_hour, lead_minutes):
     """The daily paper's cron expression, wraparound exact.
 
-    delivery.hour is "HH:00" (the gate's contract). Subtracting the lead is
-    done in minutes and taken modulo a day, so 00:00 - 45 min is the PREVIOUS
-    day's 23:15 and yields "15 23 * * *" -- not "45 -1 * * *", which is not a
-    cron expression, and not a schedule that fires a day late. A daily job
-    fires at that local minute every day, which is exactly one edition per
-    day at the promised moment.
+    delivery.hour is any real "HH:MM" (the gate's contract). Subtracting the
+    lead is done in minutes from the OWNER's chosen minute, not just the
+    hour, and taken modulo a day, so 00:00 - 45 min is the PREVIOUS day's
+    23:15 and yields "15 23 * * *" -- not "45 -1 * * *", which is not a cron
+    expression, and not a schedule that fires a day late. A daily job fires
+    at that local minute every day, which is exactly one edition per day at
+    the promised moment.
     """
-    hour = int(delivery_hour.split(":")[0])
-    total = (hour * 60 - lead_minutes) % (24 * 60)
+    hour, minute = _hour_minute(delivery_hour)
+    total = (hour * 60 + minute - lead_minutes) % (24 * 60)
     return f"{total % 60} {total // 60} * * *"
 
 
@@ -300,10 +308,10 @@ def daily_job(delivery_hour, lead_minutes, env=None):
 
 def subscription_job(topic, delivery_hour, env=None):
     """The job spec for one subscription topic: nightly at the delivery hour."""
-    hour = int(delivery_hour.split(":")[0])
+    hour, minute = _hour_minute(delivery_hour)
     return {
         "name": f"pt-subscription-{topic['id']}",
-        "schedule": f"0 {hour} * * *",
+        "schedule": f"{minute} {hour} * * *",
         "prompt": SUBSCRIPTION_PROMPT.format(tid=topic["id"]),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,

@@ -275,6 +275,25 @@ class TestDailySchedule:
         # 00:00 - 90min is 22:30 the day before.
         assert crons.daily_schedule("00:00", 90) == "30 22 * * *"
 
+    def test_owner_chosen_minute_is_not_forced_to_zero(self):
+        # delivery.hour used to be restricted to "HH:00" on the theory that
+        # the cron fires at the hour -- it never did; the minute field was
+        # always there, only ever fed a computed value.
+        assert crons.daily_schedule("10:25", 0) == "25 10 * * *"
+
+    def test_owner_chosen_minute_survives_a_lead_offset(self):
+        assert crons.daily_schedule("10:25", 10) == "15 10 * * *"
+
+
+class TestSubscriptionJob:
+    def test_carries_the_owner_chosen_minute(self):
+        job = crons.subscription_job(topic("t_9f2a"), "10:25")
+        assert job["schedule"] == "25 10 * * *"
+
+    def test_whole_hour_still_works(self):
+        job = crons.subscription_job(topic("t_9f2a"), "07:00")
+        assert job["schedule"] == "0 7 * * *"
+
 
 class TestHasPaper:
     def test_section_keeps_the_paper(self):

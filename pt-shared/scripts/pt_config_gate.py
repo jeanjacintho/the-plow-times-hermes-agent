@@ -26,8 +26,11 @@ The six checks:
      routes first-run onboarding from the keys' presence -- a blank one
      satisfies neither.
   2. delivery.hour must be the exact "HH:MM" shape (00-23 : 00-59). The cron
-     spec is built as "0 <hour> * * *" from its hour part; a shape anything
-     else would either break the expression or silently shift the delivery.
+     spec is built as "<minute> <hour> * * *" from both parts -- a bare cron
+     expression is already minute-precise (the lead-time subtraction for the
+     daily paper has always produced a non-zero minute field), so any real
+     "HH:MM" is a real promise the schedule can keep; only the shape itself
+     is refused here.
   3. printer.configured must be a boolean. It is the print path's only gate,
      so a truthy string ("false" reads truthy) would hand pt-print a printer
      that does not exist -- a print leg that fails on every nightly run.
@@ -53,13 +56,15 @@ import sys
 
 _PLACEHOLDER_RE = re.compile(r"^\[[A-Z][A-Z0-9_]*\]$")
 _NONBLANK_RE = re.compile(r"\S")
-# The only shape the delivery hour may take. The dashboard derives
-# "0 <hour> * * *" from the hour part; minutes exist in the format so the
-# owner-facing config reads as a time, and pt-setup asks for "07:00" -- but
-# the cron fires at the hour, so minutes other than "00" would be a silent
-# lie between what the owner was told and when the edition lands. Held to
-# :00 here, at the one place that can refuse it.
-_DELIVERY_HOUR_RE = re.compile(r"^([01][0-9]|2[0-3]):00$")
+# The only shape the delivery hour may take: any real "HH:MM". A bare cron
+# expression is minute-precise ("<minute> <hour> * * *"), and the daily
+# paper's own lead-time subtraction has always produced a non-zero minute
+# field -- there was never a mechanical reason to hold the OWNER's chosen
+# minute to :00 while accepting any minute computed internally. Previously
+# restricted to ":00" on the theory that "the cron fires at the hour" was a
+# hard limit; measured against register_crons.py's own daily_schedule(), it
+# never was one.
+_DELIVERY_HOUR_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 
 
 class GateError(Exception):
@@ -112,11 +117,11 @@ def gate(config):
     if not _nonblank(tz):
         failures.append("owner.timezone is blank")
 
-    # 2. delivery.hour is "HH:00" exactly. See _DELIVERY_HOUR_RE for why
-    #    minutes are refused, not merely validated.
+    # 2. delivery.hour is a real "HH:MM". See _DELIVERY_HOUR_RE for why any
+    #    minute is accepted, not just :00.
     hour = _index(_index(config, "delivery"), "hour")
     if not (isinstance(hour, str) and _DELIVERY_HOUR_RE.fullmatch(hour)):
-        failures.append('delivery.hour is not "HH:00"')
+        failures.append('delivery.hour is not "HH:MM"')
 
     # 3. printer.configured is a boolean, unambiguously.
     configured = _index(_index(config, "printer"), "configured")
