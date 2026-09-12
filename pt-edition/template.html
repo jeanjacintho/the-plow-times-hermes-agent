@@ -6,53 +6,138 @@
   The Plow Times -- the fixed edition layout.
 
   This file is deliberately plain: inline CSS, no external assets, no
-  JavaScript.   The renderer (scripts/render_edition.py) substitutes exactly
-  three placeholders and escapes every value it inserts, so a page from the
-  web can never inject markup here. Keep it that way: a script tag or an
-  inline event attribute makes the Chrome-on-Mac PDF fallback execute
-  untrusted content on the owner's machine.
+  JavaScript. The renderer (scripts/render_edition.py) substitutes five
+  placeholders and escapes every value it inserts, so a page from the web
+  can never inject markup here. Keep it that way: a script tag or an inline
+  event attribute makes the Chrome-on-Mac PDF fallback execute untrusted
+  content on the owner's machine.
 
   The masthead is drawn from PT_MASTHEAD (default "THE PLOW TIMES"),
   resolved by the renderer -- not from edition.json, so the chat edition and
   the printed page can never show two different names. Layout edits here
   survive redeploys: the deploy hook copies a skill into the agent's home
   only when absent.
+
+  Retro-newspaper layout: {{SECTIONS}} is every section NOT marked
+  layout:"sidebar" in edition.json, laid out as a two-up grid of story
+  columns; {{SIDEBAR}} is every section marked layout:"sidebar" (the
+  weather box, say), laid out as a single fixed-width rail with a
+  high-contrast header bar. {{PAGE_CLASS}} is "page" normally, or
+  "page page--no-sidebar" when no section opted into the sidebar that day
+  -- the CSS below collapses the rail rather than leaving an empty column.
 -->
 <style>
-  @page { size: Letter; margin: 18mm 16mm; }
+  @page { size: Letter; margin: 16mm 14mm; }
   * { box-sizing: border-box; }
   body {
     font-family: Georgia, "Times New Roman", serif;
-    color: #111; margin: 0; line-height: 1.45;
+    color: #111; margin: 0; line-height: 1.4; font-size: 13px;
   }
-  header { text-align: center; border-bottom: 3px double #111; padding-bottom: 8px; }
-  .masthead { font-size: 42px; letter-spacing: 2px; margin: 0; font-weight: 700; }
-  .dateline { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: #444; margin-top: 6px; }
-  .section { border-bottom: 1px solid #ccc; padding: 14px 0; }
-  .section:last-child { border-bottom: none; }
-  .section h2 { font-size: 20px; margin: 0 0 2px; }
-  .headline { font-size: 15px; font-weight: 700; font-style: italic; margin: 0 0 8px; }
-  .section p { margin: 0 0 6px; font-size: 14px; }
+
+  /* -- Masthead ------------------------------------------------------- */
+  header { text-align: center; padding-bottom: 6px; }
+  .masthead {
+    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 46px; font-weight: 900; letter-spacing: 1px;
+    margin: 0; text-transform: uppercase;
+  }
+  .rule-thick { border: none; border-top: 4px solid #111; margin: 6px 0 2px; }
+  .rule-thin  { border: none; border-top: 1px solid #111; margin: 0; }
+  .dateline {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: #111; padding: 5px 0; border-bottom: 4px solid #111;
+    margin-bottom: 16px;
+  }
+  .dateline .bar { flex: 1; border-top: 1px solid #111; }
+
+  /* -- Page layout: story columns + a fixed sidebar rail ---------------
+     display:table, not grid and not float+multicol: both were measured
+     live and broken in weasyprint's paginated engine -- grid lost whole
+     columns of content across page breaks, and a float beside a multicol
+     block let the second text column overlap the float instead of
+     wrapping around it. table-cell is the old, boring, print-stable way
+     to reserve two real side-by-side regions; multicol only ever applies
+     INSIDE one cell, never across the boundary, so it can't leak into the
+     other cell the way it did against a float. */
+  .page { display: table; width: 100%; table-layout: fixed; }
+  .main-col-wrap { display: table-cell; vertical-align: top; padding-right: 22px; }
+  .sidebar { display: table-cell; vertical-align: top; width: 190px; }
+  .page--no-sidebar .sidebar { display: none; }
+  .page--no-sidebar .main-col-wrap { padding-right: 0; }
+
+  .main-col {
+    column-count: 2; column-gap: 22px;
+  }
+
+  /* -- Story blocks (main column) --------------------------------------- */
+  .section {
+    border-top: 3px solid #111; padding: 8px 0 4px;
+    break-inside: avoid-column; -webkit-column-break-inside: avoid;
+  }
+  .section h2 {
+    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px; font-weight: 900; line-height: 1.15;
+    text-transform: uppercase; margin: 0 0 4px;
+  }
+  .headline {
+    font-size: 12px; font-weight: 700; font-style: italic;
+    margin: 0 0 7px; color: #333;
+  }
+  .section p { margin: 0 0 6px; font-size: 12.5px; }
   .tag {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-    border: 1px solid #111; padding: 1px 5px; vertical-align: middle;
+    font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+    font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
+    background: #111; color: #fff; padding: 2px 6px; vertical-align: middle;
     margin-left: 6px; white-space: nowrap;
   }
-  .sources { font-size: 11px; color: #555; word-break: break-all; }
+  .sources { font-size: 10px; color: #555; word-break: break-all; }
   .sources a { color: #555; }
-  .unsourced { font-size: 12px; font-style: italic; color: #666; }
-  footer { margin-top: 18px; border-top: 3px double #111; padding-top: 6px; text-align: center; font-size: 10px; color: #777; }
+  .unsourced { font-size: 11px; font-style: italic; color: #666; }
+
+  /* -- Sidebar rail: boxed, high-contrast, same every day -------------- */
+  .sidebar { display: flex; flex-direction: column; gap: 14px; }
+  .section--sidebar {
+    border: 2px solid #111; padding: 0; break-inside: avoid;
+  }
+  .section--sidebar h2 {
+    background: #111; color: #fff; margin: 0; padding: 7px 8px;
+    font-size: 13px; letter-spacing: 0.5px;
+  }
+  .section--sidebar .headline,
+  .section--sidebar p,
+  .section--sidebar .sources,
+  .section--sidebar .unsourced { padding: 0 8px; }
+  .section--sidebar .headline { margin-top: 8px; }
+  .section--sidebar p:last-of-type { margin-bottom: 8px; }
+  .section--sidebar .sources,
+  .section--sidebar .unsourced { padding-bottom: 8px; }
+
+  footer {
+    margin-top: 16px; border-top: 4px solid #111; padding-top: 6px;
+    text-align: center; font-size: 9px; letter-spacing: 0.5px;
+    text-transform: uppercase; color: #777;
+  }
 </style>
 </head>
 <body>
   <header>
     <h1 class="masthead">{{MASTHEAD}}</h1>
-    <div class="dateline">{{DATE}}</div>
   </header>
+  <hr class="rule-thick">
+  <div class="dateline"><span class="bar"></span>{{DATE}}<span class="bar"></span></div>
 
-  <main>
+  <div class="{{PAGE_CLASS}}">
+    <div class="main-col-wrap">
+      <div class="main-col">
 {{SECTIONS}}
-  </main>
+      </div>
+    </div>
+    <aside class="sidebar">
+{{SIDEBAR}}
+    </aside>
+  </div>
 
   <footer>
     Researched overnight and delivered to its reader alone. Every claim carries its source.

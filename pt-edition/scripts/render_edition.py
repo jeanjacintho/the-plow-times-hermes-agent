@@ -98,6 +98,9 @@ def validate(edition):
         headline = section.get("headline")
         if headline is not None and not isinstance(headline, str):
             failures.append(f"{where}.headline is not a string")
+        layout = section.get("layout")
+        if layout is not None and layout not in ("main", "sidebar"):
+            failures.append(f"{where}.layout is not main|sidebar")
         sources = section.get("sources", [])
         if not isinstance(sources, list) or not all(isinstance(u, str) for u in sources):
             failures.append(f"{where}.sources is not a list of strings")
@@ -156,7 +159,13 @@ def render_chat(edition, name):
 
 
 def html_section(section):
-    """One topic's block as escaped HTML. Every dynamic string is escaped."""
+    """One topic's block as escaped HTML. Every dynamic string is escaped.
+
+    ``layout: "sidebar"`` (optional, default "main") gets the boxed,
+    high-contrast treatment for a section that should read as a fixed panel
+    every day -- the weather box, say -- rather than another column story.
+    Same fields, same escaping; only the wrapping class differs.
+    """
     title = html.escape(section["title"].strip())
     tag = section.get("tag")
     tag_html = f' <span class="tag">{html.escape(tag)}</span>' if tag else ""
@@ -167,7 +176,9 @@ def html_section(section):
         if body
         else "(nothing usable in the budget this time)"
     )
-    blocks = [f'<article class="section">',
+    is_sidebar = section.get("layout") == "sidebar"
+    article_class = "section section--sidebar" if is_sidebar else "section"
+    blocks = [f'<article class="{article_class}">',
               f'  <h2>{title}{tag_html}</h2>']
     if headline:
         blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
@@ -188,14 +199,25 @@ def html_section(section):
 
 
 def render_html(edition, name, template_text):
-    sections = "\n".join(html_section(s) for s in edition["sections"]) or (
+    main_sections = [s for s in edition["sections"] if s.get("layout") != "sidebar"]
+    sidebar_sections = [s for s in edition["sections"] if s.get("layout") == "sidebar"]
+
+    main_html = "\n".join(html_section(s) for s in main_sections) or (
         '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
     )
+    sidebar_html = "\n".join(html_section(s) for s in sidebar_sections)
+
+    # No sidebar-flagged section today -- most owners won't have one -- so
+    # the page drops to a single column instead of leaving an empty rail.
+    page_class = "page" if sidebar_html else "page page--no-sidebar"
+
     return (
         template_text
         .replace("{{MASTHEAD}}", html.escape(name))
         .replace("{{DATE}}", html.escape(pretty_date(edition["date"])))
-        .replace("{{SECTIONS}}", sections)
+        .replace("{{PAGE_CLASS}}", page_class)
+        .replace("{{SECTIONS}}", main_html)
+        .replace("{{SIDEBAR}}", sidebar_html)
     )
 
 

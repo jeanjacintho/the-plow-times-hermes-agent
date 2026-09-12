@@ -21,6 +21,7 @@ HTML.** Hand-write `edition.json` under the run directory:
     { "kind": "section", "topic_id": "t_8c1d",
       "title": "Clima em Sao Paulo",
       "headline": "Chuva a tarde",
+      "layout": "sidebar",
       "body": "3–6 sentences, every one traceable to a note.",
       "sources": ["https://…"],
       "could_not_source": ["…"] },
@@ -44,6 +45,14 @@ HTML.** Hand-write `edition.json` under the run directory:
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block
   it qualifies. Unsourced claims are named, not hidden.
+- **`layout` is optional, `"main"` (the default) or `"sidebar"`.** The
+  printed page (HTML/PDF only — the chat text ignores it and lists every
+  section in order regardless) puts every `"sidebar"` section in a boxed
+  rail beside the two-column news, and everything else in that news column.
+  Use it for the one section that should read as a fixed daily panel — the
+  weather, say — not for whichever section happens to feel important today;
+  no `"sidebar"` section at all is a normal, fully supported day and the
+  rail just doesn't appear.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
   sentence ("nothing usable in the budget this time"), and what was tried.

@@ -63,6 +63,18 @@ class TestValidate:
                                  "sources": [1, 2]}])
         assert "sources" in render.validate(bad)
 
+    def test_layout_must_be_main_or_sidebar(self):
+        bad = edition(sections=[{
+            "kind": "section", "title": "x", "body": "y", "layout": "top",
+        }])
+        assert "layout is not main|sidebar" in render.validate(bad)
+
+    def test_layout_optional(self):
+        assert render.validate(edition()) == ""
+        assert render.validate(edition(sections=[{
+            "kind": "section", "title": "x", "body": "y", "layout": "sidebar",
+        }])) == ""
+
     def test_headline_must_be_a_string_when_present(self):
         bad = edition(sections=[{
             "kind": "section", "title": "x", "body": "y", "headline": 5,
@@ -166,6 +178,26 @@ class TestHtml:
         assert 'class="headline"' in page
         assert "<b>manchete</b>" not in page
         assert "&lt;b&gt;manchete&lt;/b&gt;" in page
+
+    TEMPLATE = "{{PAGE_CLASS}}|{{SECTIONS}}|{{SIDEBAR}}"
+
+    def test_sidebar_section_goes_to_the_sidebar_slot(self):
+        data = edition(sections=[
+            {"kind": "section", "title": "Noticia", "body": "y", "sources": []},
+            {"kind": "section", "title": "Tempo", "layout": "sidebar", "body": "z", "sources": []},
+        ])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
+        page_class, main_html, sidebar_html = page.split("|", 2)
+        assert page_class == "page"
+        assert "Noticia" in main_html and "Tempo" not in main_html
+        assert "Tempo" in sidebar_html and "Noticia" not in sidebar_html
+        assert 'class="section section--sidebar"' in sidebar_html
+
+    def test_no_sidebar_section_collapses_the_rail(self):
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, self.TEMPLATE)
+        page_class, _main_html, sidebar_html = page.split("|", 2)
+        assert page_class == "page page--no-sidebar"
+        assert sidebar_html == ""
 
 
 class TestMain:
