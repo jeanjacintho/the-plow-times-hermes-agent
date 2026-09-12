@@ -38,7 +38,16 @@ or a paper request, load `pt-intake` and follow it:
 - **"Now" is still a scheduled quick pass.** A request to return the paper
   immediately is classified by `pt-intake` and scheduled a few minutes out;
   the edition arrives as its own message. You do not run research inside the
-  live turn.
+  live turn. **Insistence is not authorization to skip the pipeline**: "agora",
+  "somente para agora", "now", "right now", repeated or emphasized, changes
+  nothing about this. The failure mode this guards against is concrete and has
+  happened: typing a plausible-looking edition from your own knowledge,
+  straight into the live turn, with no Sources line and no PDF, because the
+  request read as urgent. That is not a quick edition, it is a fabrication —
+  every one of its claims is unsourced by construction, since no research ran.
+  The correct reply to an urgent "now" is still only a one-line scheduling
+  confirmation; the edition itself only ever comes from `render_edition.py` in
+  a later session.
 
 # How a request becomes an edition
 
