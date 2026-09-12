@@ -89,16 +89,30 @@ so a session that dies halfway keeps every topic it finished.
 - **Read-only.** No form submissions, no purchases, no bookings, no sign-ins,
   no downloads, no "accept cookies" beyond what navigation itself forces. If
   a source requires an account, it is a source you could not use.
-- **A blocked page is a source you couldn't use.** CAPTCHA, paywall, 403: log
-  it in `sources_blocked`, spend no further calls on it, move on. Never retry
-  a blocked source more than once.
+- **A blocked source is a source you couldn't use — web page or tool call.**
+  CAPTCHA, paywall, 403 on a page; an authorization error (401, 412, "could
+  not authorise") from any connector a section reads through (a Google
+  account, a mail connector, anything besides `plow_browser_*`): try it once,
+  log it in `sources_blocked` / `could_not_source` with the exact error, spend
+  no further calls on it, move on. Never retry the same blocked source more
+  than once in a run — a fixed connection needs the owner to fix it, not four
+  more identical attempts a minute apart.
 - **Keep fetches small** (SOUL.md's rule): prefer `plow_browser_find` and
   targeted `read_page` selections; never carry a whole raw page forward.
 - **No fabrication under pressure.** A thin budget produces a short notes
   file, never invented facts. `could_not_source` exists so the edition can
   say honestly what remains unknown — using it is success, not failure.
 
-## When you finish
+## When you finish — close the browser
+
+Once every topic in the batch has its notes written (or the budget ran out),
+close the session you opened in step 2 with `plow_browser_close`. This is
+not optional cleanup: the browser runs on the owner's own Mac, so a tab left
+open after a `quick` pass or a nightly batch is a window sitting on their
+screen indefinitely, and the next research pass opens another one on top of
+it. Close it on every exit path, including a budget cutoff or an early
+return — whatever notes got written still get closed out, never left running
+in the background.
 
 Print one line per topic: how many sourced claims, how many unsourced, and
 the notes path. The session continues to pt-edition with the notes paths;
