@@ -76,10 +76,20 @@ class TestTimezoneAgreement:
         with pytest.raises(SystemExit, match="TZ is empty"):
             crons.require_timezone_agreement(path, env={})
 
-    def test_mismatch_refuses_naming_both(self, tmp_path):
+    def test_mismatch_no_longer_refuses(self, tmp_path):
+        # pt-setup now converts the owner's stated local delivery time into
+        # the container's local hour at write time (zoneinfo math), so
+        # delivery.hour is trusted as already correct for this container --
+        # owner.timezone naming a different real zone than TZ is the normal
+        # case now, not a refusal. See the module docstring.
         path = write_config(tmp_path)
-        with pytest.raises(SystemExit, match="America/Los_Angeles.*America/Chicago"):
-            crons.require_timezone_agreement(path, env={"TZ": "America/Chicago"})
+        crons.require_timezone_agreement(path, env={"TZ": "America/Chicago"})
+
+    def test_blank_owner_timezone_refuses(self, tmp_path):
+        blank_tz_config = {**CONFIG, "owner": {"timezone": ""}}
+        path = write_config(tmp_path, config=blank_tz_config)
+        with pytest.raises(SystemExit, match="blank owner.timezone"):
+            crons.require_timezone_agreement(path, env={"TZ": TZ})
 
     def test_missing_config_refuses(self, tmp_path):
         with pytest.raises(SystemExit, match="missing"):

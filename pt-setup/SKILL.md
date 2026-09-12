@@ -29,23 +29,48 @@ top.
 
 ## The questions, in order
 
-**1. The timezone.** The container already runs in `TZ` (from AGENT_TZ at
-boot), and the cron system will fire in it — so the point of this question
-is to make the OWNER'S zone the one everyone agrees on, out loud. Name the
-zone you are running in and ask them to confirm or correct it. Write what
-they confirm. If they correct it to something the container is not running
-in, say plainly that the container must be restarted with that `TZ` before
-crons will fire in it — registering schedules across a mismatch is refused
-on purpose, and a morning paper at the wrong hour is the alternative.
+**1. The timezone and the delivery hour, together.** Ask the owner's real
+zone (a city or "horário de Brasília" is enough — resolve it to the IANA
+name yourself, e.g. `America/Sao_Paulo`) and what local time they want their
+morning paper, in the same turn if they volunteer both. Suggest 07:00 in
+their own zone as the default.
 
-**2. The delivery hour.** When should the morning paper land — that is the
-nightly subscription moment and the default for deep one-offs. Suggest
-07:00, take any hour they say, and record it as "HH:00" only: minutes are
-refused at the gate because the cron fires at the hour and a config saying
-"07:30" would be a promise the paper cannot keep. If they insist on a
-half-hour, offer the nearest hour and say why.
+You do **not** need the container restarted to serve an owner in a different
+zone than this container's `TZ` (from `AGENT_TZ` at boot) — `hermes cron
+create` fires bare hour expressions in the container's own zone, so convert:
+compute the container-local clock hour that corresponds to the owner's
+chosen local time, on today's date (so a DST boundary on either side resolves
+correctly), and write that converted value to `delivery.hour` as "HH:00"
+only — never a half-hour; minutes are refused at the gate because the cron
+fires at the hour, and a "07:30" promise the paper cannot keep. Do the
+conversion in code, never by mental UTC-offset arithmetic (DST makes that
+wrong twice a year in either zone):
 
-**3. The printer.** Ask whether a printer is set up on their Mac. Whatever
+    python3 -c "
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    import os
+    owner_hour = 7  # the hour the owner asked for, in THEIR zone
+    owner_tz = ZoneInfo('America/Sao_Paulo')  # resolved from what they said
+    container_tz = ZoneInfo(os.environ['TZ'])
+    today = datetime.now(owner_tz).date()
+    moment = datetime(today.year, today.month, today.day, owner_hour, tzinfo=owner_tz)
+    print(moment.astimezone(container_tz).strftime('%H:00'))
+    "
+
+Write the
+owner's real, unconverted zone to `owner.timezone` — that is what you show
+back to them and what any future re-setup or "changing one setting" edit
+recomputes from, never the container's own zone.
+
+Say the result in the owner's own terms — "seu jornal chega às 07:00,
+horário de Brasília" — never mention the container's zone, `TZ`, or the
+conversion; that plumbing is not theirs to know about. The one case that
+still needs a restart: the container's `TZ` itself is unset or empty (a
+config problem nothing here can compute around) — say so plainly, once, and
+that a restart with `AGENT_TZ` set is what fixes it.
+
+**2. The printer.** Ask whether a printer is set up on their Mac. Whatever
 they answer, **probe once through Latch before writing
 `printer.configured: true`** — the same discipline ld-setup applies to the
 Pi bring-up; a yes/no alone is a configured printer that fails on every
@@ -65,7 +90,7 @@ nightly run. The probe:
   delivers in chat — printing joins automatically if a printer shows up
   later (that is the changing-one-setting path, plus a re-probe).
 
-**4. The paper's sections (optional).** Ask what they want in their paper
+**3. The paper's sections (optional).** Ask what they want in their paper
 every day — "clima, dólar, as notícias do Grêmio", anything. This is the one
 question with no required answer: an empty paper is a valid install, and
 they can add sections later in chat. Take each thing they name as a `section`
@@ -80,7 +105,7 @@ section they did not ask for.
 After each answer, write `/var/lib/hermes/pt/config.json` (create
 `/var/lib/hermes/pt/` when absent) and validate with the gate:
 
-    python3 /var/lib/hermes/skills/pt-shared/scripts/pt_config_gate.py \
+    python3 /var/lib/hermes/skills/news/pt-shared/scripts/pt_config_gate.py \
         /var/lib/hermes/pt/config.json
 
 **Paste the gate's output verbatim.** Empty output is pass; anything it

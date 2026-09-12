@@ -38,15 +38,28 @@ exact class of failure this script exists to prevent. Drift is only judged
 when hermes's own jobs.json carries the field; a fixture or an older row
 without a schedule is left alone rather than recreated on a guess.
 
-Two refusals are the point of the script, both inherited from ld-dashboard:
+One refusal is the point of the script, inherited from ld-dashboard: an
+unreadable or unexpected jobs.json aborts. Never read "I could not tell what
+is registered" as "nothing is" -- that re-registers every job and duplicates
+all of them.
 
-  - an unreadable or unexpected jobs.json aborts. Never read "I could not
-    tell what is registered" as "nothing is" -- that re-registers every job
-    and duplicates all of them.
-  - the container's TZ and the config's owner.timezone must agree. `hermes
-    cron create` takes no per-job zone, so every schedule fires in the
-    container's zone while the delivery hour is promised in the owner's;
-    a silent mismatch is a paper that lands at the wrong hour, every night.
+`delivery.hour` is always the CONTAINER's local hour, "HH:00" -- `hermes cron
+create` takes no per-job zone, so every schedule fires in the container's
+zone regardless of what `owner.timezone` says. This used to be enforced by
+refusing to register at all unless owner.timezone equalled the container's
+TZ (the only way delivery.hour could safely be read as the owner's own local
+hour with zero conversion). That traded a real product cost for the safety:
+an owner in a different zone than whatever the container happens to be
+running in could not get a paper at all without someone restarting the
+container first -- mid-conversation, the one thing this agent cannot do for
+itself. pt-setup now does the conversion instead: it asks the owner's real
+zone and what local time they want, computes the equivalent container-local
+hour with `zoneinfo`, and writes THAT as delivery.hour, while owner.timezone
+keeps the owner's real zone for display and for recomputing after a
+container restart changes TZ. So this script trusts delivery.hour as
+already correct for the container it is running in, the same way it always
+trusted a hand-edited "changing one setting" update to be correct -- the
+conversion risk moved to one write path (pt-setup), not away.
 
 It runs INSIDE the container, where /opt/hermes/bin/hermes and that file
 live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
@@ -111,16 +124,18 @@ DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
 
 
 def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
-    """Refuse to register if the config's zone is not the container's.
+    """Refuse to register if the container or the config can't name a zone.
 
-    Same guard ld-dashboard enforces, for the same reason: every schedule
-    here is a bare cron expression and hermes cron create takes no per-job
-    timezone, so jobs fire in the CONTAINER's zone while the delivery hour
-    is promised in owner.timezone. A silently-wrong hour is worse than a
-    refusal naming both zones. TZ (not /etc/localtime) is what Python and
-    cron honour -- the ld gate measured the image's /etc/localtime pointing
-    at UTC while TZ carries the real zone, so reading the symlink would
-    refuse every correct config.
+    NOT an owner.timezone == container TZ check anymore (see the module
+    docstring) -- pt-setup now converts the owner's stated local delivery
+    time into the container's local hour at write time, so delivery.hour is
+    trusted as already correct for whatever zone this container is running
+    in, the same way a hand-edited "changing one setting" update always was.
+    What's still refused: a container with no TZ at all (nothing here could
+    even attempt the conversion), and a config missing owner.timezone
+    entirely (pt-setup's conversion step needs it, and it's the number shown
+    back to the owner). Name kept for the smaller blast radius on callers and
+    tests; only its body changed.
     """
     env = os.environ if env is None else env
     container = (env.get("TZ") or "").strip()
@@ -144,16 +159,9 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
             f"refusing to register: could not read owner.timezone from {path} "
             f"({exc!r})."
         ) from exc
-
-    if str(owner or "").strip() != container:
+    if not str(owner or "").strip():
         raise SystemExit(
-            f"refusing to register: {path} says owner.timezone is "
-            f"{owner!r} but this container runs in {container!r}. Every "
-            "schedule here is a bare cron expression and hermes cron create "
-            "takes no per-job zone, so editions would land at the wrong local "
-            "hour -- silently. TZ is fixed at boot, so this means the config "
-            "changed after the container started: restart it to pick the new "
-            "zone up, or fix owner.timezone if THAT is what is wrong."
+            f"refusing to register: {path} has a blank owner.timezone."
         )
 
 
