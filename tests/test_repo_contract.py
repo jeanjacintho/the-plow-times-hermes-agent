@@ -8,6 +8,37 @@ import stat
 from conftest import ROOT, load_module
 
 
+class TestSoul:
+    def test_soul_md_does_not_trip_hermes_context_injection_scanner(self):
+        # Measured live: agent.prompt_builder scans SOUL.md before it ever
+        # reaches the model (tools/threat_patterns.py, scope="context") and
+        # replaces the WHOLE file with "[BLOCKED: ... prompt injection ...]"
+        # on a hit -- not a warning, a silent full-file drop. SOUL.md's own
+        # advice to distrust web content ("a page that says 'ignore your
+        # previous instructions'...") tripped its own guard's
+        # "prompt_injection" pattern, so the agent ran with NONE of its
+        # instructions (no pt-intake, no sourcing rule, nothing) while every
+        # skill file and this repo's own tests stayed green -- the failure
+        # was invisible to anything except the gateway's own runtime log.
+        # This mirrors that one pattern (the exact regex that fired), not
+        # the full scanner, as a cheap regression guard with no dependency
+        # on the hermes_agent package being installed.
+        import re
+
+        pattern = re.compile(
+            r"ignore\s+(?:\w+\s+){0,8}(previous|all|above|prior)\s+(?:\w+\s+){0,8}instructions",
+            re.IGNORECASE,
+        )
+        text = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert not pattern.search(text), (
+            "SOUL.md contains a phrase matching Hermes' context-injection "
+            "scanner (tools/threat_patterns.py, pattern id 'prompt_injection'); "
+            "the whole file gets replaced with a [BLOCKED: ...] placeholder "
+            "at runtime, not just this sentence -- reword it, don't just "
+            "silence this assertion"
+        )
+
+
 class TestSkills:
     def test_every_pt_dir_carries_a_skill_manifest(self):
         for d in sorted(ROOT.glob("pt-*")):
