@@ -1,6 +1,6 @@
 ---
 name: pt-intake
-description: Classify a chat message into a research topic — new topic or status question, and which of the four shapes it is (one-off, subscription, section, assignment) and depth (quick/deep) — write it to pt/topics.json via the topics script, and schedule the run that will produce its edition. Use on every owner chat turn that is not a status question. Status questions (list my topics, list my paper, stop watching X, cancel a dated item, when will it land) are answered from the files, not this skill's scheduling path. Never research inside the turn.
+description: Classify a chat message into a research topic — new topic or status question, and which of the four shapes it is (one-off, subscription, section, assignment) and depth (quick/deep) — write it to pt/topics.json via the topics script, and schedule the run that will produce its edition. Use on every owner chat turn that is not a status question. Status questions (list my topics, list my paper, stop watching X, cancel a dated item, when will it land, add/remove a second daily delivery time) are answered from the files, not this skill's scheduling path. Never research inside the turn.
 ---
 
 # pt-intake — a chat message becomes a scheduled research job
@@ -49,6 +49,24 @@ These are ordinary turns, not classifications. Do them and end:
 - **"when will it land" / "did it come?"** — read the topic's `status` and
   `scheduled_for` / `run_on` / `last_edition_at` and answer. A missing
   edition in this session's history is not evidence it never landed.
+- **"quero o jornal duas vezes por dia" / "manda também às 10:30" / "tira a
+  segunda edição"** — a second (or third) full-paper delivery time is not a
+  topic, so it never goes through `topics.py`: it is `delivery.extra_hours`
+  in `pt/config.json`, a list of "HH:MM" strings alongside `delivery.hour`.
+  Ask the local time they want (in their own zone), convert it to the
+  container's local time the same way pt-setup's `delivery.hour` recipe
+  does (`zoneinfo`, never mental UTC-offset math — see `pt-setup/SKILL.md`),
+  append (or remove) it in `extra_hours`, validate with
+  `pt_config_gate.py`, paste its output, then re-run
+  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so
+  `pt-daily-edition-2` (or `-3`, numbered by list order) exists or is
+  removed **now**. Never hand-register a cron for this with `hermes cron
+  create` — a name register_crons.py's sweep doesn't recognize is invisible
+  to every future reconcile forever (measured live: exactly this mistake
+  once put a second edition at the wrong hour with nothing able to fix it
+  but a human noticing). Confirm in one line, in the owner's own terms —
+  "beleza, o jornal chega às 03:00 e às 10:30 agora" — never mention the
+  container's zone or the conversion.
 
 ## New topic — classify, then write
 
