@@ -42,16 +42,18 @@ RUN apt-get update \
 #     install succeeds and `import weasyprint` still fails.
 #   * `--target /usr/local/lib/python3.13/dist-packages` against
 #     /usr/bin/python3 (the previous fix here): that path IS on the *system*
-#     python's sys.path, and `docker exec ... sh -lc python3 -c "import
-#     weasyprint"` succeeds -- but `-lc` resets PATH to the container's
-#     default, dropping `/opt/hermes/.venv/bin`. The skill's own `python3
+#     python's sys.path, and `docker exec ... sh -l -c 'python3 -c "import
+#     weasyprint"'` (a login shell) succeeds -- but the login flag resets
+#     PATH to the container's default, dropping `/opt/hermes/.venv/bin`.
+#     The skill's own `python3
 #     render_edition.py ...` runs as a plain command, not a login shell, and
 #     the real container PATH (`agent.env` / the running container's env) is
 #     `/opt/hermes/bin:/opt/hermes/.venv/bin:...:/usr/bin:...` -- the hermes
 #     venv wins, `import weasyprint` fails there, and the PDF leg silently
 #     no-ops (best-effort) while the chat edition still ships as plain text.
 #     Confirmed live: `docker exec hermes-the-plow-times sh -c 'python3 -c
-#     "import weasyprint"'` (no `-l`) is a ModuleNotFoundError on that image.
+#     "import weasyprint"'` (a plain, non-login shell) is a
+#     ModuleNotFoundError on that image.
 #   * The fix is to install where the PATH that is actually used points:
 #     the hermes venv's own site-packages, via `--python
 #     /opt/hermes/.venv/bin/python3` with no `--target` override (a normal
@@ -63,8 +65,9 @@ RUN apt-get update \
 # write_pdf() die with "AttributeError: 'super' object has no attribute
 # 'transform'". 0.10.0 is the version 62.3 was written against.
 #
-# The build check renders a PDF through a PLAIN `sh -c`, not `sh -lc` and not
-# an explicit interpreter path -- `python3 -c "..."` exactly as the skill
+# The build check renders a PDF through a PLAIN `sh -c`, not a login shell
+# (`-l`) and not an explicit interpreter path -- `python3 -c "..."` exactly
+# as the skill
 # invokes it -- so a PATH regression like the one above fails the build
 # instead of shipping quietly.
 ARG WEASYPRINT_VERSION=62.3
