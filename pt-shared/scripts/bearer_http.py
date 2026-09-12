@@ -39,6 +39,18 @@ def post_json(base, path, token, label, body):
     label, on any failure, so a failed call never reads like an empty answer.
     The response body is discarded -- the endpoint may echo submitted text on
     success, and edition text derives from web content of untrusted origin."""
+    post_json_read(base, path, token, label, body)
+
+
+def post_json_read(base, path, token, label, body):
+    """Like ``post_json``, but returns the parsed JSON response body.
+
+    Needed for the attachment declare step (``POST .../attachments``), whose
+    response carries the ``uid``/``upload_url``/``upload_headers`` the next
+    step needs -- unlike a chat-message POST, this response is Plow's own
+    structured answer, not an echo of untrusted edition text, so reading it
+    is safe by the same reasoning ``post_json`` discards the other kind.
+    """
     data = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(
         url=f"{base.rstrip('/')}{path}",
@@ -48,8 +60,33 @@ def post_json(base, path, token, label, body):
     )
     try:
         with open_no_redirect(request, timeout=TIMEOUT) as response:
-            response.read()
+            raw = response.read()
     except urllib.error.HTTPError as exc:
         sys.exit(f"error: {label} returned HTTP {exc.code} {exc.reason}")
     except urllib.error.URLError as exc:
         sys.exit(f"error: POST to {label} failed: {exc.reason}")
+    try:
+        return json.loads(raw)
+    except ValueError as exc:
+        sys.exit(f"error: {label} returned a non-JSON response: {exc!r}")
+
+
+def put_bytes(url, headers, data, label):
+    """One PUT of raw bytes to a pre-signed capability URL, no redirect.
+
+    ``url``/``headers`` come verbatim from an attachment-declare response --
+    that URL IS the write capability (see the declare step), so no bearer is
+    added here; adding one would send this agent's own credential to
+    whatever the declare call named, which is Plow's own signed upload
+    target, not a host this script chose.
+    """
+    request = urllib.request.Request(
+        url=url, method="PUT", data=data, headers=dict(headers or {}),
+    )
+    try:
+        with open_no_redirect(request, timeout=TIMEOUT) as response:
+            response.read()
+    except urllib.error.HTTPError as exc:
+        sys.exit(f"error: {label} upload returned HTTP {exc.code} {exc.reason}")
+    except urllib.error.URLError as exc:
+        sys.exit(f"error: {label} upload failed: {exc.reason}")
