@@ -20,7 +20,7 @@ requirement this repo does not carry):
   - Never prints PII. There is none by design: the config holds a timezone, a
     delivery hour, and whether a printer exists.
 
-The six checks:
+The seven checks:
   1. owner.timezone must contain a non-whitespace char. register_crons.py
      refuses to register unless the container's TZ equals it, and SOUL.md
      routes first-run onboarding from the keys' presence -- a blank one
@@ -43,7 +43,11 @@ The six checks:
      fire time on a different day than the one the schedule promises. Absent
      is valid -- readers default it to 45, so an install written before the
      key existed does not start failing this gate.
-  6. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
+  6. delivery.extra_hours, when present, is a list of "HH:MM" strings: one
+     more full-paper delivery time the same day (register_crons.py registers
+     one job per entry, numbered pt-daily-edition-2, -3, ...). Absent is
+     valid -- one delivery a day is the common case.
+  7. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
 
 The owner's name, location, or any other personal fact is deliberately not
 among the checks, and not in the schema at all: this agent holds nothing
@@ -144,7 +148,21 @@ def gate(config):
         if isinstance(lead, bool) or not isinstance(lead, int) or not (0 <= lead <= 59):
             failures.append("delivery.lead_minutes is not an integer 0-59")
 
-    # 6. no leftover [UPPER_SNAKE] placeholder anywhere.
+    # 6. delivery.extra_hours, when present, is a list of real "HH:MM"
+    #    strings -- one more full-paper delivery time the same day (e.g. a
+    #    second edition at 10:30 as well as the morning one). Absent stays
+    #    valid: one delivery a day is the common case and needs no key at
+    #    all. Each entry is held to the same shape as delivery.hour itself,
+    #    for the same reason -- register_crons.py builds a real cron
+    #    expression from it.
+    extra_hours = _index(_index(config, "delivery"), "extra_hours")
+    if extra_hours is not None:
+        if not isinstance(extra_hours, list) or not all(
+            isinstance(h, str) and _DELIVERY_HOUR_RE.fullmatch(h) for h in extra_hours
+        ):
+            failures.append('delivery.extra_hours is not a list of "HH:MM" strings')
+
+    # 7. no leftover [UPPER_SNAKE] placeholder anywhere.
     if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):
         failures.append("an unfilled [UPPER_SNAKE] placeholder remains")
 

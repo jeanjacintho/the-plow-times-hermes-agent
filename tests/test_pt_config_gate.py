@@ -146,6 +146,31 @@ class TestInvariants:
         )
         assert out == "not valid JSON"
 
+    def test_extra_hours_absent_is_valid(self, tmp_path):
+        out, _ = run_gate(VALID, tmp_path)
+        assert out == ""
+
+    def test_extra_hours_accepts_real_times(self, tmp_path):
+        out, _ = run_gate(
+            {**VALID, "delivery": {"hour": "03:00", "extra_hours": ["10:30", "16:00"]}},
+            tmp_path,
+        )
+        assert out == ""
+
+    @pytest.mark.parametrize("bad", ["10:30", ["10:75"], ["nope"], [700]])
+    def test_extra_hours_rejects_malformed(self, tmp_path, bad):
+        config = {**VALID, "delivery": {"hour": "03:00", "extra_hours": bad}}
+        out, _ = run_gate(config, tmp_path)
+        assert 'delivery.extra_hours is not a list of "HH:MM" strings' in out
+
+    def test_extra_hours_null_is_treated_as_absent(self, tmp_path):
+        # Same convention as delivery.lead_minutes: an explicit null reads
+        # the same as the key being missing, not as a malformed value.
+        out, _ = run_gate(
+            {**VALID, "delivery": {"hour": "03:00", "extra_hours": None}}, tmp_path
+        )
+        assert out == ""
+
     def test_placeholder_anywhere(self, tmp_path):
         out, _ = run_gate(
             {**VALID, "owner": {"timezone": "[OWNER_TZ]"}}, tmp_path

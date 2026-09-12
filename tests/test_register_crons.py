@@ -295,6 +295,70 @@ class TestSubscriptionJob:
         assert job["schedule"] == "0 7 * * *"
 
 
+class TestExtraDailyHours:
+    # Regression: a user asked for a second daily edition at 10:30 and the
+    # model, having no sanctioned way to do that, hand-registered a cron job
+    # by shell command instead -- wrong schedule (17 minutes from creation
+    # time, not 10:30), a name (pt-daily-edition-2) this script didn't know
+    # to manage, and a hand-typed prompt that dropped the --pdf leg. These
+    # tests are the real feature that makes the hand-rolled version
+    # unnecessary.
+    def test_desired_jobs_adds_one_per_extra_hour(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "03:00", {"PLOW_HOME_CHANNEL": "c"},
+            45, extra_hours=["10:30"],
+        )
+        names = [j["name"] for j in jobs]
+        assert names == ["pt-daily-edition", "pt-daily-edition-2"]
+        # Each slot gets its own lead-time subtraction -- 10:30 minus 45m.
+        assert jobs[1]["schedule"] == "45 9 * * *"
+        assert jobs[1]["skill"] == "pt-research"
+        assert jobs[1]["deliver"] == crons.DELIVER_TARGET
+
+    def test_extra_job_prompt_has_its_own_lock_and_the_pdf_leg(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],
+        )
+        prompt = jobs[1]["prompt"]
+        assert "daily2-<today's date" in prompt
+        assert "post_to_chat.py" in prompt
+
+    def test_no_extra_hours_is_unchanged(self):
+        jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", {}, 45)
+        assert [j["name"] for j in jobs] == ["pt-daily-edition"]
+
+    def test_multiple_extra_hours_are_numbered_in_order(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "03:00", {}, 45,
+            extra_hours=["10:30", "16:00"],
+        )
+        assert [j["name"] for j in jobs] == [
+            "pt-daily-edition", "pt-daily-edition-2", "pt-daily-edition-3",
+        ]
+
+    def test_stale_extra_job_beyond_configured_count_is_pruned(self):
+        stale = crons.stale_names(
+            [topic("t_1", kind="section")],
+            ["pt-daily-edition", "pt-daily-edition-2", "pt-daily-edition-3"],
+            extra_hours_count=1,
+        )
+        assert stale == ["pt-daily-edition-3"]
+
+    def test_extra_job_kept_when_still_configured(self):
+        stale = crons.stale_names(
+            [topic("t_1", kind="section")],
+            ["pt-daily-edition", "pt-daily-edition-2"],
+            extra_hours_count=1,
+        )
+        assert stale == []
+
+    def test_extra_jobs_pruned_with_the_paper_when_it_is_gone(self):
+        stale = crons.stale_names(
+            [], ["pt-daily-edition", "pt-daily-edition-2"], extra_hours_count=1,
+        )
+        assert set(stale) == {"pt-daily-edition", "pt-daily-edition-2"}
+
+
 class TestHasPaper:
     def test_section_keeps_the_paper(self):
         assert crons.has_paper([topic("t_1", kind="section", status="pending")])
@@ -393,6 +457,34 @@ class TestDrift:
         ]}))
         specs = crons.registered_specs(path)
         assert specs["pt-daily-edition"]["schedule"] == "15 6 * * *"
+
+    def test_registered_specs_unwraps_the_real_schedule_shape(self, tmp_path):
+        # A real registered job's "schedule" is a dict, not a bare string --
+        # {"kind": "cron", "expr": "...", "display": "..."}. Measured against
+        # this fleet's own jobs.json, not a guess: comparing that dict
+        # straight to a spec's plain string made job_drift() true for every
+        # managed job on every run.
+        path = tmp_path / "jobs.json"
+        path.write_text(json.dumps({"jobs": [
+            {"name": "pt-daily-edition",
+             "schedule": {"kind": "cron", "expr": "15 2 * * *", "display": "15 2 * * *"},
+             "skill": "pt-research", "deliver": "plow_chat:c"},
+        ]}))
+        specs = crons.registered_specs(path)
+        assert specs["pt-daily-edition"]["schedule"] == "15 2 * * *"
+
+    def test_no_drift_against_the_real_schedule_shape(self):
+        # The regression this whole helper exists for: an UNCHANGED job,
+        # read back in its real persisted shape, must not read as drifted.
+        job = {"name": "pt-daily-edition", "schedule": "15 2 * * *", "skill": "pt-research"}
+        real_spec = {
+            "schedule": crons._persisted_schedule_expr(
+                {"schedule": {"kind": "cron", "expr": "15 2 * * *", "display": "15 2 * * *"}}
+            ),
+            "skill": "pt-research",
+            "deliver": "plow_chat:c",
+        }
+        assert not crons.job_drift(job, real_spec)
 
 
 class TestDriftMain:

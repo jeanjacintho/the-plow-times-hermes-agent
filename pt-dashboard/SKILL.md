@@ -12,7 +12,8 @@ topic list:
 | job | schedule | notes |
 |---|---|---|
 | `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 45) in the owner's zone, wraparound exact | one job; exists while at least one `section` topic is not cancelled OR one `assignment` is `pending`/`running`. This is the personalized paper: it researches every active section plus every assignment due, and delivers one edition |
-| `pt-subscription-<id>` | `0 <delivery.hour> * * *` (container TZ) | one per subscription topic not yet cancelled; created and removed as topics change |
+| `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | one per entry in `delivery.extra_hours` — the SAME paper, re-researched and re-delivered again at another hour the same day (e.g. a second edition at 10:30 besides the morning one). Numbered in list order; exists only alongside `pt-daily-edition` (no paper, no extra slots either) and only up to `len(delivery.extra_hours) + 1` — a slot the owner removed is pruned like any other stale job |
+| `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` (container TZ, both parts) | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-time, `now + 3m` (quick) or next `delivery.hour` (deep) | created by pt-intake at the scheduled minute; its own prompt self-removes it after firing — this script's sweep is the backstop |
 
 The daily schedule is computed in minutes and taken modulo a day, so
@@ -63,12 +64,21 @@ delivery hour or lead, the prompt's contract moved — is removed and recreated.
 Without that, "already present, skipped" would mean a changed delivery hour
 is silently ignored forever. Drift is judged only against fields hermes
 actually persisted; an absent field is left alone, not recreated on a guess.
-It removes `pt-daily-edition` when no paper is left (no active section, no
-runnable assignment), `pt-subscription-*` jobs whose topic is cancelled, and
-`pt-oneoff-*` jobs whose topic is delivered, cancelled or missing. It never
-touches a job whose name is not one of `pt-daily-edition`,
-`pt-subscription-*` or `pt-oneoff-*` with a real topic id behind it: those are
-not this spec's to interpret or remove. As housekeeping it also prunes old
+It removes `pt-daily-edition` (and every `pt-daily-edition-<n>`) when no
+paper is left (no active section, no runnable assignment), a
+`pt-daily-edition-<n>` whose number exceeds the current `delivery.extra_hours`
+count even while the paper itself lives on, `pt-subscription-*` jobs whose
+topic is cancelled, and `pt-oneoff-*` jobs whose topic is delivered,
+cancelled or missing. It never touches a job whose name is not one of
+`pt-daily-edition`, `pt-daily-edition-<n>`, `pt-subscription-*` or
+`pt-oneoff-*` with a real topic id behind it: those are not this spec's to
+interpret or remove — **hand-registering a job by shell command instead of
+adding a `delivery.extra_hours` entry and re-running this script is exactly
+the mistake this spec exists to make unnecessary**, and such a job is
+invisible to this sweep forever (measured live: a hand-made
+`pt-daily-edition-2` sat in `jobs.json` with a schedule that had nothing to
+do with the hour the owner asked for, and no one but the owner removing it
+by hand would ever fix that). As housekeeping it also prunes old
 daily locks and notes of terminal topics from `/var/lib/hermes/pt/run/`,
 reporting failures without ever failing the run over a scratch file.
 
@@ -78,13 +88,15 @@ is a script and not a habit:
 - **An unreadable or unexpected `jobs.json` aborts.** Never read "I could
   not tell what is registered" as "nothing is" — that re-registers every
   job and duplicates all of them.
-- **A timezone disagreement refuses everything.** `hermes cron create`
-  takes no per-job zone, so every schedule fires in the container's zone
-  while the delivery hour is promised in the owner's. The script compares
-  the container's `TZ` with `owner.timezone` in `pt/config.json` and refuses
-  to register anything when they differ, naming both zones — a silently
-  wrong delivery hour is the one failure nobody would notice until a
-  morning paper showed up at noon.
+- **The container's `TZ` and `owner.timezone` must both be nameable.**
+  `hermes cron create` takes no per-job zone, so every schedule fires in the
+  container's own zone, always — `owner.timezone` no longer has to equal it:
+  pt-setup converts the owner's stated local time into the container's local
+  time with `zoneinfo` before writing `delivery.hour`, so this script trusts
+  `delivery.hour` as already correct for the zone it is running in. What it
+  still refuses is an empty container `TZ` (nothing here could even attempt
+  the conversion) or a blank `owner.timezone` (pt-setup's conversion step,
+  and every reply that names it back to the owner, need it).
 
 A paused job is neither skipped nor duplicated: it is left alone, named, and
 the run exits non-zero after everything else finishes — the same contract

@@ -22,10 +22,21 @@ phone. Answer what the owner actually said first. And never narrate the
 mechanics: no "let me run setup", no announcing a step. Send the message the
 step calls for.
 
-**Changing one setting later** is not this skill: a different delivery hour
-or a new printer is a one-line conversation that updates
-`pt/config.json` directly and re-runs the gate — not an interview from the
-top.
+**Changing one setting later** is not this skill: a different delivery hour,
+**a second (or third) daily delivery time** (`delivery.extra_hours`, a list
+of "HH:MM" strings alongside `delivery.hour` — same conversion recipe above,
+run once per additional time the owner names), or a new printer is a
+one-line conversation that updates `pt/config.json` directly, re-runs the
+gate, and then re-runs
+`/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so the
+new schedule exists now — not an interview from the top, and **never a
+hand-registered `hermes cron create`**: a cron job that name doesn't
+recognize (see `pt-dashboard/SKILL.md`'s spec table) is invisible to every
+future reconcile, so a typo'd time or a since-changed delivery hour drifts
+forever with nothing to catch it. This has happened live: asked for a
+second daily edition, a session hand-built a `pt-daily-edition-2` job at
+the wrong hour instead of writing `delivery.extra_hours` and reconciling —
+`register_crons.py` exists precisely so that never has to be improvised.
 
 ## The questions, in order
 

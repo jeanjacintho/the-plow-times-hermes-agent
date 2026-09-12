@@ -94,6 +94,13 @@ _JOB_NAME_RE = re.compile(r"^pt-(?P<kind>subscription|oneoff)-(?P<tid>t_[0-9a-f]
 # The one daily-paper job; no topic id because it is the whole paper, not a
 # topic. Owned and swept by name, exactly like the id-borne jobs above.
 DAILY_NAME = "pt-daily-edition"
+# A second (or third, ...) full-paper delivery time, from
+# delivery.extra_hours -- same paper, same sections, re-researched and
+# re-delivered at another hour of the same day. Numbered from 2 so the
+# canonical DAILY_NAME reads as "the" edition and these read as its
+# reruns, matching the lock-name convention (daily2-<date>, daily3-<date>)
+# a hand-registered job already used before this existed as a real spec.
+_EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
 DEFAULT_LEAD_MINUTES = 45
 
 SUBSCRIPTION_PROMPT = (
@@ -104,22 +111,34 @@ SUBSCRIPTION_PROMPT = (
     "pending again, so tomorrow's run finds it."
 )
 
-# The daily paper's run prompt. It works in one cron-fired session: acquire
-# the run lock (two runs racing would deliver a hollow edition), research
-# every active section and every assignment due today, compile one
-# edition.json, render it, deliver, then release the lock.
-DAILY_PROMPT = (
-    "Run the daily edition now, in one session. First run pt-shared's "
-    "run_lock.py acquire --name daily-<today's date in the owner's zone> "
-    "--stale-minutes 120; if its output is 'held', another run owns today's "
-    "edition -- say NO_REPLY and stop. Then run pt-research over every active "
-    "section and every assignment with run_on <= today, writing each topic's "
-    "notes. Then run pt-edition for the batch -- it compiles edition.json "
-    "from those notes, renders it, and returns the chat edition as the final "
-    "response. Mark every topic it carried: sections delivered then pending, "
-    "assignments delivered. Release the lock with pt-shared's run_lock.py "
-    "release --name the same daily-<date>."
-)
+
+def daily_prompt(lock_name):
+    """The daily paper's run prompt, parametrized by its lock name.
+
+    lock_name is "daily" for the canonical slot and "daily2"/"daily3"/... for
+    an extra delivery time (delivery.extra_hours) -- each slot re-researches
+    and re-delivers the same paper independently, so each needs its own lock
+    or a second slot firing minutes after the first would read the first
+    slot's lock as "held" and silently skip the whole edition. It works in
+    one cron-fired session: acquire the run lock (two runs racing on the
+    SAME slot would deliver a hollow edition), research every active section
+    and every assignment due today, compile one edition.json, render it,
+    deliver, then release the lock.
+    """
+    return (
+        f"Run the daily edition now, in one session. First run pt-shared's "
+        f"run_lock.py acquire --name {lock_name}-<today's date in the owner's "
+        f"zone> --stale-minutes 120; if its output is 'held', another run owns "
+        f"this slot -- say NO_REPLY and stop. Then run pt-research over every "
+        f"active section and every assignment with run_on <= today, writing "
+        f"each topic's notes. Then run pt-edition for the batch -- it compiles "
+        f"edition.json from those notes, renders it (--pdf, then "
+        f"post_to_chat.py per pt-edition/SKILL.md step 2 -- do not skip the "
+        f"PDF leg just because this is a rerun), and returns the chat edition "
+        f"as the final response. Mark every topic it carried: sections "
+        f"delivered then pending, assignments delivered. Release the lock "
+        f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>."
+    )
 
 DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
 
@@ -231,6 +250,35 @@ def load_delivery_hour(config_path=CONFIG_FILE):
         raise SystemExit(f"refusing to register: malformed {path} ({exc!r}).") from exc
 
 
+def load_extra_hours(config_path=CONFIG_FILE):
+    """delivery.extra_hours from pt/config.json -- additional full-paper
+    delivery times the same day, each "HH:MM" like delivery.hour itself.
+
+    Optional and defaults to empty: an install with one delivery time a day
+    (the common case) has no extra_hours key at all, and a schedule that
+    refused to compute without it would strand a working agent. The gate
+    validates each entry's shape when the key is present; this just reads
+    it back, in order (order is the slot numbering -- pt-daily-edition-2 is
+    always extra_hours[0]).
+    """
+    path = pathlib.Path(config_path)
+    try:
+        config = json.loads(path.read_text())
+    except FileNotFoundError:
+        raise SystemExit(
+            f"refusing to register: {path} is missing -- pt-setup owns it"
+        ) from None
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"refusing to register: malformed {path} ({exc!r}).") from exc
+    hours = config.get("delivery", {}).get("extra_hours", [])
+    if not isinstance(hours, list) or not all(isinstance(h, str) for h in hours):
+        raise SystemExit(
+            f"refusing to register: {path} has delivery.extra_hours={hours!r}; "
+            "it must be a list of \"HH:MM\" strings."
+        )
+    return hours
+
+
 def load_lead_minutes(config_path=CONFIG_FILE):
     """delivery.lead_minutes from pt/config.json, defaulting to 45.
 
@@ -295,12 +343,12 @@ def has_paper(topics):
     )
 
 
-def daily_job(delivery_hour, lead_minutes, env=None):
-    """The one daily-paper job, when there is a paper to run."""
+def daily_job(delivery_hour, lead_minutes, env=None, *, name=DAILY_NAME, lock_name="daily"):
+    """One full-paper delivery job -- the canonical slot, or an extra one."""
     return {
-        "name": DAILY_NAME,
+        "name": name,
         "schedule": daily_schedule(delivery_hour, lead_minutes),
-        "prompt": DAILY_PROMPT,
+        "prompt": daily_prompt(lock_name),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
@@ -318,17 +366,22 @@ def subscription_job(topic, delivery_hour, env=None):
     }
 
 
-def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES):
+def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
+                  extra_hours=()):
     """The jobs the topic store calls for, in spec order.
 
-    The daily edition comes first (it is the paper), then one job per
-    subscription. Both the paper and subscriptions are separate products:
-    subscriptions deliver their own edition, sections/assignments ride the
-    paper.
+    The daily edition comes first (it is the paper), then one job per extra
+    delivery time (delivery.extra_hours -- the same paper, re-researched and
+    re-delivered again later the same day), then one job per subscription.
+    All three are separate products: subscriptions deliver their own
+    edition, sections/assignments ride the paper (every slot of it).
     """
     jobs = []
     if has_paper(topics):
         jobs.append(daily_job(delivery_hour, lead_minutes, env))
+        for n, hour in enumerate(extra_hours, start=2):
+            jobs.append(daily_job(hour, lead_minutes, env,
+                                   name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
         for t in topics
@@ -337,21 +390,31 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     return jobs
 
 
-def stale_names(topics, registered):
+def stale_names(topics, registered, extra_hours_count=0):
     """Registered pt-* jobs the topic store no longer calls for.
 
     A subscription job outlives only its non-cancelled topic; a one-off job
     outlives only a topic still pending or running (its prompt self-removes
     it after firing -- this sweep is the backstop, and prunes delivered,
-    cancelled or vanished topics' leftovers). The daily job outlives only a
-    paper that still exists -- any section not cancelled, or any assignment
-    that can still run. Names not starting with pt- are never ours to remove.
+    cancelled or vanished topics' leftovers). The daily job and every
+    numbered extra-daily job outlive only a paper that still exists -- any
+    section not cancelled, or any assignment that can still run; an extra
+    job also goes stale the moment the owner removes that many delivery
+    times (pt-daily-edition-3 with only one extra hour configured now is a
+    dropped slot, not a live one). Names not starting with pt- are never
+    ours to remove.
     """
     by_id = {t["id"]: t for t in topics}
     stale = []
     for name in registered:
         if name == DAILY_NAME:
             if not has_paper(topics):
+                stale.append(name)
+            continue
+        extra_match = _EXTRA_DAILY_RE.fullmatch(name)
+        if extra_match is not None:
+            n = int(extra_match.group("n"))
+            if not has_paper(topics) or n > extra_hours_count + 1:
                 stale.append(name)
             continue
         # One shape to match, pinned exactly: pt-subscription-t_9f2a or
@@ -372,6 +435,25 @@ def stale_names(topics, registered):
     return stale
 
 
+def _persisted_schedule_expr(job):
+    """The bare cron expression from a real job's persisted "schedule".
+
+    Measured live against this fleet's own /var/lib/hermes/cron/jobs.json:
+    a real registered job's "schedule" is a dict, {"kind": "cron", "expr":
+    "15 2 * * *", "display": "15 2 * * *"} -- not the bare string this
+    module's own job specs use. Comparing the dict to the spec's string
+    directly (job_drift(), before this helper existed) made EVERY managed
+    job register as "drifted" on every single run, recreating it every
+    time register_crons.py ran -- caught live, not in the test suite, whose
+    fixtures had always used a bare string and so never exercised the real
+    shape.
+    """
+    schedule = job.get("schedule")
+    if isinstance(schedule, dict):
+        return schedule.get("expr")
+    return schedule
+
+
 def registered_specs(jobs_path=JOBS_FILE):
     """The registered jobs' own fields, for drift detection.
 
@@ -387,7 +469,7 @@ def registered_specs(jobs_path=JOBS_FILE):
         return {}
     return {
         job["name"]: {
-            "schedule": job.get("schedule"),
+            "schedule": _persisted_schedule_expr(job),
             "skill": job.get("skill"),
             "deliver": job.get("deliver"),
         }
@@ -469,6 +551,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
 
     require_timezone_agreement(config_path, env)
     delivery_hour = load_delivery_hour(config_path)
+    extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)
 
     # The topic store, via pt-intake's single reader -- so a broken
@@ -484,7 +567,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     specs = registered_specs(jobs_path)
     paused = []
 
-    for job in desired_jobs(topics, delivery_hour, env, lead_minutes):
+    for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours):
         if job["name"] in registered:
             if not registered[job["name"]]:
                 print(
@@ -515,7 +598,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
             )
         print(f"registered: {job['name']} ({job['schedule']})")
 
-    for name in stale_names(topics, registered):
+    for name in stale_names(topics, registered, len(extra_hours)):
         proc = runner([HERMES, "cron", "remove", name])
         if proc.returncode != 0:
             raise SystemExit(
