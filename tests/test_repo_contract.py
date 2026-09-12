@@ -103,7 +103,16 @@ class TestDeployment:
         assert dockerfile.is_file(), "Dockerfile installs weasyprint for the PDF leg"
         text = dockerfile.read_text()
         assert "weasyprint" in text
-        assert "python3 -c \"import weasyprint" in text
+        assert "import weasyprint" in text
+        # The build check must RENDER, not just import: a pydyf/weasyprint
+        # mismatch imports clean and dies on the first write_pdf.
+        assert "write_pdf" in text
+        assert "pydyf" in text
+        # Installed into the system interpreter's dist-packages, so a login
+        # shell cannot hide it (PATH resets) and `--system`'s wrong path is
+        # avoided. Both mistakes were measured on this base.
+        assert "--target /usr/local/lib/python3.13/dist-packages" in text
+        assert "--python /usr/bin/python3" in text
         # Pinned by digest, like the fleet pin -- a tag re-resolves on pull.
         from_line = next(
             line for line in text.splitlines() if line.startswith("FROM ")

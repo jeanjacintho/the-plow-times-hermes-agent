@@ -33,14 +33,33 @@ RUN apt-get update \
       fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
-# Install into the SYSTEM python, because that is what the skill runs:
-# `python3 ../../pt-edition/scripts/render_edition.py ...` resolves to
-# /usr/bin/python3, and a package in a private venv would be invisible to it.
-# The base is PEP 668 externally-managed, and `uv` (present in the base, used
-# by sibling images) installs past that with --break-system-packages. The
-# import check fails the build rather than shipping an image whose PDF leg is
-# a promise it cannot keep.
+# Install into the system interpreter's own dist-packages, so ANY `python3`
+# -- login shell or not -- finds weasyprint. Two approaches that look right
+# and are not, both measured on this base:
+#   * `uv pip install --system`: reports the environment as /usr but installs
+#     to /usr/lib/python3.13/site-packages, which Debian's python3 does not
+#     have on sys.path (it uses /usr/lib/python3/dist-packages), so the
+#     install succeeds and `import weasyprint` still fails.
+#   * a venv first on PATH: works in a normal shell, but a login shell
+#     (`sh -lc`, which some tool invocations use) resets PATH and the venv
+#     disappears -- the same import failure from a different cause.
+# `/usr/local/lib/python3.13/dist-packages` IS on the system python's sys.path
+# (confirmed in the running image), so --target lands where python3 already
+# looks.
+#
+# pydyf is pinned alongside weasyprint, not left to resolver choice: measured
+# on this base, weasyprint 62.3 declares only `pydyf>=0.10.0`, so a fresh
+# install pulls pydyf 0.12.1, whose Stream API moved and makes every
+# write_pdf() die with "AttributeError: 'super' object has no attribute
+# 'transform'". 0.10.0 is the version 62.3 was written against.
+#
+# The build check RENDERS a PDF, not just imports the module: the pydyf bug
+# above passed an import check and failed at first write. A build that ships
+# an image whose PDF leg raises on the first real edition is worse than a
+# build that fails here.
 ARG WEASYPRINT_VERSION=62.3
-RUN uv pip install --system --break-system-packages \
-      "weasyprint==${WEASYPRINT_VERSION}" \
- && python3 -c "import weasyprint; print('weasyprint', weasyprint.__version__)"
+ARG PYDYF_VERSION=0.10.0
+RUN uv pip install --python /usr/bin/python3 \
+      --target /usr/local/lib/python3.13/dist-packages \
+      "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" \
+ && /usr/bin/python3 -c "import weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)"
