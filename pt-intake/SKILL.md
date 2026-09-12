@@ -127,12 +127,19 @@ edition, and relaying it is the chat leg.
 - **One-off, quick** — a one-time job ~3 minutes out. Compute the local time
   now+3m and register it as a 5-field expression with that exact minute:
   `<min> <hour> <dom> <month> *`, name `pt-oneoff-<id>`, skill `pt-research`,
-  prompt "Run pt-research on topic <id> now, then pt-edition for it, and
-  return the edition as the final response. When the edition is delivered,
-  mark the topic delivered with topics.py and remove this job with
-  `hermes cron remove pt-oneoff-<id>`." Record the scheduled moment at add
-  time via `--scheduled-for`.
-- **One-off, deep** — the same, at the next `delivery.hour` from
+  **`--deliver plow_chat:${PLOW_HOME_CHANNEL}`** (the same target named
+  above — restated here because this is the one path that hand-builds the
+  `hermes cron create` call instead of going through register_crons.py,
+  which bakes the deliver target in; measured live, a run built by hand
+  without it completes with a real final response that never reaches chat
+  at all — the job succeeds and the owner gets nothing), prompt "Run
+  pt-research on topic <id> now, then pt-edition for it, and return the
+  edition as the final response. When the edition is delivered, mark the
+  topic delivered with topics.py and remove this job with `hermes cron
+  remove pt-oneoff-<id>`." Record the scheduled moment at add time via
+  `--scheduled-for`.
+- **One-off, deep** — the same, including `--deliver
+  plow_chat:${PLOW_HOME_CHANNEL}`, at the next `delivery.hour` from
   pt/config.json (today if it has not passed, tomorrow otherwise), so the
   result lands with the morning paper.
 - **Subscription** — write the topic, then run
