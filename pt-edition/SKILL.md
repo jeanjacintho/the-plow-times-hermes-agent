@@ -63,21 +63,36 @@ HTML.** Hand-write `edition.json` under the run directory:
    stderr says weasyprint is not installed, that costs only the PDF file —
    proceed with the chat text, do not treat it as a reason to write the
    edition by hand.
-2. **The renderer's chat output is the final response, pasted verbatim, with
-   one line prepended: `MEDIA:<absolute path to the PDF>`.** That line is not
-   part of the edition's prose — it is the literal directive Hermes' delivery
-   path (`cron/scheduler.py` on the `--deliver plow_chat:${PLOW_HOME_CHANNEL}`
-   leg, the same `send_message` tool convention documented as "include
-   MEDIA:<local_path> in the message") scans for, strips out, and turns into
-   a native file attachment; nothing about the rendered text itself is
-   paraphrased, reformatted or "improved". Skip the `MEDIA:` line only when
+2. **Send the edition yourself, with the `send_message` tool, instead of only
+   returning it as your final response.** Measured live: the passive path
+   (your final response getting picked up by `--deliver
+   plow_chat:${PLOW_HOME_CHANNEL}` after the job finishes) is racy on this
+   fleet — the same content, unchanged, has both delivered fine and been
+   silently discarded with "fire claim ownership lost" in back-to-back runs.
+   Calling `send_message` yourself, mid-run, sends immediately instead of
+   waiting on that end-of-job handoff:
+
+       send_message(action="send", target="plow_chat:${PLOW_HOME_CHANNEL}",
+           message="<the renderer's chat text, verbatim>\nMEDIA:<absolute path to the PDF>")
+
+   The `MEDIA:<path>` line is not part of the edition's prose — it is the
+   literal directive `send_message` scans for, strips out, and turns into a
+   native file attachment; nothing about the rendered text itself is
+   paraphrased, reformatted or "improved". Omit the `MEDIA:` line only when
    `--pdf` produced no file (weasyprint absent or the write failed) — a
    `MEDIA:` line pointing at a file that does not exist is reported as a
    dropped attachment, not silently ignored, so never emit it speculatively.
    The promise is that the chat text and the printed page are the same
-   edition, and a paraphrase breaks it. If the run has no deliver arm (a
-   manual run), pipe the same text (with its `MEDIA:` line, if any) through
-   `/var/lib/hermes/skills/news/pt-shared/scripts/post_to_chat.py` and report its output.
+   edition, and a paraphrase breaks it.
+
+   Still also return that same text (with its `MEDIA:` line) as your final
+   response — the explicit send is the reliable leg, the passive `--deliver`
+   relay is a second, harmless attempt at the same content if it lands too;
+   never a reason to send a different or shortened version through either
+   path. If the run has no deliver arm at all (a manual run) and
+   `send_message` refuses for lacking a target, pipe the same text through
+   `/var/lib/hermes/skills/news/pt-shared/scripts/post_to_chat.py` instead and
+   report its output.
 3. **Mark every topic the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
