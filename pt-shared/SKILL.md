@@ -5,9 +5,14 @@ description: The helper library every pt-* skill imports — the pt-config gate,
 
 # pt-shared — the pt-* skills' shared helpers
 
-Every pt-* skill's scripts reach this directory as a sibling —
-`../../pt-shared/scripts` off their own realpath — so it has to land beside
-them in the agent's skills store. It carries a `SKILL.md` for the same reason
+Every pt-* skill's scripts reach this directory by its absolute deploy path,
+`/var/lib/hermes/skills/news/pt-shared/scripts` — every pt-* SKILL.md invokes
+its sibling scripts that way now, not by a `../../` relative path off
+whatever the terminal's cwd happens to be (measured live: `terminal.cwd` is
+unset on this agent, defaulting to the Hermes install tree, so a relative
+path off the calling skill's own directory never resolved and none of these
+scripts ever ran). This skill still has to land beside its siblings in the
+agent's skills store, and it carries a `SKILL.md` for the same reason
 `ld-shared` does: the boot reconcile copies a bundled directory into the home
 only when it carries one, and without this file the producers seed and this
 does not, and every run fails on the import.

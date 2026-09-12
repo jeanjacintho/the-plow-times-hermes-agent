@@ -54,7 +54,7 @@ HTML.** Hand-write `edition.json` under the run directory:
    pass `--pdf`, writing under the run directory (e.g. `--pdf
    run/<id>/edition.pdf`), not just `--html`:
 
-       python3 ../../pt-edition/scripts/render_edition.py <edition.json> \
+       python3 /var/lib/hermes/skills/news/pt-edition/scripts/render_edition.py <edition.json> \
            --pdf run/<id>/edition.pdf
        # chat text on stdout; add --html PATH too when a printer is configured
 
@@ -77,9 +77,9 @@ HTML.** Hand-write `edition.json` under the run directory:
    The promise is that the chat text and the printed page are the same
    edition, and a paraphrase breaks it. If the run has no deliver arm (a
    manual run), pipe the same text (with its `MEDIA:` line, if any) through
-   `../../pt-shared/scripts/post_to_chat.py` and report its output.
+   `/var/lib/hermes/skills/news/pt-shared/scripts/post_to_chat.py` and report its output.
 3. **Mark every topic the edition carried** from its `topic_id`:
-   `../../pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
+   `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
    edition is how a silent gap looks like a working paper. A section then
    goes back to `pending` for tomorrow's paper. An assignment stays

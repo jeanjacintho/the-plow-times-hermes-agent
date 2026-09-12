@@ -89,7 +89,7 @@ question, not after the interview. The example shape lives beside the gate
 at `pt-shared/references/config.example.json`.
 
 When all three keys are in and the gate is silent, setup is done — and if
-they named any sections, run `../../pt-dashboard/scripts/register_crons.py`
+they named any sections, run `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py`
 once as setup's closing bring-up step so `pt-daily-edition` exists the
 moment setup ends; paste its output and report its exit status. This is the
 one cron registration a setup turn may do (it is the reviewed bring-up

@@ -22,7 +22,7 @@ Two local files, both cheap:
 
 - `/var/lib/hermes/pt/topics.json` — run `topics.py list` for the readable form
 - `/var/lib/hermes/pt/config.json` — delivery preferences (run
-  `../../pt-shared/scripts/pt_config_gate.py` on it if it looks wrong)
+  `/var/lib/hermes/skills/news/pt-shared/scripts/pt_config_gate.py` on it if it looks wrong)
 
 If the config is missing keys, this is a first run: SOUL.md routes that to
 `pt-setup`. Answer status questions from these files, never from session
@@ -33,7 +33,7 @@ memory — another session may have delivered since yours started.
 These are ordinary turns, not classifications. Do them and end:
 
 - **"what are you watching" / "list my topics"** — run
-  `../../pt-intake/scripts/topics.py list` and render it as a short list:
+  `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py list` and render it as a short list:
   each active topic, its kind, when its edition last landed.
 - **"o que tem no meu jornal" / "list my paper"** — run `topics.py list` and
   show only the `section` topics in creation order (the daily paper's blocks)
@@ -41,7 +41,7 @@ These are ordinary turns, not classifications. Do them and end:
 - **"stop watching X" / "tira X do meu jornal"** — resolve X against the
   active topics; if ambiguous, ask which one and stop. Then
   `topics.py cancel <id>`, and immediately run
-  `../../pt-dashboard/scripts/register_crons.py` so the nightly job is
+  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so the nightly job is
   removed now rather than at the next bring-up. Confirm in one line.
 - **"cancela o que eu pedi pro jornal de amanhã"** — resolve against pending
   `assignment` topics and `topics.py cancel <id>`. A delivered assignment is
@@ -95,7 +95,7 @@ Two rules that keep the paper honest:
 
 Then write it — this script is the ONLY writer for topics.json:
 
-    ../../pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" \
+    /var/lib/hermes/skills/news/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" \
         --kind one_off|subscription|section|assignment --depth quick|deep \
         [--run-on YYYY-MM-DD]
 
@@ -115,7 +115,7 @@ container time is owner time). Every job carries
 edition, and relaying it is the chat leg.
 
 - **Section** — nothing to schedule by hand: write the topic, then run
-  `../../pt-dashboard/scripts/register_crons.py` so `pt-daily-edition` is
+  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so `pt-daily-edition` is
   created (or its schedule reconciled) **now**, not at the next bring-up.
   Paste the script's output and report its exit status.
 - **Assignment** — **never gets a cron of its own**: it rides the daily
@@ -136,7 +136,7 @@ edition, and relaying it is the chat leg.
   pt/config.json (today if it has not passed, tomorrow otherwise), so the
   result lands with the morning paper.
 - **Subscription** — write the topic, then run
-  `../../pt-dashboard/scripts/register_crons.py` so `pt-subscription-<id>`
+  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so `pt-subscription-<id>`
   exists now.
 
 If `hermes cron create`, or `register_crons.py`, fails, say so — a topic
