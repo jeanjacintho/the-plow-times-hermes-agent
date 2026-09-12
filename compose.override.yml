@@ -38,6 +38,22 @@
 # Register the matching key once with `hermes auth add openrouter --type
 # api-key`: these two name which provider/model to use, not the credential to
 # use it with.
+#
+# --- TERMINAL_CWD, the same class of bug as the two above -----------------
+# runtime/config.yaml sets terminal.cwd, which gateway/run.py documents as
+# "bridged to TERMINAL_CWD by the config bridge" at startup -- measured live
+# on this deployment, it is not: `docker exec ... cat /proc/<gateway
+# pid>/environ` shows no TERMINAL_CWD after a fresh restart, config.yaml
+# content notwithstanding, and every turn logs "working-directory resolution
+# fell back to the Hermes install tree (/opt/hermes)". That matters here
+# specifically because every pt-* skill's scripts are invoked as absolute
+# paths now (`/var/lib/hermes/skills/news/pt-*/scripts/...`), but the
+# `run/<id>/edition.json` / `edition.pdf` paths those SKILL.md files write
+# are still relative -- with cwd stuck at /opt/hermes (the read-only package
+# source, not this agent's writable state) those writes have nowhere sane to
+# land. Setting it directly here, like HERMES_PROVIDER/HERMES_MODEL, is the
+# fix that is actually measured to reach the container's real environment on
+# this fleet.
 services:
   hermes:
     build: { context: "${AGENT_DIR}" }
@@ -46,3 +62,4 @@ services:
     environment:
       - HERMES_PROVIDER=openrouter
       - HERMES_MODEL=google/gemini-2.5-flash-lite
+      - TERMINAL_CWD=/var/lib/hermes
