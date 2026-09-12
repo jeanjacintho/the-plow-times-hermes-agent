@@ -51,48 +51,53 @@ HTML.** Hand-write `edition.json` under the run directory:
 ## Render and deliver
 
 1. Run the renderer — it is the only thing that writes the edition. Always
-   pass `--pdf`, writing under the run directory (e.g. `--pdf
-   run/<id>/edition.pdf`), not just `--html`:
+   pass both `--chat` and `--pdf`, writing under the run directory (e.g.
+   `run/<id>/edition.chat.txt` and `run/<id>/edition.pdf`) rather than
+   relying on stdout — step 2 needs the chat text as a file to pipe into
+   `post_to_chat.py`:
 
        python3 /var/lib/hermes/skills/news/pt-edition/scripts/render_edition.py <edition.json> \
-           --pdf run/<id>/edition.pdf
-       # chat text on stdout; add --html PATH too when a printer is configured
+           --chat run/<id>/edition.chat.txt --pdf run/<id>/edition.pdf
+       # add --html PATH too when a printer is configured
 
    A malformed `edition.json` is refused by name. Fix it and re-run; never
    hand-assemble a page to route around the gate. If the renderer's own
    stderr says weasyprint is not installed, that costs only the PDF file —
    proceed with the chat text, do not treat it as a reason to write the
    edition by hand.
-2. **Send the edition yourself, with the `send_message` tool, instead of only
-   returning it as your final response.** Measured live: the passive path
-   (your final response getting picked up by `--deliver
-   plow_chat:${PLOW_HOME_CHANNEL}` after the job finishes) is racy on this
-   fleet — the same content, unchanged, has both delivered fine and been
-   silently discarded with "fire claim ownership lost" in back-to-back runs.
-   Calling `send_message` yourself, mid-run, sends immediately instead of
-   waiting on that end-of-job handoff:
+2. **Send the edition yourself, by running `post_to_chat.py`, instead of only
+   returning it as your final response.** Measured live, three separate real
+   runs: the passive path (your final response getting picked up by
+   `--deliver plow_chat:${PLOW_HOME_CHANNEL}` after the job finishes) is
+   racy on this fleet — the same content, unchanged, has both delivered fine
+   and been silently discarded with "fire claim ownership lost" in
+   back-to-back runs. Asking you to call a tool mid-run instead
+   (`send_message`) was tried and measured too: it does not reliably happen
+   — two full research-and-render runs never called it, only ever returned
+   a final response for the passive relay to gamble on. Running a script is
+   not optional or forgettable the way remembering a tool call is — do it:
 
-       send_message(action="send", target="plow_chat:${PLOW_HOME_CHANNEL}",
-           message="<the renderer's chat text, verbatim>\nMEDIA:<absolute path to the PDF>")
+       python3 /var/lib/hermes/skills/news/pt-shared/scripts/post_to_chat.py \
+           --pdf run/<id>/edition.pdf < run/<id>/edition.chat.txt
 
-   The `MEDIA:<path>` line is not part of the edition's prose — it is the
-   literal directive `send_message` scans for, strips out, and turns into a
-   native file attachment; nothing about the rendered text itself is
-   paraphrased, reformatted or "improved". Omit the `MEDIA:` line only when
-   `--pdf` produced no file (weasyprint absent or the write failed) — a
-   `MEDIA:` line pointing at a file that does not exist is reported as a
-   dropped attachment, not silently ignored, so never emit it speculatively.
-   The promise is that the chat text and the printed page are the same
-   edition, and a paraphrase breaks it.
+   The chat text goes on stdin from the file step 1 wrote — never retyped,
+   never passed as a shell argument (an edition is web-derived content; argv
+   is a surface another process could read). This is a plain HTTP call —
+   declare the attachment, upload its bytes, post the message with it
+   attached — verified live against the real API with no
+   dependency on a connected live adapter or the cron scheduler's fire-claim
+   machinery, the two things the other two paths both stood on. Omit `--pdf`
+   only when `render_edition.py` produced no PDF (weasyprint absent or the
+   write failed) — pointing `--pdf` at a file that does not exist is refused
+   by name, not silently ignored, so never pass it speculatively.
+   `PLOW_API_BASE`, `PLOW_HOME_CHANNEL` and `PLOW_AGENT_TOKEN` come from the
+   process environment already; nothing to pass for those.
 
-   Still also return that same text (with its `MEDIA:` line) as your final
-   response — the explicit send is the reliable leg, the passive `--deliver`
-   relay is a second, harmless attempt at the same content if it lands too;
-   never a reason to send a different or shortened version through either
-   path. If the run has no deliver arm at all (a manual run) and
-   `send_message` refuses for lacking a target, pipe the same text through
-   `/var/lib/hermes/skills/news/pt-shared/scripts/post_to_chat.py` instead and
-   report its output.
+   Still also return that same text (with a `MEDIA:<path>` line prepended)
+   as your final response — the explicit `post_to_chat.py` call is the
+   reliable leg, the passive `--deliver` relay is a second, harmless attempt
+   at the same content if it lands too; never a reason to send a different
+   or shortened version through either path.
 3. **Mark every topic the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
