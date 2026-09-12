@@ -95,6 +95,9 @@ def validate(edition):
             failures.append(f"{where}.title is blank")
         if not isinstance(section.get("body"), str):
             failures.append(f"{where}.body is not a string")
+        headline = section.get("headline")
+        if headline is not None and not isinstance(headline, str):
+            failures.append(f"{where}.headline is not a string")
         sources = section.get("sources", [])
         if not isinstance(sources, list) or not all(isinstance(u, str) for u in sources):
             failures.append(f"{where}.sources is not a list of strings")
@@ -126,6 +129,9 @@ def chat_section(section):
     title = section["title"].strip()
     tag = section.get("tag")
     lines = [f"\u25b8 {title}" + (f" \u2014 {tag}" if tag else "")]
+    headline = (section.get("headline") or "").strip()
+    if headline:
+        lines.append(f"  {headline}")
     body = section.get("body", "").strip()
     lines.append(f"  {body}" if body else "  (nothing usable in the budget this time)")
     sources = dedupe(section.get("sources", []))
@@ -154,6 +160,7 @@ def html_section(section):
     title = html.escape(section["title"].strip())
     tag = section.get("tag")
     tag_html = f' <span class="tag">{html.escape(tag)}</span>' if tag else ""
+    headline = (section.get("headline") or "").strip()
     body = section.get("body", "").strip()
     body_html = (
         html.escape(body)
@@ -161,8 +168,10 @@ def html_section(section):
         else "(nothing usable in the budget this time)"
     )
     blocks = [f'<article class="section">',
-              f'  <h2>{title}{tag_html}</h2>',
-              f'  <p>{body_html}</p>']
+              f'  <h2>{title}{tag_html}</h2>']
+    if headline:
+        blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
+    blocks.append(f'  <p>{body_html}</p>')
     sources = dedupe(section.get("sources", []))
     if sources:
         links = ", ".join(

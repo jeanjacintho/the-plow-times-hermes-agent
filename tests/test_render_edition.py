@@ -63,6 +63,15 @@ class TestValidate:
                                  "sources": [1, 2]}])
         assert "sources" in render.validate(bad)
 
+    def test_headline_must_be_a_string_when_present(self):
+        bad = edition(sections=[{
+            "kind": "section", "title": "x", "body": "y", "headline": 5,
+        }])
+        assert "headline is not a string" in render.validate(bad)
+
+    def test_headline_optional(self):
+        assert render.validate(edition()) == ""
+
     def test_topic_id_shape(self):
         bad = edition(sections=[{"kind": "section", "title": "x", "body": "y",
                                  "topic_id": "nope"}])
@@ -115,6 +124,22 @@ class TestChat:
         text = render.render_chat(data, render.DEFAULT_MASTHEAD)
         assert text.count("https://a") == 1
 
+    def test_headline_renders(self):
+        # Regression: headline was documented in the SKILL.md example and
+        # promised by SOUL.md ("a headline, a short synthesis, and a Sources
+        # line") but silently dropped by the renderer -- the model wrote it,
+        # nobody ever saw it.
+        data = edition(sections=[{
+            "kind": "section", "title": "x", "headline": "A manchete real",
+            "body": "y", "sources": [],
+        }])
+        text = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "A manchete real" in text
+
+    def test_missing_headline_is_fine(self):
+        text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
+        assert "▸ Clima em Sao Paulo\n  Vai chover a tarde." in text
+
 
 class TestHtml:
     def test_web_strings_are_escaped(self):
@@ -131,6 +156,16 @@ class TestHtml:
         page = render.render_html(edition(), "The Daily", "{{MASTHEAD}}|{{DATE}}|{{SECTIONS}}")
         assert page.startswith("The Daily|Sep 11, 2026|")
         assert "Clima em Sao Paulo" in page
+
+    def test_headline_renders_escaped(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "x", "headline": "<b>manchete</b>",
+            "body": "y", "sources": [],
+        }])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "<p>{{SECTIONS}}</p>")
+        assert 'class="headline"' in page
+        assert "<b>manchete</b>" not in page
+        assert "&lt;b&gt;manchete&lt;/b&gt;" in page
 
 
 class TestMain:
