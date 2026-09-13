@@ -11,7 +11,7 @@ services:
     environment:
       # Who this agent is on the Agent Index. Without it the reporter stands
       # down rather than guessing a name.
-      AGENT_ID: plowtimes
+      AGENT_ID: theplowtimes
       # config.yaml sets terminal.cwd, which the gateway is supposed to bridge
       # into TERMINAL_CWD — measured live on this agent, it does not. Relative
       # run/<id>/edition.json writes then land in /opt/hermes. Set here so the

@@ -135,7 +135,7 @@ class TestDeployment:
         assert "build: ." in text
         assert "./plow-credentials:/var/lib/plow/credentials.host:ro" in text
         assert "agent-home:/var/lib/hermes" in text
-        assert "AGENT_ID: plowtimes" in text
+        assert "AGENT_ID: theplowtimes" in text
         assert "TERMINAL_CWD: /var/lib/hermes" in text
         assert "stop_grace_period: 35s" in text
         for line in text.splitlines():
