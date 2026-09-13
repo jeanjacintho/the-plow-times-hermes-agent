@@ -42,7 +42,7 @@ cron:
 # Unset, terminal.cwd falls back to the Hermes INSTALL tree (/opt/hermes) --
 # confirmed live, every turn: "working-directory resolution fell back to the
 # Hermes install tree". Every pt-* SKILL.md now uses absolute script paths
-# (/var/lib/hermes/skills/news/pt-*/scripts/...) precisely because a relative
+# (/var/lib/hermes/skills/pt-*/scripts/...) precisely because a relative
 # cwd can't be trusted, but "run/<id>/edition.json" and friends are still
 # relative, and /opt/hermes is the read-only package source, not a place this
 # agent can write a run directory. HERMES_HOME is where the agent actually

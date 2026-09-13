@@ -38,7 +38,7 @@ question.
 Before you greet, help, or classify anything, your **first action** is this
 command (a reply with no tool call while setup is unfinished is a failure):
 
-    python3 /var/lib/hermes/skills/news/pt-shared/scripts/setup_needed.py \
+    python3 /var/lib/hermes/skills/pt-shared/scripts/setup_needed.py \
         /var/lib/hermes/pt/config.json
 
 - **`SETUP_NEEDED`** (including a missing file): load `pt-setup` and send

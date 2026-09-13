@@ -22,7 +22,7 @@ Two local files, both cheap:
 
 - `/var/lib/hermes/pt/topics.json` — run `topics.py list` for the readable form
 - `/var/lib/hermes/pt/config.json` — delivery preferences (run
-  `/var/lib/hermes/skills/news/pt-shared/scripts/pt_config_gate.py` on it if it looks wrong)
+  `/var/lib/hermes/skills/pt-shared/scripts/pt_config_gate.py` on it if it looks wrong)
 
 If the config is missing keys, this is a first run: SOUL.md already routed
 that to `pt-setup`. Do not treat a greeting as a casual hello — load
@@ -47,7 +47,7 @@ narrate: just keep the field true, the same way you never announce reading
 These are ordinary turns, not classifications. Do them and end:
 
 - **"what are you watching" / "list my topics"** — run
-  `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py list` and render it as a short list:
+  `/var/lib/hermes/skills/pt-intake/scripts/topics.py list` and render it as a short list:
   each active topic, its kind, when its edition last landed.
 - **"list my paper" / "what's in my paper" / "list my papers"** — run
   `topics.py list` and group by paper. Show the main paper first (hour from
@@ -60,7 +60,7 @@ These are ordinary turns, not classifications. Do them and end:
 - **"stop watching X" / "drop X from my paper"** — resolve X against the
   active topics; if ambiguous, ask which one and stop. Then
   `topics.py cancel <id>`, and immediately run
-  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so the nightly job is
+  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so the nightly job is
   removed now rather than at the next bring-up. Confirm in one line.
 - **"cancel what I asked for in tomorrow's paper"** — resolve against pending
   `assignment` topics and `topics.py cancel <id>`. A delivered assignment is
@@ -74,13 +74,13 @@ These are ordinary turns, not classifications. Do them and end:
   in `pt/config.json`, a list of "HH:MM" strings alongside `delivery.hour`.
   Ask the local time they want (in their own zone), convert it with
 
-      python3 /var/lib/hermes/skills/news/pt-setup/scripts/convert_delivery.py \
+      python3 /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py \
           --local-hour HH:MM --owner-tz <owner.timezone from config.json>
 
   never mental UTC-offset math. Append (or remove) the printed hour in
   `extra_hours`, validate with
   `pt_config_gate.py`, paste its output, then re-run
-  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so
+  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so
   `pt-daily-edition-2` (or `-3`, numbered by list order) exists or is
   removed **now**. Never hand-register a cron for this with `hermes cron
   create` — a name register_crons.py's sweep doesn't recognize is invisible
@@ -167,7 +167,7 @@ Two rules that keep the paper honest:
 
 Then write it — this script is the ONLY writer for topics.json:
 
-    /var/lib/hermes/skills/news/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" \
+    /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" \
         --kind one_off|subscription|section|assignment --depth quick|deep \
         [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
 
@@ -191,7 +191,7 @@ edition, and relaying it is the chat leg.
 
 - **Section** — nothing to schedule by hand: write the topic (with
   `--deliver-at` when it belongs to a non-main paper), then run
-  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so
+  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so
   `pt-daily-edition` or `pt-paper-HHMM` is created (or its schedule
   reconciled) **now**, not at the next bring-up.
   Paste the script's output and report its exit status.
@@ -221,7 +221,7 @@ edition, and relaying it is the chat leg.
   pt/config.json (today if it has not passed, tomorrow otherwise), so the
   result lands with the morning paper.
 - **Subscription** — write the topic, then run
-  `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so `pt-subscription-<id>`
+  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so `pt-subscription-<id>`
   exists now.
 
 If `hermes cron create`, or `register_crons.py`, fails, say so — a topic

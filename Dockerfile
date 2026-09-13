@@ -76,6 +76,30 @@ RUN uv pip install --python /opt/hermes/.venv/bin/python3 \
       "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" \
  && sh -c "python3 -c \"import weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)\""
 
+# Identity and skills. SOUL.md replaces the base's; first boot re-asserts
+# root ownership, which is what the trailing chmod answers. Skills land at
+# /opt/hermes/skills so the base runtime reconciles them into whichever home
+# this image boots — a COPY under /var/lib/hermes/skills is shadowed by the
+# agent-home volume after first create.
+COPY runtime/SOUL.md /var/lib/hermes/SOUL.md
+COPY runtime/USER.md /var/lib/hermes/memories/USER.md
+COPY runtime/config.yaml /var/lib/hermes/config.yaml
+COPY LICENSE /usr/share/doc/the-plow-times/
+COPY pt-dashboard/ /opt/hermes/skills/pt-dashboard/
+COPY pt-edition/   /opt/hermes/skills/pt-edition/
+COPY pt-intake/    /opt/hermes/skills/pt-intake/
+COPY pt-print/     /opt/hermes/skills/pt-print/
+COPY pt-research/  /opt/hermes/skills/pt-research/
+COPY pt-setup/     /opt/hermes/skills/pt-setup/
+COPY pt-shared/    /opt/hermes/skills/pt-shared/
+
+RUN find /opt/hermes/skills -mindepth 1 -type d -exec chmod 0755 {} + \
+ && find /opt/hermes/skills -mindepth 1 -type f ! -perm -u+x -exec chmod 0644 {} + \
+ && find /opt/hermes/skills -mindepth 1 -type f -perm -u+x -exec chmod 0755 {} + \
+ && chmod 0644 /var/lib/hermes/SOUL.md /var/lib/hermes/config.yaml \
+      /var/lib/hermes/memories/USER.md \
+ && install -d -o 10000 -g 10000 -m 0700 /var/lib/hermes/pt
+
 # The usage reporter, fetched at build from the commit vendor/client.pin names
 # and checked against the hash beside it. Fetched rather than committed
 # because plow-pbc/agent-index-client owns that file; pinned rather than

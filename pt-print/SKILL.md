@@ -19,7 +19,7 @@ about printing in the edition; the chat edition is the whole delivery.
 
 The page is the renderer's output, not something this skill lays out:
 
-    python3 /var/lib/hermes/skills/news/pt-edition/scripts/render_edition.py <edition.json> \
+    python3 /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> \
         --html ~/Plow/pt/edition-<date>.html
 
 Same `edition.json`, same `template.html`, so the printed page is

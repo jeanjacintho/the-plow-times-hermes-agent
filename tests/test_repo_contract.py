@@ -1,4 +1,4 @@
-"""Repo-level deployment contracts: the shape agent-mgr and deploy-hook rely on."""
+"""Repo-level deployment contracts: plow-agents compose.yml, the image, and the leftover agent-mgr hook."""
 from __future__ import annotations
 
 import os
@@ -123,31 +123,53 @@ class TestDeployment:
         # The credential is interpolated from the dotenv, never a literal.
         assert "DOMO_MCP_TOKEN" in config and "DOMO_DEVICE_UID" in config
 
-    def test_compose_override_carries_no_skill_mounts(self):
-        # Skills ride the deploy-hook seed into the agent's home, not :ro
-        # mounts -- a :ro mount makes the agent's own skill edits die with
-        # EROFS. The override file is legitimate for the env vars below; only
-        # a `volumes:` section reintroducing the old mount delivery is the
-        # regression this guards against. Same guard memory-vault adopted.
-        override = ROOT / "compose.override.yml"
-        assert override.is_file(), "compose.override.yml builds the local image + sets TERMINAL_CWD"
-        assert "volumes:" not in override.read_text(), (
-            "compose.override.yml declares volumes: -- skills are seeded by "
-            "the deploy-hook now, not mounted read-only"
-        )
+    def test_compose_yml_is_the_plow_agents_surface(self):
+        # plow-agents' compose.example.yml: service `agent`, credential drop-in,
+        # named home volume. compose.override.yml must not exist: Compose loads
+        # that filename automatically and would start a second gateway.
+        import re
 
-    def test_compose_override_does_not_pin_a_model(self):
-        # Measured live: google/gemini-2.5-flash-lite (the previous pin) never
-        # once called skills_list/skill_view for a news request -- it went
-        # straight to a generic web_search tool and answered inline, so every
-        # pt-* skill sat wired and discoverable but unused. Unpinned,
-        # provider/model fall back to the Plow-hosted default (Anthropic,
-        # cloud-hosted by Plow), the same choice life-assistant-hermes-agent's
-        # own compose.yml makes by omission. This guards against a pin
-        # creeping back in without the same live measurement as evidence.
-        text = (ROOT / "compose.override.yml").read_text()
-        assert "HERMES_PROVIDER=" not in text
-        assert "HERMES_MODEL=" not in text
+        assert not (ROOT / "compose.override.yml").exists()
+        text = (ROOT / "compose.yml").read_text()
+        assert re.search(r"^  agent:", text, re.M)
+        assert "build: ." in text
+        assert "./plow-credentials:/var/lib/plow/credentials.host:ro" in text
+        assert "agent-home:/var/lib/hermes" in text
+        assert "AGENT_ID: plowtimes" in text
+        assert "TERMINAL_CWD: /var/lib/hermes" in text
+        assert "stop_grace_period: 35s" in text
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("-") and "skills" in stripped and "agent-home" not in stripped:
+                raise AssertionError(f"skill mount in compose.yml: {stripped}")
+
+    def test_compose_yml_does_not_pin_a_model(self):
+        # Measured live: google/gemini-2.5-flash-lite never once called
+        # skills_list/skill_view for a news request. Unpinned, provider/model
+        # fall back to the Plow-hosted default, the same choice
+        # life-assistant-hermes-agent's compose.yml makes by omission.
+        text = (ROOT / "compose.yml").read_text()
+        assert "HERMES_PROVIDER" not in text
+        assert "HERMES_MODEL" not in text
+
+    def test_dockerfile_copies_every_pt_skill_outside_the_home(self):
+        import re
+
+        dockerfile = (ROOT / "Dockerfile").read_text()
+        skills = sorted(p.parent.name for p in ROOT.glob("pt-*/SKILL.md"))
+        missing = [name for name in skills if f"COPY {name}/" not in dockerfile]
+        assert missing == [], f"in the tree but never copied into the image: {', '.join(missing)}"
+        for name in skills:
+            assert re.search(
+                rf"^COPY\s+{re.escape(name)}/\s+/opt/hermes/skills/{re.escape(name)}/\s*$",
+                dockerfile,
+                re.MULTILINE,
+            ), f"COPY {name}/ does not land at /opt/hermes/skills/{name}/"
+            assert f"/var/lib/hermes/skills/{name}" not in dockerfile
+        assert "COPY runtime/SOUL.md /var/lib/hermes/SOUL.md" in dockerfile
+        assert "COPY runtime/USER.md /var/lib/hermes/memories/USER.md" in dockerfile
+        assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
+        assert "plow-credentials" in (ROOT / ".gitignore").read_text()
 
     def test_dockerfile_installs_weasyprint_for_the_pdf_leg(self):
         # The base image has no HTML-to-PDF engine; the renderer's --pdf leg
@@ -179,20 +201,6 @@ class TestDeployment:
             line for line in text.splitlines() if line.startswith("FROM ")
         )
         assert "@sha256:" in from_line
-
-    def test_compose_override_builds_its_own_image(self):
-        # agent-mgr runs `docker compose -f <override> build` without changing
-        # directory, so the context must be an absolute variable, never `.`;
-        # and a build-based agent must carry pull_policy: never so a registry
-        # image cannot be pulled over the local build.
-        import re
-
-        text = (ROOT / "compose.override.yml").read_text()
-        assert re.search(r"build:\s*\{\s*context:\s*\"\$\{AGENT_DIR\}\"", text), (
-            "build context must be ${AGENT_DIR}, never a relative path"
-        )
-        assert "image: ${AGENT_IMAGE}" in text
-        assert "pull_policy: never" in text
 
     def test_agent_env_names_the_built_image(self):
         env = (ROOT / "agent.env").read_text()

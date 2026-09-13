@@ -6,7 +6,7 @@ description: The helper library every pt-* skill imports — the pt-config gate,
 # pt-shared — the pt-* skills' shared helpers
 
 Every pt-* skill's scripts reach this directory by its absolute deploy path,
-`/var/lib/hermes/skills/news/pt-shared/scripts` — every pt-* SKILL.md invokes
+`/var/lib/hermes/skills/pt-shared/scripts` — every pt-* SKILL.md invokes
 its sibling scripts that way now, not by a `../../` relative path off
 whatever the terminal's cwd happens to be (measured live: `terminal.cwd` is
 unset on this agent, defaulting to the Hermes install tree, so a relative

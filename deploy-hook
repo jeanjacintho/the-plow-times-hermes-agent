@@ -19,7 +19,7 @@
 set -eu
 cd "$(dirname "$0")"
 home="${AGENT_HOME:?agent-mgr exports this}"
-skills_home="$home/skills/news"
+skills_home="$home/skills"
 
 found=""
 for dir in pt-*; do

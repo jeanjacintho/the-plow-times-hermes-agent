@@ -110,7 +110,7 @@ HTML.** Hand-write `edition.json` under the run directory:
    `run/<id>/edition.pdf`). `--chat` is optional now (the chat transcript
    is not posted). Add `--html PATH` when a printer is configured:
 
-       python3 /var/lib/hermes/skills/news/pt-edition/scripts/render_edition.py <edition.json> \
+       python3 /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> \
            --pdf run/<id>/edition.pdf
        # add --html PATH too when a printer is configured
 
@@ -126,7 +126,7 @@ HTML.** Hand-write `edition.json` under the run directory:
    plow-chat-platform uses for photo-only sends. Do not pipe
    `edition.chat.txt` into it:
 
-       python3 /var/lib/hermes/skills/news/pt-shared/scripts/post_to_chat.py \
+       python3 /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py \
            --pdf run/<id>/edition.pdf
 
    Omit `--pdf` only when `render_edition.py` produced no PDF (weasyprint
@@ -141,7 +141,7 @@ HTML.** Hand-write `edition.json` under the run directory:
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
 3. **Mark every topic the edition carried** from its `topic_id`:
-   `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
+   `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
    edition is how a silent gap looks like a working paper. A section then
    goes back to `pending` for tomorrow's paper. An assignment stays

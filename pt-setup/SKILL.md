@@ -50,7 +50,7 @@ the zone again), **turning the letters desk
 on or off** (`mail.configured`), or a new printer is a
 one-line conversation that updates `pt/config.json` directly, re-runs the
 gate, and then re-runs
-`/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so the
+`/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so the
 new schedule exists now — not an interview from the top, and **never a
 hand-registered `hermes cron create`**: a cron job that name doesn't
 recognize (see `pt-dashboard/SKILL.md`'s spec table) is invisible to every
@@ -147,7 +147,7 @@ are in `.setup-draft.json` (at least `local_hour` and `printer`):
 2. **Convert** the draft `local_hour` into the container's clock. Never
    subtract hours by hand:
 
-       python3 /var/lib/hermes/skills/news/pt-setup/scripts/convert_delivery.py \
+       python3 /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py \
            --local-hour HH:MM --owner-tz America/Sao_Paulo
 
    The printed line is `delivery.hour`. `owner.timezone` is the IANA name
@@ -157,11 +157,11 @@ are in `.setup-draft.json` (at least `local_hour` and `printer`):
    fields (`delivery.local_hour` may keep what they asked, for later
    edits). Validate:
 
-       python3 /var/lib/hermes/skills/news/pt-shared/scripts/pt_config_gate.py \
+       python3 /var/lib/hermes/skills/pt-shared/scripts/pt_config_gate.py \
            /var/lib/hermes/pt/config.json
 
    **Paste the gate's output verbatim.** Empty output is pass. Then run
-   `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py`,
+   `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py`,
    paste its output, and delete `.setup-draft.json`.
 
 Say the result in the owner's own terms — "seu jornal chega às 7h" using

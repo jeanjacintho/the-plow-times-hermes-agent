@@ -46,7 +46,7 @@ after any rebuild of the home, at the close of `pt-setup` (so the first
 paper's job exists as soon as setup ends), and after pt-intake adds or
 cancels a subscription, section or assignment.
 
-    /var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py
+    /var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py
 
 **Then paste its output verbatim and report its exit status. The run is not
 done until you have.** The script signals every refusal it has — a missing

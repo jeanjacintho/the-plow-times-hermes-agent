@@ -131,12 +131,12 @@ def test_no_bespoke_s6_layout_outside_the_image_tree():
     DIRECTORY at the target and the reporter starts against it, reporting
     nothing. The image carries the client instead.
 
-    Unlike life-assistant-hermes-agent, this repo does keep a
-    compose.override.yml (it builds its own image for the weasyprint PDF leg,
-    see test_compose_override_builds_its_own_image) -- only the s6 layout
-    itself must not exist as a second, competing copy outside image/.
+    Unlike life-assistant-hermes-agent, this image also installs weasyprint
+    for the PDF leg — only the s6 layout itself must not exist as a second,
+    competing copy outside image/.
     """
     assert not (ROOT / "docker/s6-rc.d").exists()
+    assert not (ROOT / "compose.override.yml").exists()
 
 
 def invocations(tmp_path) -> list[str]:

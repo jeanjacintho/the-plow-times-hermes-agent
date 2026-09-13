@@ -33,7 +33,7 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
    only if configured. Flush each desk's notes as you go.
 1. Read the topic (or each news topic of the batch) from `pt/topics.json` (the id
    is in your prompt). Mark it running first:
-   `/var/lib/hermes/skills/news/pt-intake/scripts/topics.py mark <id> --status running`. If it is
+   `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status running`. If it is
    already `running`, another run is working on it — skip it rather than
    racing it.
 2. Open the browser on the owner's Mac through Latch: `plow_browser_open`,
