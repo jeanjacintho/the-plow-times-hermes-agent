@@ -72,10 +72,13 @@ These are ordinary turns, not classifications. Do them and end:
   second edition"** — a second (or third) full-paper delivery time is not a
   topic, so it never goes through `topics.py`: it is `delivery.extra_hours`
   in `pt/config.json`, a list of "HH:MM" strings alongside `delivery.hour`.
-  Ask the local time they want (in their own zone), convert it to the
-  container's local time the same way pt-setup's `delivery.hour` recipe
-  does (`zoneinfo`, never mental UTC-offset math — see `pt-setup/SKILL.md`),
-  append (or remove) it in `extra_hours`, validate with
+  Ask the local time they want (in their own zone), convert it with
+
+      python3 /var/lib/hermes/skills/news/pt-setup/scripts/convert_delivery.py \
+          --local-hour HH:MM --owner-tz <owner.timezone from config.json>
+
+  never mental UTC-offset math. Append (or remove) the printed hour in
+  `extra_hours`, validate with
   `pt_config_gate.py`, paste its output, then re-run
   `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py` so
   `pt-daily-edition-2` (or `-3`, numbered by list order) exists or is
@@ -88,8 +91,9 @@ These are ordinary turns, not classifications. Do them and end:
   container's zone or the conversion.
 - **"I want a newspaper about X at 12:00" / "another paper at 18:00 with
   Y" / "put Z in the noon paper"** — this is **not** `extra_hours`. It is a
-  `section` with `--deliver-at HH:MM` (container-local, converted the same
-  way as `delivery.hour`). Sections that share an hour share one paper;
+  `section` with `--deliver-at HH:MM` (container-local, converted with
+  `convert_delivery.py` the same way as `delivery.hour`). Sections that share
+  an hour share one paper;
   a different hour is a different paper (`pt-paper-HHMM`). Convert the
   owner's local time, then:
 
@@ -170,8 +174,8 @@ Then write it — this script is the ONLY writer for topics.json:
 `--run-on` is required for an assignment and refused for every other kind.
 `--deliver-at` is section-only: a container-local `HH:MM` for a paper other
 than the main daily edition. Omit it for the main paper. Convert the owner's
-stated local time the same way pt-setup converts `delivery.hour`.
-Compute "tomorrow"/"Friday" as a real calendar date in **the owner's timezone**
+stated local time with `convert_delivery.py` (owner.timezone from config,
+already learned from Latch — do not ask the zone). Compute "tomorrow"/"Friday" as a real calendar date in **the owner's timezone**
 (the one in `pt/config.json`), never from the container's clock reading past
 midnight. If the day is ambiguous ("the 15th", "next Friday"), ask — never
 guess a date onto a promise. Paste the script's output; the `id` it prints is

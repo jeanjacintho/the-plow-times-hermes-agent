@@ -1,18 +1,18 @@
 ---
 name: pt-setup
-description: First-run interview over chat — confirm the timezone, settle the delivery hour, ask about a printer and probe it once through Latch before trusting the answer, ask whether today's mail should join as a letters desk — writing pt/config.json as each answer lands and validating it with the pt-config gate. Use on the owner's first DM, including greetings (oi, oi de novo, hi, hello, hey), while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never a generic assistant intro, never a personal-profile interview, never in a group, never in someone else's DM, and never to change one already-stored setting.
+description: First-run interview over chat — settle the morning delivery hour, ask about a printer and probe it once through Latch, ask whether today's mail should join as a letters desk, then resolve the owner's timezone from Latch location and convert that hour for the cron. Use on the owner's first DM, including greetings (oi, oi de novo, hi, hello, hey), while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never ask their timezone, name, or a personal profile. Never in a group, never in someone else's DM, and never to change one already-stored setting.
 ---
 
 # pt-setup — the first conversation
 
 This is a conversation, not a form, and `/var/lib/hermes/pt/config.json` is
 the only record of how far it got. Read it first, every time, and continue
-from the first key missing: `owner.timezone`, `delivery.hour`,
-`printer.configured`. (`mail.configured` is asked in this interview too,
-but a missing mail key is a valid older install — treat it as false, do
-not restart setup for it.) Never re-ask something it already holds — a resumed
-session that asks the timezone twice is the failure this file exists to
-prevent.
+from the first interview field missing: the local delivery hour, then
+`printer.configured`. Do **not** ask their timezone — Latch location at the
+end supplies `owner.timezone`. (`mail.configured` is asked in this interview
+too, but a missing mail key is a valid older install — treat it as false, do
+not restart setup for it.) Never re-ask something the draft or config
+already holds.
 
 It runs only in the owner's own solo DM — sender role **owner**, chat type
 **DM**, roster just the two of you; the platform reports all three. Anywhere
@@ -33,18 +33,20 @@ ask their name or how they like to work.
 **Opener — send this, then stop and wait.** Match the owner's language.
 Portuguese:
 
-> Sou o The Plow Times, seu jornal. Qual seu fuso (ex.: horário de Brasília) e a que horas quer o jornal da manhã? Se não disser, uso 7h.
+> Sou o The Plow Times, seu jornal. A que horas quer o jornal da manhã? Se não disser, uso 7h.
 
 English:
 
-> I'm The Plow Times, your newspaper. What timezone are you in, and what time should the morning paper land? Default is 7:00.
+> I'm The Plow Times, your newspaper. What time should the morning paper land? Default is 7:00.
 
-Do not add a name question, a profile offer, or `/help` around that.
+Do not ask their timezone, their name, a profile, or `/help`. The zone comes
+from their Mac, through Latch, when this interview closes.
 
 **Changing one setting later** is not this skill: a different delivery hour,
 **a second (or third) daily delivery time** (`delivery.extra_hours`, a list
-of "HH:MM" strings alongside `delivery.hour` — same conversion recipe above,
-run once per additional time the owner names), **turning the letters desk
+of "HH:MM" strings alongside `delivery.hour` — convert each with
+`convert_delivery.py` using the stored `owner.timezone`, never by asking
+the zone again), **turning the letters desk
 on or off** (`mail.configured`), or a new printer is a
 one-line conversation that updates `pt/config.json` directly, re-runs the
 gate, and then re-runs
@@ -60,46 +62,13 @@ the wrong hour instead of writing `delivery.extra_hours` and reconciling —
 
 ## The questions, in order
 
-**1. The timezone and the delivery hour, together.** Ask the owner's real
-zone (a city or a named zone like "Brasilia time" is enough — resolve it to the IANA
-name yourself, e.g. `America/Sao_Paulo`) and what local time they want their
-morning paper, in the same turn if they volunteer both. Suggest 07:00 in
-their own zone as the default.
-
-You do **not** need the container restarted to serve an owner in a different
-zone than this container's `TZ` (from `AGENT_TZ` at boot) — `hermes cron
-create` fires bare cron expressions (minute-precise) in the container's own
-zone, so convert: compute the container-local clock time, to the minute,
-that corresponds to the owner's chosen local time, on today's date (so a DST
-boundary on either side resolves correctly), and write that converted value
-to `delivery.hour` as "HH:MM" — any real minute is fine, the gate and the
-cron spec both carry it through exactly. Do the conversion in code, never by
-mental UTC-offset arithmetic (DST makes that wrong twice a year in either
-zone):
-
-    python3 -c "
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-    import os
-    owner_hour, owner_minute = 10, 25  # what the owner asked for, in THEIR zone
-    owner_tz = ZoneInfo('America/Sao_Paulo')  # resolved from what they said
-    container_tz = ZoneInfo(os.environ['TZ'])
-    today = datetime.now(owner_tz).date()
-    moment = datetime(today.year, today.month, today.day, owner_hour, owner_minute, tzinfo=owner_tz)
-    print(moment.astimezone(container_tz).strftime('%H:%M'))
-    "
-
-Write the
-owner's real, unconverted zone to `owner.timezone` — that is what you show
-back to them and what any future re-setup or "changing one setting" edit
-recomputes from, never the container's own zone.
-
-Say the result in the owner's own terms — "your paper arrives at 07:00,
-Brasilia time" — never mention the container's zone, `TZ`, or the
-conversion; that plumbing is not theirs to know about. The one case that
-still needs a restart: the container's `TZ` itself is unset or empty (a
-config problem nothing here can compute around) — say so plainly, once, and
-that a restart with `AGENT_TZ` set is what fixes it.
+**1. The delivery hour only.** Ask what local time they want the morning
+paper. Suggest 07:00. Do not ask a city, a zone, or a fuso — you will
+read that from Latch at the end. Write their answer (or 07:00 if they
+skip) to `/var/lib/hermes/pt/.setup-draft.json` as
+`{"local_hour":"HH:MM"}` so a resumed session does not ask again. Do not
+write `pt/config.json` yet: `owner.timezone` is still unknown, and the
+gate would fail.
 
 **2. The printer.** Ask whether a printer is set up on their Mac. Whatever
 they answer, **probe once through Latch before writing
@@ -114,9 +83,10 @@ nightly run. The probe:
 (`plow_run_command` takes an argv array and runs it directly — no shell, no
 `~` expansion, values as separate array elements.)
 
-- lpstat lists a printer: write `printer.configured: true` and its exact
-  CUPS name as `printer.name` — `lp -d` will need that spelling.
-- lpstat reports none, or the Mac is unreachable: write
+- lpstat lists a printer: merge into `.setup-draft.json`
+  `printer.configured: true` and its exact CUPS name as `printer.name` —
+  `lp -d` will need that spelling.
+- lpstat reports none, or the Mac is unreachable: merge
   `printer.configured: false`, `name: null`, and say the paper still
   delivers in chat — printing joins automatically if a printer shows up
   later (that is the changing-one-setting path, plus a re-probe).
@@ -134,7 +104,7 @@ Mail.app only if that fails:
 ```
 
    A result (including zero messages) means the Google account in Latch
-   works — write `mail.configured: true`.
+   works — merge `mail.configured: true` into the draft.
 2. Only if that call is denied, 401/412, or Latch has no Google account:
    probe Mail.app:
 
@@ -142,8 +112,8 @@ Mail.app only if that fails:
 { "argv": ["osascript", "-e", "tell application \"Mail\" to get name"] }
 ```
 
-- They said yes and **either** probe works: write `mail.configured: true`.
-- They said no, or both probes fail / the Mac is unreachable: write
+- They said yes and **either** probe works: merge `mail.configured: true`.
+- They said no, or both probes fail / the Mac is unreachable: merge
   `mail.configured: false` and say the letters column can join later the
   same way a printer does. Never invent an inbox.
 
@@ -161,27 +131,39 @@ than eight, take the first eight and say the cap; the daily run researches
 every news section in one session and eight is the honest ceiling. Never invent a
 section they did not ask for.
 
-## Writing and proving the config
+## Close: location, convert, write config
 
-After each answer, write `/var/lib/hermes/pt/config.json` (create
-`/var/lib/hermes/pt/` when absent) and validate with the gate:
+Do not write `pt/config.json` until this step. After the interview answers
+are in `.setup-draft.json` (at least `local_hour` and `printer`):
 
-    python3 /var/lib/hermes/skills/news/pt-shared/scripts/pt_config_gate.py \
-        /var/lib/hermes/pt/config.json
+1. **Read location through Latch**, the same script as
+   `pt-research/references/desks.md` §1 — `~/Plow/pt/location.py` via
+   `plow_write_file` then `plow_run_command`
+   `["/usr/bin/python3", "/Users/<user>/Plow/pt/location.py"]`.
+   Take `timezone` from the JSON (IANA, e.g. `America/Sao_Paulo`). If the
+   call fails or `timezone` is blank, say the paper cannot be scheduled
+   until the Mac can report where they are — do not invent a zone, do not
+   ask them to type one.
+2. **Convert** the draft `local_hour` into the container's clock. Never
+   subtract hours by hand:
 
-**Paste the gate's output verbatim.** Empty output is pass; anything it
-prints is an invariant you have not satisfied yet — fix it before the next
-question, not after the interview. The example shape lives beside the gate
-at `pt-shared/references/config.example.json`.
+       python3 /var/lib/hermes/skills/news/pt-setup/scripts/convert_delivery.py \
+           --local-hour HH:MM --owner-tz America/Sao_Paulo
 
-When all three keys are in and the gate is silent, setup is done — run
-`/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py`
-once as setup's closing bring-up step so `pt-daily-edition` exists the
-moment setup ends (the paper always has weather and calendar, even with
-zero news sections); paste its output and report its exit status. This is the
-one cron registration a setup turn may do (it is the reviewed bring-up
-script, not a hand-built schedule).
+   The printed line is `delivery.hour`. `owner.timezone` is the IANA name
+   from step 1, unconverted. If the script says container TZ is empty, say
+   so once — a restart with `AGENT_TZ` set is the fix.
+3. **Write** `/var/lib/hermes/pt/config.json` from the draft plus those two
+   fields (`delivery.local_hour` may keep what they asked, for later
+   edits). Validate:
 
-Then say so in one line — the timezone, the hour, whether the paper will
-print, whether letters join, and that their news sections are in — and invite
-the first topic. A first research job is still pt-intake's, not this skill's.
+       python3 /var/lib/hermes/skills/news/pt-shared/scripts/pt_config_gate.py \
+           /var/lib/hermes/pt/config.json
+
+   **Paste the gate's output verbatim.** Empty output is pass. Then run
+   `/var/lib/hermes/skills/news/pt-dashboard/scripts/register_crons.py`,
+   paste its output, and delete `.setup-draft.json`.
+
+Say the result in the owner's own terms — "seu jornal chega às 7h" using
+the hour they named, never the container's zone, `TZ`, or the conversion.
+Invite the first topic. A first research job is still pt-intake's.

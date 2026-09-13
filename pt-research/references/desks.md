@@ -19,7 +19,10 @@ from the Mac this run, through Latch.
 
 1. Write `~/Plow/pt/location.py` with `plow_write_file` (paths under `~/Plow`
    auto-approve). The script should print one JSON object
-   `{"city":"…","region":"…","country":"…"}` and nothing else.
+   `{"city":"…","region":"…","country":"…","timezone":"America/Sao_Paulo"}`
+   and nothing else. `timezone` is the IANA name (ipapi.co's `timezone`
+   field). pt-setup uses it once to convert the owner's delivery hour;
+   the daily paper uses `city` for the dateline.
    Prefer CoreLocation if a helper exists; otherwise the Mac's own public IP
    (curl from the Mac, never from this container — the container's IP is
    not the owner's):
@@ -30,6 +33,7 @@ from the Mac this run, through Latch.
          "city": data.get("city") or "",
          "region": data.get("region") or "",
          "country": data.get("country_name") or "",
+         "timezone": data.get("timezone") or "",
        }))
 
 2. Run it: `plow_run_command` argv

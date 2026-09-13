@@ -38,6 +38,12 @@ class TestSoul:
             "silence this assertion"
         )
 
+    def test_setup_opener_does_not_ask_timezone(self):
+        text = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "A que horas quer o jornal da manhã?" in text
+        assert "Qual seu fuso" not in text
+        assert "convert_delivery.py" in text
+
     def test_soul_says_platform_intro_is_not_first_contact(self):
         text = (ROOT / "runtime" / "SOUL.md").read_text()
         assert "not a first-contact script" in text
@@ -90,6 +96,7 @@ class TestSkills:
         # both must be seeded side by side for that to work.
         assert (ROOT / "pt-intake" / "scripts" / "topics.py").is_file()
         assert (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").is_file()
+        assert (ROOT / "pt-setup" / "scripts" / "convert_delivery.py").is_file()
 
 
 class TestDeployment:
