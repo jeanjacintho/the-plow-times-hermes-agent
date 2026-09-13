@@ -23,6 +23,38 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 
 Ask in the chat. The edition comes back as its own delivery, on the clock you set — not as a live essay in the same turn.
 
+## Install
+
+One repo, Docker Compose, and a Plow line. You need Git, Docker Compose, and Python 3.
+
+```sh
+git clone https://github.com/plow-pbc/plow-agents.git
+export PATH="$PWD/plow-agents/bin:$PATH"
+
+git clone https://github.com/jeanjacintho/the-plow-times-hermes-agent.git
+cd the-plow-times-hermes-agent
+
+plow-agents login                 # text the printed “Plow Activate: …” code
+plow-agents lines                 # pick a line whose STATUS is free
+plow-agents mint ln_xxx           # writes ./plow-credentials — do this before the first up
+docker compose up --build -d
+docker compose logs -f agent      # wait for: plow-init: configured ... as cht_
+```
+
+If you have no assistant line yet: `plow-agents login --new-line`, then `lines` and `mint`.
+
+Text the line you minted. The first message is the paper’s hour, not a profile interview.
+
+To print and to research in your own browser, run [Latch](https://howto.plow.co/latch) on the Mac this agent should drive. In Latch: **Agents → can’t use OAuth? create a static credential**. Put `DOMO_DEVICE_UID` and `DOMO_MCP_TOKEN` in the container’s `/var/lib/hermes/.env` (`KEY=value` at column 0), then `docker compose restart`. Chat works without Latch; the Mac and the printer do not.
+
+```sh
+docker compose down          # stop, keep memory
+docker compose down -v       # wipe local memory (new setup)
+plow-agents revoke           # retire the line in plow-credentials
+```
+
+`plow-credentials` is gitignored. Do not commit it.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
