@@ -123,3 +123,12 @@ RUN set -eu; \
     chmod 0644 /opt/plow/agent-index-client.py
 
 COPY image/s6-overlay/ /etc/s6-overlay/
+
+# Hermes' billing wall concatenates the HTTP body, the provider name, a
+# billing URL and `/model`. Pin one user-facing line and fail the build if
+# the base digest moved those functions.
+COPY image/hermes/billing_user_message.py /opt/hermes/agent/billing_user_message.py
+COPY image/hermes/patch_billing_user_message.py /opt/plow/patch_billing_user_message.py
+RUN /opt/hermes/.venv/bin/python3 /opt/plow/patch_billing_user_message.py \
+      /opt/hermes/agent/conversation_loop.py \
+ && chmod 0644 /opt/hermes/agent/billing_user_message.py

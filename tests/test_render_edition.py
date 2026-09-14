@@ -105,6 +105,44 @@ class TestValidate:
                                  "topic_id": "nope"}])
         assert "topic_id" in render.validate(bad)
 
+    def test_forecast_only_on_weather(self):
+        bad = edition(sections=[{
+            "kind": "section", "title": "Diary", "desk": "calendar", "body": "c",
+            "forecast": [{"day": "Tue", "date": "17/05", "icon": "sun", "high": 19, "low": 9}],
+        }])
+        assert "forecast is only valid on the weather desk" in render.validate(bad)
+
+    def test_schedule_only_on_calendar(self):
+        bad = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+            "schedule": [{"time": "9am", "title": "Sync", "icon": "meeting"}],
+        }])
+        assert "schedule is only valid on the calendar desk" in render.validate(bad)
+
+    def test_messages_only_on_mail(self):
+        bad = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+            "messages": [{"sender": "Ana", "subject": "Hi"}],
+        }])
+        assert "messages is only valid on the mail desk" in render.validate(bad)
+
+    def test_schedule_icon_must_be_known(self):
+        bad = edition(sections=[{
+            "kind": "section", "title": "Diary", "desk": "calendar", "body": "c",
+            "schedule": [{"time": "9am", "title": "Sync", "icon": "party"}],
+        }])
+        assert "icon is not one of" in render.validate(bad)
+
+    def test_valid_strips_are_silent(self):
+        assert render.validate(edition(sections=[
+            {"kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+             "forecast": [{"day": "Tue", "date": "17/05", "icon": "rain", "high": 17, "low": 6}]},
+            {"kind": "section", "title": "Diary", "desk": "calendar", "body": "c",
+             "schedule": [{"time": "9am", "title": "Sync", "icon": "meeting"}]},
+            {"kind": "section", "title": "Letters", "desk": "mail", "body": "m",
+             "messages": [{"sender": "Ana", "subject": "Hi"}]},
+        ])) == ""
+
 
 class TestMasthead:
     def test_json_cannot_name_the_paper(self):
@@ -175,13 +213,13 @@ class TestHtml:
             "kind": "section", "title": "<script>alert(1)</script>",
             "body": "<img onerror=alert(1)>", "sources": ['"><script>'],
         }])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, "<p>{{SECTIONS}}</p>")
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "<p>{{LEAD}}</p>")
         assert "<script>" not in page
         assert "<img" not in page
         assert "&lt;script&gt;" in page
 
     def test_placeholders_substituted(self):
-        page = render.render_html(edition(), "The Daily", "{{MASTHEAD}}|{{DATE}}|{{SECTIONS}}")
+        page = render.render_html(edition(), "The Daily", "{{MASTHEAD}}|{{DATE}}|{{LEAD}}")
         assert page.startswith("The Daily|Sep 11, 2026|")
         assert "Weather in Sao Paulo" in page
 
@@ -190,12 +228,12 @@ class TestHtml:
             "kind": "section", "title": "x", "headline": "<b>headline</b>",
             "body": "y", "sources": [],
         }])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, "<p>{{SECTIONS}}</p>")
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "<p>{{LEAD}}</p>")
         assert 'class="headline"' in page
         assert "<b>headline</b>" not in page
         assert "&lt;b&gt;headline&lt;/b&gt;" in page
 
-    TEMPLATE = "{{PAGE_CLASS}}|{{SECTIONS}}|{{WEATHER}}|{{CALENDAR}}|{{MAIL}}|{{SIDEBAR}}"
+    TEMPLATE = "{{PAGE_CLASS}}|{{LEAD}}{{SECTIONS}}|{{WEATHER}}|{{CALENDAR}}|{{MAIL}}|{{SIDEBAR}}"
 
     def split_slots(self, page):
         return page.split("|", 5)
@@ -259,6 +297,75 @@ class TestHtml:
                                   "{{WEATHER}}|{{CALENDAR}}|{{MAIL}}")
         assert page == "||"
 
+    def test_weather_forecast_draws_icons(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather", "body": "rain",
+            "forecast": [{"day": "Tue", "date": "17/05", "icon": "rain", "high": 17, "low": 6}],
+            "sources": [],
+        }])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{WEATHER}}")
+        assert 'class="wx-grid"' in page
+        assert 'class="wx-icon"' in page
+        assert "<img" not in page
+
+    def test_calendar_schedule_draws_kind_icons(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "Agenda", "desk": "calendar",
+            "body": "9am — Product sync.",
+            "schedule": [
+                {"time": "9am", "title": "Product <sync>", "icon": "meeting"},
+                {"time": "11am", "title": "Investor call", "icon": "call"},
+            ],
+            "sources": ["Calendar.app"],
+        }])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
+        assert 'class="cal-list"' in page
+        assert page.count('class="cal-icon"') == 2
+        assert "Product &lt;sync&gt;" in page
+        assert "Product <sync>" not in page
+        assert "<img" not in page
+
+    def test_mail_messages_draw_an_envelope(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "Letters", "desk": "mail",
+            "body": "Ana — hello.",
+            "messages": [{"sender": "Ana <b>Costa</b>", "subject": "Hello <script>"}],
+            "sources": ["Gmail"],
+        }])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{MAIL}}")
+        assert 'class="mail-list"' in page
+        assert 'class="mail-icon"' in page
+        assert "Ana &lt;b&gt;Costa&lt;/b&gt;" in page
+        assert "Hello &lt;script&gt;" in page
+        assert "<script>" not in page
+        assert "<img" not in page
+
+    def test_desk_headers_carry_a_drawn_mark(self):
+        data = edition(sections=[
+            {"kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+             "sources": []},
+            {"kind": "section", "title": "Agenda", "desk": "calendar", "body": "c",
+             "sources": []},
+            {"kind": "section", "title": "Letters", "desk": "mail", "body": "m",
+             "sources": []},
+        ])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
+        _cls, _news, weather, calendar, mail, _desks = self.split_slots(page)
+        assert 'class="desk-icon"' in weather
+        assert 'class="desk-icon"' in calendar
+        assert 'class="desk-icon"' in mail
+
+    def test_chat_edition_has_no_icons(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "Agenda", "desk": "calendar",
+            "body": "9am — Product sync.",
+            "schedule": [{"time": "9am", "title": "Product sync", "icon": "meeting"}],
+            "sources": ["Calendar.app"],
+        }])
+        text = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "<svg" not in text
+        assert "Product sync" in text
+
     def test_desks_render_in_newspaper_order(self):
         data = edition(sections=[
             {"kind": "section", "title": "News", "desk": "news", "body": "n",
@@ -296,8 +403,28 @@ class TestHtml:
         assert "<a href=" not in page
 
     def test_http_sources_still_link(self):
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{SECTIONS}}")
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{LEAD}}")
         assert 'href="https://example.com/weather"' in page
+
+    def test_sudoku_is_a_table_not_authored_json(self):
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{SUDOKU}}")
+        assert '<table class="sk-grid">' in page
+        assert page.count("<tr>") == 9
+        assert "Sudoku" in page
+        assert "<div class=\"sk-grid\">" not in page
+
+    def test_sudoku_omits_the_page_rather_than_crash_the_paper(self, monkeypatch):
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("generator failed")
+
+        monkeypatch.setattr(render.sudoku, "generate_puzzle", boom)
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "X{{SUDOKU}}Y")
+        assert page == "XY"
+
+    def test_chat_edition_has_no_sudoku_grid(self):
+        text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
+        assert "<table" not in text
+        assert "sk-grid" not in text
 
 
 class TestMain:
@@ -316,7 +443,10 @@ class TestMain:
         path = write(tmp_path, edition())
         out = tmp_path / "edition.html"
         render.main([str(path), "--html", str(out)])
-        assert "Weather in Sao Paulo" in out.read_text()
+        html = out.read_text()
+        assert "Weather in Sao Paulo" in html
+        assert '<table class="sk-grid">' in html
+        assert "Sudoku" in html
 
     def test_malformed_refused_by_name(self, tmp_path):
         path = write(tmp_path, {"date": "x", "sections": []})

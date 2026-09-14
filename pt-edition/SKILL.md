@@ -23,17 +23,31 @@ HTML.** Hand-write `edition.json` under the run directory:
       "title": "Weather",
       "headline": "Rain in the afternoon",
       "body": "3–6 sentences from desk-weather notes, city named.",
+      "forecast": [
+        { "day": "Tue", "date": "17/05", "icon": "partly-cloudy", "high": 19, "low": 9 },
+        { "day": "Wed", "date": "18/05", "icon": "rain", "high": 17, "low": 6 }
+      ],
       "sources": ["https://…"],
       "could_not_source": [] },
     { "kind": "section", "desk": "calendar",
       "title": "Calendar",
       "headline": "Two meetings before noon",
-      "body": "Today: …\n\nUpcoming: …",
+      "body": "9am — Product sync.\n\n11am — Investor call.\n\nUpcoming: Thu — dentist at 3pm.",
+      "schedule": [
+        { "time": "9am", "title": "Product sync", "icon": "meeting" },
+        { "time": "11am", "title": "Investor call", "icon": "call" },
+        { "time": "Thu", "title": "Dentist at 3pm", "icon": "reminder" }
+      ],
       "sources": ["Calendar.app"] },
     { "kind": "section", "desk": "mail",
       "title": "Letters",
       "headline": "Three messages overnight",
-      "body": "Sender — subject. Sender — subject.",
+      "body": "Ana Costa — partnership proposal.\n\nBanco XP — invoice available.\n\nGitHub — new pull request awaiting review.",
+      "messages": [
+        { "sender": "Ana Costa", "subject": "Partnership proposal" },
+        { "sender": "Banco XP", "subject": "Invoice available" },
+        { "sender": "GitHub", "subject": "New pull request awaiting review" }
+      ],
       "sources": ["Gmail"] },
     { "kind": "section", "topic_id": "t_8c1d", "desk": "news",
       "title": "The dollar",
@@ -51,8 +65,11 @@ HTML.** Hand-write `edition.json` under the run directory:
 }
 ```
 
-- **`date` is the owner's local date** (from `pt/config.json`'s
-  `owner.timezone`), never the container's clock reading past midnight.
+- **Never write a Sudoku into `edition.json`.** The renderer always
+  generates and verifies one Easy or Medium puzzle from `scripts/sudoku.py`,
+  seeded on `date`, and fills `{{SUDOKU}}`. There is no JSON field for it;
+  a grid the model authored would be the one thing this page cannot afford
+  to get wrong.
 - **`topic_id` is mandatory per section** — the delivery step marks each
   topic from it. Without it, marking depends on session memory, which SOUL.md
   forbids. `run_on` is required for an assignment.
@@ -78,7 +95,40 @@ HTML.** Hand-write `edition.json` under the run directory:
   slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
   `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"news"` (the default) →
   `{{SECTIONS}}`. Same title / headline / body / sources shape in every
-  slot. The daily paper always includes weather and calendar from
+  slot.
+- **`forecast` is optional, weather-only, and drawn — not written.** 1-6
+  day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
+  "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
+  `rain`, `storm`, `snow` — the renderer draws a fixed monochrome icon
+  for each key, so anything else fails the gate), and `high`/`low`
+  (numbers, the units come from the template, not the JSON) — deliberately
+  temperatures and the icon only, nothing else; wind/humidity/precip
+  were tried and dropped so the strip stays readable at a glance. Only
+  include it when desk-weather's notes
+  actually name a day-by-day forecast (icon condition + high/low) for
+  more than just today; a same-day-only forecast has nothing to put in
+  a second or third cell, so leave `forecast` out and let the prose
+  `body` carry it alone, same as before this field existed.
+- **`schedule` (calendar-only) and `messages` (mail-only) are the same
+  idea as `forecast`, optional and drawn.** `schedule` is a non-empty
+  list of `{ "time", "title", "icon" }`, `icon` exactly one of
+  `meeting`, `call`, `task`, `reminder`, `note` — pick the one that
+  actually matches the event (a call is `call`, not `meeting`; a
+  standing reminder like "dentist at 3pm" is `reminder`; anything that
+  doesn't fit the other four is `note`, never guessed as `meeting` to
+  avoid picking). `messages` is a non-empty list of `{ "sender",
+  "subject" }` — no icon field, since every letter draws the same
+  envelope mark. Both still need the prose `body` filled in as before
+  (the chat edition has no icons to fall back on); include the
+  structured field only when the notes actually give you distinct
+  events or senders to list, not as a mandatory duplicate of the prose.
+- **Calendar and mail bodies are one item per paragraph, blank-line
+  separated — never joined with periods into one run-on sentence.** The
+  template renders each paragraph as its own bulleted line; "9am —
+  Product sync.\n\n11am — Investor call." reads as two clean bullets,
+  "9am — Product sync. 11am — Investor call." reads as a dense wall of
+  text. One event, one sender, one line each.
+- The daily paper always includes weather and calendar from
   `run/desk-*/notes.json`. Mail only when `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
   otherwise omit the mail block entirely so that slot stays empty. A focused

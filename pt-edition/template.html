@@ -6,13 +6,17 @@
   The Plow Times -- the fixed edition layout.
 
   This file is deliberately plain: inline CSS, no external assets, no
-  JavaScript. The renderer (scripts/render_edition.py) substitutes five
-  placeholders (MASTHEAD, DATE, LOCATION, PAGE_CLASS, SECTIONS, WEATHER,
-  CALENDAR, MAIL, and SIDEBAR for older templates) and escapes every value
-  it inserts, so a page from the web
+  JavaScript. The renderer (scripts/render_edition.py) substitutes the
+  placeholders (MASTHEAD, DATE, LOCATION, PAGE_CLASS, LEAD, SECTIONS,
+  WEATHER, CALENDAR, MAIL, SUDOKU, and SIDEBAR for older templates) and
+  escapes every value it inserts, so a page from the web
   can never inject markup here. Keep it that way: a script tag or an inline
   event attribute makes the Chrome-on-Mac PDF fallback execute untrusted
-  content on the owner's machine.
+  content on the owner's machine. Fonts stay system/websafe for the same
+  reason -- the renderer has no guarantee of network access when WeasyPrint
+  runs, so a @font-face or Google Fonts <link> would fall back silently (or
+  time out) on a real run. Every color below is a flat CSS value for the
+  same reason: nothing here is fetched.
 
   The masthead is drawn from PT_MASTHEAD (default "THE PLOW TIMES"),
   resolved by the renderer -- not from edition.json, so the chat edition and
@@ -20,200 +24,464 @@
   survive redeploys: the deploy hook copies a skill into the agent's home
   only when absent.
 
-  Newspaper layout on a white sheet: each story and each standing desk is
-  a bordered card. News and the standing desks are SEPARATE page slots, not one
-  mixed sidebar: {{SECTIONS}} is the news desk only (two-up columns that
-  WeasyPrint paginates onto page 2+ when they overflow a Letter sheet);
-  {{WEATHER}}, {{CALENDAR}} and {{MAIL}} are each their own boxed
-  department in a third column. {{LOCATION}} is this run's city from Latch,
-  or "One copy" if unknown. {{PAGE_CLASS}} is "page" when any desk has
-  copy, or "page page--no-desks" when the rail is empty.
+  Newspaper layout modeled on an actual annotated broadsheet anatomy (ear,
+  nameplate, folio, headline, dateline, body type), not a novelty template:
 
-  display:table, not grid and not float+multicol: both were measured live
-  and broken in weasyprint's paginated engine -- grid lost whole columns of
-  content across page breaks, and a float beside a multicol block let the
-  second text column overlap the float instead of wrapping around it.
-  table-cell is the old, boring, print-stable way to reserve two real
-  side-by-side regions; multicol only ever applies INSIDE the news cell.
-  Overflow: the table row fragments across pages; news columns use
-  column-fill:auto so leftover stories continue on the next sheet; each
-  desk box stays intact (break-inside:avoid) and the next desk can start
-  on the following page rather than splitting a box in half.
+  - Ear: the small boxed area flanking the nameplate. A real front page
+    runs two -- a slogan box on the left, a weather box on the right --
+    each modest: a hairline border, small italic type, no fill, no bold
+    caps. An earlier pass gave these the same visual weight as the
+    nameplate itself (bold, larger type, thicker border) and they read as
+    badges competing with the page instead of the quiet flourish an ear
+    actually is; this pass shrinks them back down.
+  - Nameplate: the MASTHEAD placeholder, centered, the one large display
+    element on the page.
+  - Folio: the line beneath the nameplate carrying volume/issue number,
+    date and city -- small type, a hairline rule above and below, never
+    bold or boxed. This is the OLD dateline bar, renamed and toned down
+    to match what a folio actually looks like (no letter-spaced caps
+    doing double duty as a second headline).
+  - Headline: the lead story's headline is large, but -- matching a real
+    front page, not a tabloid splash -- it is left-aligned, mixed case,
+    and italic, not centered/uppercase/badge-kickered. Its size alone
+    signals importance; no invented "Top Story" label sits above it
+    (that was this project's own decoration, not a real broadsheet
+    convention).
+  - Dateline (per story) and byline are the two things a real front page
+    has that this one still doesn't: naming a reporter would be
+    fabrication (there is no author, just sourced synthesis) and a
+    per-story city prefix would require the renderer to carry
+    per-section location data it doesn't have. Both are left out rather
+    than faked.
+
+  Departments (weather/calendar/mail) keep their bordered box with a
+  filled black header -- a real front page's "weather bug" or boxed
+  index reads exactly like that -- and it reads as intentional because
+  it's the only boxed, filled element on the page besides the two quiet
+  ears. The weather desk can also carry a `forecast` array (see
+  render_edition.py's validate() and forecast_grid()) -- a strip of
+  1-6 day cells, each a drawn (never fetched) monochrome icon plus
+  high/low, exactly the "weather bug" a real front page runs, in ink
+  rather than a colour illustration so it never breaks the page's strict
+  grayscale rule. Wind/humidity/precipitation were tried in an earlier
+  pass and dropped: the owner wanted this strip readable at a glance,
+  temperatures and the icon only, not a full weather-station readout.
+  It is optional: a weather section with no `forecast` field still
+  prints as plain prose, same as before. The calendar and mail desks
+  have the same idea, scaled to what actually varies in each: calendar's
+  `schedule` array draws one
+  of five event-kind icons (meeting/call/task/reminder/note) beside a
+  bold time and the title, because a day's events genuinely differ in
+  kind; mail's `messages` array draws one constant envelope mark beside
+  a bold sender and the subject, because a letter has no "kind" the way
+  an event does -- the icon there is a row marker, not information. Both
+  are optional, same fallback-to-prose rule as the weather strip.
+
+  The standing desks sit beside the LEAD STORY ONLY, in a top row --
+  not a strip above all the news, and not a side rail beside the whole
+  news well either. Both of those were tried and both broke on a busy
+  edition: a strip above everything pushed the news well down and read
+  as its own separate block instead of a sidebar; a rail beside ALL the
+  news (three short desks next to twenty stories' worth of columns) ran
+  out of copy a few inches down while the columns kept going for a full
+  page, leaving a long dangling gap and an orphaned divider rule beside
+  empty space. Pairing the desks with just the lead story instead works
+  regardless of edition length, because both sides of that row are
+  now "one screenful of top-of-page content" -- a handful of short
+  departments beside one story -- not "three short desks" against
+  "however many stories ran today". LEAD is the first news story, on
+  the left; the WEATHER, CALENDAR and MAIL placeholders are each their
+  own boxed cell, stacked in a wider column on the right (a reader
+  scans the lead first, then checks the day's departments beside it,
+  the way a real front page's weather/index box sits to the right of
+  the lead). SECTIONS is every other story, full width in three
+  columns below the row.
+  LOCATION is this run's city from Latch, or "One copy" if unknown.
+  PAGE_CLASS is "page" when any desk has copy, or "page
+  page--no-desks" when the column is empty (the lead simply takes the
+  full row). Desk copy reads as bullets, one paragraph per item (each
+  meeting, each message, each forecast line) with a dot marker and real
+  line-height, not one dense run-on sentence -- so pt-edition should
+  write each event/sender/day as its own paragraph (blank-line separated
+  in the body), never joined with periods.
+
+  SUDOKU is a puzzle page below the news, not a standing desk --
+  render_edition.py generates and solves it itself (scripts/sudoku.py),
+  seeded on the edition's own date, so it needs nothing from
+  edition.json and is never authored by the model. Always Easy or
+  Medium (see sudoku.py's DIFFICULTIES) -- this is a breakfast paper for
+  one reader, not a puzzle-page challenge. The full solution prints
+  small underneath, since a solo reader has no next issue to carry it
+  to.
+
+  Palette: pure white paper (#ffffff) -- clean and light, never dark -- ink is a soft
+  black-brown (never pure #000, which prints harsher than it previews), and
+  a single dark-grey accent (#333333) marks department headers, the kicker
+  rule and tags -- a strict monochrome scale (ink, two greys, white), no hue
+  anywhere on the page.
+
+  display:table, not grid and not float+multicol, for the same reason as
+  before: both were measured live and broken in weasyprint's paginated
+  engine -- grid lost whole columns of content across page breaks, and a
+  float beside a multicol block let the second text column overlap the
+  float instead of wrapping around it. table-cell still does the one job
+  it's needed for now, holding the desks column and the lead story side
+  by side in the top row; multicol only ever applies to SECTIONS
+  below that row, never to the row itself. Overflow: the top row always
+  fits on page 1 (break-inside:avoid on each desk box, so a desk never
+  splits in half); the news well below it uses column-fill:auto so
+  leftover stories continue on the next sheet once it overflows a Letter
+  page.
 -->
 <style>
-  @page { size: Letter; margin: 10mm 11mm; background: #fff; }
+  /* 15mm all around: the old 10mm/11mm sat close to the unprintable edge
+     many home inkjet/laser printers actually have (often 4-5mm, sometimes
+     more), and read as cramped even on screen. 15mm (~0.6in) is the
+     standard narrow-but-safe margin for a newsletter-density page --
+     tighter than a Word document's 1in default (this page needs the
+     room), roomier than a press-printed broadsheet's ~10mm (this isn't
+     web-offset printed, it's a home printer with real hardware margins
+     to respect). */
+  @page { size: Letter; margin: 15mm; background: #ffffff; }
   * { box-sizing: border-box; }
-  html { background: #fff; }
+
+  :root {
+    --paper: #ffffff;
+    --ink: #1a1a1a;
+    --ink-soft: #5c5c5c;
+    --accent: #333333;
+    --accent-soft: #767676;
+    --hairline: #d0d0d0;
+  }
+
+  html { background: var(--paper); }
   body {
     font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-    color: #111;
+    color: var(--ink);
     margin: 0;
-    line-height: 1.38;
+    line-height: 1.4;
     font-size: 12.5px;
-    background: #fff;
-    padding: 8px 4px 10px;
+    background: var(--paper);
+    padding: 9px 5px 10px;
   }
 
-  /* -- Masthead ------------------------------------------------------- */
-  header { text-align: center; padding: 2px 0 0; }
+  /* -- Masthead: two quiet ears, the nameplate, a plain folio line ------ */
+  .rule-top { border: none; border-top: 1px solid var(--ink); margin: 0 0 5px; }
+  .masthead-row { display: table; width: 100%; table-layout: fixed; }
+  .ear {
+    display: table-cell; vertical-align: bottom; width: 92px;
+    padding-bottom: 6px;
+  }
+  .ear-left { text-align: left; }
+  .ear-right { text-align: right; }
+  .ear-box {
+    display: inline-block; border: 1px solid var(--ink);
+    padding: 4px 7px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 7.5px; font-style: italic; line-height: 1.35;
+    color: var(--ink-soft); text-align: center;
+  }
+  .masthead-cell { display: table-cell; vertical-align: bottom; text-align: center; }
   .masthead {
     font-family: "Bodoni MT", Didot, "Playfair Display", "Times New Roman", Georgia, serif;
-    font-size: 54px; font-weight: 900; letter-spacing: 0.5px;
-    margin: 0; text-transform: uppercase;
-    line-height: 0.88;
+    font-size: 44px; font-weight: 900; letter-spacing: 0.2px;
+    margin: 0;
+    line-height: 0.92;
+    color: var(--ink);
   }
-  .rule-double {
-    border: none; border-top: 3px solid #111; border-bottom: 1px solid #111;
-    height: 4px; margin: 4px 0 0;
-  }
-  .rule-thin  { border: none; border-top: 1px solid #111; margin: 0; }
-  .dateline {
+  .folio {
     display: table; width: 100%; table-layout: fixed;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase;
-    color: #111; padding: 5px 0 6px;
-    border-bottom: 2px solid #111;
-    margin-bottom: 12px;
+    font-size: 9px; letter-spacing: 0.4px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+    margin: 6px 0 14px;
   }
-  .dateline span { display: table-cell; vertical-align: middle; }
-  .dateline .meta-left { text-align: left; letter-spacing: 1px; }
-  .dateline .meta-center { text-align: center; font-weight: 700; letter-spacing: 2.4px; }
-  .dateline .meta-right { text-align: right; letter-spacing: 1px; }
+  .folio span { display: table-cell; padding: 4px 2px; vertical-align: middle; }
+  .folio .meta-left { text-align: left; }
+  .folio .meta-center { text-align: center; }
+  .folio .meta-right { text-align: right; }
 
-  /* -- Page layout: news columns | desks column ----------------------- */
-  .page { display: table; width: 100%; table-layout: fixed; }
-  .main-col-wrap { display: table-cell; vertical-align: top; padding-right: 12px; }
-  .desks {
-    display: table-cell; vertical-align: top; width: 200px;
+  /* -- Page layout: desks + lead in a top row, the rest full width ----- */
+  .top-row {
+    display: table; width: 100%; table-layout: fixed;
+    margin-bottom: 16px; padding-bottom: 16px;
+    border-bottom: 1.5px solid var(--ink);
   }
-  .page--no-desks .desks { display: none; }
-  .page--no-desks .main-col-wrap { padding-right: 0; }
+  .desks-cell {
+    display: table-cell; vertical-align: top; width: 260px;
+    padding-left: 20px; border-left: 1px solid var(--hairline);
+  }
+  .page--no-desks .desks-cell { display: none; }
+  .lead-cell { display: table-cell; vertical-align: top; padding-right: 20px; }
+  .page--no-desks .lead-cell { padding-right: 0; }
+  .desk-slot { margin-bottom: 14px; }
+  .desk-slot:last-child { margin-bottom: 0; }
   .desk-slot:empty { display: none; }
-  .desk-slot + .desk-slot { margin-top: 10px; }
 
+  /* News well reads as real newsprint columns: a rule between them, not a
+     box around every story. Three columns, full width -- this well only
+     ever holds the stories AFTER the lead (which sits in the top row
+     instead), so its width never depends on whether desks ran today. */
   .main-col {
-    column-count: 2; column-gap: 12px;
+    column-count: 3; column-gap: 22px;
+    column-rule: 1px solid var(--hairline);
     column-fill: auto;
   }
-  .page--no-desks .main-col {
-    column-count: 3; column-gap: 12px;
-  }
 
-  /* Lead story: full-width card across the news columns, page 1. */
-  .main-col > .section:first-child {
-    column-span: all;
-    margin-bottom: 10px;
-    padding: 12px 14px 10px;
+  /* Lead story, alone in the top row beside the desks: the size alone
+     signals importance, the way a real front page does it -- left-
+     aligned, mixed case, italic, no centered splash treatment and no
+     invented "Top Story" label. */
+  .lead-cell .section {
+    border: none; margin: 0; padding: 0;
     break-after: avoid-page;
   }
-  .main-col > .section:first-child h2 {
-    font-size: 26px; letter-spacing: -0.4px; line-height: 1.05;
+  .lead-cell h2 {
+    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+    font-style: italic; font-weight: 700;
+    text-transform: none;
+    font-size: 27px; letter-spacing: -0.3px; line-height: 1.12;
+    border-bottom: none; padding-bottom: 0; margin: 0 0 8px;
   }
-  .main-col > .section:first-child p { font-size: 13px; }
+  .lead-cell .headline {
+    font-size: 13px; font-style: normal; color: var(--ink);
+  }
+  .lead-cell p:not(.headline):not(.sources):not(.unsourced) {
+    font-size: 12.5px; line-height: 1.6; text-align: justify;
+  }
+  .lead-cell p:not(.headline):not(.sources):not(.unsourced)::first-letter {
+    font-family: "Bodoni MT", Didot, "Playfair Display", Georgia, serif;
+    font-size: 2.8em; font-weight: 900; font-style: normal; color: var(--ink);
+    float: left; line-height: 0.78; padding: 0.02em 0.08em 0 0;
+  }
 
-  /* -- Story cards (news columns) --------------------------------------- */
+  /* -- Story columns (news well) -- generous breathing room: the reader
+     asked for the story format but felt it was too tight, so line-height,
+     paragraph spacing and the gap between stories all opened up here. --- */
   .section {
-    border: 1.5px solid #111;
-    background: #fff;
-    padding: 10px 11px 8px;
-    margin: 0 0 10px;
+    border: none;
+    background: var(--paper);
+    padding: 0 0 14px;
+    margin: 0 0 14px;
+    border-bottom: 1px solid var(--hairline);
     break-inside: avoid-column; -webkit-column-break-inside: avoid;
     orphans: 3; widows: 3;
   }
+  .main-col > .section:last-child { border-bottom: none; }
   .section h2 {
     font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-    font-size: 15px; font-weight: 800; line-height: 1.12;
-    text-transform: uppercase; margin: 0 0 4px;
+    font-size: 15px; font-weight: 800; line-height: 1.22;
+    text-transform: uppercase; margin: 0 0 6px;
     letter-spacing: 0.2px;
+    padding-bottom: 5px; border-bottom: 1.5px solid var(--ink);
     break-after: avoid;
   }
   .headline {
     font-size: 11.5px; font-weight: 700; font-style: italic;
-    margin: 0 0 6px; color: #111;
+    line-height: 1.4;
+    margin: 8px 0 8px; color: var(--accent-soft);
   }
   .section p {
-    margin: 0 0 6px; font-size: 11.5px;
+    margin: 0 0 9px; font-size: 11.5px; line-height: 1.55;
     text-align: justify; hyphens: auto; -webkit-hyphens: auto;
   }
   .tag {
     font-family: Georgia, "Times New Roman", serif;
     font-size: 8px; text-transform: uppercase; letter-spacing: 1px;
-    background: #111; color: #fff; padding: 1px 5px; vertical-align: middle;
+    background: var(--accent); color: var(--paper); padding: 1px 5px; vertical-align: middle;
     margin-left: 6px; white-space: nowrap;
   }
-  .sources { font-size: 9px; color: #555; word-break: break-all; text-align: left; }
-  .sources a { color: #555; }
-  .unsourced { font-size: 10px; font-style: italic; color: #666; text-align: left; }
+  .sources { font-size: 9px; color: var(--ink-soft); word-break: break-all; text-align: left; }
+  .sources a { color: var(--ink-soft); }
+  .unsourced { font-size: 10px; font-style: italic; color: var(--ink-soft); text-align: left; }
 
-  /* -- Desk cards: one bordered department per slot ------------------- */
+  /* -- Desk cards: bordered call-out boxes with a filled black header,
+     the same boxed language as the masthead flags and a front page's
+     "this week" index panel. */
   .section--desk {
     padding: 0;
+    border: 1.5px solid var(--ink);
     break-inside: avoid; page-break-inside: avoid;
   }
   .section--desk h2 {
-    background: #111; color: #fff; margin: 0; padding: 7px 10px 6px;
-    font-size: 11px; letter-spacing: 1.4px;
-    border-bottom: 1.5px solid #111;
+    background: var(--ink); color: var(--paper); margin: 0; padding: 7px 11px 6px;
+    font-size: 10.5px; letter-spacing: 1.8px; font-weight: 800;
+  }
+  .section--desk h2 .desk-icon {
+    display: inline-block; vertical-align: -2px; margin-right: 7px;
   }
   .section--desk .headline,
-  .section--desk p,
   .section--desk .sources,
-  .section--desk .unsourced { padding: 0 10px; }
-  .section--desk .headline { margin-top: 8px; }
-  .section--desk p:last-of-type { margin-bottom: 8px; }
+  .section--desk .unsourced { padding: 0 11px; }
+  .section--desk .headline {
+    margin: 10px 0 10px; color: var(--ink-soft); line-height: 1.4;
+    padding-bottom: 9px; border-bottom: 1px solid var(--hairline);
+  }
+  .section--desk p:last-of-type { margin-bottom: 0; }
   .section--desk .sources,
-  .section--desk .unsourced { padding-bottom: 8px; }
+  .section--desk .unsourced { padding-bottom: 10px; margin-top: 4px; }
+
+  /* Each paragraph in a desk reads as one bullet item -- a meeting, a
+     message, a day's forecast -- not one dense run-on sentence. Generous
+     line-height and a soft dash marker instead of a bordered row. */
+  .section--desk p:not(.headline):not(.sources):not(.unsourced) {
+    position: relative;
+    margin: 0 0 11px; padding: 0 11px 0 20px;
+    font-size: 11px; line-height: 1.55; text-align: left;
+  }
+  .section--desk p:not(.headline):not(.sources):not(.unsourced)::before {
+    content: "\2022"; position: absolute; left: 11px; top: 0;
+    color: var(--accent-soft); font-size: 13px; line-height: 1;
+  }
+
+  /* -- Weather strip: a drawn (never fetched) icon per forecast day, in
+     ink -- a real front page's weather map is a line drawing, not a
+     colour illustration, and this stays inside the paper's monochrome
+     rule. Cells wrap onto a second row rather than compressing past
+     legibility when the desks-cell column is narrow. */
+  .wx-grid {
+    display: flex; flex-wrap: wrap;
+    margin: 10px 0; padding: 0 11px;
+    gap: 10px 4px;
+  }
+  .wx-day {
+    display: flex; flex-direction: column; align-items: center;
+    flex: 1 1 0; min-width: 46px;
+    text-align: center;
+    border-left: 1px solid var(--hairline);
+    padding: 0 2px;
+  }
+  .wx-day:first-child { border-left: none; }
+  .wx-day-name {
+    font-weight: 800; font-size: 10px; letter-spacing: 0.4px;
+    text-transform: uppercase; color: var(--ink);
+  }
+  .wx-day-date { font-size: 8px; color: var(--ink-soft); margin-bottom: 4px; }
+  .wx-icon-wrap { color: var(--ink); margin: 2px 0 4px; }
+  .wx-icon { display: block; }
+  .wx-high { font-weight: 700; font-size: 11px; color: var(--ink); }
+  .wx-low { font-size: 10px; color: var(--ink-soft); }
+
+  /* -- Calendar strip: one drawn icon per event kind, a bold time, then
+     the title -- the same "icon says what this is, at a glance" idea as
+     the weather strip, applied to a day's schedule instead of a week's
+     forecast. */
+  .cal-list, .mail-list { margin: 10px 0 0; padding: 0 11px 10px; }
+  .cal-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin: 0 0 10px;
+  }
+  .cal-item:last-child { margin-bottom: 0; }
+  .cal-icon-wrap { color: var(--ink-soft); flex: 0 0 auto; margin-top: 1px; }
+  .cal-icon { display: block; }
+  .cal-time {
+    flex: 0 0 auto; min-width: 62px;
+    font-weight: 800; font-size: 11px; color: var(--ink);
+  }
+  .cal-title { font-size: 11px; line-height: 1.4; color: var(--ink); }
+
+  /* -- Mail strip: an envelope mark, the sender bold, the subject after --
+     the same row shape as the calendar, minus a varying icon (a letter
+     has no "kind" the way an event does). */
+  .mail-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin: 0 0 10px;
+  }
+  .mail-item:last-child { margin-bottom: 0; }
+  .mail-icon-wrap { color: var(--ink-soft); flex: 0 0 auto; margin-top: 1px; }
+  .mail-icon { display: block; }
+  .mail-sender { font-weight: 800; font-size: 11px; color: var(--ink); margin-right: 5px; }
+  .mail-subject { font-size: 11px; color: var(--ink-soft); }
+
+  /* -- Puzzle page: one Easy/Medium Sudoku, generated and verified by
+     sudoku.py, never authored by the model -- a grid, not prose, so
+     there is nothing here for an LLM to get wrong. Cell borders draw
+     only right+bottom (the standard trick for a seamless grid of boxes
+     instead of a <table>); the 3x3 blocks get an extra thick left/top
+     line so the box structure reads at a glance. CSS grid is forbidden
+     here: it was measured live and lost columns in WeasyPrint's paginated
+     engine (same reason the page layout is display:table). The solution
+     prints in full underneath, small -- a solo reader has no "next day's
+     paper" to print it in, so it has to be somewhere in today's. */
+  .puzzle-row { margin-top: 16px; }
+  .sudoku-section {
+    border: none; border-top: 1.5px solid var(--ink);
+    padding: 12px 0 0; margin: 0;
+    text-align: center;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .sudoku-section h2 {
+    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+    font-size: 15px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.2px; margin: 0 0 10px; border-bottom: none;
+  }
+  .sk-grid {
+    border-collapse: collapse;
+    margin: 0 auto 10px;
+    border: 2px solid var(--ink);
+  }
+  .sk-cell {
+    width: 24px; height: 24px; padding: 0;
+    text-align: center; vertical-align: middle;
+    border-right: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 12px; color: var(--ink-soft);
+  }
+  .sk-given { font-weight: 800; color: var(--ink); }
+  .sk-box-left { border-left: 1.5px solid var(--ink); }
+  .sk-box-top { border-top: 1.5px solid var(--ink); }
+  .sk-solution {
+    font-size: 7px; letter-spacing: 0.2px; color: var(--ink-soft);
+    max-width: 340px; margin: 0 auto; word-break: break-all;
+  }
 
   footer {
-    margin-top: 12px;
-    border: 1.5px solid #111;
-    background: #fff;
-    padding: 10px 12px 8px;
-    text-align: center;
-    font-size: 10px; letter-spacing: 0.6px;
-    text-transform: uppercase; color: #111;
+    display: table; width: 100%; table-layout: fixed;
+    margin-top: 14px;
+    border-top: 1px solid var(--ink);
+    padding: 7px 0 0;
+    font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--ink-soft);
     break-inside: avoid;
   }
-  footer .ad-kicker {
-    display: block; font-size: 8px; letter-spacing: 2.4px;
-    margin-bottom: 2px;
-  }
-  footer .ad-line {
-    display: block;
-    font-family: "Bodoni MT", Didot, "Times New Roman", Georgia, serif;
-    font-size: 22px; font-weight: 900; letter-spacing: 1px;
-    line-height: 1; text-transform: uppercase;
-  }
-  footer .ad-sub {
-    display: block; margin-top: 4px; font-size: 9px;
-    letter-spacing: 0.4px; text-transform: none; font-style: italic;
-  }
+  footer span { display: table-cell; vertical-align: middle; }
+  footer .meta-left { text-align: left; }
+  footer .meta-center { text-align: center; }
+  footer .meta-right { text-align: right; }
 </style>
 </head>
 <body>
-  <header>
-    <h1 class="masthead">{{MASTHEAD}}</h1>
-  </header>
-  <hr class="rule-double">
-  <div class="dateline">
+  <hr class="rule-top">
+  <div class="masthead-row">
+    <div class="ear ear-left"><span class="ear-box">Every claim<br>carries its source</span></div>
+    <div class="masthead-cell"><h1 class="masthead">{{MASTHEAD}}</h1></div>
+    <div class="ear ear-right"><span class="ear-box">One edition<br>for one reader</span></div>
+  </div>
+  <div class="folio">
     <span class="meta-left">Vol. 1 &mdash; No. 1</span>
-    <span class="meta-center">{{DATE}}</span>
-    <span class="meta-right">{{LOCATION}}</span>
+    <span class="meta-center">{{LOCATION}}, {{DATE}}</span>
+    <span class="meta-right">Single Copy</span>
   </div>
 
-  <div class="{{PAGE_CLASS}}">
-    <div class="main-col-wrap">
-      <div class="main-col">
+  <div class="{{PAGE_CLASS}} top-row">
+    <div class="lead-cell">{{LEAD}}</div>
+    <aside class="desks-cell">{{WEATHER}}{{CALENDAR}}{{MAIL}}</aside>
+  </div>
+  <div class="main-col">
 {{SECTIONS}}
-      </div>
-    </div>
-    <aside class="desks">{{WEATHER}}{{CALENDAR}}{{MAIL}}</aside>
+  </div>
+
+  <div class="puzzle-row">
+{{SUDOKU}}
   </div>
 
   <footer>
-    <span class="ad-kicker">The evening paper</span>
-    <span class="ad-line">Researched overnight</span>
-    <span class="ad-sub">Delivered to its reader alone. Every claim carries its source.</span>
+    <span class="meta-left">Edi&ccedil;&atilde;o &mdash; No. 1</span>
+    <span class="meta-center">{{DATE}}</span>
+    <span class="meta-right">{{MASTHEAD}}</span>
   </footer>
 </body>
 </html>
