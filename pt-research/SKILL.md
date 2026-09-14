@@ -120,6 +120,14 @@ flush the same way.
 - **No fabrication under pressure.** A thin budget produces a short notes
   file, never invented facts. `could_not_source` exists so the edition can
   say honestly what remains unknown — using it is success, not failure.
+- **A story's optional `image` (see pt-edition's SKILL.md) is the
+  exception, not the rule.** Only capture one when the source page
+  itself is clearly offering it for reuse — its own `og:image`/social-
+  preview image, or an RSS item's enclosure/media:thumbnail — the same
+  thumbnail a link-preview card or feed reader would already show,
+  never a photo pulled some other way off a page. No image found that
+  way is the normal case; leave the field out rather than reaching for
+  any photo on the page just to have one.
 
 ## When you finish — close the browser
 

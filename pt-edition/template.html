@@ -5,18 +5,24 @@
 <!--
   The Plow Times -- the fixed edition layout.
 
-  This file is deliberately plain: inline CSS, no external assets, no
-  JavaScript. The renderer (scripts/render_edition.py) substitutes the
-  placeholders (MASTHEAD, DATE, LOCATION, PAGE_CLASS, LEAD, SECTIONS,
-  WEATHER, CALENDAR, MAIL, SUDOKU, and SIDEBAR for older templates) and
-  escapes every value it inserts, so a page from the web
+  This file is deliberately plain: inline CSS, no JavaScript, and no
+  external assets loaded AT RENDER TIME -- the one exception, a news
+  story's optional photo, is fetched and converted to a self-contained
+  grayscale data: URI by render_edition.py (fetch_grayscale_photo)
+  before this HTML is even built, so by the time the browser or
+  WeasyPrint sees an <img> tag there is nothing left to fetch, same as
+  everything else on the page. The renderer substitutes the
+  placeholders (MASTHEAD, DATE, LOCATION, LEAD, WEATHER_EAR, DESKS_INLINE,
+  SECTIONS, SUDOKU, and PAGE_CLASS/WEATHER/CALENDAR/MAIL/SPORTS/SIDEBAR
+  for older templates that still read them individually) and escapes every value it
+  inserts, so a page from the web
   can never inject markup here. Keep it that way: a script tag or an inline
   event attribute makes the Chrome-on-Mac PDF fallback execute untrusted
   content on the owner's machine. Fonts stay system/websafe for the same
   reason -- the renderer has no guarantee of network access when WeasyPrint
   runs, so a @font-face or Google Fonts <link> would fall back silently (or
   time out) on a real run. Every color below is a flat CSS value for the
-  same reason: nothing here is fetched.
+  same reason: nothing here is fetched at render time.
 
   The masthead is drawn from PT_MASTHEAD (default "THE PLOW TIMES"),
   resolved by the renderer -- not from edition.json, so the chat edition and
@@ -33,14 +39,24 @@
     caps. An earlier pass gave these the same visual weight as the
     nameplate itself (bold, larger type, thicker border) and they read as
     badges competing with the page instead of the quiet flourish an ear
-    actually is; this pass shrinks them back down.
+    actually is; this pass shrinks them back down. The right ear is now
+    WEATHER_EAR -- today's drawn icon and high/low only (weather_ear_html
+    in render_edition.py), the same "weather box beside the nameplate"
+    a real front page runs, standing in for the plain tagline when the
+    weather desk has a forecast to draw from.
   - Nameplate: the MASTHEAD placeholder, centered, the one large display
     element on the page.
   - Folio: the line beneath the nameplate carrying volume/issue number,
     date and city -- small type, a hairline rule above and below, never
     bold or boxed. This is the OLD dateline bar, renamed and toned down
     to match what a folio actually looks like (no letter-spaced caps
-    doing double duty as a second headline).
+    doing double duty as a second headline). The footer at the bottom of
+    the page repeats "Vol. 1 -- No. 1" rather than its own wording (it
+    used to say "Edição -- No. 1") -- that text is static in this file,
+    not written by the model, so it can't follow the edition's own
+    owner.language the way titles and body copy do; reusing the folio's
+    already-established Vol./No. abbreviation sidesteps translating it
+    instead of leaving it stuck in one language on every edition.
   - Headline: the lead story's headline is large, but -- matching a real
     front page, not a tabloid splash -- it is left-aligned, mixed case,
     and italic, not centered/uppercase/badge-kickered. Its size alone
@@ -54,56 +70,65 @@
     per-section location data it doesn't have. Both are left out rather
     than faked.
 
-  Departments (weather/calendar/mail) keep their bordered box with a
-  filled black header -- a real front page's "weather bug" or boxed
-  index reads exactly like that -- and it reads as intentional because
-  it's the only boxed, filled element on the page besides the two quiet
-  ears. The weather desk can also carry a `forecast` array (see
-  render_edition.py's validate() and forecast_grid()) -- a strip of
-  1-6 day cells, each a drawn (never fetched) monochrome icon plus
-  high/low, exactly the "weather bug" a real front page runs, in ink
-  rather than a colour illustration so it never breaks the page's strict
-  grayscale rule. Wind/humidity/precipitation were tried in an earlier
-  pass and dropped: the owner wanted this strip readable at a glance,
-  temperatures and the icon only, not a full weather-station readout.
-  It is optional: a weather section with no `forecast` field still
-  prints as plain prose, same as before. The calendar and mail desks
-  have the same idea, scaled to what actually varies in each: calendar's
-  `schedule` array draws one
-  of five event-kind icons (meeting/call/task/reminder/note) beside a
-  bold time and the title, because a day's events genuinely differ in
-  kind; mail's `messages` array draws one constant envelope mark beside
-  a bold sender and the subject, because a letter has no "kind" the way
-  an event does -- the icon there is a row marker, not information. Both
-  are optional, same fallback-to-prose rule as the weather strip.
+  Three desk layouts were tried for weather/calendar/mail before this
+  one: a strip above all the news (pushed the well down, read as its
+  own separate block instead of a sidebar); a rail beside ALL the news
+  (three short desks next to twenty stories' worth of columns ran out
+  of copy a few inches down while the columns kept going for a full
+  page, leaving a long dangling gap); a rail beside just the LEAD story
+  (fixed the gap, but still spent a whole column on three boxes that
+  vary wildly in length day to day). This version drops the rail
+  entirely: weather moves into the masthead's right ear (today's icon
+  and high/low only -- see WEATHER_EAR above), and calendar/mail/sports
+  read as full-width stories below the lead, the same anatomy as a news
+  item (plain title with a rule under it, no box, no filled header) via
+  DESKS_INLINE. Only the icon rows inside them (a meeting/call/reminder
+  mark, an envelope mark, a scoreline) still say "this is a different
+  kind of content" -- everything else about their layout is just "a
+  story". This scales with content length in both directions: a short
+  calendar entry is a short block, a long one is a long block, and
+  neither measures itself against an unrelated column of news. SPORTS
+  is conditional the same way MAIL already was -- it only runs when the
+  owner actually follows teams (config-gated in pt-research), never
+  guessed at or filled with a generic league digest.
 
-  The standing desks sit beside the LEAD STORY ONLY, in a top row --
-  not a strip above all the news, and not a side rail beside the whole
-  news well either. Both of those were tried and both broke on a busy
-  edition: a strip above everything pushed the news well down and read
-  as its own separate block instead of a sidebar; a rail beside ALL the
-  news (three short desks next to twenty stories' worth of columns) ran
-  out of copy a few inches down while the columns kept going for a full
-  page, leaving a long dangling gap and an orphaned divider rule beside
-  empty space. Pairing the desks with just the lead story instead works
-  regardless of edition length, because both sides of that row are
-  now "one screenful of top-of-page content" -- a handful of short
-  departments beside one story -- not "three short desks" against
-  "however many stories ran today". LEAD is the first news story, on
-  the left; the WEATHER, CALENDAR and MAIL placeholders are each their
-  own boxed cell, stacked in a wider column on the right (a reader
-  scans the lead first, then checks the day's departments beside it,
-  the way a real front page's weather/index box sits to the right of
-  the lead). SECTIONS is every other story, full width in three
-  columns below the row.
-  LOCATION is this run's city from Latch, or "One copy" if unknown.
-  PAGE_CLASS is "page" when any desk has copy, or "page
-  page--no-desks" when the column is empty (the lead simply takes the
-  full row). Desk copy reads as bullets, one paragraph per item (each
-  meeting, each message, each forecast line) with a dot marker and real
-  line-height, not one dense run-on sentence -- so pt-edition should
-  write each event/sender/day as its own paragraph (blank-line separated
-  in the body), never joined with periods.
+  CALENDAR's `schedule` array draws one of five event-kind icons
+  (meeting/call/task/reminder/note) beside a bold time and the title,
+  because a day's events genuinely differ in kind; MAIL's `messages`
+  array draws one constant envelope mark beside a bold sender and the
+  subject, because a letter has no "kind" the way an event does -- the
+  icon there is a row marker, not information; SPORTS' `games` array
+  draws one row per followed team's game -- away @ home, and either
+  the kickoff time (hasn't started) or the score (it has), no "live"
+  state or clock, since a printed page is read after the fact and
+  those would just be stale -- no crests either, since the renderer
+  never fetches images and the team names carry the row instead. All
+  three are optional: a section with none of these fields still prints as
+  plain prose, same as before any of them existed, but if the
+  structured field IS present the prose paragraphs are dropped from the
+  print/HTML view entirely (see skip_body in html_section) so the box
+  never shows the same event twice, once as a clean icon/score row and
+  again as a redundant bullet restating it in a sentence -- `body` is
+  still required in the JSON regardless, because the plain-text chat
+  edition has no icons to fall back on and reads `body`, never
+  `schedule`/`messages`/`games`.
+
+  WEATHER's `forecast` array (validate() and forecast_grid()) no longer
+  prints in the page body at all -- only WEATHER_EAR reads it now, and
+  only today's entry (forecast[0]). A weather section with no `forecast`
+  simply falls back to the plain ear tagline; the multi-day strip this
+  field could draw is deliberately not shown anywhere else on the page,
+  since a full grid competing with the lead story for space was the
+  reason this desk moved to the ear in the first place. High/low only,
+  no wind/humidity/precipitation (tried in an earlier pass and dropped)
+  -- an ear has room for two numbers and an icon, nothing more.
+
+  LEAD is the first news story, full width, alone in its own row --
+  the size of its headline alone signals importance now that nothing
+  sits beside it. SECTIONS is every other story, full width in two
+  columns below DESKS_INLINE. LOCATION is this run's city from Latch,
+  or "One copy" if unknown. PAGE_CLASS still exists for older
+  templates using the SIDEBAR rail; this one no longer reads it.
 
   SUDOKU is a puzzle page below the news, not a standing desk --
   render_edition.py generates and solves it itself (scripts/sudoku.py),
@@ -120,18 +145,21 @@
   rule and tags -- a strict monochrome scale (ink, two greys, white), no hue
   anywhere on the page.
 
-  display:table, not grid and not float+multicol, for the same reason as
-  before: both were measured live and broken in weasyprint's paginated
-  engine -- grid lost whole columns of content across page breaks, and a
-  float beside a multicol block let the second text column overlap the
-  float instead of wrapping around it. table-cell still does the one job
-  it's needed for now, holding the desks column and the lead story side
-  by side in the top row; multicol only ever applies to SECTIONS
-  below that row, never to the row itself. Overflow: the top row always
-  fits on page 1 (break-inside:avoid on each desk box, so a desk never
-  splits in half); the news well below it uses column-fill:auto so
-  leftover stories continue on the next sheet once it overflows a Letter
-  page.
+  display:table, not grid, not float, and (as of this pass) not multicol
+  either -- all three were measured live and broken in weasyprint's
+  paginated engine: grid lost whole columns of content across page
+  breaks, a float beside a multicol block let the second text column
+  overlap the float instead of wrapping around it, and column-count on
+  the news well itself (SECTIONS) rendered as a single column with the
+  second column's width left blank in the actual PDF, even though it
+  looked like two real columns in a browser preview -- browser-only
+  testing had missed it. table-cell now only does the small jobs left
+  for it -- the masthead's ear/nameplate/ear row and the folio line.
+  SECTIONS is one column, stories stacked top to bottom like the lead;
+  overflow just continues onto the next Letter-size sheet the way any
+  block content does, no column-fill balancing needed. Each desk box in
+  DESKS_INLINE still stays intact (break-inside:avoid) so one never
+  splits across a page.
 -->
 <style>
   /* 15mm all around: the old 10mm/11mm sat close to the unprintable edge
@@ -142,7 +170,22 @@
      room), roomier than a press-printed broadsheet's ~10mm (this isn't
      web-offset printed, it's a home printer with real hardware margins
      to respect). */
-  @page { size: Letter; margin: 15mm; background: #ffffff; }
+  /* The running page number lives in the @page margin box (CSS Paged
+     Media), not in the HTML body -- it's the only way a page count that
+     WeasyPrint itself is still computing (a short edition is one sheet,
+     a long one three) can be numbered without Python counting pages by
+     hand. counter(page)/counter(pages) render as bare numerals, no
+     "Page"/"of" words, since that text would be Python-authored and
+     can't follow the edition's own owner.language the way body copy
+     does -- the same reasoning as the Sudoku's dot rating. */
+  @page {
+    size: Letter; margin: 15mm; background: #ffffff;
+    @bottom-center {
+      content: "\2014  " counter(page) " / " counter(pages) "  \2014";
+      font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
+      font-size: 8px; color: #9a9a9a; letter-spacing: 0.5px;
+    }
+  }
   * { box-sizing: border-box; }
 
   :root {
@@ -181,10 +224,29 @@
     font-size: 7.5px; font-style: italic; line-height: 1.35;
     color: var(--ink-soft); text-align: center;
   }
+  .ear-weather {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-style: normal;
+  }
+  .ear-weather .wx-icon-wrap { color: var(--ink); line-height: 0; }
+  .ear-weather .ear-wx-temps { display: flex; flex-direction: column; align-items: flex-start; }
+  .ear-weather .ear-wx-high { font-weight: 800; font-size: 11px; color: var(--ink); line-height: 1.15; }
+  .ear-weather .ear-wx-low { font-size: 9px; color: var(--ink-soft); line-height: 1.15; }
   .masthead-cell { display: table-cell; vertical-align: bottom; text-align: center; }
   .masthead {
-    font-family: "Bodoni MT", Didot, "Playfair Display", "Times New Roman", Georgia, serif;
-    font-size: 44px; font-weight: 900; letter-spacing: 0.2px;
+    /* Big Caslon first: a real macOS system font (no bundling, no
+       network fetch -- same "system/websafe only" rule as the rest of
+       this file), and measured a much closer match to a traditional
+       broadsheet nameplate than the Bodoni/Didot stack it replaces --
+       those are high-contrast Didone faces that read as fashion-
+       magazine, not newspaper. Big Caslon only ships one weight
+       (WeasyPrint doesn't synthesize bold for it, confirmed: 400/700/900
+       all render identically), so the size and letter-spacing carry the
+       presence a bold weight would otherwise give the nameplate; the
+       Didot/Bodoni/Playfair fallbacks stay for the rare system without
+       Big Caslon, where their own font-weight:900 still applies. */
+    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", "Times New Roman", Georgia, serif;
+    font-size: 47px; font-weight: 900; letter-spacing: 0.6px;
     margin: 0;
     line-height: 0.92;
     color: var(--ink);
@@ -195,45 +257,82 @@
     font-size: 9px; letter-spacing: 0.4px;
     color: var(--ink-soft);
     border-top: 1px solid var(--ink);
-    border-bottom: 1.5px solid var(--ink);
-    margin: 6px 0 14px;
+    margin: 6px 0 0;
   }
   .folio span { display: table-cell; padding: 4px 2px; vertical-align: middle; }
   .folio .meta-left { text-align: left; }
   .folio .meta-center { text-align: center; }
   .folio .meta-right { text-align: right; }
+  /* Double rule: a plain border-top+border-bottom on a thin box reads as
+     two hairlines with a hint of daylight between them -- the classic
+     newspaper divider (seen closing off the masthead and again above the
+     footer on real front pages), sturdier than a single rule at marking
+     "the chrome ends here, the page starts." No pseudo-elements needed,
+     just two borders, so it survives WeasyPrint the same as any other
+     border does -- but it needs its own box-sizing:content-box against
+     the page's global border-box reset, or the 2px height already
+     equals the two 1px borders with nothing left for the gap between
+     them, and the "double" rule prints as one solid bar (measured: it
+     did, in an early pass of this feature). content-box keeps the 2px
+     as real daylight between the strokes. */
+  .rule-double {
+    box-sizing: content-box; height: 2px;
+    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+    margin: 3px 0 14px;
+  }
 
-  /* -- Page layout: desks + lead in a top row, the rest full width ----- */
+  /* -- Page layout: the lead alone, then desks full width, then news --- */
   .top-row {
-    display: table; width: 100%; table-layout: fixed;
     margin-bottom: 16px; padding-bottom: 16px;
     border-bottom: 1.5px solid var(--ink);
   }
-  .desks-cell {
-    display: table-cell; vertical-align: top; width: 260px;
-    padding-left: 20px; border-left: 1px solid var(--hairline);
-  }
-  .page--no-desks .desks-cell { display: none; }
-  .lead-cell { display: table-cell; vertical-align: top; padding-right: 20px; }
-  .page--no-desks .lead-cell { padding-right: 0; }
-  .desk-slot { margin-bottom: 14px; }
-  .desk-slot:last-child { margin-bottom: 0; }
-  .desk-slot:empty { display: none; }
 
-  /* News well reads as real newsprint columns: a rule between them, not a
-     box around every story. Three columns, full width -- this well only
-     ever holds the stories AFTER the lead (which sits in the top row
-     instead), so its width never depends on whether desks ran today. */
-  .main-col {
-    column-count: 3; column-gap: 22px;
-    column-rule: 1px solid var(--hairline);
-    column-fill: auto;
+  /* Calendar and mail read as full-width stories now, the same anatomy
+     as a news item -- plain title with a rule under it, no box, no
+     filled header -- only the icon rows inside still mark them as a
+     different kind of content. desk-slot is the same wrapper wrap_desk()
+     already produces for the (retired) sidebar, reused here as the
+     full-width row. */
+  .desks-inline-wrap {
+    margin-bottom: 16px; padding-bottom: 2px;
+    border-bottom: 1.5px solid var(--ink);
   }
+  .desks-inline-wrap .desk-slot { margin: 0 0 16px; }
+  .desks-inline-wrap .desk-slot:last-child { margin-bottom: 0; }
+  .desks-inline-wrap .section--desk {
+    border: none; border-bottom: 1px solid var(--hairline);
+    padding: 0 0 16px; margin: 0;
+  }
+  .desks-inline-wrap .desk-slot:last-child .section--desk {
+    border-bottom: none; padding-bottom: 0;
+  }
+  .desks-inline-wrap .section--desk h2 {
+    background: none; color: var(--ink); margin: 0 0 7px; padding: 0 0 6px;
+    font-size: 15px; font-weight: 800; letter-spacing: 0.2px;
+    text-transform: uppercase; border-bottom: 1.5px solid var(--ink);
+  }
+  .desks-inline-wrap .section--desk .headline {
+    font-size: 12.5px; font-style: italic; font-weight: 700;
+    color: var(--accent-soft); margin: 8px 0 8px;
+    padding: 0; border-bottom: none;
+  }
+  .desks-inline-wrap .section--desk .sources,
+  .desks-inline-wrap .section--desk .unsourced { padding: 0; margin-top: 6px; }
+  .desks-inline-wrap .cal-list,
+  .desks-inline-wrap .mail-list,
+  .desks-inline-wrap .sp-list { padding: 0; margin: 10px 0 0; }
 
-  /* Lead story, alone in the top row beside the desks: the size alone
-     signals importance, the way a real front page does it -- left-
-     aligned, mixed case, italic, no centered splash treatment and no
-     invented "Top Story" label. */
+  /* News well: one column, stories stacked top to bottom with a hairline
+     rule between them. CSS multicol (column-count: 2) read fine in a
+     browser but rendered as a single column with the second column's
+     width just left blank in an actual WeasyPrint PDF (see the top
+     comment) -- a single column has no such gap to risk. */
+  .main-col { }
+
+  /* Lead story, alone in the top row, full width: the size alone signals
+     importance, the way a real front page does it -- left-aligned,
+     mixed case, italic, no centered splash treatment and no invented
+     "Top Story" label. */
   .lead-cell .section {
     border: none; margin: 0; padding: 0;
     break-after: avoid-page;
@@ -251,10 +350,24 @@
   .lead-cell p:not(.headline):not(.sources):not(.unsourced) {
     font-size: 12.5px; line-height: 1.6; text-align: justify;
   }
-  .lead-cell p:not(.headline):not(.sources):not(.unsourced)::first-letter {
+  /* Drop cap: a real <span class="dropcap"> emitted by html_section()
+     (render_edition.py, drop_cap=True) -- not a ::first-letter
+     pseudo-element. ::first-letter + float measured
+     broken in WeasyPrint: the pseudo-element's box wasn't reserved in
+     the line, so the letter right after the drop cap printed underneath
+     it instead of beside it. A plain floated span has no such bug. */
+  .lead-cell .dropcap {
     font-family: "Bodoni MT", Didot, "Playfair Display", Georgia, serif;
     font-size: 2.8em; font-weight: 900; font-style: normal; color: var(--ink);
     float: left; line-height: 0.78; padding: 0.02em 0.08em 0 0;
+    /* A float sits at the very top of the line box, but the paragraph's
+       own line-height (1.6) leaves half-leading space above its own
+       first glyph that the cap's own tighter line-height (0.78) doesn't
+       get -- so an unnudged cap reads visibly higher than the text
+       beside it. Measured against the actual rendered text: 0.10em
+       (of the cap's own, much larger, font-size) brings its top back in
+       line with "onsumer"'s. */
+    margin-top: 0.1em;
   }
 
   /* -- Story columns (news well) -- generous breathing room: the reader
@@ -266,7 +379,12 @@
     padding: 0 0 14px;
     margin: 0 0 14px;
     border-bottom: 1px solid var(--hairline);
-    break-inside: avoid-column; -webkit-column-break-inside: avoid;
+    /* No break-inside here on purpose: a news story (especially the
+       lead, now sometimes carrying a photo) can be taller than the
+       space left on a page, and forcing it whole onto the next page
+       left a nearly blank page behind it (measured, once a photo made
+       the lead tall enough to trigger it). orphans/widows still keep a
+       break from stranding a single dangling line. */
     orphans: 3; widows: 3;
   }
   .main-col > .section:last-child { border-bottom: none; }
@@ -282,6 +400,26 @@
     font-size: 11.5px; font-weight: 700; font-style: italic;
     line-height: 1.4;
     margin: 8px 0 8px; color: var(--accent-soft);
+  }
+  /* A real photo, when a story has one -- render_edition.py fetches it
+     and converts it to grayscale in Python before this HTML even
+     exists (see fetch_grayscale_photo), because WeasyPrint doesn't
+     implement CSS `filter`: a `filter: grayscale(1)` rule here was
+     measured to leave the photo in full color, the one thing on the
+     page that would break the monochrome rule. What lands in `src` is
+     already a self-contained grayscale data: URI, so this block is
+     just sizing and the credit line, not color correction. */
+  .story-photo {
+    margin: 4px 0 10px;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .story-photo img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--hairline);
+  }
+  .story-photo figcaption {
+    font-size: 8.5px; font-style: italic; color: var(--ink-soft);
+    margin-top: 3px;
   }
   .section p {
     margin: 0 0 9px; font-size: 11.5px; line-height: 1.55;
@@ -336,11 +474,15 @@
     color: var(--accent-soft); font-size: 13px; line-height: 1;
   }
 
-  /* -- Weather strip: a drawn (never fetched) icon per forecast day, in
-     ink -- a real front page's weather map is a line drawing, not a
-     colour illustration, and this stays inside the paper's monochrome
-     rule. Cells wrap onto a second row rather than compressing past
-     legibility when the desks-cell column is narrow. */
+  /* -- Weather strip: unused by the default body markup now that
+     WEATHER_EAR carries the day's weather instead (see the top comment),
+     but the multi-day forecast_grid() and this styling stay defined --
+     the renderer still fills the WEATHER placeholder for any custom
+     template that wants the full strip back, the same backward-compat
+     contract SIDEBAR already has. A drawn (never fetched) icon per
+     forecast day, in ink -- a real front page's weather map is a line
+     drawing, not a colour illustration, and this stays inside the
+     paper's monochrome rule. */
   .wx-grid {
     display: flex; flex-wrap: wrap;
     margin: 10px 0; padding: 0 11px;
@@ -395,6 +537,28 @@
   .mail-sender { font-weight: 800; font-size: 11px; color: var(--ink); margin-right: 5px; }
   .mail-subject { font-size: 11px; color: var(--ink-soft); }
 
+  /* -- Sports strip: away @ home, and either the kickoff time (not
+     started yet) or the score (it's over) -- no "live" state, no crests
+     or logos. A printed page is read after the fact, so there is no
+     "on air" to show; the renderer never fetches images either, so the
+     teams' own names carry the row. */
+  .sp-game {
+    display: flex; align-items: baseline; flex-wrap: wrap;
+    gap: 4px 10px; margin: 0 0 9px; padding-bottom: 9px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sp-game:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .sp-teams { font-size: 11px; color: var(--ink); flex: 1 1 auto; }
+  .sp-away, .sp-home { font-weight: 800; }
+  .sp-vs {
+    color: var(--ink-soft); font-weight: 400; margin: 0 5px;
+    font-size: 9px; text-transform: uppercase;
+  }
+  .sp-score {
+    font-weight: 800; font-size: 12px; color: var(--ink);
+    white-space: nowrap; flex: 0 0 auto;
+  }
+
   /* -- Puzzle page: one Easy/Medium Sudoku, generated and verified by
      sudoku.py, never authored by the model -- a grid, not prose, so
      there is nothing here for an LLM to get wrong. Cell borders draw
@@ -403,8 +567,16 @@
      line so the box structure reads at a glance. CSS grid is forbidden
      here: it was measured live and lost columns in WeasyPrint's paginated
      engine (same reason the page layout is display:table). The solution
-     prints in full underneath, small -- a solo reader has no "next day's
-     paper" to print it in, so it has to be somewhere in today's. */
+     prints in full underneath, small and light -- a solo reader has no
+     "next day's paper" to run it in, so it has to be somewhere in
+     today's -- with no caption in front of it: a "Solução:"/"Solution:"
+     label would be Python-authored text sitting outside the edition's
+     own `owner.language`, so the 81 digits run on their own instead of
+     risking a caption in the wrong language on a non-Portuguese
+     edition. Set in a very light gray, well below the page's normal
+     secondary-text color, so it doesn't catch the eye while the grid is
+     still being worked: legible on purpose, just not something that
+     jumps out the way every other line on the page does. */
   .puzzle-row { margin-top: 16px; }
   .sudoku-section {
     border: none; border-top: 1.5px solid var(--ink);
@@ -417,6 +589,11 @@
     font-size: 15px; font-weight: 800; text-transform: uppercase;
     letter-spacing: 0.2px; margin: 0 0 10px; border-bottom: none;
   }
+  /* Difficulty as filled/hollow dots (one per step) instead of a word --
+     "Easy"/"Medium" would be Python-authored text that can't follow the
+     edition's own language, the same reasoning as the solution line
+     below having no caption. */
+  .sk-difficulty { font-size: 9px; letter-spacing: 2px; padding: 2px 6px; }
   .sk-grid {
     border-collapse: collapse;
     margin: 0 auto 10px;
@@ -434,19 +611,19 @@
   .sk-box-left { border-left: 1.5px solid var(--ink); }
   .sk-box-top { border-top: 1.5px solid var(--ink); }
   .sk-solution {
-    font-size: 7px; letter-spacing: 0.2px; color: var(--ink-soft);
-    max-width: 340px; margin: 0 auto; word-break: break-all;
+    font-size: 6px; letter-spacing: 0.3px; color: var(--hairline);
+    margin: 6px auto 0; white-space: nowrap; font-style: italic;
   }
 
   footer {
     display: table; width: 100%; table-layout: fixed;
-    margin-top: 14px;
-    border-top: 1px solid var(--ink);
-    padding: 7px 0 0;
+    margin-top: 0;
+    padding: 0;
     font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase;
     color: var(--ink-soft);
     break-inside: avoid;
   }
+  .rule-double.rule-double--footer { margin: 14px 0 3px; }
   footer span { display: table-cell; vertical-align: middle; }
   footer .meta-left { text-align: left; }
   footer .meta-center { text-align: center; }
@@ -458,18 +635,19 @@
   <div class="masthead-row">
     <div class="ear ear-left"><span class="ear-box">Every claim<br>carries its source</span></div>
     <div class="masthead-cell"><h1 class="masthead">{{MASTHEAD}}</h1></div>
-    <div class="ear ear-right"><span class="ear-box">One edition<br>for one reader</span></div>
+    <div class="ear ear-right">{{WEATHER_EAR}}</div>
   </div>
   <div class="folio">
     <span class="meta-left">Vol. 1 &mdash; No. 1</span>
     <span class="meta-center">{{LOCATION}}, {{DATE}}</span>
     <span class="meta-right">Single Copy</span>
   </div>
+  <div class="rule-double"></div>
 
-  <div class="{{PAGE_CLASS}} top-row">
+  <div class="top-row">
     <div class="lead-cell">{{LEAD}}</div>
-    <aside class="desks-cell">{{WEATHER}}{{CALENDAR}}{{MAIL}}</aside>
   </div>
+{{DESKS_INLINE}}
   <div class="main-col">
 {{SECTIONS}}
   </div>
@@ -478,8 +656,9 @@
 {{SUDOKU}}
   </div>
 
+  <div class="rule-double rule-double--footer"></div>
   <footer>
-    <span class="meta-left">Edi&ccedil;&atilde;o &mdash; No. 1</span>
+    <span class="meta-left">Vol. 1 &mdash; No. 1</span>
     <span class="meta-center">{{DATE}}</span>
     <span class="meta-right">{{MASTHEAD}}</span>
   </footer>

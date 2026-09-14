@@ -1,11 +1,12 @@
-# Standing desks — how the daily paper fills weather, calendar and mail
+# Standing desks — how the daily paper fills weather, calendar, mail and sports
 
 These are not topics. They are fixed newspaper departments. The daily run
 always fills weather and calendar. Mail joins only when `pt/config.json`
-has `"mail": { "configured": true }`. Notes go under
+has `"mail": { "configured": true }`; sports joins only when it has
+`"sports": { "configured": true }`. Notes go under
 `/var/lib/hermes/pt/run/desk-<name>/notes.json` (same shape as a topic
 notes file, `topic_id` omitted). pt-edition compiles them with
-`"desk": "weather"|"calendar"|"mail"`. Never mark them in topics.py.
+`"desk": "weather"|"calendar"|"mail"|"sports"`. Never mark them in topics.py.
 
 Every Latch call is the same two tools the print path uses:
 `plow_run_command` (argv array, no shell, no `~`) and, when a call returns
@@ -124,8 +125,56 @@ desk: log it in `could_not_source`, spend no further calls.
 
 Notes at `run/desk-mail/notes.json`. Never invent an inbox.
 
+## 4. Sports — only when configured
+
+Read `pt/config.json`. If `sports.configured` is not exactly `true`, skip
+this desk entirely — no notes file, no edition block. When it is true,
+`sports.followed` is a list of `{ "team", "league" }` the owner set up in
+pt-intake (e.g. `{"team": "Flamengo", "league": "brazil.1"}` or
+`{"team": "Lakers", "league": "nba"}`) — research only those teams, never
+a generic league digest nobody asked for.
+
+**ESPN's public scoreboard JSON, no key needed, one call per league that
+has a followed team:**
+
+    https://site.api.espn.com/apis/site/v2/sports/<sport>/<league>/scoreboard
+
+`<sport>` is the ESPN sport slug (`soccer`, `basketball`, `football`,
+`baseball`...), `<league>` the league slug (`bra.1` for Brasileirão Série
+A, `nba`, `nfl`, ...) — confirm the exact slug for the owner's league in
+the browser once (ESPN's own site URL for that league's scores page names
+it) rather than guessing. `plow_run_command` can fetch this like any other
+URL; it needs no Latch connector and no login, unlike mail.
+
+From the response, find each followed team's own game (by team name/abbr
+match) and keep only: home team, away team, status (`scheduled` if it
+hasn't started, `live` if it's in progress, `final` if it's over),
+score (once `live`/`final`), and one short note — the kickoff time for
+`scheduled`, the clock/period for `live` (e.g. "62'", "Q3 4:12"), nothing
+needed for `final`. That's the whole shape pt-edition's `games` field
+takes (see its SKILL.md) — no standings, no full schedule, no play-by-play.
+A team with no game in the response (off day, season over) is simply
+absent from the list, not an error.
+
+Source label: the scoreboard's own page URL for that league (ESPN's
+site, not the raw API endpoint, so the owner can click through to
+something a browser renders). Keep each game's fields separate in the
+notes (home/away/score/status/note), never pre-joined into one sentence
+like "Flamengo 2–1 Palmeiras" — that's what lets pt-edition bold the
+score and draw the status label instead of guessing how to parse it back
+apart. A team whose league fetch fails (deny, timeout, unknown slug) is
+logged in `could_not_source` for that team specifically; one team's
+failure doesn't drop the others. An empty followed list, or every fetch
+failing, is a quiet sports column that day (print that honestly, same as
+an empty mailbox), not a reason to fabricate a game.
+
+Notes at `run/desk-sports/notes.json`. Never invent a score or a kickoff
+time.
+
 ## Close
 
 These Latch calls share the Mac with the browser pass. Do location and
 calendar (and mail if on) first, then the news topics, then
-`plow_browser_close` as pt-research already requires.
+`plow_browser_close` as pt-research already requires. Sports (if on) is a
+plain HTTP fetch, not a Latch call, so it can run any time before
+pt-edition needs the notes -- it does not compete for the browser pass.

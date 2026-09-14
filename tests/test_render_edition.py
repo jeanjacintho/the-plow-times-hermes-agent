@@ -71,7 +71,7 @@ class TestValidate:
 
     def test_desk_must_be_known(self):
         bad = edition(sections=[{
-            "kind": "section", "title": "x", "body": "y", "desk": "sports",
+            "kind": "section", "title": "x", "body": "y", "desk": "gossip",
         }])
         assert "desk" in render.validate(bad)
 

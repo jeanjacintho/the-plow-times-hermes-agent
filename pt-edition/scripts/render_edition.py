@@ -29,12 +29,15 @@ a run that says what was wrong and waits for the next one.
 from __future__ import annotations
 
 import argparse
+import base64
 import html
+import io
 import json
 import os
 import pathlib
 import re
 import sys
+import urllib.request
 from datetime import date
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -45,8 +48,11 @@ KINDS = ("section", "assignment")
 # Standing newspaper desks. weather and calendar always run; mail only when
 # pt/config.json says mail.configured. news is every owner-chosen section
 # and assignment -- same story shape, different page slot.
-DESKS = ("news", "weather", "calendar", "mail")
-DESK_ORDER = {"weather": 0, "calendar": 1, "mail": 2, "news": 3}
+DESKS = ("news", "weather", "calendar", "mail", "sports")
+DESK_ORDER = {"weather": 0, "calendar": 1, "mail": 2, "sports": 3, "news": 4}
+# Controlled vocabulary for a sports desk game row -- what state the game
+# is in, drawn as a label/tag, never free text.
+GAME_STATUSES = ("scheduled", "live", "final")
 # Controlled vocabulary for the weather forecast strip -- an icon is drawn
 # from this fixed inline-SVG set (see WEATHER_ICONS), never fetched, so an
 # unrecognized key is a validation failure rather than a silently broken
@@ -123,7 +129,7 @@ def validate(edition):
             failures.append(f"{where}.layout is not main|sidebar")
         desk = section.get("desk")
         if desk is not None and desk not in DESKS:
-            failures.append(f"{where}.desk is not news|weather|calendar|mail")
+            failures.append(f"{where}.desk is not one of {DESKS}")
         sources = section.get("sources", [])
         if not isinstance(sources, list) or not all(isinstance(u, str) for u in sources):
             failures.append(f"{where}.sources is not a list of strings")
@@ -195,6 +201,49 @@ def validate(edition):
                         failures.append(f"{iwhere}.sender is blank")
                     if not (isinstance(item.get("subject"), str) and item["subject"].strip()):
                         failures.append(f"{iwhere}.subject is blank")
+        games = section.get("games")
+        if games is not None:
+            if desk != "sports":
+                failures.append(f"{where}.games is only valid on the sports desk")
+            elif not isinstance(games, list) or not games:
+                failures.append(f"{where}.games is not a non-empty list")
+            else:
+                for item_index, item in enumerate(games):
+                    gwhere = f"{where}.games[{item_index}]"
+                    if not isinstance(item, dict):
+                        failures.append(f"{gwhere} is not an object")
+                        continue
+                    if not (isinstance(item.get("home"), str) and item["home"].strip()):
+                        failures.append(f"{gwhere}.home is blank")
+                    if not (isinstance(item.get("away"), str) and item["away"].strip()):
+                        failures.append(f"{gwhere}.away is blank")
+                    status = item.get("status")
+                    if status not in GAME_STATUSES:
+                        failures.append(f"{gwhere}.status is not one of {GAME_STATUSES}")
+                    if status in ("live", "final"):
+                        if not isinstance(item.get("home_score"), int):
+                            failures.append(f"{gwhere}.home_score is required for {status}")
+                        if not isinstance(item.get("away_score"), int):
+                            failures.append(f"{gwhere}.away_score is required for {status}")
+                    note = item.get("note")
+                    if note is not None and not isinstance(note, str):
+                        failures.append(f"{gwhere}.note is not a string")
+        image = section.get("image")
+        if image is not None:
+            if desk not in (None, "news"):
+                failures.append(f"{where}.image is only valid on a news section")
+            elif not isinstance(image, dict):
+                failures.append(f"{where}.image is not an object")
+            else:
+                url = image.get("url")
+                if not (
+                    isinstance(url, str)
+                    and url.strip().startswith(("http://", "https://"))
+                ):
+                    failures.append(f"{where}.image.url is not an http(s) URL")
+                credit = image.get("credit")
+                if credit is not None and not isinstance(credit, str):
+                    failures.append(f"{where}.image.credit is not a string")
     return "; ".join(failures)
 
 
@@ -329,13 +378,13 @@ WEATHER_ICONS = {
 }
 
 
-def weather_icon(key):
-    """One 28x28 inline SVG for a forecast day. `key` is pre-validated
-    against FORECAST_ICONS by validate(); this still falls back to a plain
-    cloud rather than trust an unchecked caller."""
+def weather_icon(key, size=28):
+    """One inline SVG for a forecast day, `size` px square. `key` is
+    pre-validated against FORECAST_ICONS by validate(); this still falls
+    back to a plain cloud rather than trust an unchecked caller."""
     body = WEATHER_ICONS.get(key, WEATHER_ICONS["cloud"])
     return (
-        '<svg class="wx-icon" viewBox="0 0 24 24" width="28" height="28" '
+        f'<svg class="wx-icon" viewBox="0 0 24 24" width="{size}" height="{size}" '
         'fill="none" stroke="currentColor" stroke-width="1.4" '
         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         f"{body}</svg>"
@@ -366,6 +415,32 @@ def forecast_grid(days):
             "</div>"
         )
     return '<div class="wx-grid">' + "".join(cells) + "</div>"
+
+
+def weather_ear_html(weather_sections):
+    """The masthead's right ear: today's icon and high/low only, in place
+    of the old static tagline -- the full multi-day strip lives nowhere
+    else on the page, so this is the one place the paper's weather shows
+    up at all. Falls back to the plain tagline box when there's no
+    forecast to draw from (a prose-only weather section, or none today)."""
+    fallback = '<span class="ear-box">One edition<br>for one reader</span>'
+    for section in weather_sections:
+        forecast = section.get("forecast")
+        if forecast:
+            today = forecast[0]
+            icon = weather_icon(today.get("icon"), size=22)
+            high = html.escape(str(today["high"]))
+            low = html.escape(str(today["low"]))
+            return (
+                '<span class="ear-box ear-weather">'
+                f'<span class="wx-icon-wrap">{icon}</span>'
+                '<span class="ear-wx-temps">'
+                f'<span class="ear-wx-high">{high}&deg;</span>'
+                f'<span class="ear-wx-low">{low}&deg;</span>'
+                "</span>"
+                "</span>"
+            )
+    return fallback
 
 
 # Same drawn-not-fetched approach for the calendar desk: what kind of event
@@ -414,6 +489,11 @@ DESK_HEADER_ICONS = {
         '<path d="M8 4v4M16 4v4M4 11h16"/>'
     ),
     "mail": MAIL_ICON,
+    "sports": (
+        '<circle cx="12" cy="12" r="8.5"/>'
+        '<path d="M12 3.5v17M3.5 12h17M6 6.3c2 1.7 4 2.6 6 2.6s4-.9 6-2.6'
+        'M6 17.7c2-1.7 4-2.6 6-2.6s4 .9 6 2.6"/>'
+    ),
 }
 
 
@@ -489,7 +569,115 @@ def messages_list(items):
     return '<div class="mail-list">' + "".join(rows) + "</div>"
 
 
-def html_section(section):
+def games_list(games):
+    """The sports desk's scoreboard: one row per followed team's game --
+    away/home names, and either the kickoff time (game hasn't started)
+    or the score (it has). No "live" indicator -- a printed page is
+    read after the fact, so a game already under way when this ran is
+    shown exactly like a finished one: last known score, no clock, no
+    "on air" label that would be stale by the time anyone reads it. No
+    logos either -- the renderer never fetches images -- so the teams'
+    own names carry the row, the same text-first approach as the mail
+    desk's sender line."""
+    rows = []
+    for game in games:
+        home = html.escape(game["home"].strip())
+        away = html.escape(game["away"].strip())
+        status = game["status"]
+        note = (game.get("note") or "").strip()
+        if status == "scheduled":
+            score_html = html.escape(note) if note else "&mdash;"
+        else:
+            home_score = html.escape(str(game["home_score"]))
+            away_score = html.escape(str(game["away_score"]))
+            score_html = f"{away_score}&ndash;{home_score}"
+        rows.append(
+            '<div class="sp-game">'
+            f'<span class="sp-teams"><span class="sp-away">{away}</span>'
+            f'<span class="sp-vs">&times;</span>'
+            f'<span class="sp-home">{home}</span></span>'
+            f'<span class="sp-score">{score_html}</span>'
+            "</div>"
+        )
+    return '<div class="sp-list">' + "".join(rows) + "</div>"
+
+
+PHOTO_MAX_DIM = 640
+PHOTO_TIMEOUT = 8
+PHOTO_MAX_BYTES = 6_000_000
+# Newspaper-photo-ish landscape ratio (width/height). Fixed here, in
+# Python, rather than left to CSS: WeasyPrint doesn't implement
+# object-fit either -- measured: object-fit:cover on a sized box let
+# the photo keep its own native aspect ratio instead of cropping to
+# fill, so a tall or oddly-shaped source photo rendered at whatever
+# height that produced (once, at full column width, a portrait photo
+# came out nearly a full page tall and pushed nine paragraphs of copy
+# onto the next page). Cropping the pixels themselves, once, means the
+# template's CSS only ever needs width:100%; height:auto.
+PHOTO_RATIO = 2.0
+
+
+def _crop_to_ratio(image, ratio=PHOTO_RATIO):
+    width, height = image.size
+    if width / height > ratio:
+        new_width = round(height * ratio)
+        left = (width - new_width) // 2
+        return image.crop((left, 0, left + new_width, height))
+    new_height = round(width / ratio)
+    top = (height - new_height) // 2
+    return image.crop((0, top, width, top + new_height))
+
+
+def fetch_grayscale_photo(url):
+    """Fetch a news photo, crop it to a fixed landscape ratio and flatten
+    it to grayscale before it ever reaches the page, then hand back a
+    self-contained data: URI -- never a live external reference left
+    sitting in the printed HTML/PDF.
+
+    Three reasons this happens here instead of just pointing an <img> at
+    the URL and letting the browser/WeasyPrint handle it: (1) the page's
+    whole palette is ink/grey/white and WeasyPrint doesn't implement CSS
+    `filter` -- measured: `filter: grayscale(1)` on an <img> rendered
+    the photo in full, untouched color, so a real photo would be the one
+    thing on the page breaking the monochrome rule. (2) WeasyPrint
+    doesn't implement `object-fit` either -- measured: `object-fit:cover`
+    on a fixed-size box still rendered the photo at its own native
+    aspect ratio instead of cropping to fill, so sizing has to happen to
+    the actual pixels, not in CSS. (3) a self-contained data: URI means
+    the printable HTML doesn't depend on network access a second time if
+    it's ever re-rendered or opened later -- same "no guarantee of
+    network access" reasoning that kept fonts and other external assets
+    out of template.html from the start.
+
+    Never raises: Pillow being absent, a timeout, a 404, a non-image
+    response, or a file too large all just mean no photo for that story
+    -- the same soft-fail the optional PDF leg and the Sudoku generator
+    already use, so one bad photo URL never takes down the rest of the
+    paper."""
+    try:
+        from PIL import Image  # noqa: PLC0415 -- optional dependency
+
+        req = urllib.request.Request(url, headers={"User-Agent": "ThePlowTimes/1.0"})
+        with urllib.request.urlopen(req, timeout=PHOTO_TIMEOUT) as resp:  # noqa: S310
+            content_type = resp.headers.get("Content-Type", "")
+            if not content_type.startswith("image/"):
+                return None
+            data = resp.read(PHOTO_MAX_BYTES + 1)
+            if len(data) > PHOTO_MAX_BYTES:
+                return None
+        image = Image.open(io.BytesIO(data))
+        image = image.convert("L")
+        image = _crop_to_ratio(image)
+        image.thumbnail((PHOTO_MAX_DIM, round(PHOTO_MAX_DIM / PHOTO_RATIO)))
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG", quality=82)
+        encoded = base64.b64encode(buf.getvalue()).decode("ascii")
+        return f"data:image/jpeg;base64,{encoded}"
+    except Exception:  # noqa: BLE001 -- any fetch/decode failure is just "no photo"
+        return None
+
+
+def html_section(section, drop_cap=False):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
     ``desk`` (optional, default ``news``) is the newspaper department.
@@ -497,6 +685,16 @@ def html_section(section):
     {{MAIL}}); the first news story fills {{LEAD}} and the rest fill
     {{SECTIONS}}. Same story fields, same escaping; only the wrapping
     class and the page slot differ.
+
+    ``drop_cap`` (lead story only) wraps the first character of the first
+    paragraph in ``<span class="dropcap">`` for the CSS to float and
+    enlarge. This used to be a plain ``::first-letter`` rule, but that
+    combined with ``float`` is broken in WeasyPrint: the generated pseudo-
+    element's box isn't reserved in the line, so the *second* character
+    prints on top of the drop cap instead of beside it (measured: "Consumer"
+    rendered as the enlarged "C" overlapping "nsumer", the "o" hidden
+    underneath). A real, explicit span floats correctly where the pseudo-
+    element didn't.
     """
     title = html.escape(section["title"].strip())
     tag = section.get("tag")
@@ -513,32 +711,62 @@ def html_section(section):
     article_class = " ".join(classes)
     header_icon = desk_header_icon(desk)
     forecast = section.get("forecast") if desk == "weather" else None
+    schedule = section.get("schedule") if desk == "calendar" else None
+    messages = section.get("messages") if desk == "mail" else None
+    games = section.get("games") if desk == "sports" else None
+    structured = forecast or schedule or messages or games
     # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
     # no caption) -- the title bar, headline, body prose and sources line
     # are all dropped for weather when it's carrying a grid, so the box
-    # is just the days, nothing else. Without a forecast there is nothing
-    # else in the box, so all of that stays -- same as before this field
-    # existed. The plain-text chat edition is unaffected either way (see
-    # chat_section) -- this omission is print/HTML-only.
+    # is just the days, nothing else. Calendar/mail/sports keep their
+    # title, headline and sources either way (unlike weather, nobody
+    # asked for those gone) but drop the body PROSE specifically once a
+    # schedule, messages or games list is present -- otherwise the box
+    # shows the same event twice, once as a clean icon/score row and
+    # again as a redundant bullet restating it in a sentence. The
+    # plain-text chat edition is unaffected by any of this (see
+    # chat_section) -- every omission here is print/HTML-only; body
+    # stays required in the JSON because the chat edition has no icons
+    # to fall back on.
     skip_caption = bool(forecast)
+    skip_body = bool(structured)
     blocks = [f'<article class="{article_class}">']
     if not skip_caption:
         blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
         if headline:
             blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
+    image = section.get("image") if desk == "news" else None
+    if image:
+        data_uri = fetch_grayscale_photo(image["url"].strip())
+        if data_uri:
+            credit = (image.get("credit") or "").strip()
+            credit_html = (
+                f"<figcaption>{html.escape(credit)}</figcaption>" if credit else ""
+            )
+            blocks.append(
+                f'  <figure class="story-photo"><img src="{data_uri}" alt="">'
+                f"{credit_html}</figure>"
+            )
     if forecast:
         blocks.append(forecast_grid(forecast))
-    schedule = section.get("schedule") if desk == "calendar" else None
     if schedule:
         blocks.append(schedule_list(schedule))
-    messages = section.get("messages") if desk == "mail" else None
     if messages:
         blocks.append(messages_list(messages))
-    if skip_caption:
+    if games:
+        blocks.append(games_list(games))
+    if skip_body:
         pass
     elif paras:
-        for para in paras:
-            blocks.append(f"  <p>{html.escape(para)}</p>")
+        for index, para in enumerate(paras):
+            if drop_cap and index == 0 and para:
+                first, rest = para[0], para[1:]
+                blocks.append(
+                    f'  <p><span class="dropcap">{html.escape(first)}</span>'
+                    f"{html.escape(rest)}</p>"
+                )
+            else:
+                blocks.append(f"  <p>{html.escape(para)}</p>")
     else:
         blocks.append("  <p>(nothing usable in the budget this time)</p>")
     if not skip_caption:
@@ -554,7 +782,12 @@ def html_section(section):
     return "\n".join(blocks)
 
 
-DIFFICULTY_LABEL = {"easy": "Fácil", "medium": "Médio"}
+# One filled dot per difficulty step (easy = 1, medium = 2) instead of a
+# word -- "Fácil"/"Médio" or "Easy"/"Medium" would be Python-authored text
+# sitting outside the edition's own `owner.language`, the same problem the
+# solution line's caption had. A dot rating needs no translation.
+DIFFICULTY_DOTS = {"easy": 1, "medium": 2}
+MAX_DIFFICULTY_DOTS = 2
 
 
 def sudoku_section_html(edition_date):
@@ -563,7 +796,11 @@ def sudoku_section_html(edition_date):
     such thing as a broken grid here. Seeded on the edition's own date so
     re-rendering the same edition always reproduces the same puzzle.
     A generator failure omits the puzzle rather than taking down the
-    rest of the paper."""
+    rest of the paper. The solution prints in full underneath, just the
+    81 digits with no label -- a "Solução:"/"Solution:" caption would be
+    Python-authored text sitting outside the edition's own
+    `owner.language`, so the numbers run on their own instead of risking
+    a caption in the wrong language."""
     try:
         difficulty = sudoku.pick_difficulty(edition_date)
         puzzle, solution, _givens = sudoku.generate_puzzle(
@@ -572,7 +809,10 @@ def sudoku_section_html(edition_date):
         sudoku.verify_puzzle(puzzle, solution)
     except (RuntimeError, ValueError, TypeError):
         return ""
-    label = DIFFICULTY_LABEL[difficulty]
+    filled = DIFFICULTY_DOTS[difficulty]
+    dots_html = (
+        "&#9679;" * filled + "&#9675;" * (MAX_DIFFICULTY_DOTS - filled)
+    )
 
     rows_html = []
     for r in range(9):
@@ -597,14 +837,12 @@ def sudoku_section_html(edition_date):
             "".join(str(v) if v in range(1, 10) else "?" for v in solution[r])
         )
     solution_html = (
-        '<p class="sk-solution">Solução: '
-        + " · ".join(solution_rows)
-        + "</p>"
+        '<p class="sk-solution">' + " · ".join(solution_rows) + "</p>"
     )
 
     return (
         '<article class="section sudoku-section">'
-        f'<h2>Sudoku <span class="tag">{html.escape(label)}</span></h2>'
+        f'<h2>Sudoku <span class="tag sk-difficulty">{dots_html}</span></h2>'
         f"{grid_html}"
         f"{solution_html}"
         "</article>"
@@ -617,15 +855,13 @@ def render_html(edition, name, template_text):
     weather = [s for s in ordered if desk_of(s) == "weather"]
     calendar = [s for s in ordered if desk_of(s) == "calendar"]
     mail = [s for s in ordered if desk_of(s) == "mail"]
+    sports = [s for s in ordered if desk_of(s) == "sports"]
 
     # The lead story renders separately from the rest of the news well so
-    # it can sit beside the desks strip in a top row (table-cell, the same
-    # WeasyPrint-safe technique as the desks themselves) -- the top row's
-    # height is now just "one story vs. three short desks", not "twenty
-    # stories vs. three short desks", which is what made the old side-rail
-    # layout leave a long empty gap beside the desks on a busy edition.
+    # it can run alone, full width, in its own row above everything else
+    # (see the top comment for why the desks no longer sit beside it).
     if news:
-        lead_html = html_section(news[0])
+        lead_html = html_section(news[0], drop_cap=True)
         main_html = join_articles(news[1:])
     else:
         lead_html = '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
@@ -633,10 +869,25 @@ def render_html(edition, name, template_text):
     weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
+    sports_html = wrap_desk(join_articles(sports))
     # {{SIDEBAR}} is the desks column as a whole, for older templates that
-    # still have one rail slot instead of three. New template.html uses the
-    # three named slots and leaves this empty of news.
-    desks_html = "\n".join(part for part in (weather_html, calendar_html, mail_html) if part)
+    # still have one rail slot instead of four. New template.html uses the
+    # named slots and leaves this empty of news.
+    desks_html = "\n".join(
+        part for part in (weather_html, calendar_html, mail_html, sports_html) if part
+    )
+
+    # Calendar, mail and sports read as full-width stories now, the same
+    # anatomy as a news item -- DESKS_INLINE is that block as a whole (all
+    # three desks plus their own wrapper/rule), empty string when none of
+    # them ran today, so the template never prints a bare rule above
+    # nothing. Weather isn't here -- it lives in the masthead's ear.
+    inline_parts = [part for part in (calendar_html, mail_html, sports_html) if part]
+    desks_inline_html = (
+        '<div class="desks-inline-wrap">' + "".join(inline_parts) + "</div>"
+        if inline_parts else ""
+    )
+    weather_ear = weather_ear_html(weather)
 
     page_class = "page" if desks_html else "page page--no-desks"
     location = html.escape((edition.get("location") or "").strip() or "One copy")
@@ -649,10 +900,13 @@ def render_html(edition, name, template_text):
         .replace("{{LOCATION}}", location)
         .replace("{{PAGE_CLASS}}", page_class)
         .replace("{{LEAD}}", lead_html)
+        .replace("{{WEATHER_EAR}}", weather_ear)
+        .replace("{{DESKS_INLINE}}", desks_inline_html)
         .replace("{{SECTIONS}}", main_html)
         .replace("{{WEATHER}}", weather_html)
         .replace("{{CALENDAR}}", calendar_html)
         .replace("{{MAIL}}", mail_html)
+        .replace("{{SPORTS}}", sports_html)
         .replace("{{SIDEBAR}}", desks_html)
         .replace("{{SUDOKU}}", sudoku_html)
     )

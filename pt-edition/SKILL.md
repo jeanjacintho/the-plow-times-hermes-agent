@@ -49,6 +49,16 @@ HTML.** Hand-write `edition.json` under the run directory:
         { "sender": "GitHub", "subject": "New pull request awaiting review" }
       ],
       "sources": ["Gmail"] },
+    { "kind": "section", "desk": "sports",
+      "title": "Sports",
+      "headline": "Flamengo takes the field tonight",
+      "body": "Flamengo hosts Palmeiras tonight at 9pm for the Brasileirão. Corinthians lead São Paulo 1–0 in the second half. Grêmio and Internacional drew 2–2 in today's early game.",
+      "games": [
+        { "home": "Flamengo", "away": "Palmeiras", "status": "scheduled", "note": "Tonight, 9pm" },
+        { "home": "Corinthians", "away": "São Paulo", "status": "live", "home_score": 1, "away_score": 0, "note": "62'" },
+        { "home": "Grêmio", "away": "Internacional", "status": "final", "home_score": 2, "away_score": 2 }
+      ],
+      "sources": ["https://site.api.espn.com"] },
     { "kind": "section", "topic_id": "t_8c1d", "desk": "news",
       "title": "The dollar",
       "headline": "The real headline",
@@ -93,9 +103,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   it qualifies. Unsourced claims are named, not hidden.
 - **`desk` is the newspaper department, and each one is its own page
   slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
-  `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"news"` (the default) →
-  `{{SECTIONS}}`. Same title / headline / body / sources shape in every
-  slot.
+  `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
+  `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
+  sources shape in every slot.
 - **`forecast` is optional, weather-only, and drawn — not written.** 1-6
   day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
   "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
@@ -109,19 +119,45 @@ HTML.** Hand-write `edition.json` under the run directory:
   more than just today; a same-day-only forecast has nothing to put in
   a second or third cell, so leave `forecast` out and let the prose
   `body` carry it alone, same as before this field existed.
-- **`schedule` (calendar-only) and `messages` (mail-only) are the same
-  idea as `forecast`, optional and drawn.** `schedule` is a non-empty
-  list of `{ "time", "title", "icon" }`, `icon` exactly one of
-  `meeting`, `call`, `task`, `reminder`, `note` — pick the one that
-  actually matches the event (a call is `call`, not `meeting`; a
-  standing reminder like "dentist at 3pm" is `reminder`; anything that
-  doesn't fit the other four is `note`, never guessed as `meeting` to
-  avoid picking). `messages` is a non-empty list of `{ "sender",
-  "subject" }` — no icon field, since every letter draws the same
-  envelope mark. Both still need the prose `body` filled in as before
+- **`schedule` (calendar-only), `messages` (mail-only) and `games`
+  (sports-only) are the same idea as `forecast`, optional and drawn.**
+  `schedule` is a non-empty list of `{ "time", "title", "icon" }`,
+  `icon` exactly one of `meeting`, `call`, `task`, `reminder`, `note` —
+  pick the one that actually matches the event (a call is `call`, not
+  `meeting`; a standing reminder like "dentist at 3pm" is `reminder`;
+  anything that doesn't fit the other four is `note`, never guessed as
+  `meeting` to avoid picking). `messages` is a non-empty list of
+  `{ "sender", "subject" }` — no icon field, since every letter draws
+  the same envelope mark. `games` is a non-empty list of `{ "home",
+  "away", "status", "home_score", "away_score", "note" }` — `status`
+  exactly one of `scheduled`, `live`, `final`; `home_score`/`away_score`
+  are required (integers) for `live`/`final` and meaningless for
+  `scheduled`; `note` is optional free text (a kickoff time for
+  `scheduled`, a clock/round for `live`, e.g. "62'", nothing needed for
+  `final`). All three still need the prose `body` filled in as before
   (the chat edition has no icons to fall back on); include the
   structured field only when the notes actually give you distinct
-  events or senders to list, not as a mandatory duplicate of the prose.
+  events, senders or games to list, not as a mandatory duplicate of the
+  prose.
+- **`image` (news sections only) is optional: `{ "url", "credit" }`.**
+  `url` must be the direct link to the image file itself (ends up in an
+  `<img>` tag), `credit` is a short optional line ("Reuters", "AP
+  Photo/Jane Doe") printed under the photo. render_edition.py fetches
+  it, converts it to grayscale and crops it to a fixed ratio in Python
+  (the page's palette is ink/grey/white, and WeasyPrint doesn't
+  implement CSS `filter` or `object-fit`, so the pixels have to already
+  be right before they reach the page) — a bad URL, a timeout or a
+  non-image response just means the story prints without a photo, never
+  a broken page. **Only use an image the source itself offered for
+  reuse** — an article's own `og:image`/social-preview image or an RSS
+  item's enclosure/media:thumbnail, the same kind of thumbnail a feed
+  reader or link-preview card would show, never a photo scraped off a
+  page some other way, and never one from a paywalled or explicitly
+  restricted source. When in doubt, leave `image` out; a story with no
+  photo is the normal case, not a gap to fill. This is a small
+  single-reader paper, not a publication — that doesn't make an image's
+  own rights irrelevant, so stay inside "the kind of thumbnail the
+  publisher already serves for syndication."
 - **Calendar and mail bodies are one item per paragraph, blank-line
   separated — never joined with periods into one run-on sentence.** The
   template renders each paragraph as its own bulleted line; "9am —
@@ -131,7 +167,11 @@ HTML.** Hand-write `edition.json` under the run directory:
 - The daily paper always includes weather and calendar from
   `run/desk-*/notes.json`. Mail only when `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
-  otherwise omit the mail block entirely so that slot stays empty. A focused
+  otherwise omit the mail block entirely so that slot stays empty.
+  Sports is the same pattern: only when `pt/config.json` has
+  `sports.configured: true` **and** `run/desk-sports/notes.json`
+  exists; otherwise omit the sports block entirely — never fill it with
+  a generic league digest just because a desk slot exists for it. A focused
   paper at another hour uses the same desks plus **only** the news topics
   this run researched (the sections whose `deliver_at` is that hour). Never
   compile a main-paper section into a noon paper, or the reverse. Owner
@@ -200,8 +240,8 @@ HTML.** Hand-write `edition.json` under the run directory:
      the run worked is expected, not an error**: the owner said stop at 6h20;
      the edition already left without it. Report it and carry on — do not
      crash the delivery over a valid cancellation.
-   - **Never mark a standing desk.** Weather, calendar and mail have no
-     topic id on purpose.
+   - **Never mark a standing desk.** Weather, calendar, mail and sports
+     have no topic id on purpose.
 4. **If `pt/config.json` says `printer.configured: true`, hand the print leg
    to `pt-print`.** That leg is separate from the PDF the chat already
    carried in step 2 (Latch printing needs the HTML, not the PDF) and is the
