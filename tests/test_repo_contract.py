@@ -92,6 +92,22 @@ class TestSoul:
         assert "wrap this in" in setup
         assert "taken verbatim" in setup
 
+    def test_setup_reads_location_through_the_browser_not_run_command(self):
+        # Measured live: /usr/bin/python3 (via xcrun) and a curl fallback
+        # both failed under plow_run_command's sandbox -- xcrun's own dylib
+        # blocked by the file-read allowlist, then DNS resolution blocked
+        # even with network:true. plow_browser_* is a different code path
+        # (a real, unsandboxed browser on the owner's Mac) and hits
+        # neither restriction.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        for text in (setup, desks):
+            assert "plow_browser_open" in text
+            assert "plow_browser_close" in text
+        assert "xcrun" in desks
+        assert "Could not resolve host" in desks
+        assert '"/usr/bin/python3"' not in setup
+
     def test_setup_treats_yes_as_the_default_hour(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
         setup = (ROOT / "pt-setup" / "SKILL.md").read_text()

@@ -291,14 +291,17 @@ into the close step below (this one has no separate question to send;
 
 Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
 
-1. **Read location through Latch**, the same script as
-   `pt-research/references/desks.md` §1 — `~/Plow/pt/location.py` via
-   `plow_write_file` then `plow_run_command`
-   `["/usr/bin/python3", "/Users/<user>/Plow/pt/location.py"]`.
-   Take `timezone` from the JSON (IANA, e.g. `America/Sao_Paulo`). If the
-   call fails or `timezone` is blank, say the paper cannot be scheduled
-   until the Mac can report where they are — do not invent a zone, do not
-   ask them to type one.
+1. **Read location through Latch's browser** — the same procedure as
+   `pt-research/references/desks.md` §1: `plow_browser_open` scoped to
+   `ipapi.co`, `goto` `https://ipapi.co/json/`, `text` to read the JSON
+   back, then `plow_browser_close`. Not `plow_run_command`/`python3`:
+   measured live, that path failed two different ways on a real Mac
+   (`xcrun`'s dylib blocked by Latch's sandbox, then a `curl` fallback
+   blocked on DNS resolution even with `network: true`) — see desks.md
+   §1 for the full diagnosis. Take `timezone` from the JSON (IANA, e.g.
+   `America/Sao_Paulo`). If the call fails or `timezone` is blank, say
+   the paper cannot be scheduled until the Mac can report where they
+   are — do not invent a zone, do not ask them to type one.
 2. **Convert** the draft `local_hour` into the container's clock. Never
    subtract hours by hand:
 

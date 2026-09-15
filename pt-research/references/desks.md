@@ -16,30 +16,37 @@ Every Latch call is the same two tools the print path uses:
 ## 1. Location, then weather — every daily run
 
 Do not ask the owner for a city and do not write one into config. Read it
-from the Mac this run, through Latch.
+from the Mac this run, through Latch's browser — not `plow_run_command`.
 
-1. Write `~/Plow/pt/location.py` with `plow_write_file` (paths under `~/Plow`
-   auto-approve). The script should print one JSON object
-   `{"city":"…","region":"…","country":"…","timezone":"America/Sao_Paulo"}`
-   and nothing else. `timezone` is the IANA name (ipapi.co's `timezone`
-   field). pt-setup uses it once to convert the owner's delivery hour;
-   the daily paper uses `city` for the dateline.
-   Prefer CoreLocation if a helper exists; otherwise the Mac's own public IP
-   (curl from the Mac, never from this container — the container's IP is
-   not the owner's):
+**Why the browser, not a written-then-run script:** this used to write
+`~/Plow/pt/location.py` and run it with `plow_run_command
+["/usr/bin/python3", …]`, but measured live, on a Mac with a full Xcode
+install, that failed two different ways: `/usr/bin/python3` triggers
+`xcrun` to resolve the real interpreter, and Latch's sandbox blocked
+loading `xcrun`'s own dylib ("file system sandbox blocked open()"); a
+plain `curl` fallback (even with `network: true`) then failed too —
+`Could not resolve host` — because Latch's sandbox denies DNS resolution
+separately from general network access. Neither has a workaround from a
+tool call's own arguments; both are gaps in `plow_run_command`'s sandbox
+profile. `plow_browser_*` is a different code path (a real, unsandboxed
+browser Latch drives on the owner's own Mac) and isn't subject to either
+restriction.
 
-       import json, urllib.request
-       data = json.load(urllib.request.urlopen("https://ipapi.co/json/", timeout=8))
-       print(json.dumps({
-         "city": data.get("city") or "",
-         "region": data.get("region") or "",
-         "country": data.get("country_name") or "",
-         "timezone": data.get("timezone") or "",
-       }))
-
-2. Run it: `plow_run_command` argv
-   `["/usr/bin/python3", "/Users/<user>/Plow/pt/location.py"]`
-   (`~` is not expanded). The city string is this edition's `location`.
+1. `plow_browser_open` with `origins: ["ipapi.co"]`, goal: "Look up the
+   owner's Mac location and timezone for the newspaper's dateline and
+   schedule."
+2. `plow_browser` `action: "goto"`, `url: "https://ipapi.co/json/"` —
+   a bare JSON endpoint, no login, no page chrome to navigate.
+3. `plow_browser` `action: "text"` on that session to read the raw JSON
+   body back. Take `city`, `region`, `country_name` and `timezone` from
+   it exactly as the old script did — `timezone` is the IANA name (e.g.
+   `America/Sao_Paulo`); pt-setup uses it once to convert the owner's
+   delivery hour, the daily paper uses `city` for the dateline. This
+   runs on the owner's own Mac (same as the old curl-from-the-Mac
+   requirement) — never fall back to fetching this yourself from the
+   container, whose IP is not the owner's.
+4. `plow_browser_close` this session once you have the JSON — it isn't
+   needed again this run and there's no reason to hold it open.
 3. Open the browser and source today's forecast for that city (weather.gov,
    INMET, AccuWeather — whatever actually covers it). Same budget rules as
    any quick section: 3–5 sources, stop. Notes at `run/desk-weather/notes.json`.
