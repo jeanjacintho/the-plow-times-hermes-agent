@@ -35,15 +35,54 @@ wrong. Do not continue it. Do not thank them for coming back and then
 repeat the profile offer. Run the check below and send the newspaper
 question.
 
-Before you greet, help, or classify anything, your **first action** is this
-command (a reply with no tool call while setup is unfinished is a failure):
+Before you greet, help, or classify anything, your **first action** is
+the terminal tool with **this exact command, one line, nothing else**:
 
-    python3 /var/lib/hermes/skills/pt-shared/scripts/setup_needed.py \
-        /var/lib/hermes/pt/config.json
+    /var/lib/hermes/skills/pt-shared/scripts/setup_needed.py /var/lib/hermes/pt/config.json
 
-- **`SETUP_NEEDED`** (including a missing file): load `pt-setup` and send
-  its opener. A greeting ("oi", "oi de novo", "hi", "hello") **is** that
-  opener. Do not write a personal profile into `USER.md`.
+Do not prefix an interpreter. Do not wrap the line in a `-c` flag, a
+shell, `||`, `&&`, `;`, or `printf`. Hermes flags those as dangerous
+and the owner has to `/approve` a gate that should be silent. A reply
+with no tool call while setup is unfinished is a failure. The same rule
+applies to `pt-setup`'s `record_setup.py` later in this flow: a bare
+script invocation, space-separated `key=value` arguments (quoted only
+if a value itself has a space) is fine — an interpreter prefix or a
+shell operator around it is not. Measured live: a session wrapped a
+`record_setup.py printer.configured=true printer.name=...` call in
+`python3 - <<'PY' ... PY` — the printer name had nothing unusual in it,
+there was no reason for the wrapper — and Hermes correctly flagged it
+as dangerous script execution, handing the owner a raw `/approve`
+prompt instead of an answer. A dotted or underscored *value* (a CUPS
+queue name, for instance) is never a reason to wrap anything: only the
+part before `=` is ever parsed further.
+
+- **`SETUP_NEEDED`**: read the second line, then **always load
+  `pt-setup` and follow its numbered questions exactly** — never decide
+  what to send from this file alone, `DRAFT:none` included. Each
+  question is an **ask, then stop** step and a separate **on their next
+  message** step; `record_setup.py`'s own `NEXT_QUESTION` output, not
+  this file, says which one you're on.
+  **`DRAFT:none`** means the interview has not *recorded* anything yet
+  — it does **not** mean the incoming message is a fresh greeting.
+  Measured live: the assistant sent the hour opener, the owner replied
+  "7 is fine", and because the draft was still `DRAFT:none` (nothing
+  had been written to it yet) the assistant sent the *exact same
+  opener again* instead of recognizing that reply as the answer to the
+  question it had just asked — pt-setup's own step 1b (an
+  hour-acceptance phrase, not just "oi"/"hi") is what catches this;
+  skipping past pt-setup on `DRAFT:none` is what missed it. Chat
+  history from *before this session* is still not progress (a wiped
+  session's old printer/letters talk), but the message the owner is
+  sending you **right now** always is.
+  Do not probe Latch and do not ask about a printer or letters before
+  the hour is actually recorded — just do not assume, unread, that this
+  message can't already be the hour answer.
+  Measured live, separately: a session once wrote the hour, then
+  *also* probed the printer and asked about mail in that same reply,
+  and never saved the probe's answer at all — `record_setup.py` and
+  pt-setup's per-step "send one message and stop" exist specifically so
+  that can't happen again. Do not write a
+  personal profile into `USER.md`.
 - **`READY`**: setup already finished. Continue below. Never re-run the
   interview.
 

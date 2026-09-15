@@ -1,0 +1,151 @@
+"""record_setup.py — the only way pt-setup writes .setup-draft.json."""
+from __future__ import annotations
+
+import json
+
+from conftest import load_module
+
+record = load_module("record_setup", "pt-shared/scripts/record_setup.py")
+
+
+def draft_of(tmp_path):
+    return json.loads((tmp_path / ".setup-draft.json").read_text())
+
+
+class TestNextQuestion:
+    def test_empty_draft_asks_hour(self):
+        assert record.next_question({}) == "hour"
+
+    def test_hour_only_asks_printer(self):
+        assert record.next_question({"local_hour": "07:00"}) == "printer"
+
+    def test_blank_hour_still_asks_hour(self):
+        assert record.next_question({"local_hour": "  "}) == "hour"
+
+    def test_printer_without_configured_bool_asks_printer(self):
+        draft = {"local_hour": "07:00", "printer": {"name": "HP"}}
+        assert record.next_question(draft) == "printer"
+
+    def test_hour_and_printer_asks_mail(self):
+        draft = {"local_hour": "07:00", "printer": {"configured": False, "name": None}}
+        assert record.next_question(draft) == "mail"
+
+    def test_hour_printer_mail_asks_news(self):
+        draft = {
+            "local_hour": "07:00",
+            "printer": {"configured": True, "name": "HP LaserJet 4"},
+            "mail": {"configured": False},
+        }
+        assert record.next_question(draft) == "news"
+
+    def test_everything_present_is_close(self):
+        draft = {
+            "local_hour": "07:00",
+            "printer": {"configured": True, "name": "HP LaserJet 4"},
+            "mail": {"configured": True},
+            "news_asked": True,
+        }
+        assert record.next_question(draft) == "close"
+
+    def test_printer_configured_string_not_bool_asks_printer(self):
+        # A stray {"printer": {"configured": "true"}} (string, not bool) --
+        # the gate and draft_line both require an actual JSON boolean.
+        draft = {"local_hour": "07:00", "printer": {"configured": "true"}}
+        assert record.next_question(draft) == "printer"
+
+
+class TestApplyPairs:
+    def test_top_level_string(self):
+        draft = record.apply_pairs({}, ["local_hour=07:00"])
+        assert draft == {"local_hour": "07:00"}
+
+    def test_dotted_path_creates_nested_dict(self):
+        draft = record.apply_pairs({}, ["printer.configured=true", "printer.name=HP"])
+        assert draft == {"printer": {"configured": True, "name": "HP"}}
+
+    def test_boolean_coercion_is_case_insensitive(self):
+        draft = record.apply_pairs({}, ["mail.configured=FALSE"])
+        assert draft["mail"]["configured"] is False
+
+    def test_value_with_spaces_stays_one_string(self):
+        # argv splitting happens in the shell, not here -- apply_pairs sees
+        # the already-joined value as a single argv element.
+        draft = record.apply_pairs({}, ["printer.name=HP LaserJet 4"])
+        assert draft["printer"]["name"] == "HP LaserJet 4"
+
+    def test_merges_into_existing_draft_without_clobbering_siblings(self):
+        existing = {"printer": {"configured": True, "name": "HP"}}
+        draft = record.apply_pairs(existing, ["printer.configured=false"])
+        assert draft == {"printer": {"configured": False, "name": "HP"}}
+
+    def test_no_equals_sign_raises(self):
+        try:
+            record.apply_pairs({}, ["local_hour"])
+            raise AssertionError("expected ValueError")
+        except ValueError:
+            pass
+
+    def test_blank_key_raises(self):
+        try:
+            record.apply_pairs({}, ["=07:00"])
+            raise AssertionError("expected ValueError")
+        except ValueError:
+            pass
+
+
+class TestCLI:
+    def test_writes_draft_and_prints_next_question(self, tmp_path, capsys):
+        config = tmp_path / "config.json"
+        rc = record.main(["record_setup.py", str(config), "local_hour=07:00"])
+        assert rc == 0
+        out = capsys.readouterr().out.strip().splitlines()
+        assert out == ["DRAFT:local_hour", "NEXT_QUESTION=printer"]
+        assert draft_of(tmp_path) == {"local_hour": "07:00"}
+
+    def test_second_call_advances_from_disk_state(self, tmp_path, capsys):
+        config = tmp_path / "config.json"
+        record.main(["record_setup.py", str(config), "local_hour=07:00"])
+        capsys.readouterr()
+        rc = record.main(
+            ["record_setup.py", str(config), "printer.configured=true", "printer.name=HP LaserJet 4"]
+        )
+        assert rc == 0
+        out = capsys.readouterr().out.strip().splitlines()
+        assert out == ["DRAFT:local_hour,printer", "NEXT_QUESTION=mail"]
+        assert draft_of(tmp_path) == {
+            "local_hour": "07:00",
+            "printer": {"configured": True, "name": "HP LaserJet 4"},
+        }
+
+    def test_full_sequence_reaches_close(self, tmp_path, capsys):
+        config = tmp_path / "config.json"
+        record.main(["record_setup.py", str(config), "local_hour=07:00"])
+        record.main(["record_setup.py", str(config), "printer.configured=false"])
+        record.main(["record_setup.py", str(config), "mail.configured=true"])
+        capsys.readouterr()
+        rc = record.main(["record_setup.py", str(config), "news_asked=true"])
+        assert rc == 0
+        out = capsys.readouterr().out.strip().splitlines()
+        assert out == ["DRAFT:local_hour,printer,mail", "NEXT_QUESTION=close"]
+
+    def test_too_few_args_is_a_usage_error(self, capsys):
+        rc = record.main(["record_setup.py"])
+        assert rc == 1
+        assert "usage:" in capsys.readouterr().err
+
+    def test_malformed_pair_is_a_named_failure_not_a_crash(self, tmp_path, capsys):
+        config = tmp_path / "config.json"
+        rc = record.main(["record_setup.py", str(config), "not-a-pair"])
+        assert rc == 1
+        assert "error:" in capsys.readouterr().err
+        assert not (tmp_path / ".setup-draft.json").exists()
+
+    def test_existing_draft_on_disk_is_preserved_and_extended(self, tmp_path, capsys):
+        config = tmp_path / "config.json"
+        (tmp_path / ".setup-draft.json").write_text(json.dumps({"local_hour": "08:30"}))
+        capsys.readouterr()
+        record.main(["record_setup.py", str(config), "printer.configured=true", "printer.name=Canon"])
+        assert draft_of(tmp_path) == {
+            "local_hour": "08:30",
+            "printer": {"configured": True, "name": "Canon"},
+        }

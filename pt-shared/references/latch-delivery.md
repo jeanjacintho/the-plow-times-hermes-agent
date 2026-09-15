@@ -23,7 +23,7 @@ print file`, `no such printer`, a deny on the Mac — is a failed step: say so
 and stop; do not pretend the page printed.
 
 **A `{"status":"pending","handle":…}` answer is not a result.** Either call
-outruns the Mac's 15-second budget when Latch's review ahead of exec takes
+outruns the Mac's 10-second Latch call budget when review ahead of exec takes
 its time; the call keeps running and hands back a handle. Poll
 `mcp__plow__plow_get_result handle=<that handle>` about once a second until
 its `status` is `ready`, and read its `result` as the answer the original

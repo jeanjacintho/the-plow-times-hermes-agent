@@ -44,10 +44,108 @@ class TestSoul:
         assert "Qual seu fuso" not in text
         assert "convert_delivery.py" in text
 
-    def test_soul_says_platform_intro_is_not_first_contact(self):
+    def test_soul_setup_gate_is_a_bare_script_not_python_dash_c(self):
+        text = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert (
+            "/var/lib/hermes/skills/pt-shared/scripts/setup_needed.py "
+            "/var/lib/hermes/pt/config.json"
+        ) in text
+        assert "python3 -c" not in text
+        assert "bash -c" not in text
         text = (ROOT / "runtime" / "SOUL.md").read_text()
         assert "not a first-contact script" in text
         assert "pt-setup" in text
+
+    def test_setup_latch_probe_uses_argv_not_command(self):
+        # Latch plow_run_command (tools.ts) requires argv and
+        # additionalProperties: false. A "command" key never reaches lpstat.
+        text = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert '"command":' not in text
+        assert '"argv": ["lpstat", "-p"]' in text
+        assert "mcp__plow__plow_run_command" in text
+
+    def test_setup_printer_probe_requests_network_for_cups_ipc(self):
+        # Measured live, with a printer genuinely configured and visible
+        # in System Settings: lpstat -p still failed ("Bad file
+        # descriptor") under the default sandboxed call, because Latch's
+        # seatbelt profile denies network*/system-socket whenever
+        # `network` is left false — and CUPS talks to cupsd over a local
+        # socket, so it can't even reach its own scheduler. `network: true`
+        # is the workaround from this side (the scoped fix belongs in
+        # Latch's own sandbox profile, not here).
+        text = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert '"network": true' in text
+        assert "Bad file descriptor" in text
+
+    def test_setup_warns_against_wrapping_record_setup_in_python(self):
+        # Measured live: with a real printer found (network:true worked),
+        # the assistant recorded a perfectly valid printer name by
+        # wrapping record_setup.py in `python3 - <<'PY' ... PY` for no
+        # technical reason -- there was nothing in the value that needed
+        # it -- and Hermes correctly flagged it as dangerous script
+        # execution, handing the owner a raw /approve prompt instead of
+        # an answer. Both files must say plainly that a dotted/underscored
+        # *value* never requires any wrapping.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "python3 - <<'PY'" in soul
+        assert "wrap this in" in setup
+        assert "taken verbatim" in setup
+
+    def test_setup_treats_yes_as_the_default_hour(self):
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "send its opener" not in soul
+        # SOUL.md delegates to pt-setup's own NEXT_QUESTION-driven steps
+        # rather than duplicating the "yes"/07:00 acceptance list itself —
+        # two descriptions of the same rule is how they drifted apart
+        # before. pt-setup/SKILL.md is the one place that rule lives.
+        assert "record_setup.py" in soul and "NEXT_QUESTION" in soul
+        assert '"yes"' in setup and '"sim"' in setup
+        assert "local_hour=07:00" in setup
+
+    def test_setup_writes_the_draft_only_through_record_setup(self):
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        # The bug this guards: a session once hand-wrote .setup-draft.json
+        # with a plain write_file call, then probed the printer and asked
+        # about mail in that same reply, without the owner ever seeing the
+        # printer question or the probe's answer ever landing in the
+        # draft. record_setup.py is the only sanctioned writer now.
+        assert "never a hand-edited" in setup
+        assert "record_setup.py" in setup
+        assert "NEXT_QUESTION" in setup
+        for field in ("printer.configured", "mail.configured", "news_asked"):
+            assert field in setup
+
+    def test_soul_does_not_gate_the_hour_answer_behind_draft_none(self):
+        # The bug this guards: the owner answered "7 is fine" while the
+        # draft was still DRAFT:none (nothing had been recorded yet), and
+        # SOUL.md's own DRAFT:none branch said "send the opener, stop" --
+        # so the assistant re-sent the exact same hour question instead of
+        # recording the answer it had just been given. SOUL.md must always
+        # hand off to pt-setup (whose own step 1b recognizes an hour
+        # answer) rather than deciding straight from DRAFT:none itself.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "always load" in soul and "pt-setup" in soul
+        assert "never decide" in soul.lower() or "not mean the incoming message" in soul
+
+    def test_setup_distinguishes_a_probe_error_from_no_printer(self):
+        # The bug this guards: lpstat -p came back exit_code=1 with
+        # "lpstat: Bad file descriptor" -- a probe execution error, not a
+        # real "no destinations" report -- and the assistant told the
+        # owner "no printer was found" as if the check had actually run
+        # cleanly. printer.configured still becomes false either way (never
+        # guess true), but the two situations are not the same claim.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "Bad file descriptor" in setup
+        assert "didn't run cleanly" in setup or "isn't a real lpstat report" in setup
+
+    def test_setup_says_probe_outcomes_in_the_owners_language(self):
+        # The bug this guards: after the printer probe, the assistant
+        # replied in Portuguese even though the entire conversation (every
+        # prior owner message) had been in English.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert setup.count("owner's own language") >= 2
 
 
 class TestUserStub:
@@ -76,8 +174,16 @@ class TestSkills:
     def test_shared_helpers_exist_and_are_referenced(self):
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
-                     "run_lock.py", "setup_needed.py"):
+                     "run_lock.py", "setup_needed.py", "record_setup.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
+
+    def test_record_setup_is_executable_and_referenced(self):
+        script = ROOT / "pt-shared" / "scripts" / "record_setup.py"
+        assert script.stat().st_mode & stat.S_IXUSR, "record_setup.py must be executable"
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert (
+            "/var/lib/hermes/skills/pt-shared/scripts/record_setup.py"
+        ) in setup
 
     def test_edition_renderer_and_template_exist(self):
         edition = ROOT / "pt-edition"

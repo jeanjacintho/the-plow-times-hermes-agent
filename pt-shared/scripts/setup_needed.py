@@ -6,6 +6,10 @@ A missing file, unreadable JSON, or any of the three setup keys absent
 is SETUP_NEEDED — load pt-setup, do not introduce a general assistant.
 READY means the interview already finished; greetings are ordinary turns.
 
+When SETUP_NEEDED, a second line names what `.setup-draft.json` already
+holds (or DRAFT:none). Chat history is not progress: a wiped session
+still shows old printer/mail turns in the Plow thread.
+
 Exit 0 either way so a missing config is not mistaken for a crashed check.
 """
 from __future__ import annotations
@@ -41,10 +45,38 @@ def setup_needed(path):
     return False
 
 
+def draft_line(config_path):
+    """Second gate line: which interview fields the draft already holds."""
+    draft_path = Path(config_path).with_name(".setup-draft.json")
+    try:
+        draft = json.loads(draft_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "DRAFT:none"
+    if not isinstance(draft, dict):
+        return "DRAFT:none"
+    fields = []
+    hour = draft.get("local_hour")
+    if isinstance(hour, str) and hour.strip():
+        fields.append("local_hour")
+    printer = draft.get("printer")
+    if isinstance(printer, dict) and isinstance(printer.get("configured"), bool):
+        fields.append("printer")
+    mail = draft.get("mail")
+    if isinstance(mail, dict) and isinstance(mail.get("configured"), bool):
+        fields.append("mail")
+    elif isinstance(draft.get("mail.configured"), bool):
+        fields.append("mail")
+    return "DRAFT:" + (",".join(fields) if fields else "none")
+
+
 def main(argv=None):
     argv = sys.argv if argv is None else argv
     path = argv[1] if len(argv) > 1 else CONFIG_FILE
-    print("SETUP_NEEDED" if setup_needed(path) else "READY")
+    if setup_needed(path):
+        print("SETUP_NEEDED")
+        print(draft_line(path))
+    else:
+        print("READY")
     return 0
 
 

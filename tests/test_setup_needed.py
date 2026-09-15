@@ -40,7 +40,13 @@ class TestSetupNeeded:
 
     def test_cli_prints_setup_needed(self, tmp_path, capsys):
         needed.main(["setup_needed.py", str(tmp_path / "missing.json")])
-        assert capsys.readouterr().out.strip() == "SETUP_NEEDED"
+        assert capsys.readouterr().out.strip() == "SETUP_NEEDED\nDRAFT:none"
+
+    def test_cli_prints_draft_hour_when_present(self, tmp_path, capsys):
+        config = tmp_path / "config.json"
+        (tmp_path / ".setup-draft.json").write_text(json.dumps({"local_hour": "07:00"}))
+        needed.main(["setup_needed.py", str(config)])
+        assert capsys.readouterr().out.strip() == "SETUP_NEEDED\nDRAFT:local_hour"
 
     def test_cli_prints_ready(self, tmp_path, capsys):
         path = tmp_path / "config.json"
