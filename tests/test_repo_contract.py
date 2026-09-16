@@ -114,6 +114,31 @@ class TestSoul:
         # And the retry must not be reachable as a live instruction.
         assert "retry once" not in text
 
+    def test_pt_shared_documents_every_script_it_ships(self):
+        # Measured live, at the news-desk step: a session ran
+        # `python3 -c "...record_setup.py').read_text()"` -- reading a flow
+        # script's OWN SOURCE to work out how to call it -- and handed the
+        # owner an /approve prompt instead of the next question. Root cause:
+        # record_setup.py was the one script in pt-shared/scripts absent from
+        # pt-shared/SKILL.md's inventory, and it is the most-invoked script
+        # in the setup flow. An interface nobody documents is one a run will
+        # go read. Every script in the directory must carry a bullet.
+        listed = (ROOT / "pt-shared" / "SKILL.md").read_text()
+        shipped = sorted(p.name for p in (ROOT / "pt-shared" / "scripts").glob("*.py"))
+        assert shipped, "no scripts found -- path wrong, test is vacuous"
+        missing = [n for n in shipped if n not in listed]
+        assert not missing, f"undocumented pt-shared scripts: {missing}"
+
+    def test_soul_forbids_reading_flow_script_source(self):
+        # The guard used to cover wrapping an invocation and reading
+        # config.json, but never "read the script to learn its interface" --
+        # the one variant with an actual motive behind it.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "own source" in soul
+        assert "Never open one of these scripts." in soul
+        # And it must point at where the contract actually lives.
+        assert "pt-shared" in soul
+
     def test_setup_warns_against_wrapping_record_setup_in_python(self):
         # Measured live: with a real printer found (network:true worked),
         # the assistant recorded a perfectly valid printer name by

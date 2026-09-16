@@ -21,6 +21,17 @@ does not, and every run fails on the import.
   prints failing invariant names, empty stdout is pass
 - `scripts/setup_needed.py` — live-chat first-run gate: prints `SETUP_NEEDED`
   or `READY` (missing file is needed)
+- `scripts/record_setup.py` — the ONLY way `pt-setup` writes
+  `.setup-draft.json`. Call it bare, space-separated, never through an
+  interpreter: `record_setup.py <config.json path> key=value [key=value …]`.
+  Dotted keys nest; `true`/`false` (any case) become real JSON booleans;
+  every other value is kept verbatim as a string, so a dotted or underscored
+  value needs no quoting — only a value containing a space does. Prints
+  `DRAFT:<fields recorded, or "none">` then
+  `NEXT_QUESTION=<hour|printer|mail|news|close>`; that second line — never
+  the draft's shape, never the chat thread — decides what `pt-setup` asks
+  next. **This bullet is the contract: it exists so no run ever has to open
+  the script to find out how to call it.**
 - `scripts/bearer_http.py` — one bearer JSON call that never follows a redirect
   (a forwarded Authorization header is the credential walking to a host the API
   did not authenticate)

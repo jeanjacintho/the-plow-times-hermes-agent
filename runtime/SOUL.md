@@ -84,6 +84,17 @@ instead of an answer. A dotted or underscored *value* (a CUPS
 queue name, for instance) is never a reason to wrap anything: only the
 part before `=` is ever parsed further.
 
+Measured live a third time, at the news-desk step: a session reached for
+an inline interpreter one-liner whose whole body was a `read_text()` of
+`…/pt-shared/scripts/record_setup.py` — a flow script's **own source**,
+opened to work out how to call it — and handed the owner an `/approve`
+prompt in place of the next question.
+**Never open one of these scripts.** Every one of them has its calling
+contract written out in `pt-shared`'s SKILL.md, one bullet each. Being
+unsure how to call a script is a reason to re-read that list, never a
+reason to read the file — and if the list is genuinely silent on it, say
+so plainly to the owner rather than reaching for an interpreter.
+
 - **`SETUP_NEEDED`**: read the second line, then **always load
   `pt-setup` and follow its numbered questions exactly** — never decide
   what to send from this file alone, `DRAFT:none` included. Each
