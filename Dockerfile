@@ -72,9 +72,30 @@ RUN apt-get update \
 # instead of shipping quietly.
 ARG WEASYPRINT_VERSION=62.3
 ARG PYDYF_VERSION=0.10.0
+# BOTH interpreters, because which one `python3` means depends on the shell.
+# Measured live on 2026-09-16, after the venv-only install shipped:
+#   `sh -c 'command -v python3'`      -> /opt/hermes/.venv/bin/python3   (weasyprint 62.3)
+#   `bash -lc 'command -v python3'`   -> /usr/bin/python3                (ModuleNotFoundError)
+# The LOGIN shell drops /opt/hermes/bin and /opt/hermes/.venv/bin from PATH,
+# and the agent's terminal tool runs its commands through one -- so the skill
+# got "weasyprint is not installed", took the documented text fallback, and
+# the owner was handed a wall of text instead of the newspaper PDF, twice, on
+# a machine where the venv could render that same edition.json to a valid
+# 29KB PDF. The note above was right that the venv is one of the pythons the
+# skills get; it was wrong that it is the only one.
+#
+# /usr/local/lib/python3.13/dist-packages is on the SYSTEM python's sys.path
+# (verified in the running container) and both interpreters are 3.13.5, so
+# one wheel set is valid for both.
 RUN uv pip install --python /opt/hermes/.venv/bin/python3 \
       "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" \
- && sh -c "python3 -c \"import weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)\""
+ && uv pip install --python /usr/bin/python3 \
+      --target /usr/local/lib/python3.13/dist-packages \
+      "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" \
+ && probe="import weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)" \
+ && sh -c "python3 -c \"$probe\"" \
+ && bash -lc "python3 -c \"$probe\"" \
+ && bash -c "python3 -c \"$probe\""
 
 # Identity and skills. SOUL.md replaces the base's; first boot re-asserts
 # root ownership, which is what the trailing chmod answers. Skills land at

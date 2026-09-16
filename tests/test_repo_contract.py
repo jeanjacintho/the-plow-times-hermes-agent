@@ -549,17 +549,26 @@ class TestDeployment:
         # mismatch imports clean and dies on the first write_pdf.
         assert "write_pdf" in text
         assert "pydyf" in text
-        # Installed into the hermes venv, because that is the `python3` a
-        # plain (non-login) command actually resolves to in this container --
-        # confirmed live: the container's real PATH puts
-        # /opt/hermes/.venv/bin ahead of /usr/bin, so packages placed in the
-        # system dist-packages (the previous fix here) are invisible to the
-        # skill's own `python3 render_edition.py ...` invocation. `--system`
-        # and a system-dist-packages `--target` were both measured and wrong.
+        # Installed into BOTH interpreters, because which one `python3` means
+        # depends on the shell, and this flow uses both:
+        #   sh -c / bash -c -> /opt/hermes/.venv/bin/python3
+        #   bash -lc        -> /usr/bin/python3   (login resets PATH, dropping
+        #                                          /opt/hermes/.venv/bin)
+        # History, in order, all measured live: a system dist-packages
+        # `--target` made the LOGIN shell work and the plain shell fail, so
+        # this test was written to forbid a login-shell probe. Then on
+        # 2026-09-16 the venv-only install shipped and the agent's terminal
+        # tool -- which runs a LOGIN shell -- got ModuleNotFoundError, was
+        # told "weasyprint is not installed", took the text fallback, and
+        # handed the owner a wall of text twice while the venv rendered that
+        # same edition.json to a valid PDF. Neither interpreter alone is
+        # enough; the answer is both, and a probe that proves both.
         assert "--python /opt/hermes/.venv/bin/python3" in text
-        # The probe must run as a plain command, not a login shell (`-lc`
-        # resets PATH and would hide a regression back to the system python).
-        assert "sh -lc" not in text
+        assert "--python /usr/bin/python3" in text
+        # The probe must exercise the plain shell AND the login shell: each
+        # one alone has already shipped a broken PDF leg.
+        assert "bash -lc" in text, "the build probe does not test a login shell"
+        assert 'sh -c "python3 -c' in text, "the build probe does not test a plain shell"
         # Pinned by digest, like the fleet pin -- a tag re-resolves on pull.
         from_line = next(
             line for line in text.splitlines() if line.startswith("FROM ")
