@@ -30,7 +30,10 @@ does not, and every run fails on the import.
   `DRAFT:<fields recorded, or "none">` then
   `NEXT_QUESTION=<hour|printer|mail|news|close>`; that second line — never
   the draft's shape, never the chat thread — decides what `pt-setup` asks
-  next. **This bullet is the contract: it exists so no run ever has to open
+  next. Called as `record_setup.py <config.json path> --done` it instead
+  **clears** the draft (prints `DRAFT:cleared`) — the close step's last
+  act, and the only supported way to delete `.setup-draft.json`. It is
+  idempotent and refuses an unfinished interview. **This bullet is the contract: it exists so no run ever has to open
   the script to find out how to call it.**
 - `scripts/bearer_http.py` — one bearer JSON call that never follows a redirect
   (a forwarded Authorization header is the credential walking to a host the API

@@ -148,6 +148,29 @@ class TestSoul:
         # And it must point at where the contract actually lives.
         assert "pt-shared" in soul
 
+    def test_close_step_names_a_command_for_clearing_the_draft(self):
+        # Measured live: the close step said "delete .setup-draft.json" and
+        # named no command, so a run reached for an inline -c one-liner
+        # calling os.remove and tripped the dangerous-command gate in front
+        # of the owner -- with the newspaper otherwise finished. An
+        # instruction with no affordance is the bug; the script that owns the
+        # draft owns deleting it too.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "--done" in setup
+        assert "os.remove" in setup, "the failure mode must stay named"
+        # The bare, un-actioned instruction must not come back.
+        assert "and delete `.setup-draft.json`." not in setup
+        shared = (ROOT / "pt-shared" / "SKILL.md").read_text()
+        assert "--done" in shared
+
+    def test_soul_generalizes_the_missing_affordance_rule(self):
+        # Two variants of one class (read a script's source; delete a file
+        # with an interpreter). The guard must state the class, not just
+        # enumerate the instances.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "names no command" in soul
+        assert "record_setup.py" in soul and "--done" in soul
+
     def test_setup_warns_against_wrapping_record_setup_in_python(self):
         # Measured live: with a real printer found (network:true worked),
         # the assistant recorded a perfectly valid printer name by

@@ -149,3 +149,50 @@ class TestCLI:
             "local_hour": "08:30",
             "printer": {"configured": True, "name": "Canon"},
         }
+
+
+class TestDoneClearsTheDraft:
+    """The close step tells pt-setup to delete .setup-draft.json. It used to
+    say so with no command attached, and a live run reached for
+    `python3 -c "import os; os.remove(...)"` -- tripping the dangerous-command
+    gate and handing the owner an /approve prompt instead of their newspaper.
+    Deleting the draft IS a draft write, so it goes through this script like
+    every other one, as a bare invocation."""
+
+    COMPLETE = {
+        "local_hour": "07:00",
+        "printer": {"configured": True, "name": "virtual_printer_online"},
+        "mail": {"configured": True},
+        "news_asked": True,
+    }
+
+    def write_draft(self, tmp_path, draft):
+        path = tmp_path / ".setup-draft.json"
+        path.write_text(json.dumps(draft), encoding="utf-8")
+        return path
+
+    def test_done_removes_a_complete_draft(self, tmp_path, capsys):
+        draft_path = self.write_draft(tmp_path, self.COMPLETE)
+        rc = record.main(["record_setup.py", str(tmp_path / "config.json"), "--done"])
+        assert rc == 0
+        assert not draft_path.exists()
+        assert "DRAFT:cleared" in capsys.readouterr().out
+
+    def test_done_is_idempotent_when_the_draft_is_already_gone(self, tmp_path, capsys):
+        rc = record.main(["record_setup.py", str(tmp_path / "config.json"), "--done"])
+        assert rc == 0
+        assert "DRAFT:cleared" in capsys.readouterr().out
+
+    def test_done_refuses_a_half_finished_draft(self, tmp_path, capsys):
+        draft_path = self.write_draft(tmp_path, {"local_hour": "07:00"})
+        rc = record.main(["record_setup.py", str(tmp_path / "config.json"), "--done"])
+        assert rc == 1
+        assert draft_path.exists(), "a mid-interview draft must survive"
+        assert "printer" in capsys.readouterr().err
+
+    def test_done_does_not_mix_with_key_value_pairs(self, tmp_path):
+        self.write_draft(tmp_path, self.COMPLETE)
+        rc = record.main(
+            ["record_setup.py", str(tmp_path / "config.json"), "--done", "news_asked=true"]
+        )
+        assert rc == 1

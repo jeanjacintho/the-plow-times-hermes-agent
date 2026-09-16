@@ -16,6 +16,13 @@ judgement -- says what to ask next.
 Usage:
 
     record_setup.py <config.json path> key=value [key=value ...]
+    record_setup.py <config.json path> --done
+
+`--done` is the close step's last act: it deletes the draft and prints
+DRAFT:cleared. It is idempotent (an already-deleted draft is success) and it
+REFUSES a draft whose interview is unfinished, naming what is still missing --
+the draft is the only record of how far setup got, and a wrong delete re-asks
+the owner everything.
 
 Each `key` is a dot-path merged into `.setup-draft.json` (a sibling file of
 <config.json path>); a key with no dot is a top-level field. "true"/"false"
@@ -123,12 +130,37 @@ def main(argv=None):
     argv = sys.argv if argv is None else argv
     if len(argv) < 3:
         print(
-            "usage: record_setup.py <config.json path> key=value [key=value ...]",
+            "usage: record_setup.py <config.json path> key=value [key=value ...]\n"
+            "       record_setup.py <config.json path> --done",
             file=sys.stderr,
         )
         return 1
     config_path = Path(argv[1])
     draft_path = config_path.with_name(".setup-draft.json")
+    if "--done" in argv[2:]:
+        # The close step's last act. Deleting the draft is a draft write, so
+        # it goes through this script like every other one -- pt-setup used to
+        # be told "delete .setup-draft.json" with no command attached, and a
+        # live run reached for an inline interpreter to do it, tripping the
+        # dangerous-command gate in front of the owner.
+        if len(argv) != 3:
+            print("error: --done takes no other arguments", file=sys.stderr)
+            return 1
+        if draft_path.exists():
+            pending = next_question(load_draft(draft_path))
+            # Refuse to throw away an interview still in progress: the draft is
+            # the ONLY record of how far setup got, and a wrong delete re-asks
+            # the owner everything.
+            if pending != "close":
+                print(
+                    f"error: setup is not finished (still needs: {pending}); "
+                    "refusing to clear the draft",
+                    file=sys.stderr,
+                )
+                return 1
+            draft_path.unlink()
+        print("DRAFT:cleared")
+        return 0
     draft = load_draft(draft_path)
     try:
         apply_pairs(draft, argv[2:])

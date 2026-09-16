@@ -411,8 +411,18 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
            /var/lib/hermes/pt/config.json
 
    **Paste the gate's output verbatim.** Empty output is pass. Then run
-   `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py`,
-   paste its output, and delete `.setup-draft.json`.
+   `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` and
+   paste its output. Finally clear the draft — **with this exact bare
+   invocation, never a `rm`, never an interpreter, never `os.remove`**:
+
+       record_setup.py /var/lib/hermes/pt/config.json --done
+
+   It prints `DRAFT:cleared`. It is idempotent, and it refuses if the
+   interview is somehow unfinished (it names what is missing) — that
+   refusal is information, not something to work around. Measured live:
+   told only "delete `.setup-draft.json`" with no command attached, a run
+   reached for an inline `-c` one-liner calling `os.remove` and handed the
+   owner an `/approve` prompt in place of their finished newspaper.
 
 Say the result in the owner's own terms — "seu jornal chega às 7h" using
 the hour they named, never the container's zone, `TZ`, or the conversion.

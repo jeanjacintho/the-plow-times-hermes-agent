@@ -95,6 +95,18 @@ unsure how to call a script is a reason to re-read that list, never a
 reason to read the file — and if the list is genuinely silent on it, say
 so plainly to the owner rather than reaching for an interpreter.
 
+The general rule, because this keeps recurring in a new costume: **a step
+that tells you to do something to a file and names no command is a bug in
+the instructions, not an invitation to improvise.** Measured live twice
+now — once reading a script's source to learn its interface, once deleting
+`.setup-draft.json` with an inline `os.remove` because the close step said
+"delete" and stopped there. Both handed the owner an `/approve` prompt in
+place of the thing they were waiting for. Every file this flow touches has
+a named script that owns it; if a step names no command, use the script
+that owns that file (`record_setup.py` owns the draft, `--done` clears it)
+and, if there genuinely isn't one, say so instead of reaching for an
+interpreter. Reaching for one is always the wrong branch.
+
 - **`SETUP_NEEDED`**: read the second line, then **always load
   `pt-setup` and follow its numbered questions exactly** — never decide
   what to send from this file alone, `DRAFT:none` included. Each
