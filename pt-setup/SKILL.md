@@ -135,7 +135,15 @@ this question, then stop.
 a skip as accepting 07:00; a clock time they name ("8:30", "08:30") is
 that time. Record it and read the next question:
 
-    record_setup.py /var/lib/hermes/pt/config.json local_hour=07:00
+    record_setup.py /var/lib/hermes/pt/config.json local_hour=07:00 owner.language=English
+
+**Record `owner.language` in this same call**, as a plain-English name
+("English", "Portuguese", "Mandarin Chinese"), read from what the owner
+has actually written so far — not from this file's language, not from
+their name, not from where they are. From here on the gate hands it back
+to you as `LANG:<language>` on **every single reply**, and that line, not
+your memory of this paragraph, is what every owner-facing string is
+written in. If it says `LANG:unrecorded`, record it before you answer.
 
 Send only the `NEXT_QUESTION` it prints (question 2a), then stop. Do not
 also probe the printer in this reply — that happens on their *next*
@@ -401,9 +409,25 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
    so once — setting `TZ` in `compose.yml`'s environment and restarting is
    the fix (not `AGENT_TZ`: measured live, nothing in this image actually
    translates `AGENT_TZ` into `TZ`, even though older docs implied it).
-3. **Write** `/var/lib/hermes/pt/config.json` from the draft plus those two
-   fields (`delivery.local_hour` may keep what they asked, for later
-   edits). Validate:
+3. **Write** `/var/lib/hermes/pt/config.json` — with this exact bare
+   invocation, never by composing the JSON yourself, never `write_file`:
+
+       /var/lib/hermes/skills/pt-setup/scripts/finalize_setup.py /var/lib/hermes/pt/config.json --owner-tz <IANA zone from step 1>
+
+   It reads the draft, converts the hour (so step 2 is only for showing
+   your work — this does the conversion it will actually write), keeps
+   `delivery.local_hour` as the owner named it, validates against the gate
+   **before** anything lands, and prints `CONFIG:written` plus the
+   delivery line. On failure it prints why and writes nothing: an
+   unfinished interview, an unknown zone, an empty container `TZ`, or a
+   gate failure. That refusal is the answer — do not hand-write the file
+   around it. Measured live: told only "write config.json" with no command
+   named, a run that had every field it needed instead ran the gate
+   against a file nobody had created, got `not valid JSON` (that is what
+   the gate says for a MISSING file) and told the owner the setup "hit a
+   configuration error" — with nothing actually wrong.
+
+   If you want to re-check afterwards, the gate is:
 
        /var/lib/hermes/skills/pt-shared/scripts/pt_config_gate.py /var/lib/hermes/pt/config.json
 

@@ -69,12 +69,39 @@ def draft_line(config_path):
     return "DRAFT:" + (",".join(fields) if fields else "none")
 
 
+def language_line(config_path):
+    """Third gate line: the language the owner writes in, as recorded.
+
+    This gate is the first action of EVERY reply while setup is unfinished,
+    so this line puts the owner's language in front of the model on every
+    single turn -- as a recorded fact, not a rule it has to hold in mind
+    while composing. Measured live four times: a whole interview written in
+    English, and a reply came back in another language -- three times on a
+    failure explanation, once on the printer success branch, in Dutch. Each
+    of those branches had (or lacked) its own prose reminder; attaching one
+    more reminder to one more branch is how the first three were "fixed".
+    """
+    draft_path = Path(config_path).with_name(".setup-draft.json")
+    try:
+        draft = json.loads(draft_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "LANG:unrecorded"
+    if not isinstance(draft, dict):
+        return "LANG:unrecorded"
+    owner = draft.get("owner")
+    language = owner.get("language") if isinstance(owner, dict) else None
+    if isinstance(language, str) and language.strip():
+        return "LANG:" + language.strip()
+    return "LANG:unrecorded"
+
+
 def main(argv=None):
     argv = sys.argv if argv is None else argv
     path = argv[1] if len(argv) > 1 else CONFIG_FILE
     if setup_needed(path):
         print("SETUP_NEEDED")
         print(draft_line(path))
+        print(language_line(path))
     else:
         print("READY")
     return 0

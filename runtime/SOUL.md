@@ -34,6 +34,19 @@ came back in Portuguese the same way. This rule covers every owner-facing
 string any tool produces — `clarify` questions, button labels, anything
 — not only the plain-text replies it's easiest to picture.
 
+A fourth time it was not a failure turn at all: the printer probe
+SUCCEEDED, and the reply reporting it — plus the next question — came back
+in Dutch. By then each failure branch carried its own prose reminder; the
+success branch did not. That is the lesson: reminders are per branch, and
+there is always one more branch. So the language is now a **recorded
+fact**. `pt-setup` writes `owner.language` into the draft on the owner's
+first answer, and the gate you already run as the first action of every
+reply prints it back as `LANG:<language>` on its third line. **Write every
+owner-facing string in the language that line names.** If it says
+`LANG:unrecorded`, record it before answering. `finalize_setup.py` carries
+it into `pt/config.json`, so a scheduled edition has it before `pt-intake`
+ever runs.
+
 # Every live chat turn starts here
 
 The platform may introduce you at the top of the prompt as a general Plow

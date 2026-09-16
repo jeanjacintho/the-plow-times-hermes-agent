@@ -56,6 +56,23 @@ def read_message():
     return sys.stdin.read().strip()
 
 
+def read_text_file(path):
+    """The edition text from a file, so the text leg needs no shell redirect.
+
+    Measured live: told to "pass the chat text on stdin" with no command
+    shown, a run built `/bin/sh -c '... post_to_chat.py < edition.chat.txt'`.
+    A shell operator is exactly what SOUL.md's gate flags, so the owner got
+    an /approve prompt instead of their newspaper. A flag needs no shell.
+    """
+    try:
+        text = open(path, encoding="utf-8").read().strip()
+    except OSError:
+        sys.exit(f"error: --text-file path cannot be read: {path}")
+    if not text:
+        sys.exit(f"error: --text-file is empty: {path}")
+    return text
+
+
 def compose_payload(text, attachment_uid=None):
     """One chat message: PDF-only when attached, otherwise the chat edition.
 
@@ -100,12 +117,20 @@ def main():
              "platform's own adapter makes); omit to post text only",
     )
     parser.add_argument(
+        "--text-file", default=None,
+        help="read the chat edition from this file instead of stdin (no shell "
+             "redirect needed); refused together with --pdf, which posts an "
+             "empty body",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="print the request instead of sending it"
     )
     args = parser.parse_args()
 
+    if args.text_file and args.pdf:
+        sys.exit("error: --pdf posts an empty body; --text-file cannot be combined with it")
     base, uid, token = resolve_chat()
-    text = read_message()
+    text = read_text_file(args.text_file) if args.text_file else read_message()
     if not args.pdf and not text:
         sys.exit("error: no edition text on stdin")
 

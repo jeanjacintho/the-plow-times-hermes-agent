@@ -195,19 +195,42 @@ HTML.** Hand-write `edition.json` under the run directory:
 
 ## Render and deliver
 
-1. Run the renderer — it is the only thing that writes the edition. Always
-   pass `--pdf`, writing under the run directory (e.g.
-   `run/<id>/edition.pdf`). `--chat` is optional now (the chat transcript
-   is not posted). Add `--html PATH` when a printer is configured:
+1. Run the renderer — it is the only thing that writes the edition. Two
+   complete commands; **copy the one that matches and change only the
+   paths.** Do not build a third by merging them, and do not add flags
+   that are not here:
+
+   No printer configured:
 
        /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf
-       # add --html PATH too when a printer is configured
 
-   A malformed `edition.json` is refused by name. Fix it and re-run; never
-   hand-assemble a page to route around the gate. If the renderer's own
-   stderr says weasyprint is not installed, that costs only the PDF file —
-   then post the chat text as the fallback (omit `--pdf`), do not write the
-   edition by hand.
+   Printer configured:
+
+       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf --html run/<id>/edition.html
+
+   `--pdf` is in both, always. `--chat PATH` is optional and takes a path
+   when used; the chat transcript is not posted, so you normally leave it
+   out entirely.
+
+   **Then check that `run/<id>/edition.pdf` actually exists before step 2.**
+   If it does not, read the renderer's own stderr and act on which failure
+   it was:
+
+   - **A usage error** (`exit_code: 2`, e.g. `argument --chat: expected one
+     argument`) means YOUR command was wrong, not that the PDF is
+     impossible. Fix the command and re-run it. This is **not** the
+     weasyprint fallback and must never be treated as one.
+   - **A malformed `edition.json`** is refused by name. Fix the JSON and
+     re-run; never hand-assemble a page to route around the gate.
+   - **Only** when the renderer's stderr says *weasyprint is not installed*
+     is the PDF genuinely impossible — that costs the PDF file alone; take
+     the text fallback in step 2 and do not write the edition by hand.
+
+   Measured live: a run built its own argv, passed a bare `--chat` with no
+   value (exit 2), then retried having dropped `--pdf` — rendering
+   `edition.html` and `edition.chat.txt` and no PDF at all — and posted the
+   text. The owner had asked for a copy of the paper and got a wall of
+   text, on a machine where weasyprint 62.3 was installed and working.
 2. **Send the PDF yourself, by running `post_to_chat.py --pdf`, instead of
    returning the transcript as your final response.** The owner asked for
    the newspaper file, not the file plus the chat dump. `post_to_chat.py`
@@ -217,9 +240,17 @@ HTML.** Hand-write `edition.json` under the run directory:
 
        /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf
 
-   Omit `--pdf` only when `render_edition.py` produced no PDF (weasyprint
-   absent or the write failed) — then pass the chat text on stdin. Pointing
-   `--pdf` at a file that does not exist is refused by name.
+   Omit `--pdf` **only** when step 1 established that weasyprint is
+   genuinely absent — never because your own command failed. In that one
+   case the text leg is also a complete command, with no shell redirect:
+
+       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --text-file run/<id>/edition.chat.txt
+
+   Use `--text-file`, never `< file`, never `/bin/sh -c`, never a pipe:
+   those are shell operators and SOUL.md's gate flags them, which hands the
+   owner an `/approve` prompt instead of their newspaper (measured live,
+   on exactly this call). Pointing `--pdf` at a file that does not exist is
+   refused by name.
    `PLOW_API_BASE`, `PLOW_HOME_CHANNEL` and `PLOW_AGENT_TOKEN` come from the
    process environment already; nothing to pass for those.
 

@@ -148,6 +148,75 @@ class TestSoul:
         # And it must point at where the contract actually lives.
         assert "pt-shared" in soul
 
+    def test_language_is_a_recorded_fact_not_a_prose_reminder(self):
+        # Four live drifts: three failure explanations and one printer
+        # SUCCESS reply, the last in Dutch, all in interviews written wholly
+        # in English. Each drift was answered by attaching a reminder to that
+        # branch -- and the next drift arrived on a branch without one. The
+        # gate already runs as the first action of every reply, so the
+        # recorded language rides back on every one of them.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "owner.language=" in setup, "the interview must record the language"
+        assert "LANG:unrecorded" in setup
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "LANG:" in soul
+        # And the gate must actually emit it.
+        gate = (ROOT / "pt-shared" / "scripts" / "setup_needed.py").read_text()
+        assert "def language_line" in gate
+        assert "LANG:" in gate
+        # ...and it must survive into the config a scheduled edition reads.
+        assert '"language"' in (ROOT / "pt-setup" / "scripts" / "finalize_setup.py").read_text()
+
+    def test_render_step_gives_complete_commands_not_a_merge(self):
+        # Measured live: the render step showed ONE command plus a comment
+        # ("# add --html PATH too when a printer is configured"), so a run
+        # with a printer had to assemble its own argv -- and lost --pdf while
+        # inventing a valueless --chat (exit 2). It rendered edition.html and
+        # edition.chat.txt, no PDF, and posted text. weasyprint 62.3 was
+        # installed and working on that machine.
+        text = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "# add --html PATH too" not in text, "the merge-a-comment form is back"
+        render = [
+            line.strip()
+            for line in text.splitlines()
+            if "render_edition.py" in line and line.startswith(" " * 7)
+        ]
+        assert len(render) >= 2, "both the printer and no-printer commands must be spelled out"
+        for line in render:
+            assert "--pdf" in line, f"a render command without --pdf: {line}"
+
+    def test_pdf_fallback_is_keyed_on_weasyprint_not_on_any_failure(self):
+        # The fallback used to fire whenever "render_edition.py produced no
+        # PDF", which a usage error satisfies -- so a typo silently demoted
+        # the owner to plain text, permanently.
+        import re
+
+        text = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        flat = re.sub(r"\s+", " ", text.replace("*", ""))
+        assert "not the weasyprint fallback" in flat
+        assert "exit_code: 2" in flat
+
+    def test_text_leg_needs_no_shell_redirect(self):
+        # /bin/sh -c '... < edition.chat.txt' tripped the dangerous-command
+        # gate. A flag needs no shell.
+        text = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "--text-file" in text
+        script = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
+        assert '"--text-file"' in script
+
+    def test_close_step_names_a_command_for_writing_the_config(self):
+        # Measured live: step 3 said "**Write** config.json from the draft"
+        # and named no tool, and nothing in the tree wrote that file. A run
+        # with every field it needed ran the gate against a file nobody had
+        # created, got "not valid JSON" (what the gate says for a MISSING
+        # file) and told the owner the setup hit a configuration error.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "finalize_setup.py" in setup
+        assert "--owner-tz" in setup
+        # The bare, un-actioned instruction must not come back.
+        assert "**Write** `/var/lib/hermes/pt/config.json` from the draft" not in setup
+        assert (ROOT / "pt-setup" / "scripts" / "finalize_setup.py").exists()
+
     def test_close_step_names_a_command_for_clearing_the_draft(self):
         # Measured live: the close step said "delete .setup-draft.json" and
         # named no command, so a run reached for an inline -c one-liner
