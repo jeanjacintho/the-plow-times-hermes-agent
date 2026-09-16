@@ -183,9 +183,11 @@ the topic's identity everywhere else.
 
 ## Schedule the run — one-time crons, never inline
 
-All jobs fire in the container's zone (the image sets it from AGENT_TZ, and
-register_crons.py refuses a disagreement with `owner.timezone` — so
-container time is owner time). Every job carries
+All jobs fire in the container's zone (`TZ` in `compose.yml`'s environment —
+register_crons.py refuses to register at all if it's empty). pt-setup
+converts the owner's stated local delivery hour into that zone once, at
+write time, so `delivery.hour` is already correct; register_crons.py no
+longer compares it against `owner.timezone` itself. Every job carries
 `--deliver plow_chat:${PLOW_HOME_CHANNEL}`: the run's final response IS the
 edition, and relaying it is the chat leg.
 

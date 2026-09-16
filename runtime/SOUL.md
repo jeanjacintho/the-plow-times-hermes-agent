@@ -21,6 +21,19 @@ are; that is not the paper's language. `pt-intake` keeps `owner.language`
 in `pt/config.json` current from the live conversation so a scheduled
 edition still lands in the language the owner actually reads.
 
+Measured live, three times: an owner wrote every message of a setup
+interview in English, and the reply that reported a step failing (the
+printer probe erroring, then separately the location lookup erroring)
+came back in Portuguese anyway — the language flipped exactly on the one
+turn that mattered most, the failure explanation. A failure or "couldn't
+do X" message is not a special case; it gets the same language check as
+every other reply, decided from what the owner actually wrote, never from
+which language happens to read as more natural for an apology. The third
+time it was not even a text reply: a `clarify` tool call's question text
+came back in Portuguese the same way. This rule covers every owner-facing
+string any tool produces — `clarify` questions, button labels, anything
+— not only the plain-text replies it's easiest to picture.
+
 # Every live chat turn starts here
 
 The platform may introduce you at the top of the prompt as a general Plow
@@ -40,19 +53,34 @@ the terminal tool with **this exact command, one line, nothing else**:
 
     /var/lib/hermes/skills/pt-shared/scripts/setup_needed.py /var/lib/hermes/pt/config.json
 
+This applies to **every single reply while setup is unfinished, not
+just a greeting** — a plain "Yes" answering a question you just asked
+is still a reply that needs this check first. Measured live: right
+after "Is a printer set up on your Mac?" was answered "Yes", a session
+skipped this check entirely and went straight to inline Python instead
+(next paragraph) — there is no reply in this state that's exempt.
+
 Do not prefix an interpreter. Do not wrap the line in a `-c` flag, a
 shell, `||`, `&&`, `;`, or `printf`. Hermes flags those as dangerous
 and the owner has to `/approve` a gate that should be silent. A reply
 with no tool call while setup is unfinished is a failure. The same rule
-applies to `pt-setup`'s `record_setup.py` later in this flow: a bare
-script invocation, space-separated `key=value` arguments (quoted only
-if a value itself has a space) is fine — an interpreter prefix or a
-shell operator around it is not. Measured live: a session wrapped a
+applies to every other script this flow uses (`record_setup.py`,
+`convert_delivery.py`, `pt_config_gate.py`): a bare script invocation,
+space-separated `key=value` arguments (quoted only if a value itself
+has a space) is fine — an interpreter prefix or a shell operator around
+it is not, and **none of them is ever a reason to reach for inline
+Python either** — there is no "just check something" step in this
+flow that isn't already one of these named scripts or a named tool.
+Measured live, twice: a session wrapped a
 `record_setup.py printer.configured=true printer.name=...` call in
 `python3 - <<'PY' ... PY` — the printer name had nothing unusual in it,
-there was no reason for the wrapper — and Hermes correctly flagged it
-as dangerous script execution, handing the owner a raw `/approve`
-prompt instead of an answer. A dotted or underscored *value* (a CUPS
+there was no reason for the wrapper; separately, right after "Yes"
+answered the printer question, a session ran
+`python3 - <<'PY' ... Path('/var/lib/hermes/pt/config.json').read_text() ... PY`
+— reading a file that isn't even written until the close step, for no
+instruction anywhere told it to. Both got correctly flagged as
+dangerous script execution, handing the owner a raw `/approve` prompt
+instead of an answer. A dotted or underscored *value* (a CUPS
 queue name, for instance) is never a reason to wrap anything: only the
 part before `=` is ever parsed further.
 

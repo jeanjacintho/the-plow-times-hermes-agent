@@ -52,7 +52,8 @@ def main(argv=None):
     container = (args.container_tz or os.environ.get("TZ") or "").strip()
     if not container:
         sys.exit(
-            "error: container TZ is empty — cannot convert. Restart with AGENT_TZ set."
+            "error: container TZ is empty — cannot convert. Set TZ in "
+            "compose.yml's environment and restart."
         )
     print(convert(args.local_hour, args.owner_tz, container))
     return 0

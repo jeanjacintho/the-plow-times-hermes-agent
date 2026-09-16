@@ -209,10 +209,10 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
     container = (env.get("TZ") or "").strip()
     if not container:
         raise SystemExit(
-            "refusing to register: TZ is empty in this container. The image "
-            "sets it at boot from AGENT_TZ, so an empty one means that step "
-            "did not run and the schedules would fire in a zone nothing here "
-            "can name."
+            "refusing to register: TZ is empty in this container. Set TZ "
+            "in compose.yml's environment (e.g. America/Sao_Paulo) and "
+            "restart -- nothing else here fires without it, and the "
+            "schedules would otherwise fire in a zone nothing here can name."
         )
     path = pathlib.Path(config_path)
     try:

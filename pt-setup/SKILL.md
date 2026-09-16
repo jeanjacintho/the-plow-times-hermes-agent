@@ -46,6 +46,24 @@ exactly this reason: part **a** is what you send and then stop for; part
 **b** is what you do on their *next* message, before sending the
 question after it.
 
+**This interview never needs ad-hoc Python, a heredoc, or any inline
+script, for anything — not to check state, not to read a file, not to
+double-check what you just wrote.** Every action already has a named
+script (`setup_needed.py`, `record_setup.py`, `convert_delivery.py`,
+`pt_config_gate.py`) or a named tool (`plow_run_command`,
+`plow_browser_*`); call the one that matches, plainly, one line, and
+nothing else. Measured live, twice, on two different turns: once a
+`record_setup.py` call for a printer name with nothing unusual in it got
+wrapped in `python3 - <<'PY' ... PY` anyway; another time, right after
+"Is a printer set up on your Mac?" was answered "Yes", the very next
+action was `python3 - <<'PY' ... Path('/var/lib/hermes/pt/config.json').read_text() ... PY`
+— reading a file this step never needs and that does not exist yet (it
+is not written until the close step). Neither had a reason; both handed
+the owner a raw `/approve` prompt where an answer belonged. If you feel
+any pull to "just check" something with inline Python, that pull itself
+is the signal you've drifted off this file's own steps — stop and
+re-read the current step instead of writing a script for it.
+
 It runs only in the owner's own solo DM — sender role **owner**, chat type
 **DM**, roster just the two of you; the platform reports all three. Anywhere
 else, none of this applies: answer what was actually asked, ask none of
@@ -146,20 +164,28 @@ tool `mcp__plow__plow_run_command` (or `mcp__latch__plow_run_command` if
 `tools_list` says so). **Never send `"command"`.**
 
 **This call needs `"network": true`.** Measured live, with a printer
-genuinely configured and visible in System Settings: `lpstat -p` still
-came back `exit_code:1, "lpstat: Bad file descriptor"` under the
-default sandboxed call. Diagnosis (see latch's
-`packages/device-core/src/executor.ts`, `SandboxProfile.generate`):
-`lpstat` talks to `cupsd` over a local socket, and Latch's seatbelt
-profile denies all `network*`/`system-socket` primitives whenever
-`network` is left false or omitted — CUPS can't even reach its own
-scheduler, and libcups surfaces that denial as "Bad file descriptor"
-rather than a real "no destinations" report. `network: true` is a
-broader grant than this call strictly needs (it opens general network
-access for one local IPC round-trip, not just a scoped CUPS exception —
-that scoped fix belongs in Latch's own sandbox profile, not here), but
-it is the fix available from this side without editing a different
-project's security-sensitive code.
+genuinely configured and visible in System Settings: `lpstat -p` came
+back `exit_code:1, "lpstat: Bad file descriptor"` under the default
+sandboxed call. Root cause, confirmed by reproducing Latch's generated
+profile directly against `sandbox-exec` on the owner's own Mac —
+25/25 runs succeed with the flag, 10/10 fail with the identical error
+without it, and `lpstat -p` in a plain shell outside Latch succeeds
+every time: `lpstat` reaches `cupsd` over a local Unix domain socket,
+and Latch's seatbelt profile (`packages/device-core/src/executor.ts`,
+`SandboxProfile.generate`) grants the `network*`/`system-socket`
+primitives only when `network` is true. Without them CUPS cannot open
+the socket to its own scheduler, and libcups surfaces that denial as
+"Bad file descriptor" rather than a real "no destinations" report.
+
+The flag covers **local IPC**, not just remote access — Latch's schema
+description ("whether the command needs network access") reads narrower
+than the grant actually is, which is what made this look like a CUPS
+fault. It is deterministic, not flaky: a run that fails with the flag
+set is a run that did not carry it. `network: true` is a broader grant
+than this call strictly needs (a scoped CUPS exception belongs in
+Latch's own sandbox profile, not here), but it is the fix available
+from this side without editing a different project's security-sensitive
+code.
 
 Exact call:
 
@@ -174,9 +200,24 @@ Exact call:
 If the result is `{"status":"pending","handle":…}`, poll
 `plow_get_result` with that handle until `ready` (Latch's call budget is
 10s, not a failed Mac). `denied` / `blocked` is the owner tapping No on
-the Latch card, not an unreachable device. Latch parked/unreachable is
-also an answer, not a reason to skip 2a — you already asked it; now
-record the probe's outcome:
+the Latch card, not an unreachable device.
+
+**There is no second path to try.** An earlier version of this skill
+retried once through `{"argv": ["osascript", "-e", "do shell script
+\"lpstat -p\""]}`, on the belief that `osascript` reaches Latch's
+separate, genuinely unsandboxed `runAppleScript` path. It does not.
+That path belongs to the `plow_run_applescript` *tool*; any argv handed
+to `plow_run_command` — `osascript` included — is an ordinary
+`process.exec` intent and runs under `sandbox-exec` like everything
+else. So the retry inherited the very same denial, with `network`
+omitted and therefore false, and reproduced the very same error one
+layer down (`0:27: execution error: lpstat: Bad file descriptor (1)`).
+**Do not re-add it.** If the call above fails, that is a real failure to
+report, not a cue to try another argv.
+
+A real "No destinations added." (or a genuine list) is a real answer.
+Latch parked or unreachable is also an answer, not a reason to skip
+2a — you already asked it; now record the probe's outcome:
 
 - lpstat lists a printer:
 
@@ -210,10 +251,10 @@ record the probe's outcome:
   to be written in — that the paper still delivers in chat; printing
   joins automatically if a printer shows up later (that is the
   changing-one-setting path, plus a re-probe).
-- the call itself returned an error that isn't a real lpstat report —
-  e.g. `exit_code` non-zero with output like "Bad file descriptor"
-  rather than an actual destinations list or "No destinations added."
-  (measured live: this happens): still
+- the call returned an error that isn't a real lpstat report — e.g.
+  `exit_code` non-zero with output like "Bad file descriptor" rather
+  than an actual destinations list or "No destinations added."
+  (measured live: this happens when `network: true` is missing): still
 
       record_setup.py /var/lib/hermes/pt/config.json printer.configured=false
 
@@ -289,19 +330,45 @@ into the close step below (this one has no separate question to send;
 
 ## Close: location, convert, write config
 
+**The moment `NEXT_QUESTION` says `close`, do only the three numbered
+steps below — nothing else.** Measured live: after recording
+`news_asked=true`, instead of going straight into step 1, a run opened
+`pt-dashboard`, `pt-research`'s SKILL.md, `pt-shared`, `pt-print`, and
+`pt-edition` one after another (none of them are needed to close setup —
+they load themselves later, on their own, when the daily run actually
+needs them), re-ran `record_setup.py mail.configured=true` a second time
+for no reason, tried a file that doesn't exist
+(`pt-setup/references/api.md`), and then — having still never called
+`plow_browser_open` — used the `clarify` tool to ask the owner
+**"Em que cidade você está?"**, in Portuguese, mid-English conversation.
+That is two rules broken at once, both already written down and both
+worth restating here because they got missed anyway: desks.md §1 already
+says *"Do not ask the owner for a city"* — no tool, `clarify` included,
+ever asks them one; and SOUL.md's language rule covers every reply
+including one made through a tool like `clarify`, not just plain text.
+If step 1 below hasn't produced a timezone, the answer is the "can't be
+scheduled yet" message in step 1, not a question back to the owner.
+
 Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
 
 1. **Read location through Latch's browser** — the same procedure as
    `pt-research/references/desks.md` §1: `plow_browser_open` scoped to
-   `ipapi.co`, `goto` `https://ipapi.co/json/`, `text` to read the JSON
-   back, then `plow_browser_close`. Not `plow_run_command`/`python3`:
-   measured live, that path failed two different ways on a real Mac
-   (`xcrun`'s dylib blocked by Latch's sandbox, then a `curl` fallback
-   blocked on DNS resolution even with `network: true`) — see desks.md
-   §1 for the full diagnosis. Take `timezone` from the JSON (IANA, e.g.
-   `America/Sao_Paulo`). If the call fails or `timezone` is blank, say
-   the paper cannot be scheduled until the Mac can report where they
-   are — do not invent a zone, do not ask them to type one.
+   `["ipapi.co", "ipwho.is", "ifconfig.co"]`, `goto`
+   `https://ipapi.co/json/` first, then `text` to read the JSON back,
+   then `plow_browser_close`. Not `plow_run_command`/`python3`: measured
+   live, that path failed two different ways on a real Mac (`xcrun`'s
+   dylib blocked by Latch's sandbox, then a `curl` fallback blocked on
+   DNS resolution even with `network: true`) — see desks.md §1 for the
+   full diagnosis. **If `goto` itself errors** (DNS failure like
+   `NS_ERROR_UNKNOWN_HOST`, timeout, connection refused — measured live,
+   `ipapi.co` alone came back unresolvable on one owner's Mac even
+   through the real browser), `goto` `https://ipwho.is/` instead, then
+   `https://ifconfig.co/json` if that also errors; stop after these
+   three. Take the timezone field from whichever provider loaded (IANA
+   form, e.g. `America/Sao_Paulo`). If all three `goto` calls error, or
+   the page that did load has no usable timezone field, say the paper
+   cannot be scheduled until the Mac can report where they are — do not
+   invent a zone, do not ask them to type one.
 2. **Convert** the draft `local_hour` into the container's clock. Never
    subtract hours by hand:
 
@@ -310,7 +377,9 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
 
    The printed line is `delivery.hour`. `owner.timezone` is the IANA name
    from step 1, unconverted. If the script says container TZ is empty, say
-   so once — a restart with `AGENT_TZ` set is the fix.
+   so once — setting `TZ` in `compose.yml`'s environment and restarting is
+   the fix (not `AGENT_TZ`: measured live, nothing in this image actually
+   translates `AGENT_TZ` into `TZ`, even though older docs implied it).
 3. **Write** `/var/lib/hermes/pt/config.json` from the draft plus those two
    fields (`delivery.local_hour` may keep what they asked, for later
    edits). Validate:

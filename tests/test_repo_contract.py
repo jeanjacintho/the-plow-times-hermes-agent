@@ -56,6 +56,20 @@ class TestSoul:
         assert "not a first-contact script" in text
         assert "pt-setup" in text
 
+    def test_soul_setup_gate_applies_to_every_reply_not_just_greetings(self):
+        # Measured live: right after "Is a printer set up on your Mac?"
+        # was answered "Yes", a session skipped the setup_needed.py check
+        # entirely on that reply and went straight to an unprompted inline
+        # Python read of pt/config.json (which doesn't exist yet at that
+        # point) wrapped in a heredoc -- tripping the dangerous-command
+        # gate for a file read nothing asked for.
+        text = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "every single reply" in text
+        assert "config.json').read_text()" in text
+        assert "a reason to reach for inline" in text
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "ad-hoc Python" in setup or "ad-hoc script" in setup
+
     def test_setup_latch_probe_uses_argv_not_command(self):
         # Latch plow_run_command (tools.ts) requires argv and
         # additionalProperties: false. A "command" key never reaches lpstat.
@@ -65,17 +79,40 @@ class TestSoul:
         assert "mcp__plow__plow_run_command" in text
 
     def test_setup_printer_probe_requests_network_for_cups_ipc(self):
-        # Measured live, with a printer genuinely configured and visible
-        # in System Settings: lpstat -p still failed ("Bad file
-        # descriptor") under the default sandboxed call, because Latch's
-        # seatbelt profile denies network*/system-socket whenever
-        # `network` is left false — and CUPS talks to cupsd over a local
-        # socket, so it can't even reach its own scheduler. `network: true`
-        # is the workaround from this side (the scoped fix belongs in
-        # Latch's own sandbox profile, not here).
+        # Root cause, reproduced directly against Latch's generated profile
+        # on a real Mac: lpstat reaches cupsd over a local Unix domain
+        # socket, and the seatbelt profile grants network*/system-socket
+        # only when `network` is true. Without the flag CUPS cannot open
+        # the socket to its own scheduler and libcups reports "Bad file
+        # descriptor". Deterministic, not flaky: 25/25 pass with the flag,
+        # 10/10 fail without it, and a plain shell outside Latch always
+        # passes. `network: true` is the workaround from this side (the
+        # scoped fix belongs in Latch's own sandbox profile, not here).
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert '"network": true' in text
         assert "Bad file descriptor" in text
+        # The flag covers local IPC, not just remote access — the whole
+        # reason this looked like a CUPS fault for so long.
+        assert "local IPC" in text
+
+    def test_setup_printer_probe_has_no_osascript_fallback(self):
+        # This skill used to retry the failed probe through
+        # {"argv": ["osascript", "-e", "do shell script \"lpstat -p\""]},
+        # believing osascript reached Latch's unsandboxed runAppleScript
+        # path. It does not: that path belongs to the plow_run_applescript
+        # TOOL. Any argv given to plow_run_command -- osascript included --
+        # is a process.exec intent and runs under sandbox-exec, so the
+        # retry inherited the identical denial (network omitted => false)
+        # and reproduced the identical error one layer down
+        # ("0:27: execution error: lpstat: Bad file descriptor (1)").
+        # The retry could only ever fail. It must stay gone.
+        text = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        probe = text[text.index('"argv": ["lpstat", "-p"]'):text.index("record_setup.py")]
+        assert "do shell script" not in probe or "Do not re-add it" in probe
+        assert "There is no second path to try." in text
+        assert "Do not re-add it." in text
+        # And the retry must not be reachable as a live instruction.
+        assert "retry once" not in text
 
     def test_setup_warns_against_wrapping_record_setup_in_python(self):
         # Measured live: with a real printer found (network:true worked),
@@ -107,6 +144,41 @@ class TestSoul:
         assert "xcrun" in desks
         assert "Could not resolve host" in desks
         assert '"/usr/bin/python3"' not in setup
+
+    def test_setup_location_lookup_falls_back_past_a_dead_domain(self):
+        # Measured live: even through plow_browser_*, ipapi.co alone came
+        # back NS_ERROR_UNKNOWN_HOST on one owner's Mac -- a dead domain,
+        # not a sandbox gap. The procedure must try other providers, not
+        # give up (or retry the same host) after one goto error.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        for text in (setup, desks):
+            assert "ipapi.co" in text
+            assert "ipwho.is" in text
+            assert "ifconfig.co" in text
+            assert "NS_ERROR_UNKNOWN_HOST" in text
+
+    def test_soul_warns_failure_replies_still_match_owner_language(self):
+        # Measured live, three times now: an all-English interview got a
+        # Portuguese reply anyway -- twice in plain-text failure messages,
+        # once inside a `clarify` tool call's question text. The rule must
+        # cover tool-produced owner-facing strings, not just plain text.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "Measured live, three times" in soul
+        assert "flipped exactly on the one turn" in soul or "failure explanation" in soul
+        assert "clarify" in soul
+
+    def test_setup_close_step_forbids_asking_the_owner_for_a_city(self):
+        # Measured live: on reaching NEXT_QUESTION=close, a run skipped
+        # straight past plow_browser_open and used the `clarify` tool to
+        # ask the owner what city they're in -- exactly what desks.md
+        # already forbids. It also wandered through five unrelated skills
+        # first. The close section needs its own explicit guard, not just
+        # a cross-reference to desks.md's rule.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        close = setup.split("## Close:", 1)[1]
+        assert "clarify" in close
+        assert "Em que cidade" in close or "do only the three numbered" in close
 
     def test_setup_treats_yes_as_the_default_hour(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()

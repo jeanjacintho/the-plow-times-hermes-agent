@@ -30,16 +30,38 @@ separately from general network access. Neither has a workaround from a
 tool call's own arguments; both are gaps in `plow_run_command`'s sandbox
 profile. `plow_browser_*` is a different code path (a real, unsandboxed
 browser Latch drives on the owner's own Mac) and isn't subject to either
-restriction.
+restriction — but measured live, even through the browser, the specific
+domain `ipapi.co` itself failed to resolve (`NS_ERROR_UNKNOWN_HOST`) on
+one owner's Mac; see the fallback list below for why this is a
+multi-provider procedure, not a single hardcoded URL.
 
-1. `plow_browser_open` with `origins: ["ipapi.co"]`, goal: "Look up the
-   owner's Mac location and timezone for the newspaper's dateline and
-   schedule."
+**A single provider domain can itself be dead on the owner's network** —
+measured live, `ipapi.co` came back `NS_ERROR_UNKNOWN_HOST` from inside
+the real browser (not a sandbox denial, an actual DNS lookup failure for
+that one hostname — privacy-minded DNS resolvers commonly blocklist
+IP-geolocation domains). So this is a short ordered list, not a single
+URL: try the next provider only if the current one's `goto` itself
+errors (DNS failure, timeout, connection refused) — never for an empty
+or malformed body, which is a real "can't determine" answer, not a
+dead domain.
+
+1. `plow_browser_open` with `origins: ["ipapi.co", "ipwho.is",
+   "ifconfig.co"]` (all three up front — you don't know yet which one
+   will resolve), goal: "Look up the owner's Mac location and timezone
+   for the newspaper's dateline and schedule."
 2. `plow_browser` `action: "goto"`, `url: "https://ipapi.co/json/"` —
-   a bare JSON endpoint, no login, no page chrome to navigate.
+   a bare JSON endpoint, no login, no page chrome to navigate. If
+   `goto` errors (DNS failure, timeout, connection refused), `goto`
+   `url: "https://ipwho.is/"` instead; if that also errors, `goto`
+   `url: "https://ifconfig.co/json"`. Stop after these three — three
+   independent domains failing DNS the same way is a real network
+   problem, not something a fourth guess will fix.
 3. `plow_browser` `action: "text"` on that session to read the raw JSON
-   body back. Take `city`, `region`, `country_name` and `timezone` from
-   it exactly as the old script did — `timezone` is the IANA name (e.g.
+   body back from whichever provider actually loaded. Take `city`,
+   `region`, `country_name` (`ipwho.is`/`ifconfig.co` differ slightly —
+   `ifconfig.co/json` uses `country` instead of `country_name`, and both
+   still return `time_zone`/`timezone` as the IANA name) and the
+   timezone field exactly as the old script did (e.g.
    `America/Sao_Paulo`); pt-setup uses it once to convert the owner's
    delivery hour, the daily paper uses `city` for the dateline. This
    runs on the owner's own Mac (same as the old curl-from-the-Mac
