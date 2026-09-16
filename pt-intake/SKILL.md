@@ -168,6 +168,13 @@ Then write it — this script is the ONLY writer for topics.json:
 
     /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" --kind one_off|subscription|section|assignment --depth quick|deep [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
 
+Adding a `section` the owner already has is a no-op: the script prints
+`{"duplicate_of": "<id>", ...}` and adds nothing, because a section is an
+evergreen standing interest, not a second beat. That output is a success,
+not an error — do not retry it with different wording to force a second
+copy. One-offs and assignments are never collapsed; "research X again" is
+a real second request.
+
 `--run-on` is required for an assignment and refused for every other kind.
 `--deliver-at` is section-only: a container-local `HH:MM` for a paper other
 than the main daily edition. Omit it for the main paper. Convert the owner's

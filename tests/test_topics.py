@@ -250,3 +250,59 @@ class TestAssignments:
         topics.main(["cancel", topic["id"]])
         (stored,) = read_store(pt_home)
         assert stored["status"] == "cancelled"
+
+
+class TestSectionsDoNotDuplicate:
+    """A `section` is evergreen, so adding one twice is never a second beat.
+
+    Measured live 2026-09-16: an owner re-ran setup a handful of times and
+    topics.json ended up with 48 sections covering five actual interests --
+    technology 10x, AI 9x, Formula 1 9x, NFL 8x, Lakers 5x plus spelling
+    variants. Every daily run researches every pending section, so the
+    duplicates are a redundant newspaper paid for in tokens.
+    """
+
+    def add(self, tmp_path, text, kind="section", depth="quick"):
+        import argparse
+
+        return topics.cmd_add(argparse.Namespace(
+            text=text, kind=kind, depth=depth, run_on=None,
+            deliver_at=None, scheduled_for=None,
+        ))
+
+    def test_adding_the_same_section_twice_keeps_one(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setattr(topics, "TOPICS_FILE", str(tmp_path / "topics.json"))
+        self.add(tmp_path, "technology")
+        capsys.readouterr()
+        rc = self.add(tmp_path, "technology")
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "duplicate" in out or "existing" in out
+        kept = [t for t in topics.load_topics() if t["kind"] == "section"]
+        assert len(kept) == 1
+
+    def test_case_and_spacing_do_not_make_a_new_section(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setattr(topics, "TOPICS_FILE", str(tmp_path / "topics.json"))
+        self.add(tmp_path, "Formula 1")
+        self.add(tmp_path, "  formula 1  ")
+        capsys.readouterr()
+        kept = [t for t in topics.load_topics() if t["kind"] == "section"]
+        assert len(kept) == 1
+
+    def test_a_genuinely_different_section_is_still_added(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setattr(topics, "TOPICS_FILE", str(tmp_path / "topics.json"))
+        self.add(tmp_path, "technology")
+        self.add(tmp_path, "Formula 1")
+        capsys.readouterr()
+        kept = [t for t in topics.load_topics() if t["kind"] == "section"]
+        assert len(kept) == 2
+
+    def test_one_offs_may_repeat(self, tmp_path, monkeypatch, capsys):
+        # "research X again" is a real second request; only evergreen
+        # sections collapse.
+        monkeypatch.setattr(topics, "TOPICS_FILE", str(tmp_path / "topics.json"))
+        self.add(tmp_path, "a copy of my paper", kind="one_off")
+        self.add(tmp_path, "a copy of my paper", kind="one_off")
+        capsys.readouterr()
+        kept = [t for t in topics.load_topics() if t["kind"] == "one_off"]
+        assert len(kept) == 2

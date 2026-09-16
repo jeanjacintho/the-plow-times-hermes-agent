@@ -204,6 +204,28 @@ def cmd_add(args):
         topic["deliver_at"] = deliver_at
     if not topic["text"]:
         sys.exit("error: --text is required and may not be blank")
+    # A section is evergreen: the same one twice is not a second beat, it is
+    # the same standing interest recorded again. Measured live: an owner
+    # re-ran setup a few times and topics.json reached 48 sections covering
+    # five actual interests (technology 10x, AI 9x, Formula 1 9x, NFL 8x,
+    # Lakers 5x). Every daily run researches every pending section, so each
+    # duplicate is a redundant block in the paper, paid for in tokens. One-offs
+    # and assignments are NOT collapsed: "research X again" is a real second
+    # request.
+    if topic["kind"] == "section":
+        wanted = topic["text"].casefold()
+        existing = next(
+            (t for t in topics
+             if t.get("kind") == "section"
+             and t.get("status") == "pending"
+             and (t.get("text") or "").strip().casefold() == wanted),
+            None,
+        )
+        if existing is not None:
+            print(json.dumps({"duplicate_of": existing["id"], "kind": "section",
+                              "text": existing.get("text"),
+                              "status": existing.get("status")}))
+            return 0
     topics.append(topic)
     save_topics(topics)
     print(json.dumps({"added": topic["id"], "kind": topic["kind"],
