@@ -95,24 +95,33 @@ class TestSoul:
         # reason this looked like a CUPS fault for so long.
         assert "local IPC" in text
 
-    def test_setup_printer_probe_has_no_osascript_fallback(self):
-        # This skill used to retry the failed probe through
-        # {"argv": ["osascript", "-e", "do shell script \"lpstat -p\""]},
-        # believing osascript reached Latch's unsandboxed runAppleScript
-        # path. It does not: that path belongs to the plow_run_applescript
-        # TOOL. Any argv given to plow_run_command -- osascript included --
-        # is a process.exec intent and runs under sandbox-exec, so the
-        # retry inherited the identical denial (network omitted => false)
-        # and reproduced the identical error one layer down
-        # ("0:27: execution error: lpstat: Bad file descriptor (1)").
-        # The retry could only ever fail. It must stay gone.
+    def test_setup_printer_probe_falls_back_to_plow_run_applescript(self):
+        # Root cause, measured three runs back to back on the owner's Mac:
+        # cupsd is launchd-on-demand, and a SANDBOXED lpstat cannot trigger
+        # the rendezvous that starts it. cupsd asleep + sandbox => "Bad file
+        # descriptor", and it stays asleep; unsandboxed => works AND starts
+        # it; sandboxed immediately after => works. That is the whole
+        # "intermittent" story, and Latch's audit log shows it directly:
+        # same argv, same "Network: allowed", exit 0 at 01:00 and exit 1 at
+        # 01:12. So network:true is necessary but NOT sufficient, and the
+        # retry must go through plow_run_applescript -- the tool that really
+        # runs outside the sandbox -- which also wakes cupsd for later runs.
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
-        probe = text[text.index('"argv": ["lpstat", "-p"]'):text.index("record_setup.py")]
-        assert "do shell script" not in probe or "Do not re-add it" in probe
-        assert "There is no second path to try." in text
-        assert "Do not re-add it." in text
-        # And the retry must not be reachable as a live instruction.
-        assert "retry once" not in text
+        assert "plow_run_applescript" in text
+        assert '"app": "System Events"' in text
+        assert "necessary but NOT sufficient" in text
+        assert "launchd" in text
+
+    def test_setup_printer_probe_never_runs_osascript_via_run_command(self):
+        # The retry that could only ever fail: osascript handed to
+        # plow_run_command is an ordinary process.exec intent and runs under
+        # sandbox-exec, so it inherited the identical denial and reproduced
+        # the identical error one layer down. Inside the printer probe it may
+        # appear ONLY as the documented warning, never as an instruction.
+        text = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        probe = text[text.index('"argv": ["lpstat", "-p"]'):text.index("record_setup.py /var/lib/hermes/pt/config.json printer.configured=true")]
+        assert probe.count('["osascript"') == 1, "osascript appears in the probe other than as the warning"
+        assert probe.index("Do not") < probe.index('["osascript"')
 
     def test_pt_shared_documents_every_script_it_ships(self):
         # Measured live, at the news-desk step: a session ran

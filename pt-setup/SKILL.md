@@ -202,18 +202,41 @@ If the result is `{"status":"pending","handle":…}`, poll
 10s, not a failed Mac). `denied` / `blocked` is the owner tapping No on
 the Latch card, not an unreachable device.
 
-**There is no second path to try.** An earlier version of this skill
-retried once through `{"argv": ["osascript", "-e", "do shell script
-\"lpstat -p\""]}`, on the belief that `osascript` reaches Latch's
-separate, genuinely unsandboxed `runAppleScript` path. It does not.
-That path belongs to the `plow_run_applescript` *tool*; any argv handed
-to `plow_run_command` — `osascript` included — is an ordinary
+**`network: true` is necessary but NOT sufficient — there is a second
+step, and it is a different tool.** `cupsd` is launched on demand by
+launchd: when no one has printed recently it is not running, and a
+*sandboxed* `lpstat` cannot trigger the launchd rendezvous that starts
+it. Measured on the owner's Mac, three runs back to back: with `cupsd`
+asleep the sandboxed call returns "Bad file descriptor" **and leaves it
+asleep**; the same call unsandboxed succeeds **and starts it**; the
+sandboxed call immediately after then succeeds too. That is the whole
+"intermittent" story — the probe works whenever something else woke
+`cupsd` first, and fails when it has idled out. Latch's own audit log
+shows exactly this: same argv, same `Network: allowed`, `exit 0` at
+01:00 and `exit 1` twelve minutes later.
+
+So if the call above comes back `exit_code` non-zero with an
+error-shaped output (`"Bad file descriptor"`, or anything that is not a
+destinations list or "No destinations added."), **retry once through
+`plow_run_applescript`** — a different tool, which really does run
+outside the sandbox:
+
+```json
+{"app": "System Events", "script": "do shell script \"lpstat -p\"", "goal": "Wake cupsd and list CUPS printers for newspaper setup (sandboxed probe failed)"}
+```
+
+Take its answer as the probe's answer. It also wakes `cupsd`, so later
+sandboxed runs start working on their own.
+
+**Do not** try this as `{"argv": ["osascript", "-e", "do shell script
+…"]}` through `plow_run_command`. An earlier version of this skill did,
+believing `osascript` reached the unsandboxed path. It does not: that
+path belongs to the `plow_run_applescript` *tool*. Any argv handed to
+`plow_run_command` — `osascript` included — is an ordinary
 `process.exec` intent and runs under `sandbox-exec` like everything
-else. So the retry inherited the very same denial, with `network`
-omitted and therefore false, and reproduced the very same error one
-layer down (`0:27: execution error: lpstat: Bad file descriptor (1)`).
-**Do not re-add it.** If the call above fails, that is a real failure to
-report, not a cue to try another argv.
+else, so that retry inherited the identical denial (with `network`
+omitted, therefore false) and reproduced the identical error one layer
+down: `0:27: execution error: lpstat: Bad file descriptor (1)`.
 
 A real "No destinations added." (or a genuine list) is a real answer.
 Latch parked or unreachable is also an answer, not a reason to skip
