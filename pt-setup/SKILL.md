@@ -25,8 +25,7 @@ as its own question, and the printer probe's answer was never even saved
 to the draft. That is exactly the failure this script exists to make
 structurally impossible:
 
-    /var/lib/hermes/skills/pt-shared/scripts/record_setup.py \
-        /var/lib/hermes/pt/config.json key=value [key=value ...]
+    /var/lib/hermes/skills/pt-shared/scripts/record_setup.py /var/lib/hermes/pt/config.json key=value [key=value ...]
 
 One line, no interpreter prefix, no shell operators — same rule SOUL.md
 gives `setup_needed.py`. `key` is a dot-path (`local_hour`,
@@ -395,8 +394,7 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
 2. **Convert** the draft `local_hour` into the container's clock. Never
    subtract hours by hand:
 
-       python3 /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py \
-           --local-hour HH:MM --owner-tz America/Sao_Paulo
+       /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py --local-hour HH:MM --owner-tz America/Sao_Paulo
 
    The printed line is `delivery.hour`. `owner.timezone` is the IANA name
    from step 1, unconverted. If the script says container TZ is empty, say
@@ -407,8 +405,7 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
    fields (`delivery.local_hour` may keep what they asked, for later
    edits). Validate:
 
-       python3 /var/lib/hermes/skills/pt-shared/scripts/pt_config_gate.py \
-           /var/lib/hermes/pt/config.json
+       /var/lib/hermes/skills/pt-shared/scripts/pt_config_gate.py /var/lib/hermes/pt/config.json
 
    **Paste the gate's output verbatim.** Empty output is pass. Then run
    `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` and

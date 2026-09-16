@@ -200,8 +200,7 @@ HTML.** Hand-write `edition.json` under the run directory:
    `run/<id>/edition.pdf`). `--chat` is optional now (the chat transcript
    is not posted). Add `--html PATH` when a printer is configured:
 
-       python3 /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> \
-           --pdf run/<id>/edition.pdf
+       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf
        # add --html PATH too when a printer is configured
 
    A malformed `edition.json` is refused by name. Fix it and re-run; never
@@ -216,8 +215,7 @@ HTML.** Hand-write `edition.json` under the run directory:
    plow-chat-platform uses for photo-only sends. Do not pipe
    `edition.chat.txt` into it:
 
-       python3 /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py \
-           --pdf run/<id>/edition.pdf
+       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf
 
    Omit `--pdf` only when `render_edition.py` produced no PDF (weasyprint
    absent or the write failed) — then pass the chat text on stdin. Pointing

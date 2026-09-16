@@ -171,6 +171,50 @@ class TestSoul:
         assert "names no command" in soul
         assert "record_setup.py" in soul and "--done" in soul
 
+    def test_no_skill_prefixes_an_interpreter_or_splits_a_command(self):
+        # SOUL.md says "do not prefix an interpreter", and every one of these
+        # scripts is executable with a shebang -- yet six SKILL.md examples
+        # across four skills opened with `python3 ` and wrapped onto a second
+        # line with a backslash. Measured live: given that shape, a run
+        # reached for execute_code to run convert_delivery.py and tripped the
+        # dangerous-command gate. An example that contradicts the rule is the
+        # bug; the rule is right.
+        for path in sorted(ROOT.glob("pt-*/SKILL.md")):
+            text = path.read_text()
+            assert "python3 /var/lib/hermes" not in text, f"interpreter prefix in {path.name}"
+            for line in text.splitlines():
+                if "/var/lib/hermes/skills/" in line and line.rstrip().endswith("\\"):
+                    raise AssertionError(f"split script invocation in {path.name}: {line.strip()}")
+
+    def test_every_bare_invoked_script_is_executable(self):
+        # The SKILL.md examples name scripts by absolute path with no
+        # interpreter, so each one must be executable and carry a shebang --
+        # otherwise the documented command simply fails. render_edition.py was
+        # mode 0644 when its `python3 ` prefix was removed, and only the
+        # Dockerfile's `-perm -u+x` chmod would have carried the bit through.
+        import re
+
+        seen = set()
+        for path in sorted(ROOT.glob("pt-*/SKILL.md")):
+            for match in re.finditer(r"/var/lib/hermes/skills/(pt-[\w-]+/scripts/[\w.]+\.py)", path.read_text()):
+                seen.add(match.group(1))
+        assert seen, "no script invocations found -- regex is wrong, test is vacuous"
+        for rel in sorted(seen):
+            script = ROOT / rel
+            assert script.exists(), f"{rel} is invoked but not in the tree"
+            assert script.read_text().startswith("#!"), f"{rel} has no shebang"
+            import os
+
+            assert os.access(script, os.X_OK), f"{rel} is invoked bare but is not executable"
+
+    def test_soul_forbids_execute_code_for_flow_commands(self):
+        # execute_code was the one route the guard never named: it enumerated
+        # -c, heredocs, shells, ||, &&, ;, printf -- so the run picked the
+        # door that wasn't on the list.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "execute_code" in soul
+        assert "shebang" in soul
+
     def test_setup_warns_against_wrapping_record_setup_in_python(self):
         # Measured live: with a real printer found (network:true worked),
         # the assistant recorded a perfectly valid printer name by

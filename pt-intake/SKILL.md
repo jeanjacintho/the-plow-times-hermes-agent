@@ -74,8 +74,7 @@ These are ordinary turns, not classifications. Do them and end:
   in `pt/config.json`, a list of "HH:MM" strings alongside `delivery.hour`.
   Ask the local time they want (in their own zone), convert it with
 
-      python3 /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py \
-          --local-hour HH:MM --owner-tz <owner.timezone from config.json>
+      /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py --local-hour HH:MM --owner-tz <owner.timezone from config.json>
 
   never mental UTC-offset math. Append (or remove) the printed hour in
   `extra_hours`, validate with
@@ -167,9 +166,7 @@ Two rules that keep the paper honest:
 
 Then write it — this script is the ONLY writer for topics.json:
 
-    /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" \
-        --kind one_off|subscription|section|assignment --depth quick|deep \
-        [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
+    /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" --kind one_off|subscription|section|assignment --depth quick|deep [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
 
 `--run-on` is required for an assignment and refused for every other kind.
 `--deliver-at` is section-only: a container-local `HH:MM` for a paper other

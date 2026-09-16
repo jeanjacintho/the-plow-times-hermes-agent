@@ -60,8 +60,20 @@ after "Is a printer set up on your Mac?" was answered "Yes", a session
 skipped this check entirely and went straight to inline Python instead
 (next paragraph) — there is no reply in this state that's exempt.
 
-Do not prefix an interpreter. Do not wrap the line in a `-c` flag, a
-shell, `||`, `&&`, `;`, or `printf`. Hermes flags those as dangerous
+Do not prefix an interpreter — not even `python3`, and not for any of
+these scripts: every one of them is executable and carries its own
+shebang, so the absolute path alone runs it. Do not wrap the line in a
+`-c` flag, a shell, `||`, `&&`, `;`, or `printf`. **Do not hand it to
+`execute_code`, or to any tool that runs code instead of a command** —
+`execute_code` calling `hermes_tools.terminal(...)` is the same gate
+with an extra wrapper, and Hermes flags it harder, because code can
+spawn subprocesses and touch files without passing through command
+approval at all. The terminal tool takes the line as written; that is
+the whole mechanism. Measured live: handed a two-line example that
+began with `python3` — contradicting this very rule — a run reached for
+`execute_code` to run `convert_delivery.py` and put an `/approve`
+prompt in front of the owner. Every command in this flow is now one
+bare line; paste it as one line. Hermes flags those as dangerous
 and the owner has to `/approve` a gate that should be silent. A reply
 with no tool call while setup is unfinished is a failure. The same rule
 applies to every other script this flow uses (`record_setup.py`,
