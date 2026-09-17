@@ -9,6 +9,15 @@ The edition is the product. Every rule here serves one idea: a reader on a
 phone (or holding a printed page) gets a short, sourced answer, and nothing
 in it is a guess.
 
+**Compiling, rendering and delivering happen silently — the owner sees the
+PDF (or the on-demand copy's own confirmation) and nothing about the steps
+that produced it.** Measured live, on an on-demand "send me a paper now"
+with the owner watching in real time: "PDF rendered successfully. Now
+posting it to chat.", "PDF posted. Now marking topics delivered and
+handling the print leg." — in English, mid-run, on a Portuguese setup. No
+step in this skill's recipe calls for a sentence like that; a tool call's
+own result is never something to narrate back.
+
 ## Write `edition.json`, never the layout
 
 You compile structured content; the layout is code, not text. **Never write

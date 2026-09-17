@@ -368,6 +368,75 @@ class TestSoul:
         assert "clarify" in close
         assert "Em que cidade" in close or "do only the three numbered" in close
 
+    def test_setup_never_narrates_its_own_step_classification(self):
+        # Measured live, TWICE: a bare "Oi" got back a paragraph classifying
+        # the message and naming the step number, in English, stacked in
+        # front of the actual Portuguese opener. Told to stop, the second
+        # "Oi" got a reworded version of the identical violation -- proof
+        # the fix has to be a mechanical check (first character of the
+        # reply must be the opener's own first character), not a sentence
+        # to avoid repeating.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "and only that message" in setup
+        assert "DRAFT:none. This is step 1a" in setup
+        assert "This is a bare greeting 'Oi' with DRAFT:none" in setup
+        assert "reply's very first character is the opener's own first character" in setup
+        assert "nothing else — never" in soul
+        assert "your own reasoning about which step" in soul
+        assert "reworded version of the same thing" in soul
+        assert "reworded" in setup
+        assert "first character must be the real answer's own" in soul
+
+    def test_soul_reapplies_language_and_silence_rules_after_setup_is_ready(self):
+        # Measured live: a whole setup interview ran correctly in Portuguese,
+        # then the very next request -- "send me a paper now", answered live
+        # with the owner watching -- narrated its entire research and print
+        # run in English. LANG: only prints while SETUP_NEEDED; READY gave
+        # no reminder to keep checking owner.language, and no skill outside
+        # pt-setup had ever been told to stay silent between tool calls.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "gives you no such" in soul
+        assert "silent between them" in soul
+        assert "--show-daily-recipe" in soul
+
+    def test_research_and_edition_run_silently_even_live(self):
+        # Same measured incident: pt-research and pt-edition were written
+        # assuming a cron-fired session with nobody watching, but an
+        # on-demand "send me a paper now" runs the identical recipe live in
+        # chat. Both must say explicitly that tool calls produce no
+        # owner-facing narration, live or cron-fired alike.
+        research = (ROOT / "pt-research" / "SKILL.md").read_text()
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "Run silently" in research
+        assert "no text between tool calls" in research
+        assert "happen silently" in edition
+        assert "PDF rendered successfully" in edition
+
+    def test_print_skill_uses_a_container_path_for_render_not_a_mac_path(self):
+        # Measured live: pt-print's own render step told the model to pass
+        # `~/Plow/...` (a Mac path, Latch's convention) as an argument to
+        # render_edition.py, which runs INSIDE THE CONTAINER -- `~` there
+        # resolves to nothing meaningful on the owner's Mac. The render
+        # step must target a container path; ~/Plow only means something
+        # inside the actual Latch write call afterward.
+        text = (ROOT / "pt-print" / "SKILL.md").read_text()
+        render_step = text[text.index("## Render the HTML"):text.index("## Ship it through Latch")]
+        assert "--html /var/lib/hermes" in render_step
+        assert "never an argument to a" in render_step
+
+    def test_print_skill_says_how_to_read_the_html_without_flailing(self):
+        # Measured live: told only to "write it there" with no word on how
+        # to get the rendered HTML into plow_write_file's content, a run
+        # tried the paginated read_file tool (silently truncated a page
+        # this size), then wc -c and a base64 dump into a temp file nothing
+        # ever consumed -- several minutes with the page still not sent.
+        text = (ROOT / "pt-print" / "SKILL.md").read_text()
+        assert "one `cat`, once" in text
+        assert "silently truncates" in text
+        assert "base64" in text
+        assert "Every step below runs silently" in text
+
     def test_setup_treats_yes_as_the_default_hour(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
         setup = (ROOT / "pt-setup" / "SKILL.md").read_text()

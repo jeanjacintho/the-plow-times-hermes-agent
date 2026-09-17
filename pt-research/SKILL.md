@@ -1,6 +1,9 @@
 ---
 name: pt-research
-description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail, plow_run_command for location/calendar/Mail.app fallback, plow_browser_* for the web), producing structured sourced notes. Runs only in a cron-fired session -- never in a live chat turn. Stops at the budget, not when it feels done.
+description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail, plow_run_command for location/calendar/Mail.app fallback, plow_browser_* for the web), producing structured sourced notes. Runs in a cron-fired session, or live in
+chat when the owner asks for a copy right now (pt-dashboard's
+--show-daily-recipe) -- either way, tool calls only, no owner-facing text
+until the run is done. Stops at the budget, not when it feels done.
 ---
 
 # pt-research — gather sourced notes within the budget
@@ -10,6 +13,17 @@ produce notes: for every claim, the source URL and a one-line quote or
 paraphrase. You are not writing the edition here — pt-edition compiles these
 notes into `edition.json` — so resist the pull toward polish. Claims, sources,
 and honesty about what you could not find are the deliverable.
+
+**Run silently — every tool call in this skill is invisible to the owner,
+never a sentence saying what you're about to do or just did.** Measured
+live: an on-demand "send me a paper now" ran this exact skill live in chat,
+with the owner present, and dozens of English progress lines ("Location
+confirmed: Blumenau, SC. Now let's get calendar, weather, mail...", "Only
+preseason games listed so far... good enough for a quick pass.") reached
+them in real time — in a cron-fired run nobody sees this, but a live
+on-demand run has the owner watching for every one of them. Whether this
+run is cron-fired or live, the rule is the same: no text between tool calls,
+in any language.
 
 ## The budget is the contract
 

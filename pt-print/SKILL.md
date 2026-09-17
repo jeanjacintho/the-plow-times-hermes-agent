@@ -9,6 +9,12 @@ description: Best-effort paper delivery — render the edition as a single-page 
 best-effort: no failure in this skill blocks a delivery, re-runs research,
 or delays the chat edition — it only costs the page.
 
+**Every step below runs silently.** No "rendering now", no "sending to the
+printer", no restating what a tool call just returned — only the outcome
+messages this file actually names (the failure line below, or nothing at
+all on success, since the chat edition already said the paper is on its
+way). A tool result is never something to narrate back to the owner.
+
 ## When to run at all
 
 Read `pt/config.json`. If `printer.configured` is not exactly `true` — false,
@@ -17,15 +23,21 @@ about printing in the edition; the chat edition is the whole delivery.
 
 ## Render the HTML — through the renderer, never by hand
 
-The page is the renderer's output, not something this skill lays out:
+The page is the renderer's output, not something this skill lays out.
+`render_edition.py` runs **inside this container**, so render it to a
+container path — the run directory pt-edition already used is fine:
 
-    /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --html ~/Plow/pt/edition-<date>.html
+    /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --html /var/lib/hermes/pt/run/edition.html
 
-Same `edition.json`, same `template.html`, so the printed page is
-byte-for-byte the same layout every day and shows exactly what the chat
-edition showed. **Do not write HTML here and do not reformat the renderer's
-page** — the whole reason the layout is code is that the model must never
-assemble markup.
+**`~/Plow/...` is a Mac path (Latch's convention), never an argument to a
+script running in this container** — `~` here resolves to something on
+this container's own filesystem, not the owner's Mac, no matter what the
+path looks like. It only means something once you're inside a Latch call
+(the write in the next section). Same `edition.json`, same `template.html`,
+so the printed page is byte-for-byte the same layout every day and shows
+exactly what the chat edition showed. **Do not write HTML here and do not
+reformat the renderer's page** — the whole reason the layout is code is
+that the model must never assemble markup.
 
 The escape discipline lives in `render_edition.py` now, and it is
 load-bearing, not cosmetic: every web-derived string (headline, body, tag,
@@ -49,8 +61,24 @@ done until `lp` exited 0, poll a returned handle to `ready`, and treat
     2. plow_run_command argv=["lp","-d","<printer.name from config>","<abs path to that file>"]
 
 `plow_run_command` runs argv directly — no shell, no `~` expansion; step 2's
-path is the absolute path to the file step 1 just wrote, and `-d` gets the
-exact CUPS name `pt-setup` probed.
+path is the absolute path to the file step 1 just wrote (the Mac's own
+`~/Plow/...`, reported back by step 1), and `-d` gets the exact CUPS name
+`pt-setup` probed. **Now `~/Plow/...` is correct** — it names where step 1
+writes on the owner's Mac.
+
+**Getting the HTML into step 1's `content` — one read, verbatim, nothing
+else.** `content` takes the page's literal text; there is no path-transfer
+option, because Latch's tools run on the Mac and this container's own
+filesystem means nothing to them. Read the file the render step just wrote
+with **the terminal tool, one `cat`, once** — not the paginated `read_file`
+tool (it silently truncates a page this size) and not a workaround like
+base64-encoding it first (`content` wants the HTML text itself, not an
+encoding of it, so base64 only adds a step you'd have to undo). Measured
+live: told only to "write it there" with no word on how to get the content
+into the call, a run tried `read_file` (truncated), then `wc -c` and a
+base64 dump into a temp file (a dead end — nothing consumes that file), and
+still hadn't sent the page to Latch several minutes in. One `cat`'s full
+output, pasted as `content` exactly as printed, is the whole mechanism.
 
 ## When it fails — and it is allowed to
 
