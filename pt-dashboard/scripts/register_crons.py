@@ -632,10 +632,24 @@ def _run(argv):
 
 def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, env=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    # The script takes no flags; parse_args(None) on the CLI is sys.argv[1:]
-    # == empty, but in-process callers pass [] so argparse never reads
-    # the test runner's argv.
-    parser.parse_args(argv if argv is not None else [])
+    # Registration itself takes no flags; parse_args(None) on the CLI is
+    # sys.argv[1:] == empty, but in-process callers pass [] so argparse never
+    # reads the test runner's argv.
+    parser.add_argument(
+        "--show-daily-recipe", action="store_true",
+        help="print the daily edition's run steps and exit, without touching "
+             "any job -- the on-demand copy runs exactly this",
+    )
+    args = parser.parse_args(argv if argv is not None else [])
+
+    # Printed from daily_prompt(), the same function the cron job is built
+    # from, so an on-demand copy can never drift from the 7am run. Answered
+    # before every precondition below: asking what the steps ARE needs no
+    # hermes binary, no config and no topic store, and must stay answerable
+    # on a machine where registration itself would refuse.
+    if args.show_daily_recipe:
+        print(daily_prompt("daily"))
+        return 0
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
@@ -707,4 +721,9 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # sys.argv[1:] explicitly: main(argv=None) parses [] on purpose, so an
+    # in-process caller never reads the test runner's argv -- which also means
+    # the CLI has to hand its arguments over itself, or no flag can ever be
+    # passed from a terminal (measured: --show-daily-recipe was silently
+    # ignored and the run fell through to registration).
+    sys.exit(main(sys.argv[1:]))

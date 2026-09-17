@@ -135,6 +135,18 @@ or can say in a line.
 | "X in tomorrow's paper" / "Y in Friday's paper" | `assignment` | one research pass whose result appears **only** in that day's paper |
 | "research X, tell me later" | `one_off` | its own edition, delivered once |
 | "update me on Y every night" / "keep an eye on Z" | `subscription` | its own edition, re-run on the delivery hour |
+| "send me the paper now" / "generate a copy I can read right now" | **not a topic** | run the daily edition on demand — see below |
+
+**"Give me a copy of my paper" is not a subject to research.** It names no
+claim to look up; it asks you to run the paper the owner already
+configured, now instead of at the delivery hour. Filing it as a topic
+produces an edition *about the phrase*: measured live, it became a
+`one_off` reading "A current copy of my daily newspaper", the research pass
+went looking for that on the web, and the paper came back with the standing
+desks and a news block saying "No separate news desk in this quick pass" —
+while 48 saved sections sat unread, because a one-off edition carries only
+its own topic. Do not add a topic. Run the daily edition's own steps, which
+`pt-edition` documents under **On demand**.
 
 A subscription/section is anything with a cadence in it. A one-off/assignment
 is a single ask. When the owner genuinely cannot be read as one or the other,

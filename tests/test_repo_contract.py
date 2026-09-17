@@ -167,6 +167,24 @@ class TestSoul:
         # ...and it must survive into the config a scheduled edition reads.
         assert '"language"' in (ROOT / "pt-setup" / "scripts" / "finalize_setup.py").read_text()
 
+    def test_on_demand_copy_is_routed_and_not_filed_as_a_topic(self):
+        # Measured live: "generate a copy for me to read right now" had no
+        # route -- pt-intake's five rows are all "a new subject to research"
+        # -- so it became a one_off topic reading "A current copy of my daily
+        # newspaper" and the research pass went looking for that phrase on the
+        # web. The paper came back with the standing desks and a news block
+        # saying "No separate news desk in this quick pass", while 48 saved
+        # sections went unread: a one-off edition carries only its own topic.
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "not a topic" in intake, "the on-demand row is missing from the routing table"
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "## On demand" in edition
+        # It must POINT at the cron's own recipe, never restate it: a second
+        # copy of those steps is a second thing to keep in sync.
+        assert "--show-daily-recipe" in edition
+        crons = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
+        assert '"--show-daily-recipe"' in crons
+
     def test_render_step_gives_complete_commands_not_a_merge(self):
         # Measured live: the render step showed ONE command plus a comment
         # ("# add --html PATH too when a printer is configured"), so a run

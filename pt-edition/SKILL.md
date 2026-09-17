@@ -193,6 +193,27 @@ HTML.** Hand-write `edition.json` under the run directory:
   A thin weather or calendar desk is still printed; it is a department of
   the paper, not optional filler.
 
+## On demand — "send me the paper now"
+
+The owner asking for a copy right now is **not** a new topic (see
+`pt-intake`'s routing table). It runs the same edition the 7am cron runs,
+sections and all. Do not retype those steps from memory and do not write a
+shorter version: ask for them, so an on-demand copy can never drift from
+what the scheduled run actually does.
+
+    /var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --show-daily-recipe
+
+That prints the daily run's steps verbatim, from the same function the cron
+job is built from. Follow what it prints, exactly, including the run lock —
+the lock is what stops an on-demand copy from racing the scheduled paper and
+delivering a hollow edition to both. Printing the recipe registers nothing
+and changes no job.
+
+The one difference: the recipe ends with `NO_REPLY` so the cron's
+`--deliver` does not send the transcript. A copy the owner asked for in chat
+still ends with `NO_REPLY` — step 2 below already sent them the PDF, and a
+transcript after it is the wall of text they did not ask for.
+
 ## Render and deliver
 
 1. Run the renderer — it is the only thing that writes the edition. Two

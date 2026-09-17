@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from conftest import load_module
+from conftest import ROOT, load_module
 
 crons = load_module("pt_crons", "pt-dashboard/scripts/register_crons.py")
 
@@ -673,3 +673,52 @@ class TestPrune:
         assert str(run / "t_dead") in removed
         assert not (run / "t_dead").exists()
         assert (run / "t_live").exists()
+
+class TestShowDailyRecipe:
+    """The on-demand copy runs the SAME recipe the 7am cron runs.
+
+    Measured live 2026-09-16: asked for "a copy to read right now", the agent
+    had no route for it -- pt-intake's table has five rows and all five are
+    "a new subject to research" -- so it filed a one_off topic whose text was
+    "A current copy of my daily newspaper" and went to research that phrase
+    on the web. The edition came back with the standing desks and a news
+    block reading "No separate news desk in this quick pass". The owner's 48
+    saved sections were never consulted, because a one-off edition carries
+    only its own topic. The recipe that researches every active section
+    existed the whole time -- inside daily_prompt(), reachable only by the
+    cron. This flag makes it reachable, from the one source, so the skill's
+    copy can never drift from what the cron actually runs.
+    """
+
+    def test_flag_prints_exactly_the_cron_recipe(self, capsys):
+        rc = crons.main(["--show-daily-recipe"])
+        assert rc == 0
+        printed = capsys.readouterr().out.strip()
+        assert printed == crons.daily_prompt("daily").strip()
+
+    def test_recipe_covers_the_sections_the_one_off_path_skipped(self, capsys):
+        crons.main(["--show-daily-recipe"])
+        printed = capsys.readouterr().out
+        assert "every active news section" in printed
+        assert "run_lock.py acquire" in printed
+        assert "--pdf" in printed
+
+    def test_showing_the_recipe_touches_no_jobs_and_needs_no_container(self, tmp_path, capsys):
+        # It must be safe to ask for the recipe anywhere: no hermes binary
+        # check, no config read, no job registration, nothing written.
+        jobs = tmp_path / "jobs.json"
+        rc = crons.main(["--show-daily-recipe"], jobs_path=str(jobs))
+        assert rc == 0
+        assert not jobs.exists()
+
+
+class TestCliPassesItsArguments:
+    def test_module_entry_point_forwards_sys_argv(self):
+        # main(argv=None) deliberately parses [] so an in-process caller never
+        # reads pytest's own argv. That means the CLI entry MUST hand over
+        # sys.argv[1:] explicitly, or no flag can ever be passed from a
+        # terminal. Caught in the container: `register_crons.py
+        # --show-daily-recipe` ignored the flag and fell through to job
+        # registration, dying on `import topics`.
+        source = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
+        assert "main(sys.argv[1:])" in source, "the CLI entry drops its arguments"
