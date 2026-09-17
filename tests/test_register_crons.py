@@ -722,3 +722,34 @@ class TestCliPassesItsArguments:
         # registration, dying on `import topics`.
         source = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
         assert "main(sys.argv[1:])" in source, "the CLI entry drops its arguments"
+
+
+class TestPrintLegSurvivesIntoTheRunPrompts:
+    """Every run prompt must carry pt-edition's step 4, not just step 2.
+
+    Measured live 2026-09-17: the owner had printer.configured true and a
+    working queue (virtual_printer_online), the run rendered edition.html for
+    it, and nothing was ever sent to the printer -- Latch's audit for the
+    whole run shows weather, calendar and Gmail and not one `lp`. Cause: both
+    prompt builders name "pt-edition/SKILL.md step 2" (the chat PDF) and stop
+    there, so step 4 -- hand the print leg to pt-print when the config says a
+    printer exists -- was never reached by any scheduled or on-demand run.
+    Enumerating one step silently drops the others.
+    """
+
+    def test_daily_prompt_carries_the_print_leg(self):
+        p = crons.daily_prompt("daily")
+        assert "pt-print" in p, "the daily run never hands off the print leg"
+        assert "printer.configured" in p
+
+    def test_hour_paper_prompt_carries_the_print_leg(self):
+        p = crons.paper_prompt("paper1", "12:00")
+        assert "pt-print" in p, "the hour paper never hands off the print leg"
+        assert "printer.configured" in p
+
+    def test_print_leg_is_best_effort_and_after_the_chat_edition(self):
+        # pt-print's own contract: the chat edition is the delivery, paper is
+        # the bonus, and a print failure must never re-run research or block
+        # anything. A prompt that made it a requirement would invert that.
+        p = crons.daily_prompt("daily")
+        assert "best-effort" in p or "best effort" in p

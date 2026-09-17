@@ -139,7 +139,14 @@ def daily_prompt(lock_name):
     that belongs to the MAIN paper (no deliver_at, or deliver_at equal to
     delivery.hour in pt/config.json — not a section that owns another paper
     hour) and every assignment due today, compile one edition.json, render it,
-    deliver, then release the lock.
+    deliver, hand the print leg to pt-print when the config says a printer
+    exists, then release the lock.
+
+    The print leg is spelled out here because naming only "step 2" silently
+    dropped it: measured live, an owner with printer.configured true and a
+    working queue had edition.html rendered for the printer on every run and
+    nothing ever sent to it -- Latch's audit for a whole run carries no `lp`
+    at all. Enumerating one of pt-edition's steps drops the rest.
     """
     return (
         f"Run the daily edition now, in one session. First run pt-shared's "
@@ -158,6 +165,11 @@ def daily_prompt(lock_name):
         f"desk), renders it (--pdf, then "
         f"post_to_chat.py --pdf only per pt-edition/SKILL.md step 2 -- do not skip the "
         f"PDF leg just because this is a rerun; do not pipe the chat text). "
+        f"Then, only if pt/config.json says printer.configured is true, hand the "
+        f"print leg to pt-print per pt-edition/SKILL.md step 4 -- it renders the "
+        f"same edition.json as HTML and ships it to the owner's Mac through "
+        f"Latch. That leg is best-effort: any failure there costs only the "
+        f"page, never the chat edition, and never re-runs research. "
         f"Mark every news topic it carried: sections "
         f"delivered then pending, assignments delivered. Do not mark desks. "
         f"Release the lock "
@@ -182,6 +194,11 @@ def paper_prompt(lock_name, hour):
         f"run/desk-*. Then run pt-edition for that batch -- desks plus those "
         f"news notes, renders it (--pdf, then post_to_chat.py --pdf only per "
         f"pt-edition/SKILL.md step 2 -- do not pipe the chat text). "
+        f"Then, only if pt/config.json says printer.configured is true, hand the "
+        f"print leg to pt-print per pt-edition/SKILL.md step 4 -- it renders the "
+        f"same edition.json as HTML and ships it to the owner's Mac through "
+        f"Latch. That leg is best-effort: any failure there costs only the "
+        f"page, never the chat edition, and never re-runs research. "
         f"Mark every news topic it carried: sections delivered then pending. "
         f"Do not mark desks. Do not mark assignments. Release the lock "
         f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>. "
