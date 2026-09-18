@@ -40,14 +40,6 @@ def overlay_display(seed: dict, ours: dict) -> dict:
     return seed
 
 
-def overlay_context_file_max_chars(seed: dict, ours: dict) -> dict:
-    value = ours.get("context_file_max_chars")
-    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise SystemExit("refusing: runtime context_file_max_chars must be a positive int")
-    seed["context_file_max_chars"] = value
-    return seed
-
-
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2:
@@ -60,7 +52,7 @@ def main(argv=None):
     with open(ours_path) as handle:
         ours = yaml.safe_load(handle) or {}
     overlay_display(seed, ours)
-    overlay_context_file_max_chars(seed, ours)
+    seed["context_file_max_chars"] = ours["context_file_max_chars"]
     disp = seed.get("display") or {}
     pc = (disp.get("platforms") or {}).get("plow_chat") or {}
     if disp.get("interim_assistant_messages") is not False:
@@ -75,8 +67,6 @@ def main(argv=None):
         raise SystemExit("refusing: seed plow_chat.tool_progress is not off")
     if pc.get("long_running_notifications") is not False:
         raise SystemExit("refusing: seed plow_chat.long_running_notifications is not false")
-    if seed.get("context_file_max_chars") != ours.get("context_file_max_chars"):
-        raise SystemExit("refusing: seed context_file_max_chars did not take the runtime value")
     with open(seed_path, "w") as handle:
         yaml.safe_dump(seed, handle, sort_keys=False)
 

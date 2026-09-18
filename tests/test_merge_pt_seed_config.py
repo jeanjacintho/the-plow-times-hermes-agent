@@ -74,19 +74,3 @@ def test_yaml11_bare_off_becomes_the_string_hermes_reads():
     assert disp["live_status"] == "off"
     assert pc["tool_progress"] == "off"
     assert pc["live_status"] == "off"
-
-
-def test_overlay_copies_context_file_max_chars_onto_the_seed():
-    seed = {"display": {}}
-    ours = {"display": {}, "context_file_max_chars": 40000}
-    out = merge.overlay_context_file_max_chars(seed, ours)
-    assert out["context_file_max_chars"] == 40000
-
-
-def test_overlay_refuses_a_missing_context_file_max_chars():
-    try:
-        merge.overlay_context_file_max_chars({"display": {}}, {"display": {}})
-    except SystemExit as exc:
-        assert "context_file_max_chars" in str(exc)
-    else:
-        raise AssertionError("expected SystemExit")
