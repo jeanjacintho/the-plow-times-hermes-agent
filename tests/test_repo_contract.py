@@ -39,6 +39,15 @@ class TestSoul:
             "silence this assertion"
         )
 
+    def test_soul_fits_hermes_context_file_limit(self):
+        # Measured live: prompt_builder truncated SOUL.md at 20 000 because
+        # context_file_max_chars never reached plow-seed. The merge stamps
+        # the runtime value; this bound uses the same number so a longer
+        # persona fails here instead of only in docker compose logs.
+        check = load_module("soul_fits_context", "checks/soul_fits_context.py")
+        n, limit = check.check(ROOT)
+        assert n <= limit, f"SOUL.md is {n} chars; Hermes truncates above {limit}"
+
     def test_setup_opener_does_not_ask_timezone(self):
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert "A que horas quer o jornal da manhã?" in text
@@ -919,6 +928,7 @@ class TestDeployment:
         # stamped there, not only in runtime/config.yaml.
         assert "merge_pt_seed_config.py" in dockerfile
         assert "interim_assistant_messages: false" in dockerfile
+        assert "context_file_max_chars: 40000" in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()
