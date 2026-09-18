@@ -57,7 +57,11 @@ def _read_stamp(dest):
 
 
 def _write_stamp(dest, digest):
-    (Path(dest) / STAMP).write_text(digest + "\n", encoding="utf-8")
+    # The home is agent-writable: unlink first so a stamp the agent swapped
+    # for a symlink is replaced, never written through on the host deploy.
+    stamp = Path(dest) / STAMP
+    stamp.unlink(missing_ok=True)
+    stamp.write_text(digest + "\n", encoding="utf-8")
 
 
 def _is_empty_dir(path):
