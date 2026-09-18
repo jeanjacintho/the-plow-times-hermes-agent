@@ -89,11 +89,13 @@ def _language_from_json(path):
 
 
 def owner_language(config_path):
-    lang = _language_from_json(config_path)
+    # Issue #4: draft first, same as setup_needed.language_line. Config-first
+    # posted English --busy during a Portuguese re-setup interview.
+    sibling = Path(str(config_path)).with_name(".setup-draft.json")
+    lang = _language_from_json(sibling)
     if lang:
         return lang
-    sibling = Path(str(config_path)).with_name(".setup-draft.json")
-    return _language_from_json(sibling)
+    return _language_from_json(config_path)
 
 
 def _load_stamp(path):
