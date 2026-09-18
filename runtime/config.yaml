@@ -85,6 +85,9 @@ agent:
 # edition.pdf. Skills telling the model to stay quiet are not a gate —
 # these keys are. Wait lines go through chat_status.py (a POST), not
 # assistant text. Gateway restart is required after this block changes.
+# plow-init recopies seed display over this file every boot — the image
+# must stamp the same block into /opt/hermes/plow-seed/config.yaml
+# (merge_pt_seed_config.py) or a recreate restores the loud defaults.
 display:
   tool_progress: off
   interim_assistant_messages: false

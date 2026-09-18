@@ -914,6 +914,10 @@ class TestDeployment:
         assert "plow-seed/config.yaml" in dockerfile
         assert "anthropic/claude-sonnet-5" in dockerfile
         assert "moonshotai/kimi-k2.5" not in dockerfile
+        # plow-init writes seed display every boot; quiet chat has to be
+        # stamped there, not only in runtime/config.yaml.
+        assert "merge_pt_seed_config.py" in dockerfile
+        assert "interim_assistant_messages: false" in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()

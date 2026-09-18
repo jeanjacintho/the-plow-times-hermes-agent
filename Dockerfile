@@ -18,6 +18,19 @@ FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-51f83158a70a383f03a4d03dbd8b
 # every start. The base pins anthropic/claude-sonnet-5 there; leave that
 # id. runtime/config.yaml must declare the same model so a first-boot
 # home is not a different catalog entry before the recopy.
+#
+# plow-init also writes seed['display'] whole on every boot. The base
+# seed leaves plow_chat interim messages at the Hermes default (on) and
+# long_running_notifications true — measured live after the Sonnet
+# recreate: the model named every tool in the owner's DM. Overlay the
+# newspaper quiet block onto the seed; copying runtime/config.yaml into
+# /var/lib/hermes is not enough (agent-home shadows it).
+COPY runtime/config.yaml /tmp/pt-runtime-config.yaml
+COPY image/merge_pt_seed_config.py /opt/plow/merge_pt_seed_config.py
+RUN /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
+      /opt/hermes/plow-seed/config.yaml /tmp/pt-runtime-config.yaml \
+ && grep -q 'interim_assistant_messages: false' /opt/hermes/plow-seed/config.yaml \
+ && grep -q 'long_running_notifications: false' /opt/hermes/plow-seed/config.yaml
 
 # Boot also recomposes $HOME/SOUL.md from this seed. COPY to the home is
 # shadowed by the volume and then overwritten; the newspaper identity has
