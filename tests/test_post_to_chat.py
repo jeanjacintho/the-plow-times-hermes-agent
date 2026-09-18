@@ -128,3 +128,12 @@ class TestMaybePrint:
 
         out = post.maybe_print(str(pdf), str(cfg), runner=runner)
         assert "page not printed" in out
+
+    @pytest.mark.parametrize("result, line", [
+        ("page printed on JornalVirtual", None),
+        ("skipped: printer.configured is not true", None),
+        ("error: page not printed — lp 1: no such printer\nmore detail",
+         "page not printed — lp 1: no such printer; next scheduled run retries"),
+    ])
+    def test_only_a_failed_print_owes_the_owner_a_chat_line(self, result, line):
+        assert post.print_failure_line(result) == line

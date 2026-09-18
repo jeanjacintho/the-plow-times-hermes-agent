@@ -182,6 +182,16 @@ def maybe_print(pdf_path, config_path=None, runner=None):
     return text or "page not printed — empty print result"
 
 
+def print_failure_line(result):
+    """The one chat line a failed print owes the owner; None if it printed or skipped.
+
+    The turn ends in NO_REPLY, so a failure left on stdout never reaches them.
+    """
+    if "page not printed" not in result:
+        return None
+    return result.splitlines()[0].removeprefix("error: ")[:200] + "; next scheduled run retries"
+
+
 def compose_payload(text, attachment_uid=None):
     """One chat message: PDF-only when attached, otherwise the chat edition.
 
@@ -270,7 +280,11 @@ def main():
     after_posted()
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
-        print(maybe_print(args.pdf))
+        printed = maybe_print(args.pdf)
+        print(printed)
+        line = print_failure_line(printed)
+        if line:
+            post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", {"body": line})
     else:
         print(f"chat edition posted ({len(text)} chars)")
 

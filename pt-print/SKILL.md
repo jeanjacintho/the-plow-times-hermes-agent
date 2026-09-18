@@ -52,8 +52,9 @@ such printer", the script exiting non-zero — ends the same way:
 
 - the chat edition already delivered is the outcome; say nothing that
   implies the whole delivery failed,
-- report one line in chat: "page not printed — <reason>; next scheduled run
-  retries",
+- `post_to_chat.py` posts the one line itself ("page not printed — <reason>;
+  next scheduled run retries"), because the turn ends in `NO_REPLY`; do not
+  repeat it,
 - do not retry in a loop, do not queue the page, do not re-run research to
   "fix" it. The next scheduled run recomposes and re-delivers on its own.
 

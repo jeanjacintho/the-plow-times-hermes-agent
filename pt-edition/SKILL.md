@@ -304,8 +304,8 @@ transcript after it is the wall of text they did not ask for.
    `printer.configured` is true (the same PDF, nothing else to render). Do
    **not** call `pt-print` or `print_edition.py` after this — measured live,
    the model posted the PDF and skipped the print script. A print failure
-   prints `page not printed — …` on stdout and still leaves the chat
-   edition delivered.
+   posts one `page not printed — …` line to chat by itself and still leaves
+   the chat edition delivered; your final response stays `NO_REPLY`.
 
    A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
    (you do not have to run that script yourself). When this turn ends, the
