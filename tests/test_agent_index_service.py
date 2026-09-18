@@ -50,8 +50,8 @@ def run_service(tmp_path, environment: dict[str, str], seconds: float = 2.0,
     Given `status` -- what the stub client's `status` command exits with -- the
     three absolute paths this image guarantees are pointed at the sandbox
     instead, so the script's OWN branching runs against a client that answers.
-    That is the only way to see what it does on the second hour, which is where
-    the registration gate is either right or minting a key an hour forever.
+    That is the only way to see what it does on the second round, which is where
+    the registration gate is either right or minting a key every round forever.
     """
     env_dir = tmp_path / "run/s6/container_environment"
     env_dir.mkdir(parents=True)
@@ -146,10 +146,10 @@ def invocations(tmp_path) -> list[str]:
 
 
 @pytest.mark.parametrize(("status", "invoked"), [
-    # 0 -- registered, so the hour is a report and nothing else. This is the row
+    # 0 -- registered, so the round is a report and nothing else. This is the row
     # the script this replaces got wrong: it tested a path the client only ever
     # DELETES, so it was true on every pass and every tenant minted a fresh key
-    # on the hour.
+    # every round.
     (0, [""]),
     # 3 -- not registered, and a gate that never registers is a tenant with no
     # page: register once, then report with what that stored.
@@ -165,7 +165,7 @@ def test_it_registers_exactly_when_the_client_says_this_install_is_not(tmp_path,
 def test_state_the_client_cannot_read_touches_the_index_not_at_all(tmp_path):
     """2 is not 3. State the client could not READ is not state to register
     over: minting against a new install id strands every row the old one
-    published. So the hour is skipped entirely -- no registration, no report."""
+    published. So the round is skipped entirely -- no registration, no report."""
     said = run_service(tmp_path, {"PLOW_AGENT_TOKEN": "plow_atokenshapedthing",
                                   "AGENT_ID": "theplowtimes"}, status=2)
     assert invocations(tmp_path) == [], "it touched the Index on a state it cannot read"
