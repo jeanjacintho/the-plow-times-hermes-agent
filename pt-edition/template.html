@@ -276,24 +276,6 @@
     line-height: 1.45; margin: 0 0 14px;
     padding: 0; border-bottom: none;
   }
-  /* The lead's body, if a caller still requests columns. The daily
-     paper paginates the lead as ordinary paragraphs so leftover space
-     on the front page fills instead of jumping the whole block.
-     break-inside stays AUTO: avoid on this table was the jump. */
-  .lead-body {
-    display: table; width: 100%; table-layout: fixed;
-  }
-  .lb-col {
-    display: table-cell; vertical-align: top;
-    padding: 0 11px;
-  }
-  .lb-col:first-child { padding-left: 0; }
-  .lb-col:last-child { padding-right: 0; }
-  .lb-col + .lb-col { border-left: 1px solid var(--hairline); }
-  .lb-col p {
-    margin: 0 0 8px; font-size: 11.5px; line-height: 1.55;
-    text-align: justify; hyphens: auto; -webkit-hyphens: auto;
-  }
   /* Drop cap: a real <span class="dropcap"> emitted by html_section()
      -- not a ::first-letter pseudo-element, which measured broken with
      float in WeasyPrint (the second character printed underneath the
@@ -375,25 +357,11 @@
      whole rows -- measured 2026-09-18, headline on page 1, body on
      page 2, sudoku alone on page 3. WeasyPrint 62.3 still cannot split
      a table cell without painting the continuation in the wrong
-     column, so this well is not a table. .news-cols stays defined for
-     older custom templates. --------------------------------------- */
+     column, so this well is not a table. -------------------------- */
   .news-well .section {
     break-inside: auto; page-break-inside: auto;
     orphans: 2; widows: 2;
   }
-  .news-cols {
-    display: table; width: 100%; table-layout: fixed;
-  }
-  .news-col {
-    display: table-cell; vertical-align: top; width: 33.3%;
-    padding: 0 11px;
-  }
-  .news-col:first-child { padding-left: 0; }
-  .news-col:last-child { padding-right: 0; }
-  .news-col + .news-col { border-left: 1px solid var(--hairline); }
-  /* Empty padding cells keep their rule too: the vertical column lines
-     then run the full row height even on a short last row, the way a
-     broadsheet's column rules do. */
 
   .section {
     border: none;
@@ -403,7 +371,6 @@
     border-bottom: 1px solid var(--hairline);
     orphans: 2; widows: 2;
   }
-  .news-col > .section:last-child { border-bottom: none; }
   .section h2 {
     font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
     font-size: 18.5px; font-weight: 900; line-height: 1.12;
