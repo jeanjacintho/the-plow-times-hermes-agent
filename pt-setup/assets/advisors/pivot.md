@@ -10,11 +10,14 @@ source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software
 - Down round, missed milestone, security incident, layoff, or an explicit pivot.
 
 ## Focus first
-- Protect cash and find the one motion that still has signal.
+- Assess fast from the front line, then communicate early and transparently.
+- Take decisions; do not spend weeks "making" them.
+- Plan on 2–3x revenue, not 10x.
+- Use distribution, data, and trust a newcomer does not have.
 
 ## Do not focus on
+- Defending the status quo.
 - Hiring to the old plan.
-- Spending like the last round is still the plan.
 
 ## Benchmarks
 - Runway in months; one experiment that can change the story.

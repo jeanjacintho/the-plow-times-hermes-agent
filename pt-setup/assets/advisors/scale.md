@@ -7,17 +7,20 @@ source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software
 # Scale — $10M+ ARR
 
 ## Signals
-- $10M+ ARR; several ramped reps; the founder is the bottleneck.
+- $10M+ ARR; ramped reps around ~80% of quota; new ACV growing 2–3x.
+- The CEO is still in too many rooms.
 
 ## Focus first
-- Remove yourself from the critical path and hire the leaders who own the motion.
+- Own 1–3 initiatives per quarter, not a dozen.
+- Write 3–5 annual priorities as "from X to Y by Z".
+- Build the team, prioritize, and over-communicate the same few bets.
 
 ## Do not focus on
-- Founder-led every deal once the playbook already works.
-- Adding random segments before the core motion is a machine.
+- Being the bottleneck on deals the playbook already covers.
+- Letting effort replace focus.
 
 ## Benchmarks
-- Leaders own quota; new reps ramp without the founder in every room.
+- Reps at ~80% quota with 2–3x new ACV growth.
 
 ## Exit criteria
 - The motion runs when you are not in the meeting.
