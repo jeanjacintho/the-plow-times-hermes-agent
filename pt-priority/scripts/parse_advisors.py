@@ -3,7 +3,8 @@
 
 usage: parse_advisors.py <dir-listing.json> <out.json>
 dir-listing.json is {"files": [{"name": "...", "text": "..."}]}.
-Prints ADVISORS:<n> ERRORS:<n>. A file without YAML frontmatter is an error, never a crash.
+Prints ADVISORS:<n> ERRORS:<n>. README.md and files with no frontmatter
+are skipped. Frontmatter without an advisor is an error, never a crash.
 """
 from __future__ import annotations
 
@@ -90,13 +91,16 @@ def parse(files):
     advisors, errors = [], []
     for item in files or []:
         name = str((item or {}).get("name") or "unknown.md")
+        if name.lower() == "readme.md":
+            continue
         text = (item or {}).get("text")
         if not isinstance(text, str):
-            errors.append(f"{name}: no frontmatter")
             continue
         meta, body = _frontmatter(text)
-        if not meta or not str(meta.get("advisor") or "").strip():
-            errors.append(f"{name}: no frontmatter")
+        if meta is None:
+            continue
+        if not str(meta.get("advisor") or "").strip():
+            errors.append(f"{name}: missing advisor")
             continue
         advisors.append({
             "file": name,

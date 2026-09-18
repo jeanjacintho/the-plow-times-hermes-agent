@@ -72,7 +72,8 @@ does not, and every run fails on the import.
   gathered. Called bare:
   `/var/lib/hermes/skills/pt-priority/scripts/parse_advisors.py <dir-listing.json> <out.json>`
   The listing is `{"files":[{"name","text"}]}`. Prints `ADVISORS:<n> ERRORS:<n>`.
-  A file without frontmatter is an error, never a crash.
+  README.md and files with no frontmatter are skipped. Frontmatter without
+  an advisor is an error, never a crash.
 - `pt-priority/scripts/infer_stage.py` — company stage from the parsed
   prioritization file. Called bare:
   `/var/lib/hermes/skills/pt-priority/scripts/infer_stage.py <file.json> <out.json>`

@@ -14,9 +14,20 @@ def test_parses_frontmatter_and_sections():
     assert out["errors"] == []
 
 
-def test_file_without_frontmatter_is_an_error_not_a_crash():
-    out = pa.parse([{"name": "loose.md", "text": "# Notes\nsomething"}])
-    assert out["advisors"] == [] and out["errors"] == ["loose.md: no frontmatter"]
+def test_readme_and_files_without_frontmatter_are_skipped():
+    out = pa.parse([
+        {"name": "README.md", "text": "# Advisor notes\nseeded"},
+        {"name": "loose.md", "text": "# Notes\nsomething"},
+        {"name": "blueprint.md", "text": (FIX / "blueprint.md").read_text()},
+    ])
+    assert out["errors"] == []
+    assert [a["file"] for a in out["advisors"]] == ["blueprint.md"]
+
+
+def test_broken_frontmatter_is_an_error():
+    out = pa.parse([{"name": "bad.md", "text": "---\nstages: blueprint\n---\n## Focus first\n- Move\n"}])
+    assert out["advisors"] == []
+    assert out["errors"] == ["bad.md: missing advisor"]
 
 
 def test_stages_list_and_any():
