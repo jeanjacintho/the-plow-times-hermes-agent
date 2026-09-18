@@ -110,6 +110,7 @@ COPY pt-dashboard/ /opt/hermes/skills/pt-dashboard/
 COPY pt-edition/   /opt/hermes/skills/pt-edition/
 COPY pt-intake/    /opt/hermes/skills/pt-intake/
 COPY pt-print/     /opt/hermes/skills/pt-print/
+COPY pt-priority/  /opt/hermes/skills/pt-priority/
 COPY pt-research/  /opt/hermes/skills/pt-research/
 COPY pt-setup/     /opt/hermes/skills/pt-setup/
 COPY pt-shared/    /opt/hermes/skills/pt-shared/

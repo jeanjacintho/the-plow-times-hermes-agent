@@ -40,6 +40,9 @@ does not, and every run fails on the import.
   did not authenticate)
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
   body) to the owner's home channel, or the chat text if there is no PDF
+- `scripts/textnorm.py` — library only (imported by `pt-priority` history and
+  validation). Normalizes owner text so quotes and similar priorities compare
+  without punctuation; never invoked as a CLI.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:
