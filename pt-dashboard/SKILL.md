@@ -64,8 +64,10 @@ itself writes — never the text of `hermes cron list`) and creates only what
 is absent. It also **reconciles drift**: a registered job whose persisted
 `schedule` or `skill` no longer matches the spec — the owner changed the
 delivery hour or lead, the prompt's contract moved — is removed and recreated.
-Without that, "already present, skipped" would mean a changed delivery hour
-is silently ignored forever. Drift is judged only against fields hermes
+`--deliver` is expanded for every create and recreate **before** any
+`cron remove`, so a blank `PLOW_HOME_CHANNEL` refuses without deleting
+the morning job. Without that, "already present, skipped" would mean a
+changed delivery hour is silently ignored forever. Drift is judged only against fields hermes
 actually persisted; an absent field is left alone, not recreated on a guess.
 It removes `pt-daily-edition-<n>` whose number exceeds the current
 `delivery.extra_hours` count, `pt-paper-HHMM` jobs whose hour no longer has
