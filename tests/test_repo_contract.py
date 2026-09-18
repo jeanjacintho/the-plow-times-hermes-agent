@@ -166,6 +166,8 @@ class TestSoul:
         assert "LANG:" in gate
         # ...and it must survive into the config a scheduled edition reads.
         assert '"language"' in (ROOT / "pt-setup" / "scripts" / "finalize_setup.py").read_text()
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "record_owner_language.py" in intake
 
     def test_on_demand_copy_is_routed_and_not_filed_as_a_topic(self):
         # Measured live: "generate a copy for me to read right now" had no
@@ -484,11 +486,12 @@ class TestSoul:
         # Measured live: a whole setup interview ran correctly in Portuguese,
         # then the very next request -- "send me a paper now", answered live
         # with the owner watching -- narrated its entire research and print
-        # run in English. LANG: only prints while SETUP_NEEDED; READY gave
-        # no reminder to keep checking owner.language, and no skill outside
-        # pt-setup had ever been told to stay silent between tool calls.
+        # run in English. READY used to print no LANG line; it now does,
+        # and no skill outside pt-setup had ever been told to stay silent
+        # between tool calls.
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
-        assert "gives you no such" in soul
+        assert "still prints" in soul and "LANG:" in soul
+        assert "record_owner_language.py" in soul
         assert "silent between them" in soul
         assert "--show-daily-recipe" in soul
 
@@ -722,7 +725,7 @@ class TestSkills:
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
-                     "seal_chat_session.py"):
+                     "record_owner_language.py", "seal_chat_session.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_record_setup_is_executable_and_referenced(self):

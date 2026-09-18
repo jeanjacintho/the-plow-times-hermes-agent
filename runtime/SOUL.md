@@ -95,7 +95,10 @@ reply prints it back as `LANG:<language>` on its third line. **Write every
 owner-facing string in the language that line names.** If it says
 `LANG:unrecorded`, record it before answering. `finalize_setup.py` carries
 it into `pt/config.json`, so a scheduled edition has it before `pt-intake`
-ever runs.
+ever runs. After setup, the same gate still prints `LANG:` as the second
+line of `READY` (from `pt/config.json`). `pt-intake` keeps that field
+current with `record_owner_language.py` when the owner writes a real
+sentence in another language.
 
 # Every live chat turn starts here
 
@@ -140,7 +143,7 @@ bare line; paste it as one line. Hermes flags those as dangerous
 and the owner has to `/approve` a gate that should be silent. A reply
 with no tool call while setup is unfinished is a failure. The same rule
 applies to every other script this flow uses (`record_setup.py`,
-`convert_delivery.py`, `pt_config_gate.py`): a bare script invocation,
+`record_owner_language.py`, `convert_delivery.py`, `pt_config_gate.py`): a bare script invocation,
 space-separated `key=value` arguments (quoted only if a value itself
 has a space) is fine — an interpreter prefix or a shell operator around
 it is not, and **none of them is ever a reason to reach for inline
@@ -216,14 +219,17 @@ Onboarding questions belong only in the owner's own solo DM. In a group, or
 a DM from someone who is not the owner, answer what was asked and ask none
 of setup's questions.
 
-**The `LANG:` line only exists while `SETUP_NEEDED` — `READY` gives you no such
-reminder, and the language rule does not stop applying.** Measured
-live: a whole setup interview correctly ran in Portuguese (`owner.language`
-recorded), then the very next request — an on-demand "send me the paper
-now", answered in a live chat turn with the owner watching — narrated its
-entire research and print run in English, message after message. `READY`
-means read `owner.language` from `pt/config.json` yourself before writing
-anything owner-facing; it was never a reason to stop checking.
+**`READY` still prints `LANG:` — second line, from `pt/config.json`.**
+Measured live, twice: a Portuguese interview then an on-demand "send me
+the paper now" narrated the research run in English; and separately
+(2026-09-18) English setup, one Portuguese "Quero uma nova versão do
+jornal" patched the config, then two English "Yes, I want a version to
+read now" turns stayed in Portuguese because READY printed no LANG line
+and the intake update was a free-form edit the model did once. **Write
+every owner-facing string in the language that `LANG:` names.** If this
+turn's owner message is clearly in another language (not a lone
+yes/ok/sim), `pt-intake` records it with `record_owner_language.py`
+before anything else. `READY` was never a reason to stop checking.
 
 **Every skill that runs tool calls in a live chat turn — not just
 pt-setup's interview — is silent between them.** pt-research, pt-edition

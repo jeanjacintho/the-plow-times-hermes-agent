@@ -72,29 +72,42 @@ def draft_line(config_path):
     return "DRAFT:" + (",".join(fields) if fields else "none")
 
 
-def language_line(config_path):
-    """Third gate line: the language the owner writes in, as recorded.
+def _language_from(data):
+    if not isinstance(data, dict):
+        return None
+    owner = data.get("owner")
+    language = owner.get("language") if isinstance(owner, dict) else None
+    if isinstance(language, str) and language.strip():
+        return language.strip()
+    return None
 
-    This gate is the first action of EVERY reply while setup is unfinished,
-    so this line puts the owner's language in front of the model on every
-    single turn -- as a recorded fact, not a rule it has to hold in mind
-    while composing. Measured live four times: a whole interview written in
-    English, and a reply came back in another language -- three times on a
-    failure explanation, once on the printer success branch, in Dutch. Each
-    of those branches had (or lacked) its own prose reminder; attaching one
-    more reminder to one more branch is how the first three were "fixed".
+
+def language_line(config_path):
+    """LANG line for every gate reply: draft first (setup), then config (READY).
+
+    This gate is the first action of EVERY live-chat reply, not only while
+    setup is unfinished. Measured live 2026-09-18: READY printed no LANG
+    line, so after one Portuguese turn the model kept writing Portuguese
+    even when the owner switched back to English. The recorded language
+    has to ride back on READY too, from pt/config.json, with the in-progress
+    draft still winning while SETUP_NEEDED.
     """
-    draft_path = Path(config_path).with_name(".setup-draft.json")
+    config_path = Path(config_path)
+    draft_path = config_path.with_name(".setup-draft.json")
     try:
         draft = json.loads(draft_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return "LANG:unrecorded"
-    if not isinstance(draft, dict):
-        return "LANG:unrecorded"
-    owner = draft.get("owner")
-    language = owner.get("language") if isinstance(owner, dict) else None
-    if isinstance(language, str) and language.strip():
-        return "LANG:" + language.strip()
+        draft = None
+    from_draft = _language_from(draft)
+    if from_draft:
+        return "LANG:" + from_draft
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        config = None
+    from_config = _language_from(config)
+    if from_config:
+        return "LANG:" + from_config
     return "LANG:unrecorded"
 
 
@@ -107,6 +120,7 @@ def main(argv=None):
         print(language_line(path))
     else:
         print("READY")
+        print(language_line(path))
     return 0
 
 

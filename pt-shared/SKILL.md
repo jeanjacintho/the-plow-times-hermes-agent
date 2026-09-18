@@ -20,7 +20,8 @@ does not, and every run fails on the import.
 - `scripts/pt_config_gate.py` — the single definition of a valid `pt/config.json`;
   prints failing invariant names, empty stdout is pass
 - `scripts/setup_needed.py` — live-chat first-run gate: prints `SETUP_NEEDED`
-  or `READY` (missing file is needed)
+  then `DRAFT:` and `LANG:`, or `READY` then `LANG:` (from `pt/config.json`;
+  missing file is needed)
 - `scripts/record_setup.py` — the ONLY way `pt-setup` writes
   `.setup-draft.json`. Call it bare, space-separated, never through an
   interpreter: `record_setup.py <config.json path> key=value [key=value …]`.
@@ -35,6 +36,11 @@ does not, and every run fails on the import.
   act, and the only supported way to delete `.setup-draft.json`. It is
   idempotent and refuses an unfinished interview. **This bullet is the contract: it exists so no run ever has to open
   the script to find out how to call it.**
+- `scripts/record_owner_language.py` — the ONLY way live chat updates
+  `owner.language` after (and during) setup. Bare:
+  `record_owner_language.py <config.json path> English`. Prints `LANG:<language>`.
+  Setup-unfinished → draft; `READY` → `pt/config.json`. Skip only on a
+  lone yes/ok/sim. **This bullet is the contract.**
 - `scripts/bearer_http.py` — one bearer JSON call that never follows a redirect
   (a forwarded Authorization header is the credential walking to a host the API
   did not authenticate)

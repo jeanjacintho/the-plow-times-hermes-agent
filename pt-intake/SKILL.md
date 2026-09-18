@@ -29,18 +29,30 @@ that to `pt-setup`. Do not treat a greeting as a casual hello — load
 `pt-setup` instead. Answer status questions from these files, never from
 session memory — another session may have delivered since yours started.
 
-**Keep `owner.language` current, silently, before anything else this turn.**
+**Keep `owner.language` current, silently, before classifying this turn.**
 It is the plain-English name of the language the owner's OWN message (not a
 quoted page, not a name) is written in — "Portuguese", "English", "Mandarin
 Chinese". A scheduled edition has no live message to read a language from,
-so this field is what it falls back to; without it kept current, a paper
-scheduled overnight would default to whatever pt-edition guesses instead of
-the language the owner actually wants. If this turn's language differs from
-`pt/config.json`'s stored `owner.language` (or the key is absent), update it
-— write the config, validate with the gate — before classifying the rest of
-the turn. This is not a confirmation to ask about and not a change to
-narrate: just keep the field true, the same way you never announce reading
-`topics.json`.
+so this field is what overnight paper uses.
+
+Do not hand-edit `pt/config.json`. After `setup_needed.py` prints `READY`
+and `LANG:…`, if this turn's owner message is clearly in another language
+than that line, record it:
+
+    /var/lib/hermes/skills/pt-shared/scripts/record_owner_language.py /var/lib/hermes/pt/config.json English
+
+Same command with `Portuguese` (or whatever they actually wrote). Then
+write every owner-facing string in the `LANG:` that script prints.
+
+Skip the call when the message is only an acknowledgement — `yes`, `y`,
+`ok`, `okay`, `sim`, `no`, `não`, `nao` — with no other words. A full
+sentence in another language is not an acknowledgement: measured live,
+"Quero uma nova versão do jornal" correctly switched English → Portuguese,
+then "Yes, I want a version to read now" stayed Portuguese because this
+step was a free-form patch the model ran once and skipped the other way.
+
+`LANG:unrecorded` with a real sentence: run the script before answering.
+This is not a confirmation to ask about and not a change to narrate.
 
 ## Status questions — answer from the file, then stop
 
