@@ -775,6 +775,7 @@ class TestSkills:
         assert "PRIORITY_BLOCK" in template
         assert "kicker" in template
         assert "desks-row" in template
+        assert "break-inside: avoid" in template
         assert "body_cols=1" in renderer
         assert "news-well" in template
         # Never display:none an element that gets a background from

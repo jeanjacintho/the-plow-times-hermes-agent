@@ -147,7 +147,11 @@ HTML.** Hand-write `edition.json` under the run directory:
   pick the one that actually matches the event (a call is `call`, not
   `meeting`; a standing reminder like "dentist at 3pm" is `reminder`;
   anything that doesn't fit the other four is `note`, never guessed as
-  `meeting` to avoid picking). `messages` is a non-empty list of
+  `meeting` to avoid picking). The printed strip shows at most six
+  events (issue #7: a taller calendar box jumped the whole desks row
+  to the next page); list every event in `schedule` anyway — that list
+  is the calendar source of truth, and the chat edition serializes it
+  in full. Extra rows are dropped only in print. `messages` is a non-empty list of
   `{ "sender", "subject" }` — no icon field, since every letter draws
   the same envelope mark. `games` is a non-empty list of `{ "home",
   "away", "status", "home_score", "away_score", "note" }` — `status`
@@ -155,8 +159,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   are required (integers) for `live`/`final` and meaningless for
   `scheduled`; `note` is optional free text (a kickoff time for
   `scheduled`, a clock/round for `live`, e.g. "62'", nothing needed for
-  `final`). All three still need the prose `body` filled in as before
-  (the chat edition has no icons to fall back on); include the
+  `final`). Mail and sports still need the prose `body` filled in (the
+  chat edition has no icons to fall back on). A calendar desk with
+  `schedule` can leave `body` as a short headline; include the
   structured field only when the notes actually give you distinct
   events, senders or games to list, not as a mandatory duplicate of the
   prose.
