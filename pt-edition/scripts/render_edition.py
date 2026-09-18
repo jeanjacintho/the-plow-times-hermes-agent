@@ -459,8 +459,13 @@ def chat_section(section):
     headline = (section.get("headline") or "").strip()
     if headline:
         lines.append(f"  {headline}")
-    body = section.get("body", "").strip()
-    lines.append(f"  {body}" if body else "  (nothing usable in the budget this time)")
+    schedule = section.get("schedule") if desk == "calendar" else None
+    if schedule:
+        for item in schedule:
+            lines.append(f"  {item['time'].strip()} {item['title'].strip()}")
+    else:
+        body = section.get("body", "").strip()
+        lines.append(f"  {body}" if body else "  (nothing usable in the budget this time)")
     sources = dedupe(section.get("sources", []))
     if sources:
         lines.append("  Sources: " + ", ".join(sources))
@@ -684,7 +689,7 @@ def schedule_list(items):
     note, so it is escaped like any other section field.
 
     Print only the first SCHEDULE_STRIP_MAX rows (issue #7). Extra
-    events stay in `body` for the chat edition.
+    events stay on `schedule` for the chat edition.
     """
     rows = []
     for item in items[:SCHEDULE_STRIP_MAX]:

@@ -536,7 +536,7 @@ class TestHtml:
         # Issue #7: a full Google day made the desks-row (break-inside:
         # avoid, WeasyPrint table-split workaround) jump to the next
         # page and leave the previous one blank. Cap the print strip;
-        # the JSON/chat edition still carries every event in `body`.
+        # chat serializes the uncapped `schedule` (body can omit a row).
         items = [
             {"time": f"{8 + i}:00", "title": f"Meeting {i}", "icon": "meeting"}
             for i in range(8)
@@ -554,6 +554,7 @@ class TestHtml:
         assert "Meeting 6" not in page
         assert "Meeting 7" not in page
         chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Meeting 6" in chat
         assert "Meeting 7" in chat
 
     def test_mail_messages_draw_an_envelope(self):
