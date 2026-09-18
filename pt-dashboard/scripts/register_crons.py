@@ -149,8 +149,9 @@ def daily_prompt(lock_name):
     at all. Enumerating one of pt-edition's steps drops the rest.
     """
     return (
-        f"Run the daily edition now, in one session. First run pt-shared's "
-        f"run_lock.py acquire --name {lock_name}-<today's date in the owner's "
+        f"Run the daily edition now, in one session. First run "
+        f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
+        f"--name {lock_name}-<today's date in the owner's "
         f"zone> --stale-minutes 120; if its output is 'held', another run owns "
         f"this slot -- say NO_REPLY and stop. Then run pt-research: first the "
         f"standing desks (location via Latch then weather; calendar today and "
@@ -173,7 +174,8 @@ def daily_prompt(lock_name):
         f"Mark every news topic it carried: sections "
         f"delivered then pending, assignments delivered. Do not mark desks. "
         f"Release the lock "
-        f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>. "
+        f"with /var/lib/hermes/skills/pt-shared/scripts/run_lock.py release "
+        f"--name the same {lock_name}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
 
@@ -181,8 +183,9 @@ def daily_prompt(lock_name):
 def paper_prompt(lock_name, hour):
     """Run prompt for a focused paper at ``hour`` (a section deliver_at)."""
     return (
-        f"Run the {hour} paper now, in one session. First run pt-shared's "
-        f"run_lock.py acquire --name {lock_name}-<today's date in the owner's "
+        f"Run the {hour} paper now, in one session. First run "
+        f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
+        f"--name {lock_name}-<today's date in the owner's "
         f"zone> --stale-minutes 120; if its output is 'held', another run owns "
         f"this slot -- say NO_REPLY and stop. Then run pt-research: first the "
         f"standing desks (location via Latch then weather; calendar today and "
@@ -201,7 +204,8 @@ def paper_prompt(lock_name, hour):
         f"page, never the chat edition, and never re-runs research. "
         f"Mark every news topic it carried: sections delivered then pending. "
         f"Do not mark desks. Do not mark assignments. Release the lock "
-        f"with pt-shared's run_lock.py release --name the same {lock_name}-<date>. "
+        f"with /var/lib/hermes/skills/pt-shared/scripts/run_lock.py release "
+        f"--name the same {lock_name}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
 

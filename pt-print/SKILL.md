@@ -57,16 +57,17 @@ skill, do not `cat` the HTML, and do not paste the page into a tool
 argument.** Measured live: stuffing ~43k of HTML into a Latch write call
 killed the LLM stream (incomplete chunked read) and `lp` never ran, while
 the chat PDF still posted because a script read the file from disk. Paper
-is the same shape. One bare command; the script reads the HTML, writes it
-through Latch, and runs `lp` with `network: true` (CUPS talks to `cupsd`
-over a local socket — same grant as the printer probe):
+is the same shape. One bare command; the script reads sibling
+`edition.pdf` (the same file the chat already posted — measured live,
+JornalVirtual refused `text/html`), writes it through Latch, and runs `lp`
+with `network: true` (CUPS talks to `cupsd` over a local socket — same
+grant as the printer probe):
 
     /var/lib/hermes/skills/pt-print/scripts/print_edition.py /var/lib/hermes/pt/run/edition.html /var/lib/hermes/pt/config.json
 
-Date for `~/Plow/pt/edition-<date>.html` comes from the sibling
-`edition.json`. The Mac path, the CUPS name, pending-handle polling, and
-the AppleScript retry if sandboxed `lp` returns "Bad file descriptor" all
-live in that script — never retyped here.
+Date comes from sibling `edition.json`. The PDF, the Mac path, the CUPS
+name, pending-handle polling, and the AppleScript retry if sandboxed `lp`
+returns "Bad file descriptor" all live in that script — never retyped here.
 
 ## When it fails — and it is allowed to
 

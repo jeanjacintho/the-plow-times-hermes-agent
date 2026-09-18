@@ -2,33 +2,35 @@
 
 The printer sits on the owner's Mac (`lp` targets CUPS there), and this
 container has no printer of its own — so when `pt/config.json` says
-`printer.configured: true`, `pt-print` ships the edition HTML through Latch:
+`printer.configured: true`, `pt-print` ships the edition PDF through Latch:
 the same "reach the owner's machine, never this container" pattern every
 Latch-using skill draws. The Mac authorises each action; that is the point.
 
 **The model does not perform this handoff.** Measured live, pasting the
 rendered HTML into a Latch tool argument killed the LLM stream and `lp`
-never ran. `print_edition.py` is the whole mechanism: it reads the HTML
-from a container path, calls Latch over HTTP with `DOMO_DEVICE_UID` /
-`DOMO_MCP_TOKEN`, and prints. One command:
+never ran. A later run that did reach `lp` failed because the queue
+refused HTML (`Unsupported document-format "text/html"`). `print_edition.py`
+ships sibling `edition.pdf` instead: Latch `write_file` is text, so the
+bytes ride as base64 and are decoded on the Mac before `lp`. One command:
 
     /var/lib/hermes/skills/pt-print/scripts/print_edition.py /var/lib/hermes/pt/run/edition.html /var/lib/hermes/pt/config.json
 
 Inside the script, in this order and nothing else. Paths under `~/Plow`
-auto-approve on the Mac, which is why the HTML is written there.
+auto-approve on the Mac.
 
-    1. plow_write_file  path=~/Plow/pt/edition-<date>.html  content=<the HTML file's bytes>
-    2. plow_run_command argv=["lp","-d","<printer name>","/Users/<user>/Plow/pt/edition-<date>.html"]  network=true
+    1. plow_write_file  path=~/Plow/pt/edition-<date>.pdf.b64  content=<base64 of edition.pdf>
+    2. plow_run_command argv=["base64","-D","-i","<abs .b64>","-o","<abs .pdf>"]
+    3. plow_run_command argv=["lp","-d","<printer name>","<abs .pdf>"]  network=true
 
 `plow_run_command` takes an **argv array and runs it directly — there is no
-shell**. `~` is never expanded, so step 2's path is the real absolute path
-the write returned. `network: true` is required: `lp` reaches `cupsd` over
-a local Unix socket, and Latch's sandbox only grants that with the flag
+shell**. `~` is never expanded, so later steps use the absolute path the
+write returned. `network: true` on `lp` is required: `lp` reaches `cupsd`
+over a local Unix socket, and Latch's sandbox only grants that with the flag
 (the same "Bad file descriptor" failure as the printer probe). If sandboxed
 `lp` still returns that error, the script retries once through
 `plow_run_applescript` (unsandboxed), which also wakes `cupsd`.
 
-**The print is not done until step 2 exited 0.** A CUPS job id in its output
+**The print is not done until step 3 exited 0.** A CUPS job id in its output
 is the receipt. Any other exit — `lp: unable to print file`, `no such
 printer`, a deny on the Mac — is a failed step: the script exits non-zero;
 do not pretend the page printed.

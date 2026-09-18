@@ -703,6 +703,20 @@ class TestShowDailyRecipe:
         assert "run_lock.py acquire" in printed
         assert "--pdf" in printed
 
+    def test_recipe_names_run_lock_as_a_bare_absolute_path(self):
+        # Same incident: "pt-shared's run_lock.py" with no path sent the
+        # model looking for an invocation, then wrapping a shell. The
+        # cron recipe is what --show-daily-recipe prints; it has to be a
+        # command the terminal can run as written.
+        printed = crons.daily_prompt("daily")
+        assert (
+            "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire"
+        ) in printed
+        assert (
+            "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py release"
+        ) in printed
+        assert "python3" not in printed
+
     def test_showing_the_recipe_touches_no_jobs_and_needs_no_container(self, tmp_path, capsys):
         # It must be safe to ask for the recipe anywhere: no hermes binary
         # check, no config read, no job registration, nothing written.

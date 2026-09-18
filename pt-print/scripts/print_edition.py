@@ -5,22 +5,25 @@ Measured live 2026-09-17: pt-print told the model to `cat` edition.html and
 paste that ~43k page into plow_write_file's `content`. The LLM stream died
 mid tool-call (RemoteProtocolError: incomplete chunked read); `lp` never
 ran. The chat PDF still arrived because post_to_chat.py reads the file
-itself. This script is that same shape for paper: one bare command, HTML
-stays in the container file, Latch is called over HTTP with DOMO_* from
-the process environment.
+itself. This script is that same shape for paper.
+
+A later run that DID reach `lp` failed because the CUPS queue refused HTML
+(`Unsupported document-format "text/html"` on JornalVirtual). The file
+shipped is sibling edition.pdf. Latch write_file is text, so the PDF rides
+as base64 and is decoded on the Mac before `lp`.
 
 Usage:
 
     print_edition.py <edition.html> <config.json>
 
-Date for the Mac path comes from a sibling edition.json (`date`), so the
-invocation stays one line with no extra flags. Skips with exit 0 when
-printer.configured is not true (missing config included). Any real Latch
-or `lp` failure exits non-zero with `page not printed` in the message.
+Date comes from sibling edition.json. Skips with exit 0 when
+printer.configured is not true. Any real Latch or `lp` failure exits
+non-zero with `page not printed` in the message.
 """
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -37,7 +40,9 @@ from bearer_http import NoRedirect, require  # noqa: E402
 
 MCP_TIMEOUT = 60
 POLL_SECONDS = 120
-PATH_RE = re.compile(r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.html)")
+PATH_RE = re.compile(
+    r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.(?:html|pdf)(?:\.b64)?)"
+)
 
 
 def printer_name(config_path):
@@ -57,14 +62,18 @@ def printer_name(config_path):
     return name.strip()
 
 
-def read_html(path):
+def pdf_beside(html_path):
+    return str(Path(html_path).resolve().parent / "edition.pdf")
+
+
+def read_pdf(path):
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        data = Path(path).read_bytes()
     except OSError:
-        sys.exit(f"error: html path cannot be read: {path}")
-    if not text.strip():
-        sys.exit(f"error: html is empty: {path}")
-    return text
+        sys.exit(f"error: pdf path cannot be read: {path}")
+    if not data:
+        sys.exit(f"error: pdf is empty: {path}")
+    return data
 
 
 def edition_date(html_path):
@@ -79,8 +88,18 @@ def edition_date(html_path):
     return date.strip()
 
 
-def mac_html_path(date):
-    return f"~/Plow/pt/edition-{date}.html"
+def mac_pdf_path(date):
+    return f"~/Plow/pt/edition-{date}.pdf"
+
+
+def mac_b64_path(date):
+    return f"~/Plow/pt/edition-{date}.pdf.b64"
+
+
+def pdf_path_from_b64(b64_path):
+    if b64_path.endswith(".b64"):
+        return b64_path[:-4]
+    return b64_path
 
 
 def decode_mcp_body(content_type, raw):
@@ -191,20 +210,47 @@ def require_lp_ok(parsed):
 
 
 def ship(html_path, printer, date, call_tool, sleep=time.sleep):
-    html = read_html(html_path)
-    dest = mac_html_path(date)
+    pdf = read_pdf(pdf_beside(html_path))
+    dest_b64 = mac_b64_path(date)
 
     def poll(handle):
         return call_tool("plow_get_result", {"handle": handle})
 
-    wrote = settle(call_tool("plow_write_file", {"path": dest, "content": html}), poll, sleep=sleep)
-    abs_path = written_path(wrote)
+    wrote = settle(
+        call_tool(
+            "plow_write_file",
+            {"path": dest_b64, "content": base64.b64encode(pdf).decode("ascii")},
+        ),
+        poll,
+        sleep=sleep,
+    )
+    abs_b64 = written_path(wrote)
+    abs_pdf = pdf_path_from_b64(abs_b64)
+    decoded = settle(
+        call_tool(
+            "plow_run_command",
+            {
+                "argv": ["base64", "-D", "-i", abs_b64, "-o", abs_pdf],
+                "read_paths": [abs_b64],
+                "write_paths": [abs_pdf],
+                "goal": "Decode the edition PDF on the owner's Mac",
+            },
+        ),
+        poll,
+        sleep=sleep,
+    )
+    if isinstance(decoded, dict) and decoded.get("exit_code") not in (0, "0", None):
+        sys.exit(
+            f"error: page not printed — base64 {decoded.get('exit_code')}: "
+            f"{decoded.get('output', decoded)}"
+        )
     lp = settle(
         call_tool(
             "plow_run_command",
             {
-                "argv": ["lp", "-d", printer, abs_path],
+                "argv": ["lp", "-d", printer, abs_pdf],
                 "network": True,
+                "read_paths": [abs_pdf],
                 "goal": "Print today's Plow Times edition",
             },
         ),
@@ -212,7 +258,7 @@ def ship(html_path, printer, date, call_tool, sleep=time.sleep):
         sleep=sleep,
     )
     if is_bfd(lp):
-        cmd = f"lp -d {shlex.quote(printer)} {shlex.quote(abs_path)}"
+        cmd = f"lp -d {shlex.quote(printer)} {shlex.quote(abs_pdf)}"
         lp = settle(
             call_tool(
                 "plow_run_applescript",
@@ -306,7 +352,7 @@ class LatchClient:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Write the edition HTML to the owner's Mac and print it."
+        description="Write the edition PDF to the owner's Mac and print it."
     )
     parser.add_argument("html")
     parser.add_argument("config")
@@ -320,7 +366,7 @@ def main(argv=None):
         return
     date = args.date or edition_date(args.html)
     if args.dry_run:
-        print(f"dry-run: would write {mac_html_path(date)} and lp -d {printer}")
+        print(f"dry-run: would write {mac_pdf_path(date)} and lp -d {printer}")
         return
 
     base = os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip() or "https://api.plow.co"

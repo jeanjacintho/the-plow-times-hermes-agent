@@ -41,7 +41,11 @@ does not, and every run fails on the import.
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
   body) to the owner's home channel, or the chat text if there is no PDF
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
-  two daily-paper runs can never race and deliver a hollow edition
+  two daily-paper runs can never race and deliver a hollow edition.
+  Called bare, never through an interpreter:
+  `/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name NAME [--stale-minutes N]`
+  and the matching `.../run_lock.py release --name NAME`. Prints one word
+  (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
 - `references/config.example.json` — the config contract `pt_config_gate.py`
   enforces (including the optional `delivery.lead_minutes`, default 0, and
   optional `mail.configured`, default off)

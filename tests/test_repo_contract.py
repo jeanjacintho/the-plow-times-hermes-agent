@@ -294,6 +294,28 @@ class TestSoul:
 
             assert os.access(script, os.X_OK), f"{rel} is invoked bare but is not executable"
 
+    def test_shebang_entry_scripts_are_executable_even_if_only_the_recipe_names_them(self):
+        # Measured live 2026-09-17: an on-demand "exemplar impresso agora"
+        # never started research. The daily recipe says "run pt-shared's
+        # run_lock.py" (no interpreter). That file was 0644; bash returned
+        # Permission denied (126). The model then opened the source and
+        # wrapped python3, which tripped Hermes' /approve gate in a loop.
+        # SKILL.md-only scanning misses this: the lock lives in
+        # register_crons.py's printed recipe, not in a SKILL.md example.
+        skip = {"bearer_http.py", "sudoku.py"}  # imported, never invoked bare
+        missing = []
+        for path in sorted(ROOT.glob("pt-*/scripts/*.py")):
+            if path.name in skip:
+                continue
+            if not path.read_text().startswith("#!"):
+                continue
+            if not os.access(path, os.X_OK):
+                missing.append(str(path.relative_to(ROOT)))
+        assert not missing, (
+            "shebang entry scripts must be executable; on-demand paper "
+            f"stops at Permission denied otherwise: {missing}"
+        )
+
     def test_soul_forbids_execute_code_for_flow_commands(self):
         # execute_code was the one route the guard never named: it enumerated
         # -c, heredocs, shells, ||, &&, ;, printf -- so the run picked the
