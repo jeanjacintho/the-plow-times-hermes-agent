@@ -167,7 +167,7 @@ def validate(context, p, streak=0):
             continue
         for line in section["text"].splitlines():
             item = line.strip().lstrip("-*").strip()
-            if item and textnorm.similar(p["priority"], item):
+            if item and textnorm.similar(p["priority"], item, textnorm.AVOID_THRESHOLD):
                 errors.append(f"matches_not_now: owner parked '{item}'")
     for advisor in context.get("advisors") or []:
         for section in advisor.get("sections") or []:
@@ -175,7 +175,7 @@ def validate(context, p, streak=0):
                 continue
             for line in section.get("text", "").splitlines():
                 item = line.strip().lstrip("-*").strip()
-                if item and textnorm.similar(p["priority"], item):
+                if item and textnorm.similar(p["priority"], item, textnorm.AVOID_THRESHOLD):
                     errors.append(f"matches_stage_avoid: stage says not '{item}'")
     if streak >= 3:
         errors.append("repeated_3_days: this was #1 for 3 days; choose another and say so in chat")

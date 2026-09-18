@@ -119,6 +119,34 @@ def test_matches_stage_avoid():
     assert "matches_stage_avoid" in codes(p, context=ctx)
 
 
+BLUEPRINT_AVOID = copy.deepcopy(CONTEXT)
+BLUEPRINT_AVOID["advisors"] = [{
+    "file": "blueprint.md", "advisor": "A", "stages": ["blueprint"], "domain": "b2b",
+    "sections": [{"id": "avoid", "kind": "avoid", "heading": "Do not focus on",
+                  "text": "- Adding reps before the ramp model works\n"
+                          "- Leading with the product instead of the need"}],
+}]
+
+
+@pytest.mark.parametrize("priority", [
+    "Add reps before the ramp model works",
+    "Hire another rep before the ramp model works",
+    "Lead with the product in tomorrow's demo",
+])
+def test_stage_avoid_blocks_paraphrase(priority):
+    assert "matches_stage_avoid" in codes(bad(priority=priority), context=BLUEPRINT_AVOID)
+
+
+@pytest.mark.parametrize("priority", [
+    "Write the Confirm Need one-pager with Ana",
+    "Prepare the 2pm partner call",
+    "Ship the pricing page copy",
+    "Review the product roadmap with engineering",
+])
+def test_stage_avoid_allows_unrelated_work(priority):
+    assert "matches_stage_avoid" not in codes(bad(priority=priority), context=BLUEPRINT_AVOID)
+
+
 def test_why_needs_file_or_advisor():
     p = bad(why=[{"text": "Partner call today", "source": "calendar:evt_1"}])
     assert "why_needs_file_or_advisor" in codes(p)
