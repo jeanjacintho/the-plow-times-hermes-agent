@@ -30,6 +30,9 @@ tell application "Calendar"
 		repeat with ev in evList
 			set s to start date of ev
 			set e to end date of ev
+			-- Today's rows carry no date, so clamp to today like events.json.
+			if s < dayStart then set s to dayStart
+			if s ≤ dayEnd and e > dayEnd then set e to dayEnd
 			set t to summary of ev as text
 			set isAll to allday event of ev
 			set sh to hours of s as integer
