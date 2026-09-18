@@ -12,3 +12,4 @@ plow-credentials
 
 # knightwatch materializes declared review siblings here during a review.
 .siblings/
+.mockup/

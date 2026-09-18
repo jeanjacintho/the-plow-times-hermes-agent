@@ -210,6 +210,65 @@ class TestValidate:
                                   "{{PRIORITY_BLOCK}}")
         assert html == ""
 
+    def test_news_tag_renders_as_a_kicker_above_the_headline(self):
+        html = render.render_html(edition(sections=[{
+            "kind": "section", "title": "Markets rally", "desk": "news",
+            "tag": "Economia", "body": "Stocks rose.",
+            "sources": [],
+        }]), render.DEFAULT_MASTHEAD, "{{LEAD}}")
+        assert '<p class="kicker">Economia</p>' in html
+        assert html.index("kicker") < html.index("Markets rally")
+        assert '<span class="tag">Economia</span>' not in html
+
+    def test_lead_body_runs_in_three_columns(self):
+        html = render.render_html(edition(sections=[{
+            "kind": "section", "title": "Lead", "desk": "news",
+            "body": "One.\n\nTwo.\n\nThree.\n\nFour.",
+            "sources": [],
+        }]), render.DEFAULT_MASTHEAD, "{{LEAD}}")
+        assert '<div class="lead-body">' in html
+        assert html.count('<div class="lb-col">') == 3
+        assert "dropcap" in html
+
+    def test_news_well_lays_out_rows_of_three(self):
+        sections = [{
+            "kind": "section", "title": f"Story {i}", "desk": "news",
+            "body": f"Body {i}.", "sources": [],
+        } for i in range(7)]
+        html = render.render_html(edition(sections=sections),
+                                  render.DEFAULT_MASTHEAD,
+                                  "{{SECTIONS}}")
+        # 7 stories: 1 lead + 6 in the well = two rows of three. Each row
+        # is its own table -- a single well-spanning table repaints
+        # continued cell text in the wrong column in WeasyPrint 62.3
+        # (measured), so rows must never split.
+        assert html.count('<div class="news-cols">') == 2
+        assert html.count("<article") == 6
+        assert html.count('news-col--empty') == 0
+
+    def test_news_well_pads_a_short_last_row(self):
+        sections = [{
+            "kind": "section", "title": f"Story {i}", "desk": "news",
+            "body": f"Body {i}.", "sources": [],
+        } for i in range(5)]
+        html = render.render_html(edition(sections=sections),
+                                  render.DEFAULT_MASTHEAD,
+                                  "{{SECTIONS}}")
+        # 1 lead + 4 in the well: a full row, then a row of one plus two
+        # empty padding cells so column widths and rules stay put.
+        assert html.count('<div class="news-cols">') == 2
+        assert html.count('news-col--empty') == 2
+
+    def test_desks_render_as_a_boxed_teaser_row(self):
+        html = render.render_html(edition(sections=[
+            {"kind": "section", "title": "Agenda", "desk": "calendar",
+             "body": "c", "sources": []},
+            {"kind": "section", "title": "Correio", "desk": "mail",
+             "body": "m", "sources": []},
+        ]), render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
+        assert '<div class="desks-row">' in html
+        assert html.count('<div class="desks-cell">') == 2
+
     def test_priority_quote_has_a_word_cap(self):
         p = {"why": [{"text": "t", "quote": " ".join(["word"] * 26), "source_label": "x"}],
              "first_step": "x"}

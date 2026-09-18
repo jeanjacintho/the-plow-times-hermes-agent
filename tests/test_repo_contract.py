@@ -714,6 +714,15 @@ class TestSkills:
         assert "What should I prioritize today?" not in template
         assert "O que devo priorizar hoje?" not in template
         assert "PRIORITY_BLOCK" in template
+        # Broadsheet anatomy: kickers label each story's section, the
+        # lead's body runs in columns, desks are a boxed teaser row.
+        assert "kicker" in template
+        assert "lead-body" in template
+        assert "desks-row" in template
+        # Never display:none an element that gets a background from
+        # another rule -- WeasyPrint 62.3 paints the background anyway
+        # (measured: an empty black stripe where the "hidden" h2 was).
+        assert "display: none" not in template
 
     def test_cross_skill_imports_resolve(self):
         # register_crons.py imports topics from pt-intake/scripts at run time;

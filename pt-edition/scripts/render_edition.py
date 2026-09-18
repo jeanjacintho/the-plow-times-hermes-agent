@@ -765,7 +765,7 @@ def fetch_grayscale_photo(url):
         return None
 
 
-def html_section(section, drop_cap=False):
+def html_section(section, drop_cap=False, body_cols=1):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
     ``desk`` (optional, default ``news``) is the newspaper department.
@@ -773,6 +773,17 @@ def html_section(section, drop_cap=False):
     {{MAIL}}); the first news story fills {{LEAD}} and the rest fill
     {{SECTIONS}}. Same story fields, same escaping; only the wrapping
     class and the page slot differ.
+
+    A news story's ``tag`` prints as a kicker -- the small letterspaced
+    section label above the headline, the way a broadsheet labels
+    departments. On desks the tag stays inline in the title bar.
+
+    ``body_cols`` (lead story only) splits the body paragraphs into that
+    many balanced ``.lb-col`` cells inside a ``.lead-body`` row -- the
+    three-column body under a full-width headline that a real front page
+    gives its top story. Drawn with display:table-cell because CSS
+    multicol is broken in WeasyPrint's paginated engine (see the
+    template's header comment).
 
     ``drop_cap`` (lead story only) wraps the first character of the first
     paragraph in ``<span class="dropcap">`` for the CSS to float and
@@ -785,11 +796,19 @@ def html_section(section, drop_cap=False):
     element didn't.
     """
     title = html.escape(section["title"].strip())
-    tag = section.get("tag")
-    tag_html = f' <span class="tag">{html.escape(tag)}</span>' if tag else ""
     headline = (section.get("headline") or "").strip()
     paras = body_paragraphs(section.get("body", ""))
     desk = desk_of(section)
+    tag = section.get("tag")
+    # News stories wear the tag as a kicker above the headline; desks
+    # keep it inline in the title bar.
+    kicker_html = ""
+    tag_html = ""
+    if tag:
+        if desk == "news":
+            kicker_html = f'  <p class="kicker">{html.escape(tag)}</p>'
+        else:
+            tag_html = f' <span class="tag">{html.escape(tag)}</span>'
     classes = ["section"]
     if desk != "news":
         classes.append("section--desk")
@@ -821,6 +840,8 @@ def html_section(section, drop_cap=False):
     skip_body = bool(structured)
     blocks = [f'<article class="{article_class}">']
     if not skip_caption:
+        if kicker_html:
+            blocks.append(kicker_html)
         blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
         if desk == "priority" and priority:
             label = str(priority.get("stage_label") or "").strip()
@@ -853,15 +874,43 @@ def html_section(section, drop_cap=False):
     if skip_body:
         pass
     elif paras:
-        for index, para in enumerate(paras):
-            if drop_cap and index == 0 and para:
-                first, rest = para[0], para[1:]
-                blocks.append(
-                    f'  <p><span class="dropcap">{html.escape(first)}</span>'
-                    f"{html.escape(rest)}</p>"
-                )
-            else:
-                blocks.append(f"  <p>{html.escape(para)}</p>")
+        if body_cols > 1:
+            # Balanced column sizes (4 paragraphs over 3 columns =
+            # 2/1/1, never an empty trailing column).
+            sizes = [
+                len(paras) // body_cols + (1 if i < len(paras) % body_cols else 0)
+                for i in range(body_cols)
+            ]
+            col_divs = []
+            start = 0
+            for col_index, size in enumerate(sizes):
+                chunk = paras[start:start + size]
+                start += size
+                if not chunk:
+                    continue
+                cell = ['<div class="lb-col">']
+                for para_index, para in enumerate(chunk):
+                    if drop_cap and col_index == 0 and para_index == 0 and para:
+                        first, remainder = para[0], para[1:]
+                        cell.append(
+                            f'  <p><span class="dropcap">{html.escape(first)}</span>'
+                            f"{html.escape(remainder)}</p>"
+                        )
+                    else:
+                        cell.append(f"  <p>{html.escape(para)}</p>")
+                cell.append("</div>")
+                col_divs.append("\n".join(cell))
+            blocks.append('  <div class="lead-body">' + "".join(col_divs) + "</div>")
+        else:
+            for index, para in enumerate(paras):
+                if drop_cap and index == 0 and para:
+                    first, rest = para[0], para[1:]
+                    blocks.append(
+                        f'  <p><span class="dropcap">{html.escape(first)}</span>'
+                        f"{html.escape(rest)}</p>"
+                    )
+                else:
+                    blocks.append(f"  <p>{html.escape(para)}</p>")
     else:
         blocks.append("  <p>(nothing usable in the budget this time)</p>")
     if not skip_caption:
@@ -957,7 +1006,7 @@ def render_html(edition, name, template_text):
     # it can run alone, full width, in its own row above everything else
     # (see the top comment for why the desks no longer sit beside it).
     if news:
-        lead_html = html_section(news[0], drop_cap=True)
+        lead_html = html_section(news[0], drop_cap=True, body_cols=3)
         rest = news[1:]
     elif priority:
         lead_html = ""
@@ -966,29 +1015,44 @@ def render_html(edition, name, template_text):
         lead_html = '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
         rest = []
 
-    # Split the remaining news into two columns for the broadsheet look.
-    # The template has two .news-col slots; the renderer fills them with
-    # roughly equal column counts so the page doesn't leave one side blank.
-    mid = (len(rest) + 1) // 2
-    main_html = join_articles(rest[:mid])
-    main_html_2 = join_articles(rest[mid:])
+    # The news well is laid out as ROWS of three cells, each row its own
+    # table with break-inside:avoid -- not one table for the whole well.
+    # Measured on WeasyPrint 62.3: when a single table spans a page
+    # break, a cell whose content continues on the next page paints the
+    # continuation one column to the RIGHT (a story's remainder lands in
+    # the wrong column). Independent row tables never split, so the bug
+    # never triggers. {{SECTIONS_2}}/{{SECTIONS_3}} stay as empty slots
+    # for older templates; this one uses only {{SECTIONS}}.
+    rows = []
+    for row_start in range(0, len(rest), 3):
+        row = rest[row_start:row_start + 3]
+        cells = "".join(
+            f'<div class="news-col">{html_section(section)}</div>'
+            for section in row
+        )
+        # Pad with empty cells so column widths and the vertical rules
+        # stay put when the last row is short.
+        for _ in range(3 - len(row)):
+            cells += '<div class="news-col news-col--empty"></div>'
+        rows.append(f'<div class="news-cols">{cells}</div>')
+    news_well_html = "\n".join(rows)
+    main_html = news_well_html
+    main_html_2 = ""
+    main_html_3 = ""
     weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
     sports_html = wrap_desk(join_articles(sports))
     priority_html = wrap_desk(join_articles(priority))
-    # The card's heading is the model-written desk title (owner.language),
-    # not a hardcoded string in the template. Empty when there is no
-    # priority desk, so the template's priority-wrap collapses.
-    priority_title = html.escape(priority[0]["title"].strip()) if priority else ""
-    priority_block_html = ""
-    if priority_html:
-        priority_block_html = (
-            '<div class="priority-wrap">'
-            f'<h2 class="priority-title">{priority_title}</h2>'
-            f"{priority_html}"
-            "</div>"
-        )
+    # The priority card's visible label is the desk's own <h2> -- the
+    # model-written title (owner.language), styled by the template as the
+    # black bar on top of the box. No separate heading is emitted here:
+    # hiding the card's h2 with display:none was measured broken in
+    # WeasyPrint 62.3 (the bar's background painted anyway, an empty
+    # black stripe), so the card's own title bar IS the label.
+    priority_block_html = (
+        f'<div class="priority-wrap">{priority_html}</div>' if priority_html else ""
+    )
     # {{SIDEBAR}} is the desks column as a whole, for older templates that
     # still have one rail slot instead of four. New template.html uses the
     # named slots and leaves this empty of news.
@@ -996,17 +1060,18 @@ def render_html(edition, name, template_text):
         part for part in (weather_html, calendar_html, mail_html, sports_html) if part
     )
 
-    # Calendar, mail and sports read as full-width stories now, the same
-    # anatomy as a news item -- DESKS_INLINE is that block as a whole (all
-    # three desks plus their own wrapper/rule), empty string when none of
-    # them ran today, so the template never prints a bare rule above
-    # nothing. Weather isn't here -- it lives in the masthead's ear.
-    # Priority has its own {{PRIORITY}} slot and must not also land here.
+    # Calendar, mail and sports run as a row of boxed departments below
+    # the lead -- the same black-label-bar box language as the priority
+    # card, three cells side by side like a front page's "inside today"
+    # teasers. Empty string when none of them ran today, so the template
+    # never prints a bare rule above nothing. Weather isn't here -- it
+    # lives in the masthead's ear. Priority has its own {{PRIORITY_BLOCK}}
+    # slot and must not also land here.
     inline_parts = [part for part in (calendar_html, mail_html, sports_html) if part]
-    desks_inline_html = (
-        '<div class="desks-inline-wrap">' + "".join(inline_parts) + "</div>"
-        if inline_parts else ""
-    )
+    desks_inline_html = ""
+    if inline_parts:
+        cells = "".join(f'<div class="desks-cell">{part}</div>' for part in inline_parts)
+        desks_inline_html = f'<div class="desks-row">{cells}</div>'
     weather_ear = weather_ear_html(weather)
 
     page_class = "page" if desks_html else "page page--no-desks"
@@ -1021,12 +1086,12 @@ def render_html(edition, name, template_text):
         .replace("{{PAGE_CLASS}}", page_class)
         .replace("{{LEAD}}", lead_html)
         .replace("{{PRIORITY}}", priority_html)
-        .replace("{{PRIORITY_TITLE}}", priority_title)
         .replace("{{PRIORITY_BLOCK}}", priority_block_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
         .replace("{{SECTIONS}}", main_html)
         .replace("{{SECTIONS_2}}", main_html_2)
+        .replace("{{SECTIONS_3}}", main_html_3)
         .replace("{{WEATHER}}", weather_html)
         .replace("{{CALENDAR}}", calendar_html)
         .replace("{{MAIL}}", mail_html)
