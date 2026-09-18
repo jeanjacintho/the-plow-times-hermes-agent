@@ -143,24 +143,11 @@ def reopen_sections_after_paper():
     return blob or "REOPEN:none"
 
 
-def html_beside(pdf_path):
-    return str(Path(pdf_path).parent / "edition.html")
-
-
-def _printer_name(config_path):
-    scripts = str(PRINT_SCRIPT.parent)
-    if scripts not in sys.path:
-        sys.path.insert(0, scripts)
-    import print_edition
-
-    return print_edition.printer_name(config_path)
-
-
-def run_print_edition(html_path, config_path):
+def run_print_edition(pdf_path, config_path):
     import subprocess
 
     proc = subprocess.run(
-        [sys.executable, str(PRINT_SCRIPT), html_path, config_path],
+        [sys.executable, str(PRINT_SCRIPT), pdf_path, config_path],
         capture_output=True,
         text=True,
     )
@@ -176,29 +163,35 @@ def maybe_print(pdf_path, config_path=None, runner=None):
     """Ship the page after the chat PDF. Best-effort: never undoes the POST.
 
     Measured live 2026-09-18: the model posted the PDF, had edition.html
-    and printer.configured true, and never ran print_edition.py.
+    and printer.configured true, and never ran print_edition.py. Later the
+    same day this gated on a sibling edition.html the print never reads;
+    runs that rendered only the PDF logged "skipped: no html" and printed
+    nothing. The PDF just posted is the page.
     """
     config_path = config_path or CONFIG_DEFAULT
     if not pdf_path:
         return "skipped: no pdf"
-    html = html_beside(pdf_path)
-    if not os.path.isfile(html):
-        return "skipped: no html"
-    if not _printer_name(config_path):
-        return "skipped: printer.configured is not true"
     run = runner or run_print_edition
     try:
-        out = run(str(Path(html).resolve()), config_path)
+        out = run(str(Path(pdf_path).resolve()), config_path)
     except SystemExit as exc:
         out = str(exc) if exc.args else "page not printed"
     except Exception as exc:
         out = f"page not printed — {exc}"
     text = (out or "").strip()
-    if not text:
-        return "page not printed — empty print result"
-    if "page not printed" in text:
-        return text
-    return text
+    return text or "page not printed — empty print result"
+
+
+def print_failure_line(result):
+    """The one chat line a failed print owes the owner; None if it printed or skipped.
+
+    The turn ends in NO_REPLY, so a failure left on stdout never reaches them.
+    """
+    line = next((l for l in result.splitlines() if "page not printed" in l), None)
+    if line is None:
+        return None
+    line = line.removeprefix("error: ")[:200]
+    return line if "next scheduled run retries" in line else line + "; next scheduled run retries"
 
 
 def compose_payload(text, attachment_uid=None):
@@ -289,7 +282,14 @@ def main():
     after_posted()
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
-        print(maybe_print(args.pdf))
+        printed = maybe_print(args.pdf)
+        print(printed)
+        line = print_failure_line(printed)
+        if line:
+            try:  # the edition already posted: exit 0 must keep meaning that
+                post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", {"body": line})
+            except SystemExit as exc:
+                print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     else:
         print(f"chat edition posted ({len(text)} chars)")
 

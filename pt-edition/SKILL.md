@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into printable HTML and PDF, post the PDF only via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into the PDF, post the PDF only via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -118,12 +118,15 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
   already talks to the reader; do not turn it into a memo about "the
-  founder". When present it replaces the prose body on the printed page
-  (`skip_body`); `headline` is the day's stake and `body` is the first
-  step in prose for the chat edition. Shape: `why` (1–3 objects with `text` and `source_label`;
-  `quote` optional, at most 25 words), `first_step`, optional `block`
-  `{start, end}` in `HH:MM`, optional `tags` and `not_today` (at most two
-  strings), optional `stage_label`.
+  founder". When present it
+  replaces the prose body on the printed page (`skip_body`); `headline` is
+  the day's priority and `body` is the first step in prose for the chat
+  edition. Shape: `why` (1–3 objects with `text` and `source_label`),
+  `first_step`, optional `not_today` (at most two strings), and optional
+  `stage_label`, `stage_why`, `yesterday`, `week`, `draft` (non-blank
+  strings), `who` (at most three strings) and `today` (at most four
+  `{"time", "title", "note"}`, where `time` is the printed start such as
+  "10:00", or null for an all-day event).
 - **`forecast` is optional, weather-only, and drawn — not written.** 1-6
   day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
   "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
@@ -190,8 +193,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
   it from `run/desk-priority/notes.json` without rewriting. If those notes
-  are missing, still include the desk — `render_edition.py` will insert the
-  card (from notes if they exist, or an honest "not built in time" card).
+  are missing, still include the desk — `render_edition.py` will insert an
+  honest "not built in time" card.
   Never omit the slot because research skipped it. Mail only when
   `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
@@ -207,8 +210,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   a news topic on the weather desk to make it look important.
 - **Pagination is the renderer's job.** News that does not fit one Letter
   sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
-  Each desk box stays whole; if the rail itself overflows, the next desk
-  starts on the following page. Never hand-split copy across pages.
+  Each boxed desk stays whole; if the rail itself overflows, the next desk
+  starts on the following page. The priority card may continue onto page 2.
+  Never hand-split copy across pages.
 - **`location` is this run's city** from the Latch location step, a string,
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
@@ -244,22 +248,15 @@ transcript after it is the wall of text they did not ask for.
 
 ## Render and deliver
 
-1. Run the renderer — it is the only thing that writes the edition. Two
-   complete commands; **copy the one that matches and change only the
-   paths.** Do not build a third by merging them, and do not add flags
-   that are not here:
-
-   No printer configured:
+1. Run the renderer — it is the only thing that writes the edition. One
+   complete command, printer or not; **copy it and change only the
+   paths.** Do not add flags that are not here:
 
        /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf
 
-   Printer configured:
-
-       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf --html run/<id>/edition.html
-
-   `--pdf` is in both, always. `--chat PATH` is optional and takes a path
-   when used; the chat transcript is not posted, so you normally leave it
-   out entirely.
+   The printed page is this same PDF. `--chat PATH` is optional and takes
+   a path when used; the chat transcript is not posted, so you normally
+   leave it out entirely.
 
    **Then check that `run/<id>/edition.pdf` actually exists before step 2.**
    If it does not, read the renderer's own stderr and act on which failure
@@ -304,11 +301,11 @@ transcript after it is the wall of text they did not ask for.
    process environment already; nothing to pass for those.
 
    A successful `--pdf` POST then runs `print_edition.py` itself when
-   `printer.configured` is true (sibling `edition.html`, same run dir). Do
+   `printer.configured` is true (the same PDF, nothing else to render). Do
    **not** call `pt-print` or `print_edition.py` after this — measured live,
    the model posted the PDF and skipped the print script. A print failure
-   prints `page not printed — …` on stdout and still leaves the chat
-   edition delivered.
+   posts one `page not printed — …` line to chat by itself and still leaves
+   the chat edition delivered; your final response stays `NO_REPLY`.
 
    A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
    (you do not have to run that script yourself). When this turn ends, the
@@ -324,7 +321,12 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Mark every topic the edition carried** from its `topic_id`:
+3. **Record the priority desk** from the delivered edition, only after the
+   chat leg is out, so tomorrow's follow-up never refers to advice that was not
+   delivered. It records the priority section `edition.json` carried and skips
+   an edition without one:
+   `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date <DATE> --edition-json /var/lib/hermes/pt/run/<id>/edition.json`
+4. **Mark every topic the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
    edition is how a silent gap looks like a working paper. A section then

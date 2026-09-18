@@ -20,6 +20,15 @@ def edition_with_priority_and_weather():
     ])
 
 
+EVENT = {"time": "10:00", "title": "Customer call: Dana", "note": "Go in with: what they use today"}
+
+
+def priority_edition(**fields):
+    p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x", **fields}
+    return edition(sections=[{"kind": "section", "title": "P", "desk": "priority",
+                              "body": "b", "priority": p, "sources": []}])
+
+
 def edition(**overrides):
     base = {
         "date": "2026-09-11",
@@ -170,29 +179,18 @@ class TestValidate:
             "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
         }]))
 
-    def test_priority_block_must_be_hhmm(self):
-        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x",
-             "block": {"start": "9am", "end": "11:30"}}
-        assert "priority.block is not HH:MM" in render.validate(edition(sections=[{
-            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-        }]))
-
     def test_priority_renders_headline_why_and_first_step(self):
-        p = {"why": [{"text": "Q3 goal", "quote": "raise $1.5M by Sep 30",
+        p = {"why": [{"text": "Q3 goal: raise $1.5M by Sep 30",
                       "source_label": "your file, Goals"}],
-             "first_step": "Send the deck", "block": {"start": "09:00", "end": "11:30"},
-             "tags": ["carried over from yesterday"]}
+             "first_step": "Send the deck"}
         html = render.render_html(edition(sections=[{
             "kind": "section", "title": "Your #1 priority today", "desk": "priority",
             "headline": "Close the seed extension", "body": "Send the deck", "priority": p,
             "sources": [],
         }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         assert "Close the seed extension" in html
-        assert "“raise $1.5M by Sep 30” — your file, Goals" in html
-        assert "Send the deck" in html and "09:00–11:30" in html
-        assert "→" not in html
-        assert html.index("Q3 goal") < html.index("Send the deck")
-        assert "carried over from yesterday" in html
+        assert "Q3 goal: raise $1.5M by Sep 30 <span class=\"src\">— your file, Goals</span>" in html
+        assert "Send the deck" in html
         assert "<script" not in html.lower()
 
     def test_priority_title_is_the_desk_title_not_python_text(self):
@@ -271,32 +269,50 @@ class TestValidate:
         assert '<div class="desks-row">' in html
         assert html.count('<div class="desks-cell">') == 2
 
-    def test_priority_quote_has_a_word_cap(self):
-        p = {"why": [{"text": "t", "quote": " ".join(["word"] * 26), "source_label": "x"}],
-             "first_step": "x"}
-        assert "priority.why[0].quote is longer than 25 words" in render.validate(
-            edition(sections=[{
-                "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-            }]))
+    @pytest.mark.parametrize("field, value, failure", [
+        ("stage_label", " ", "priority.stage_label is blank"),
+        ("stage_why", "", "priority.stage_why is blank"),
+        ("yesterday", 3, "priority.yesterday is blank"),
+        ("week", "  ", "priority.week is blank"),
+        ("draft", ["Hey Raj"], "priority.draft is blank"),
+        ("not_today", ["a", "b", "c"], "priority.not_today has more than 2 items"),
+        ("not_today", [" "], "priority.not_today is not a list of non-blank strings"),
+        ("who", "Raj", "priority.who is not a list of non-blank strings"),
+        ("who", ["a", "b", "c", "d"], "priority.who has more than 3 items"),
+        ("today", EVENT, "priority.today is not a list"),
+        ("today", [EVENT] * 5, "priority.today has more than 4 items"),
+        ("today", ["10:00 call"], "priority.today[0] is not an object"),
+        ("today", [{**EVENT, "time": ""}], "priority.today[0].time is blank"),
+        ("today", [{**EVENT, "title": " "}], "priority.today[0].title is blank"),
+        ("today", [{"time": None, "title": "Call"}], "priority.today[0].note is blank"),
+    ])
+    def test_priority_field_shapes(self, field, value, failure):
+        assert failure in render.validate(priority_edition(**{field: value}))
 
-    def test_priority_not_today_is_at_most_two_strings(self):
-        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x",
-             "not_today": ["a", "b", "c"]}
-        assert "priority.not_today has more than 2 items" in render.validate(
-            edition(sections=[{
-                "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-            }]))
-
-    def test_priority_renders_stage_and_not_today(self):
-        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x",
-             "stage_label": "Blueprint ($1–10M ARR)", "not_today": ["Hiring another rep"]}
-        html = render.render_html(edition(sections=[{
-            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-            "sources": [],
-        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
-        assert "STAGE · Blueprint" in html and "Hiring another rep" in html
-        assert "Leave it for later" in html
-        assert "NOT TODAY" not in html
+    def test_priority_renders_every_field_escaped_in_page_order(self):
+        data = priority_edition(
+            yesterday="1 booked (Dana <Acme>)", stage_label="Discovery",
+            stage_why="No revenue yet & you still sell alone",
+            today=[EVENT, {"time": None, "title": "Write the memo", "note": "Keep it short"}],
+            week="Customer conversations: 2. The bar is tens.",
+            who=["Raj — replied to the launch post", "Priya — trial user since Sep 9"],
+            draft='Hey Raj, 20 minutes this week? "Tue" works.',
+            not_today=["Hire a sales team"],
+        )
+        data["sections"][0]["headline"] = "Book 3 customer calls by Friday"
+        assert render.validate(data) == ""
+        html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        order = [
+            "<h3>YESTERDAY</h3>", "1 booked (Dana &lt;Acme&gt;)",
+            "STAGE · Discovery", "No revenue yet &amp; you still sell alone",
+            "<h3>TODAY</h3>", "10:00", "Customer call: Dana", "Go in with: what they use today",
+            "Write the memo", "<h3>THIS WEEK</h3>", "Customer conversations: 2.",
+            "Book 3 customer calls by Friday", '<p class="priority-step">x</p>', "<h3>WHO</h3>", "Raj — replied",
+            "Priya — trial user", "<h3>DRAFT</h3>", "Hey Raj, 20 minutes this week? &quot;Tue&quot;",
+            "<h3>NOT TODAY</h3>", "Hire a sales team",
+        ]
+        positions = [html.index(text) for text in order]
+        assert positions == sorted(positions)
 
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
@@ -658,59 +674,28 @@ class TestMain:
 
 
 class TestEnsurePriorityDesk:
-    def test_leaves_the_edition_alone_when_priority_is_off(self):
-        ed = edition()
-        out, inserted = render.ensure_priority_desk(ed, {"priority": {"configured": False}})
-        assert inserted is False
-        assert out["sections"] == ed["sections"]
+    WEATHER = {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []}
+    ON = {"priority": {"configured": True}, "owner": {"language": "English"}}
 
-    def test_inserts_a_card_when_configured_and_the_model_omitted_it(self):
-        ed = edition()
-        config = {
-            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
-            "owner": {"language": "English"},
-        }
-        out, inserted = render.ensure_priority_desk(ed, config, notes=None)
-        assert inserted is True
-        assert render.desk_of(out["sections"][0]) == "priority"
-        assert "What to prioritize today" in out["sections"][0]["title"]
-        assert out["sections"][0]["body"]
+    @pytest.mark.parametrize("config, sections, inserted, priority_desks", [
+        ({"priority": {"configured": False}}, [WEATHER], False, 0),
+        (ON, [WEATHER], True, 1),
+        # A one-topic subscription edition carries no standing desk.
+        (ON, edition()["sections"], False, 0),
+        (ON, edition_with_priority_and_weather()["sections"], False, 1),
+    ])
+    def test_inserts_the_gap_card_only_on_a_paper_missing_it(
+            self, config, sections, inserted, priority_desks):
+        out, did = render.ensure_priority_desk(edition(sections=sections), config)
+        assert did is inserted
+        assert [render.desk_of(s) for s in out["sections"]].count("priority") == priority_desks
         assert render.validate(out) == ""
 
-    def test_copies_notes_when_research_did_run(self):
-        ed = edition()
-        config = {"priority": {"configured": True}, "owner": {"language": "English"}}
-        notes = {
-            "desk": "priority",
-            "status": "ok",
-            "priority": {
-                "headline": "Close the seed extension",
-                "first_step": "Send the deck this morning",
-                "why": [{"text": "The round is due", "source_label": "your file, Goals"}],
-                "stage_label": "Blueprint ($1–10M ARR)",
-            },
-        }
-        out, inserted = render.ensure_priority_desk(ed, config, notes=notes)
-        assert inserted is True
-        pri = out["sections"][0]
-        assert pri["headline"] == "Close the seed extension"
-        assert pri["priority"]["first_step"] == "Send the deck this morning"
-        assert pri["priority"]["not_today_heading"] == "Leave it for later"
-        assert render.validate(out) == ""
-
-    def test_does_not_duplicate_an_existing_priority_desk(self):
-        ed = edition_with_priority_and_weather()
-        out, inserted = render.ensure_priority_desk(
-            ed, {"priority": {"configured": True}}, notes=None
-        )
-        assert inserted is False
-        assert sum(1 for s in out["sections"] if render.desk_of(s) == "priority") == 1
-
-    def test_main_injects_the_card_from_config_and_notes(self, tmp_path):
+    def test_main_injects_the_card_from_config(self, tmp_path):
         # Measured live 2026-09-18: priority.configured was true, research
         # never wrote desk-priority, edition.json shipped weather/mail/news
         # only. The renderer must put the card on the page itself.
-        ed_path = write(tmp_path, edition())
+        ed_path = write(tmp_path, edition(sections=[self.WEATHER]))
         cfg = tmp_path / "config.json"
         cfg.write_text(json.dumps({
             "priority": {"configured": True, "file": "~/Plow/prioritization.md"},

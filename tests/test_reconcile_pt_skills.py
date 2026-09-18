@@ -64,3 +64,18 @@ def test_skips_when_already_current(tmp_path):
     rec.reconcile(checkout, home)
     out = rec.reconcile(checkout, home)
     assert "already current pt-demo" in out
+
+
+def test_a_symlinked_stamp_is_replaced_not_written_through(tmp_path):
+    checkout = tmp_path / "repo"
+    write_skill(checkout, "pt-demo", "v1")
+    home = tmp_path / "home"
+    rec.reconcile(checkout, home)
+    victim = tmp_path / "victim"
+    victim.write_text("keep me\n", encoding="utf-8")
+    stamp = home / "skills" / "pt-demo" / rec.STAMP
+    stamp.unlink()
+    stamp.symlink_to(victim)
+    rec.reconcile(checkout, home)
+    assert victim.read_text() == "keep me\n"
+    assert not stamp.is_symlink()

@@ -201,9 +201,10 @@ class TestSoul:
             for line in text.splitlines()
             if "render_edition.py" in line and line.startswith(" " * 7)
         ]
-        assert len(render) >= 2, "both the printer and no-printer commands must be spelled out"
-        for line in render:
-            assert "--pdf" in line, f"a render command without --pdf: {line}"
+        # One command, printer or not: the print ships the same PDF, so a
+        # printer-only --html variant is a choice the model can only get wrong.
+        assert len(render) == 1, render
+        assert "--pdf" in render[0] and "--html" not in render[0], render[0]
 
     def test_pdf_fallback_is_keyed_on_weasyprint_not_on_any_failure(self):
         # The fallback used to fire whenever "render_edition.py produced no
@@ -508,18 +509,6 @@ class TestSoul:
         assert "happen silently" in edition
         assert "PDF rendered successfully" in edition
 
-    def test_print_skill_uses_a_container_path_for_render_not_a_mac_path(self):
-        # Measured live: pt-print's own render step told the model to pass
-        # `~/Plow/...` (a Mac path, Latch's convention) as an argument to
-        # render_edition.py, which runs INSIDE THE CONTAINER -- `~` there
-        # resolves to nothing meaningful on the owner's Mac. The render
-        # step must target a container path; ~/Plow only means something
-        # inside the actual Latch write call afterward.
-        text = (ROOT / "pt-print" / "SKILL.md").read_text()
-        render_step = text[text.index("## Render the HTML"):text.index("## Ship it through Latch")]
-        assert "--html /var/lib/hermes" in render_step
-        assert "never an argument to a" in render_step
-
     def test_print_skill_ships_html_through_print_edition_not_the_model(self):
         # Measured live 2026-09-17: the model cat'd edition.html (~43k) then
         # tried to paste it into plow_write_file's content. The LLM stream
@@ -683,39 +672,27 @@ class TestSkills:
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert "NEXT_QUESTION=priority" in text
         assert "never overwrite an existing file" in text.lower()
-        assert "prioritization.template.md" in text
-
-    def test_setup_creates_the_priority_template_before_asking(self):
-        # Measured: asking yes/no first meant a "no" never created the
-        # file, and a "yes" hid the path until after the owner had
-        # already opted in. Create (if missing) first, then ask, with
-        # the Mac path in the question.
-        text = (ROOT / "pt-setup" / "SKILL.md").read_text()
-        section = text.split("## NEXT_QUESTION=priority", 1)[1]
-        section = section.split("\n## ", 1)[0]
-        write_at = section.index("plow_write_file")
-        stop_at = section.index("Stop.")
-        yes_at = section.index("priority.configured=true")
-        assert write_at < stop_at < yes_at
-        assert "~/Plow/prioritization.md" in section
-        assert "never paste" in section.lower()
-        assert "advisors" in section
+        assert "trying to make true" in text
+        assert not (ROOT / "pt-setup" / "assets" / "prioritization.template.md").exists()
+        section = text.split("## NEXT_QUESTION=priority", 1)[1].split("\n## ", 1)[0]
         assert "if it is absent" in section.lower()
         assert "leave it alone" not in section.lower()
 
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
-        assert "## 0. Priority" in desks
+        assert "## 5. Priority" in desks
         assert "run/desk-calendar/events.json" in desks
-        assert "Skipping this desk is a bug" in desks
+        assert "imessage" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
-        assert "--run-dir run/desk-priority" in skill
+        assert "never infer a stage" not in desks
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "history.py record" in edition
+        assert "Skipping this desk is a bug" in desks
         assert "the founder" in skill
         assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "def ensure_priority_desk" in renderer
-        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "Never omit the slot" in edition
 
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
@@ -726,23 +703,20 @@ class TestSkills:
         # item 1 of every event` (-1700).
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         script = (ROOT / "pt-research" / "assets" / "calendar.applescript").read_text()
-        assert '["plow-gog", "calendar", "events", "--today", "--json"]' in desks
+        assert '["plow-gog", "calendar", "events", "--from", "today", "--days", "8",' in desks
         assert "unexpected argument today" in desks
         assert "calendar list" in desks
         assert "plow_run_applescript" in desks
         assert "assets/calendar.applescript" in desks
         assert "Nenhum evento hoje" in desks
+        assert "failed or returned no event today" in desks
         assert "tell application \"Calendar\" to launch" in script
         assert "time string of start date of item 1" not in script
         assert "every event of item 1 of every calendar" not in script
         assert 'date "Friday' not in script
+        assert "on error" not in script
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "could not read the agenda" in edition
-
-    def test_intake_routes_the_priority_commands(self):
-        text = (ROOT / "pt-intake" / "SKILL.md").read_text()
-        for needle in ("--status done", "--status skipped", "run/desk-priority/priority.json"):
-            assert needle in text
 
     def test_shared_helpers_exist_and_are_referenced(self):
         shared = ROOT / "pt-shared" / "scripts"

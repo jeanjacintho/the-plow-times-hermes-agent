@@ -6,16 +6,13 @@ Needs Latch on the Mac. Until a human run, **NEEDS HUMAN RUN**.
 
 | # | Action | Expected |
 | --- | --- | --- |
-| 1 | New setup (`docker compose down -v`, "oi") | Questions in order: hour, printer, **priority**, mail, sections. Slow Latch/file steps post ⏳ hang-on (`chat_status.py --busy`), never a play-by-play |
-| 2 | Priority question | If `~/Plow/prioritization.md` is missing, creates it from the template **before** asking; then asks yes/no with the path. Yes → `priority.configured: true`. No → configured false; file stays. Seeds missing `~/Plow/advisors/` files on yes; never overwrites ones already there |
-| 3 | Fill the file: company state, goals, 1 deadline, 3 pieces of advice, one rule | — |
-| 4 | Check `pt/config.json` | `priority.configured: true`, `priority.file` |
-| 5 | Force the edition (`hermes cron run pt-daily-edition`) | The page opens with the priority; the "why" cites the file and the calendar |
-| 6 | Check `run/desk-calendar/events.json`, `stage.json`, `advisors.json` and `context.json` | Shapes from the plan; `STAGE:` matches `## Company state`; only this stage's advisors in context |
-| 6b | Check the page | Line `STAGE · …`, a why citing the advisor, `Leave it for later` / `Deixa pra depois` block; copy talks to you, never "the founder should" |
-| 6c | Change `## Company state` to ARR $14M and run again | Stage becomes Scale; priority and the later-list switch advisor files |
-| 6d | Delete `~/Plow/advisors/` and run | Paper still ships; priority from file + calendar; note `no_advisor_for_stage` |
-| 7 | "why?" in chat | Explains with the quotes, does not decide again |
-| 8 | "done" | Confirms; the next day the priority does not repeat without a reason |
-| 9 | Rename the file on the Mac and run again | Page ships without the priority block (or with the notice); the rest of the paper is normal |
-| 10 | Close Latch and run | Desk marks `unavailable`; the paper is still delivered |
+| 1 | New setup (`docker compose down -v`, "oi") | Questions in order: hour, printer, **priority** (the goal question), mail, sections. Slow Latch/file steps post ⏳ hang-on (`chat_status.py --busy`), never a play-by-play |
+| 2 | Answer the goal question | Creates `~/Plow/prioritization.md` with the answer under `## Goals` (or adds it to the existing file); seeds `~/Plow/advisors/` if missing |
+| 3 | Check `pt/config.json` | `priority.configured: true`, `priority.file` |
+| 4 | Force the edition (`hermes cron run pt-daily-edition`) | The page opens with `STAGE · …` and its reason, `TODAY` events with notes, a focus, `WHO` with real names, a `DRAFT`, `NOT TODAY`; copy talks to you, never "the founder should" |
+| 5 | Run again the next day | A `YESTERDAY` line checks the previous focus against what happened |
+| 5b | Read `pt/history.json` after the paper is delivered | Today's desk is recorded; nothing is recorded for a paper that failed to deliver |
+| 6 | Text "stop telling me to hire" | A dated line lands under `## Not now`; the next paper does not advise hiring |
+| 7 | Deny the iMessage read on the Mac and run | Paper still ships; the desk works from calendar and mail |
+| 8 | Rename the file on the Mac and run again | Page ships without the owner's goals; the rest of the paper is normal |
+| 9 | Close Latch and run | Desk marks `unavailable`; the paper is still delivered |

@@ -16,6 +16,7 @@ import hashlib
 import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 STAMP = ".the-plow-times-origin"
@@ -57,7 +58,15 @@ def _read_stamp(dest):
 
 
 def _write_stamp(dest, digest):
-    (Path(dest) / STAMP).write_text(digest + "\n", encoding="utf-8")
+    # The home is agent-writable: rename a fresh file over the stamp, so a
+    # symlink planted there is replaced, never written through on the host
+    # deploy, and an interrupted deploy leaves the old stamp, not none. The
+    # temp file sits outside the skill dir, where dir_hash never reads it.
+    fd, tmp = tempfile.mkstemp(dir=Path(dest).parent, prefix=STAMP)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        os.fchmod(fh.fileno(), 0o644)
+        fh.write(digest + "\n")
+    os.replace(tmp, Path(dest) / STAMP)
 
 
 def _is_empty_dir(path):

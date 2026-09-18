@@ -59,7 +59,6 @@ PRIORITY_UNAVAILABLE = {
             "O jornal ia abrir com a sua prioridade, mas essa parte não "
             "foi montada a tempo. O resto da página segue."
         ),
-        "not_today": "Deixa pra depois",
     },
     "en": {
         "title": "What to prioritize today",
@@ -68,7 +67,6 @@ PRIORITY_UNAVAILABLE = {
             "The paper was supposed to open with your priority, but that "
             "block was not built in time. The rest of the page still runs."
         ),
-        "not_today": "Leave it for later",
     },
 }
 # Controlled vocabulary for a sports desk game row -- what state the game
@@ -83,7 +81,6 @@ FORECAST_ICONS = ("sun", "partly-cloudy", "cloud", "rain", "storm", "snow")
 # is, drawn from CALENDAR_ICONS, never free text.
 SCHEDULE_ICONS = ("meeting", "call", "task", "reminder", "note")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-HHMM_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
 
@@ -101,6 +98,11 @@ def pretty_date(raw):
     """'2026-09-11' -> 'Sep 11, 2026', the masthead's date line."""
     year, month, day = (int(part) for part in raw.split("-"))
     return f"{_MONTHS[month - 1]} {day}, {year}"
+
+
+def blank(value):
+    """True unless value is a string with something in it."""
+    return not (isinstance(value, str) and value.strip())
 
 
 def validate(edition):
@@ -139,7 +141,7 @@ def validate(edition):
         if kind not in KINDS:
             failures.append(f"{where}.kind is not section|assignment")
         title = section.get("title")
-        if not (isinstance(title, str) and title.strip()):
+        if blank(title):
             failures.append(f"{where}.title is blank")
         if not isinstance(section.get("body"), str):
             failures.append(f"{where}.body is not a string")
@@ -179,9 +181,9 @@ def validate(edition):
                     if not isinstance(day, dict):
                         failures.append(f"{dwhere} is not an object")
                         continue
-                    if not (isinstance(day.get("day"), str) and day["day"].strip()):
+                    if blank(day.get("day")):
                         failures.append(f"{dwhere}.day is blank")
-                    if not (isinstance(day.get("date"), str) and day["date"].strip()):
+                    if blank(day.get("date")):
                         failures.append(f"{dwhere}.date is blank")
                     if day.get("icon") not in FORECAST_ICONS:
                         failures.append(f"{dwhere}.icon is not one of {FORECAST_ICONS}")
@@ -201,9 +203,9 @@ def validate(edition):
                     if not isinstance(item, dict):
                         failures.append(f"{iwhere} is not an object")
                         continue
-                    if not (isinstance(item.get("time"), str) and item["time"].strip()):
+                    if blank(item.get("time")):
                         failures.append(f"{iwhere}.time is blank")
-                    if not (isinstance(item.get("title"), str) and item["title"].strip()):
+                    if blank(item.get("title")):
                         failures.append(f"{iwhere}.title is blank")
                     if item.get("icon") not in SCHEDULE_ICONS:
                         failures.append(f"{iwhere}.icon is not one of {SCHEDULE_ICONS}")
@@ -219,9 +221,9 @@ def validate(edition):
                     if not isinstance(item, dict):
                         failures.append(f"{iwhere} is not an object")
                         continue
-                    if not (isinstance(item.get("sender"), str) and item["sender"].strip()):
+                    if blank(item.get("sender")):
                         failures.append(f"{iwhere}.sender is blank")
-                    if not (isinstance(item.get("subject"), str) and item["subject"].strip()):
+                    if blank(item.get("subject")):
                         failures.append(f"{iwhere}.subject is blank")
         games = section.get("games")
         if games is not None:
@@ -235,9 +237,9 @@ def validate(edition):
                     if not isinstance(item, dict):
                         failures.append(f"{gwhere} is not an object")
                         continue
-                    if not (isinstance(item.get("home"), str) and item["home"].strip()):
+                    if blank(item.get("home")):
                         failures.append(f"{gwhere}.home is blank")
-                    if not (isinstance(item.get("away"), str) and item["away"].strip()):
+                    if blank(item.get("away")):
                         failures.append(f"{gwhere}.away is blank")
                     status = item.get("status")
                     if status not in GAME_STATUSES:
@@ -266,41 +268,41 @@ def validate(edition):
                         if not isinstance(item, dict):
                             failures.append(f"{iwhere} is not an object")
                             continue
-                        if not (isinstance(item.get("text"), str) and item["text"].strip()):
+                        if blank(item.get("text")):
                             failures.append(f"{iwhere}.text is blank")
-                        if not (isinstance(item.get("source_label"), str) and item["source_label"].strip()):
+                        if blank(item.get("source_label")):
                             failures.append(f"{iwhere}.source_label is blank")
-                        quote = item.get("quote")
-                        if quote is not None:
-                            if not isinstance(quote, str):
-                                failures.append(f"{iwhere}.quote is not a string")
-                            elif len(quote.split()) > 25:
-                                failures.append(f"{iwhere}.quote is longer than 25 words")
                 step = priority.get("first_step")
-                if not (isinstance(step, str) and step.strip()):
+                if blank(step):
                     failures.append(f"{where}.priority.first_step is blank")
-                block = priority.get("block")
-                if block is not None:
-                    if not (isinstance(block, dict)
-                            and isinstance(block.get("start"), str)
-                            and isinstance(block.get("end"), str)
-                            and HHMM_RE.fullmatch(block["start"])
-                            and HHMM_RE.fullmatch(block["end"])):
-                        failures.append(f"{where}.priority.block is not HH:MM")
-                tags = priority.get("tags")
-                if tags is not None and not (
-                    isinstance(tags, list) and all(isinstance(t, str) for t in tags)
-                ):
-                    failures.append(f"{where}.priority.tags is not a list of strings")
-                not_today = priority.get("not_today")
-                if not_today is not None:
-                    if not (isinstance(not_today, list) and all(isinstance(t, str) for t in not_today)):
-                        failures.append(f"{where}.priority.not_today is not a list of strings")
-                    elif len(not_today) > 2:
-                        failures.append(f"{where}.priority.not_today has more than 2 items")
-                stage_label = priority.get("stage_label")
-                if stage_label is not None and not (isinstance(stage_label, str) and stage_label.strip()):
-                    failures.append(f"{where}.priority.stage_label is blank")
+                for key in ("stage_label", "stage_why", "yesterday", "week", "draft"):
+                    if priority.get(key) is not None and blank(priority[key]):
+                        failures.append(f"{where}.priority.{key} is blank")
+                for key, cap in (("not_today", 2), ("who", 3)):
+                    items = priority.get(key)
+                    if items is None:
+                        continue
+                    if not isinstance(items, list) or any(blank(t) for t in items):
+                        failures.append(f"{where}.priority.{key} is not a list of non-blank strings")
+                    elif len(items) > cap:
+                        failures.append(f"{where}.priority.{key} has more than {cap} items")
+                today = priority.get("today")
+                if today is not None:
+                    if not isinstance(today, list):
+                        failures.append(f"{where}.priority.today is not a list")
+                    elif len(today) > 4:
+                        failures.append(f"{where}.priority.today has more than 4 items")
+                    else:
+                        for i, event in enumerate(today):
+                            ewhere = f"{where}.priority.today[{i}]"
+                            if not isinstance(event, dict):
+                                failures.append(f"{ewhere} is not an object")
+                                continue
+                            if event.get("time") is not None and blank(event["time"]):
+                                failures.append(f"{ewhere}.time is blank")
+                            for key in ("title", "note"):
+                                if blank(event.get(key)):
+                                    failures.append(f"{ewhere}.{key} is blank")
         image = section.get("image")
         if image is not None:
             if desk not in (None, "news"):
@@ -369,61 +371,28 @@ def _unavailable_priority_section(language):
     }
 
 
-def _priority_section_from_notes(notes, language):
-    """A printable priority desk from research notes, or the honest gap card."""
-    if not isinstance(notes, dict) or notes.get("status") == "unavailable":
-        return _unavailable_priority_section(language)
-    pri = notes.get("priority")
-    if not isinstance(pri, dict):
-        return _unavailable_priority_section(language)
-    why = pri.get("why")
-    step = pri.get("first_step")
-    if not (isinstance(why, list) and 1 <= len(why) <= 3
-            and isinstance(step, str) and step.strip()):
-        return _unavailable_priority_section(language)
-    copy = PRIORITY_UNAVAILABLE["pt"] if _is_portuguese(language) else PRIORITY_UNAVAILABLE["en"]
-    headline = pri.get("headline")
-    if not (isinstance(headline, str) and headline.strip()):
-        headline = step.strip()
-    payload = {
-        "why": why,
-        "first_step": step.strip(),
-    }
-    for key in ("block", "tags", "not_today", "stage_label"):
-        if key in pri:
-            payload[key] = pri[key]
-    payload["not_today_heading"] = copy["not_today"]
-    return {
-        "kind": "section",
-        "desk": "priority",
-        "title": copy["title"],
-        "headline": headline.strip(),
-        "body": step.strip(),
-        "priority": payload,
-        "sources": [],
-    }
-
-
-def ensure_priority_desk(edition, config=None, notes=None):
+def ensure_priority_desk(edition, config=None):
     """If the owner turned priority on, the page always has that desk.
 
     Measured live 2026-09-18: pt/config.json had priority.configured true
     and the file on disk, but the research pass never wrote
     run/desk-priority and edition.json shipped weather/mail/news only.
     The model omitting a slot is not a reason to hide a department the
-    owner asked for.
+    owner asked for. Only a paper batch carries the desk: it is the edition
+    with standing desks (weather, calendar), never a one-topic subscription.
+    The gap card is honest rather than a copy of run/desk-priority notes,
+    which persist across days and could be yesterday's.
     """
     if not _priority_configured(config) or not isinstance(edition, dict):
         return edition, False
     sections = edition.get("sections")
     if not isinstance(sections, list):
         return edition, False
-    if any(isinstance(s, dict) and desk_of(s) == "priority" for s in sections):
+    desks = {desk_of(s) for s in sections if isinstance(s, dict)}
+    if "priority" in desks or not desks & {"weather", "calendar"}:
         return edition, False
-    out = json.loads(json.dumps(edition))
-    section = _priority_section_from_notes(notes, _owner_language(config))
-    out["sections"] = [section] + list(out.get("sections") or [])
-    return out, True
+    gap = _unavailable_priority_section(_owner_language(config))
+    return {**edition, "sections": [gap] + sections}, True
 
 
 def _load_json_file(path):
@@ -432,10 +401,6 @@ def _load_json_file(path):
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else None
-
-
-def notes_beside_edition(edition_path):
-    return pathlib.Path(edition_path).resolve().parent / "desk-priority" / "notes.json"
 
 
 def ordered_sections(sections):
@@ -750,38 +715,54 @@ def messages_list(items):
     return '<div class="mail-list">' + "".join(rows) + "</div>"
 
 
+def _esc(text):
+    return html.escape(text.strip())
+
+
+def _note(heading, text, css="priority-note"):
+    return f'<h3>{heading}</h3><div class="{css}">{_esc(text)}</div>'
+
+
+def _inline(heading, texts):
+    items = "".join(f"<li>{_esc(t)}</li>" for t in texts)
+    return f'<h3>{heading}</h3><ul class="priority-inline">{items}</ul>'
+
+
+def priority_lead(priority):
+    """Above the focus: yesterday's follow-up, the stage and its reason, today, the week."""
+    blocks = []
+    if priority.get("yesterday"):
+        blocks.append(_note("YESTERDAY", priority["yesterday"]))
+    if priority.get("stage_label"):
+        blocks.append(f'<p class="priority-stage">STAGE · {_esc(priority["stage_label"])}</p>')
+    if priority.get("stage_why"):
+        blocks.append(f'<div class="priority-note">{_esc(priority["stage_why"])}</div>')
+    if priority.get("today"):
+        items = []
+        for event in priority["today"]:
+            time = f"<b>{_esc(event['time'])}</b> " if event.get("time") else ""
+            note = f'<span class="src">{_esc(event["note"])}</span>'
+            items.append(f"<li>{time}{_esc(event['title'])} {note}</li>")
+        blocks.append('<h3>TODAY</h3><ul class="priority-list">' + "".join(items) + "</ul>")
+    if priority.get("week"):
+        blocks.append(_note("THIS WEEK", priority["week"]))
+    return "\n".join(blocks)
+
+
 def priority_block(priority):
-    """The priority desk as a briefing to the reader: argument, then how you start."""
-    items = []
-    for item in priority["why"]:
-        text = html.escape(str(item.get("text") or "").strip())
-        label = html.escape(str(item.get("source_label") or "").strip())
-        quote = str(item.get("quote") or "").strip()
-        if quote:
-            src = f'<span class="src">“{html.escape(quote)}” — {label}</span>'
-        else:
-            src = f'<span class="src">— {label}</span>'
-        items.append(f"<li>{text} {src}</li>")
-    blocks = ['<ul class="priority-why">' + "".join(items) + "</ul>"]
-    blocks.append(
-        f'<p class="priority-step">{html.escape(priority["first_step"].strip())}</p>'
+    """Below the focus: first step, sourced why, who, the draft, what not to do."""
+    blocks = [f'<p class="priority-step">{_esc(priority["first_step"])}</p>']
+    items = "".join(
+        f'<li>{_esc(item["text"])} <span class="src">— {_esc(item["source_label"])}</span></li>'
+        for item in priority["why"]
     )
-    block = priority.get("block")
-    if isinstance(block, dict) and block.get("start") and block.get("end"):
-        start = html.escape(str(block["start"]))
-        end = html.escape(str(block["end"]))
-        blocks.append(f'<p class="priority-window">{start}–{end}</p>')
-    not_today = [t for t in (priority.get("not_today") or []) if str(t).strip()]
-    if not_today:
-        heading = html.escape(
-            str(priority.get("not_today_heading") or "Leave it for later").strip()
-        )
-        items = "".join(f"<li>{html.escape(str(t).strip())}</li>" for t in not_today[:2])
-        blocks.append(f"<h3>{heading}</h3><ul class=\"priority-avoid\">" + items + "</ul>")
-    tags = priority.get("tags") or []
-    if tags:
-        spans = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in tags)
-        blocks.append(f'<div class="tags">{spans}</div>')
+    blocks.append(f'<ul class="priority-list">{items}</ul>')
+    if priority.get("who"):
+        blocks.append(_inline("WHO", priority["who"]))
+    if priority.get("draft"):
+        blocks.append(_note("DRAFT", priority["draft"], "priority-note priority-draft"))
+    if priority.get("not_today"):
+        blocks.append(_inline("NOT TODAY", priority["not_today"]))
     return "\n".join(blocks)
 
 
@@ -938,7 +919,9 @@ def html_section(section, drop_cap=False, body_cols=1):
         else:
             tag_html = f' <span class="tag">{html.escape(tag)}</span>'
     classes = ["section"]
-    if desk != "news":
+    if desk == "priority":
+        classes.append("section--priority")
+    elif desk != "news":
         classes.append("section--desk")
         classes.append(f"section--{desk}")
     elif section.get("layout") == "sidebar":
@@ -972,9 +955,7 @@ def html_section(section, drop_cap=False, body_cols=1):
             blocks.append(kicker_html)
         blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
         if desk == "priority" and priority:
-            label = str(priority.get("stage_label") or "").strip()
-            if label:
-                blocks.append(f'  <p class="priority-stage">STAGE · {html.escape(label)}</p>')
+            blocks.append(priority_lead(priority))
         if headline:
             blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None
@@ -1245,11 +1226,7 @@ def main(argv=None):
     except (OSError, ValueError) as exc:
         sys.exit(f"error: could not read {args.edition}: {exc!r}")
 
-    edition, _ = ensure_priority_desk(
-        edition,
-        _load_json_file(args.config),
-        _load_json_file(notes_beside_edition(args.edition)),
-    )
+    edition, _ = ensure_priority_desk(edition, _load_json_file(args.config))
 
     failures = validate(edition)
     if failures:

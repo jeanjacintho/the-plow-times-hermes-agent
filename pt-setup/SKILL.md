@@ -353,34 +353,38 @@ Send only the `NEXT_QUESTION` it prints (question 3a), then stop.
 
 ## NEXT_QUESTION=priority
 
-Before asking, look for the file on the Mac — create it from the template
-when it is missing, so the owner can fill it whether or not they turn the
-desk on. Never paste the file (or the template) into chat. Run
-`chat_status.py --busy` first (and after each write); do not type that
-you are creating anything.
+Copy the question (CHAT_VOICE), in the owner's language:
 
-1. `mcp__plow__plow_read_file` `path=~/Plow/prioritization.md`
-2. It exists → leave it. Never overwrite an existing file.
-3. It does not exist → read
-   `/var/lib/hermes/skills/pt-setup/assets/prioritization.template.md` with
-   `read_file` and write it with `mcp__plow__plow_write_file`
-   `path=~/Plow/prioritization.md`, content unchanged.
-
-Then copy the locked question (CHAT_VOICE). Portuguese:
-
-> ⭐ Todo dia o jornal pode abrir com o que mais importa pra você. Já deixei um arquivo pronto na pasta Plow do seu Mac — chama prioritization.md. É só abrir e preencher. Quer essa parte no jornal? (sim / não)
-
-English:
-
-> ⭐ Every morning the paper can open with what matters most to you. I already left a file ready in the Plow folder on your Mac — it's called prioritization.md. Just open it and fill it in. Want that in the paper? (yes / no)
+> ⭐ Every morning the paper can open with what Patrick Salyer would tell you after watching your last day. What are you trying to make true over the next few quarters? (or "no" to skip the advisor desk)
 
 Stop. On their next message:
 
 - **No** → `record_setup.py <config path> priority.configured=false`
-  The file stays on the Mac. Do not delete it.
-- **Yes** → `record_setup.py <config path> priority.configured=true priority.file=~/Plow/prioritization.md`
+- **An answer** → first put it on the Mac. Run `chat_status.py --busy` before the read
+  and after each write; do not type that you are writing anything. Read the file once
+  with `mcp__plow__plow_read_file` `path=~/Plow/prioritization.md`:
+  - it exists → add their answer as one `- ` line under `## Goals` unless it is already
+    there, and write it back with `mcp__plow__plow_write_file`.
+  - it does not exist → `mcp__plow__plow_write_file` `path=~/Plow/prioritization.md` with
+    exactly:
 
-Then, only on **Yes**, seed the advisor library. Missing files get
+        # What I'm working toward
+
+        ## Goals
+        - <their answer>
+
+        ## Not now
+
+        ## Notes
+
+  - **never overwrite an existing file**: every line already in it stays as it was. Never
+    paste the owner's file back in chat.
+  Only once the goal is in the file (written now, or already there): `record_setup.py <config path> priority.configured=true priority.file=~/Plow/prioritization.md`.
+  A denied or failed write → say so in one line and record nothing; the question stays open.
+  Say in one line that the desk reads their Mac every morning and that they can correct
+  it any time by texting ("Raj is my cousin", "stop telling me to hire").
+
+Then, only once the desk is on, seed the advisor library. Missing files get
 created; files the owner already has stay untouched (a folder that
 already exists is not a reason to skip new seed files — measured as a
 review finding: installs with the original four stage files never
@@ -394,8 +398,9 @@ received later advisor notes).
    it. If it is absent, `read_file` the asset and
    `mcp__plow__plow_write_file` `path=~/Plow/advisors/<name>`, content
    unchanged.
-3. Never overwrite a file that is already there. Do not announce the
-   folder; the ⭐ question already pointed at the Plow folder.
+3. Never overwrite a file that is already there. If you wrote any, say:
+   "I put stage-by-stage advisor notes in ~/Plow/advisors — edit them, add
+   your own investors, delete what doesn't fit."
 
 Then continue with the mail question in the same turn.
 
