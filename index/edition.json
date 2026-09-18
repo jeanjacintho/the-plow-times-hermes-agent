@@ -1,0 +1,128 @@
+{
+  "date": "2026-09-18",
+  "location": "Port Meridian",
+  "sections": [
+    {
+      "kind": "section",
+      "topic_id": "t_a100",
+      "title": "Weather",
+      "desk": "weather",
+      "body": "High clouds, a light breeze off the harbor.",
+      "forecast": [
+        {"day": "Fri", "date": "18/09", "icon": "partly-cloudy", "high": 19, "low": 12},
+        {"day": "Sat", "date": "19/09", "icon": "sun", "high": 22, "low": 13},
+        {"day": "Sun", "date": "20/09", "icon": "rain", "high": 17, "low": 11}
+      ],
+      "sources": ["https://example.com/weather/port-meridian"]
+    },
+    {
+      "kind": "section",
+      "topic_id": "t_a101",
+      "title": "What to prioritize today",
+      "desk": "priority",
+      "headline": "Finish the Friday loaf list before the market opens.",
+      "body": "Write the bakers' board, then walk the first tray.",
+      "priority": {
+        "stage_label": "Neighborhood bakery",
+        "why": [
+          {
+            "text": "Saturday market still has no card for the rye",
+            "quote": "the board has to be up before the shutters",
+            "source_label": "your file, Opening notes"
+          },
+          {
+            "text": "Mira asked for the tasting flight in writing",
+            "source_label": "your file, Counter"
+          }
+        ],
+        "first_step": "Write the rye card and pin it on the board by 09:00.",
+        "today": [
+          {
+            "time": "09:15",
+            "title": "Walk the first trays with Mira",
+            "note": "Check the crust, not the recipe."
+          }
+        ],
+        "not_today": [
+          "Redesign the paper bags",
+          "Answer last month's wholesale thread"
+        ]
+      },
+      "sources": []
+    },
+    {
+      "kind": "section",
+      "topic_id": "t_a102",
+      "title": "Calendar",
+      "desk": "calendar",
+      "headline": "Three stops, all before noon",
+      "body": "Mill, counter, then the market stall.",
+      "schedule": [
+        {"time": "08:30", "title": "Flour pickup at Harbor Mill", "icon": "task"},
+        {"time": "09:15", "title": "Walk the first trays", "icon": "meeting"},
+        {"time": "11:00", "title": "Call the stall about shade cloth", "icon": "call"},
+        {"time": "16:00", "title": "Proof tomorrow's dough", "icon": "reminder"}
+      ],
+      "sources": ["https://example.com/calendar"]
+    },
+    {
+      "kind": "section",
+      "topic_id": "t_a103",
+      "title": "Letters",
+      "desk": "mail",
+      "headline": "Four messages overnight",
+      "body": "The counter, the mill, and the market.",
+      "messages": [
+        {"sender": "Mira Vale", "subject": "Rye card copy — does this read right?"},
+        {"sender": "Harbor Mill", "subject": "Tomorrow's sack is ready at the dock"},
+        {"sender": "Kit Ellison", "subject": "Can we borrow the spare proofing box?"},
+        {"sender": "Port Market", "subject": "Stall 12 shade cloth is in"}
+      ],
+      "sources": ["https://example.com/mail"]
+    },
+    {
+      "kind": "section",
+      "topic_id": "t_a104",
+      "title": "Harbor league",
+      "desk": "sports",
+      "headline": "Otters take the midweek, Gulls on Saturday",
+      "body": "Two games on the strip this week.",
+      "games": [
+        {
+          "home": "Riverside Otters",
+          "away": "Cedar Foxes",
+          "status": "final",
+          "home_score": 3,
+          "away_score": 1
+        },
+        {
+          "home": "Harbor Gulls",
+          "away": "North Pier",
+          "status": "scheduled",
+          "time": "19:00"
+        }
+      ],
+      "sources": ["https://example.com/sports/harbor-league"]
+    },
+    {
+      "kind": "section",
+      "topic_id": "t_a105",
+      "title": "City opens the old ferry waiting room as a reading hall",
+      "desk": "news",
+      "tag": "City",
+      "headline": "Free tables, long hours, and a view of the channel",
+      "body": "Port Meridian converted the unused ferry waiting room into a public reading hall this week, with long tables facing the channel and hours that run past the last boat.\n\nThe city says the room had sat empty since the foot-ferry moved to the new pier. Volunteers stocked the shelves from two closing bookshops on Harbor Street.\n\nA Saturday morning paper hour is already on the board: bring a section, leave it for the next reader.",
+      "sources": ["https://example.com/news/ferry-reading-hall"]
+    },
+    {
+      "kind": "section",
+      "topic_id": "t_a106",
+      "title": "Mill workers vote to keep the night shift",
+      "desk": "news",
+      "tag": "Work",
+      "headline": "Harbor Mill stays on two ovens through winter",
+      "body": "Harbor Mill's night crew voted to keep the second shift through March, after a week of counting sacks against winter orders from the inner towns.\n\nThe mill posted the result on the dock board at dawn. Bakers on the strip said the extra bags are what Saturday's market has been short of since August.",
+      "sources": ["https://example.com/news/harbor-mill-shift"]
+    }
+  ]
+}

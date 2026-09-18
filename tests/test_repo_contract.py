@@ -1,6 +1,7 @@
 """Repo-level deployment contracts: plow-agents compose.yml, the image, and the leftover agent-mgr hook."""
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import stat
@@ -783,6 +784,30 @@ class TestSkills:
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).
         assert "display: none" not in template
+
+    def test_index_screenshots_are_shot_from_synthetic_fixture(self):
+        # Agent Index thumbs used to be a live paper: the owner's city,
+        # their priority file, and third-party inbox rows. Re-shoot from
+        # index/edition.json (see index/render_screenshots.sh).
+        fixture_path = ROOT / "index" / "edition.json"
+        render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        assert render.validate(fixture) == ""
+        blob = json.dumps(fixture)
+        for needle in (
+            "Blumenau",
+            "Delattre",
+            "McDonald",
+            "SW Blumenau",
+            "Patrick Salyer",
+            "$1-10M",
+            "Blueprint",
+        ):
+            assert needle not in blob, needle
+        for name in ("edition-page-1.jpg", "edition-page-2.jpg"):
+            jpg = ROOT / "index" / name
+            assert jpg.is_file() and jpg.stat().st_size > 0, name
+        assert not (ROOT / "index" / "edition-page-3.jpg").exists()
 
     def test_cross_skill_imports_resolve(self):
         # register_crons.py imports topics from pt-intake/scripts at run time;

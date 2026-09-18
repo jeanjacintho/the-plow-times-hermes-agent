@@ -13,3 +13,6 @@ plow-credentials
 # knightwatch materializes declared review siblings here during a review.
 .siblings/
 .mockup/
+
+# Staging dir from index/render_screenshots.sh
+index/.shoot-tmp/
