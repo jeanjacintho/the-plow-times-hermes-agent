@@ -1,4 +1,4 @@
-# The Plow Times' own image: the pinned Plow cloud base plus the PDF
+# The Founder Times' own image: the pinned Plow cloud base plus the PDF
 # toolchain the edition renderer needs.
 #
 # Why this exists. The base image ships no HTML-to-PDF engine: measured

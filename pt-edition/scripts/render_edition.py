@@ -43,7 +43,8 @@ from datetime import date
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import sudoku  # noqa: E402 -- sibling script beside this one
 
-DEFAULT_MASTHEAD = "THE PLOW TIMES"
+DEFAULT_MASTHEAD = "THE FOUNDER TIMES"
+DEFAULT_MASTHEAD_CREDIT = "inspired by Mayfield"
 KINDS = ("section", "assignment")
 # Standing newspaper desks. weather and calendar always run; mail only when
 # pt/config.json says mail.configured. news is every owner-chosen section
@@ -97,6 +98,12 @@ _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
 
 def masthead():
     return (os.environ.get("PT_MASTHEAD") or DEFAULT_MASTHEAD).strip() or DEFAULT_MASTHEAD
+
+
+def masthead_credit():
+    if "PT_MASTHEAD_CREDIT" in os.environ:
+        return os.environ.get("PT_MASTHEAD_CREDIT", "").strip()
+    return DEFAULT_MASTHEAD_CREDIT
 
 
 def pretty_date(raw):
@@ -1159,6 +1166,7 @@ def render_html(edition, name, template_text):
     return (
         template_text
         .replace("{{MASTHEAD}}", html.escape(name))
+        .replace("{{MASTHEAD_CREDIT}}", html.escape(masthead_credit()))
         .replace("{{DATE}}", html.escape(pretty_date(edition["date"])))
         .replace("{{LOCATION}}", location)
         .replace("{{PAGE_CLASS}}", page_class)

@@ -549,7 +549,7 @@ class TestSoul:
         assert "chat_status.py --wait" in research
         assert "chat_status.py --soon" in soul
         assert "interim_assistant_messages: false" in soul
-        assert "The-Plow-Times-" in edition
+        assert "The-Founder-Times-" in edition
         assert "--filename" in edition
         script = ROOT / "pt-shared" / "scripts" / "chat_status.py"
         assert script.is_file()
@@ -754,7 +754,7 @@ class TestSkills:
         # A restyle that drops a placeholder silently drops that desk from
         # the page. The renderer fills these; the template must keep them.
         template = (ROOT / "pt-edition" / "template.html").read_text()
-        for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY_BLOCK",
+        for slot in ("MASTHEAD", "MASTHEAD_CREDIT", "DATE", "LOCATION", "LEAD", "PRIORITY_BLOCK",
                      "WEATHER_EAR", "DESKS_INLINE", "SECTIONS", "SUDOKU"):
             assert "{{" + slot + "}}" in template, f"template lost {{{{{slot}}}}}"
 
@@ -765,6 +765,7 @@ class TestSkills:
         # and news in columns.
         template = (ROOT / "pt-edition" / "template.html").read_text()
         assert "nameplate" in template
+        assert "nameplate-credit" in template
         assert "rule-double" in template
         assert "folio" in template
         assert "dropcap" in template

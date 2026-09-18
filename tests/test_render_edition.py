@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from conftest import load_module
+from conftest import ROOT, load_module
 
 render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
 
@@ -365,11 +365,18 @@ class TestMasthead:
         monkeypatch.setenv("PT_MASTHEAD", "   ")
         assert render.masthead() == render.DEFAULT_MASTHEAD
 
+    def test_printed_page_carries_the_mayfield_credit(self):
+        template = (ROOT / "pt-edition" / "template.html").read_text()
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, template)
+        assert render.DEFAULT_MASTHEAD in page
+        assert render.DEFAULT_MASTHEAD_CREDIT in page
+        assert "nameplate-credit" in page
+
 
 class TestChat:
     def test_header_and_section(self):
         text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
-        assert text.startswith("THE PLOW TIMES \u2014 Sep 11, 2026")
+        assert text.startswith("THE FOUNDER TIMES \u2014 Sep 11, 2026")
         assert "\u25b8 Weather in Sao Paulo" in text
         assert "Sources: https://example.com/weather" in text
 
@@ -619,7 +626,7 @@ class TestHtml:
     def test_location_in_header_and_placeholder(self):
         data = edition(location="Sao Paulo")
         text = render.render_chat(data, render.DEFAULT_MASTHEAD)
-        assert text.startswith("THE PLOW TIMES \u2014 Sep 11, 2026 \u2014 Sao Paulo")
+        assert text.startswith("THE FOUNDER TIMES \u2014 Sep 11, 2026 \u2014 Sao Paulo")
         page = render.render_html(data, "The Daily", "{{LOCATION}}|{{SECTIONS}}")
         assert page.startswith("Sao Paulo|")
 
@@ -663,7 +670,7 @@ class TestMain:
     def test_prints_chat_to_stdout(self, tmp_path, capsys):
         path = write(tmp_path, edition())
         assert render.main([str(path)]) == 0
-        assert "THE PLOW TIMES" in capsys.readouterr().out
+        assert "THE FOUNDER TIMES" in capsys.readouterr().out
 
     def test_writes_chat_file(self, tmp_path):
         path = write(tmp_path, edition())
