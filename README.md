@@ -6,7 +6,11 @@ A [Hermes](https://howto.plow.co/hermes) agent on [Plow Chat](https://howto.plow
 
 ## What it is
 
-The product is a **page**. Weather, calendar, optional mail, and the stories you told it to cover, laid out as a newspaper and sent to a printer on your Mac when one is there. The same edition can land as a PDF in the chat if you would rather not print.
+The product is a **page**. It can open with **your #1 priority today** (from
+`~/Plow/prioritization.md`), then weather, calendar, optional mail, and the
+stories you told it to cover, laid out as a newspaper and sent to a printer
+on your Mac when one is there. The same edition can land as a PDF in the chat
+if you would rather not print.
 
 You do not fill a profile. The first message is the paper: what time it should arrive. It learns your timezone from where the Mac is; it does not interview you for a name.
 
@@ -16,7 +20,9 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 
 ## What goes in the paper
 
-- **Standing desks** you can keep every day: weather, calendar, mail.
+- **Standing desks** you can keep every day: the #1 priority (from
+  `~/Plow/prioritization.md`, created from a template on setup if you want
+  it), weather, calendar, mail.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.
 - **One day’s assignment** (“put the iPhone price in tomorrow’s paper”).
 - **A one-off** you want once, on a short budget, without it becoming a standing section.
@@ -54,6 +60,12 @@ plow-agents revoke           # retire the line in plow-credentials
 ```
 
 `plow-credentials` is gitignored. Do not commit it.
+
+## Known limitations
+
+The daily cron is computed from the delivery hour on the date setup ran.
+Time zones that change for daylight saving can land one hour off until the
+owner changes the hour in chat.
 
 ## License
 
