@@ -22,7 +22,7 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 
 - **Standing desks** you can keep every day: the #1 priority (from
   `~/Plow/prioritization.md`, created from a template on setup if you want
-  it), weather, calendar, mail.
+  it, plus optional stage notes in `~/Plow/advisors/`), weather, calendar, mail.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.
 - **One day’s assignment** (“put the iPhone price in tomorrow’s paper”).
 - **A one-off** you want once, on a short budget, without it becoming a standing section.
