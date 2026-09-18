@@ -589,7 +589,8 @@ class TestDriftMain:
         monkeypatch.setattr(crons, "HERMES", str(fake))
         return fake
 
-    def run_main(self, tmp_path, monkeypatch, topics_list, registered, runner):
+    def run_main(self, tmp_path, monkeypatch, topics_list, registered, runner,
+                 env=None):
         pt_home = tmp_path / "pt"
         pt_home.mkdir(exist_ok=True)
         (pt_home / "config.json").write_text(json.dumps(CONFIG))
@@ -600,7 +601,7 @@ class TestDriftMain:
         return crons.main(
             jobs_path=jobs_path,
             config_path=pt_home / "config.json",
-            env={"TZ": TZ, "PLOW_HOME_CHANNEL": "chat_123"},
+            env=env if env is not None else {"TZ": TZ, "PLOW_HOME_CHANNEL": "chat_123"},
             runner=runner,
         )
 
@@ -619,6 +620,30 @@ class TestDriftMain:
         assert any("remove" in c for c in calls)
         assert any("create" in " ".join(c) for c in calls)
         assert not any(c == ["already present"] for c in calls)
+        remove_at = next(i for i, c in enumerate(calls) if "remove" in c)
+        create_at = next(i for i, c in enumerate(calls) if "create" in " ".join(c))
+        assert remove_at < create_at
+
+    def test_blank_channel_does_not_remove_a_drifted_job(
+            self, tmp_path, monkeypatch, hermes):
+        # Measured live 2026-09-18: docker compose exec had no
+        # PLOW_HOME_CHANNEL (it lives in s6's root-only env). Drift
+        # remove ran first; create_argv then refused; hermes cron list
+        # was empty and the morning paper was gone.
+        calls = []
+        def runner(argv):
+            calls.append(argv)
+            return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+        with pytest.raises(SystemExit, match="PLOW_HOME_CHANNEL"):
+            self.run_main(
+                tmp_path, monkeypatch,
+                [topic("t_1", kind="section")],
+                [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
+                  "schedule": "15 6 * * *", "skill": "pt-research"}],
+                runner=runner,
+                env={"TZ": TZ},
+            )
+        assert calls == []
 
     def test_daily_kept_while_only_a_subscription_lives(self, tmp_path, monkeypatch, hermes):
         calls = []

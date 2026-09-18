@@ -52,7 +52,7 @@ class TestSetupNeeded:
         path = tmp_path / "config.json"
         path.write_text(json.dumps(VALID))
         needed.main(["setup_needed.py", str(path)])
-        assert capsys.readouterr().out.strip() == "READY"
+        assert capsys.readouterr().out.strip() == "READY\nLANG:unrecorded"
 
 
 class TestLanguageLine:
@@ -96,6 +96,34 @@ class TestLanguageLine:
         assert lines[0] == "SETUP_NEEDED"
         assert lines[1].startswith("DRAFT:")
         assert lines[2] == "LANG:Portuguese"
+
+    def test_language_line_falls_back_to_config_when_draft_has_none(self, tmp_path):
+        config = tmp_path / "config.json"
+        config.write_text(json.dumps({
+            **VALID,
+            "owner": {**VALID["owner"], "language": "Portuguese"},
+        }), encoding="utf-8")
+        assert needed.language_line(config) == "LANG:Portuguese"
+
+    def test_draft_language_wins_over_config_during_setup(self, tmp_path):
+        config = tmp_path / "config.json"
+        config.write_text(json.dumps({
+            **VALID,
+            "owner": {**VALID["owner"], "language": "English"},
+        }), encoding="utf-8")
+        (tmp_path / ".setup-draft.json").write_text(
+            json.dumps({"owner": {"language": "Portuguese"}}), encoding="utf-8"
+        )
+        assert needed.language_line(config) == "LANG:Portuguese"
+
+    def test_cli_prints_lang_on_ready(self, tmp_path, capsys):
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps({
+            **VALID,
+            "owner": {**VALID["owner"], "language": "English"},
+        }), encoding="utf-8")
+        needed.main(["setup_needed.py", str(path)])
+        assert capsys.readouterr().out.strip() == "READY\nLANG:English"
 
     def test_draft_line_format_is_unchanged(self, tmp_path):
         # The LANG line is additive: DRAFT: keeps its exact old contract.

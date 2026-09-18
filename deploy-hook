@@ -1,47 +1,23 @@
 #!/bin/sh
 # Seed the pt-* skills and the persona into the agent's home.
 #
-# The skills used to be candidates for :ro mounts, which meant the agent could
-# not edit them -- every skill_manage write died with EROFS. The agent is meant
-# to improve its own skills (research techniques, edition phrasing), so the
-# home copy -- the same writable store where it keeps skills it authors itself
-# -- is the one it runs, and this checkout is only the seed. A destination that
-# exists non-empty is the agent's, edits and all, and divergence from the seed
-# is normal. To force a re-seed, remove the home copy and deploy again.
+# Skills used to skip any non-empty dest ("a destination that exists
+# non-empty is the agent's"). That meant an agent-mgr home never saw a
+# skill PR. Hermes already reconciles compose homes by origin hash
+# (.bundled_manifest): update a copy we wrote that the agent has not
+# edited; keep one it has. This hook now does the same via
+# pt-shared/scripts/reconcile_pt_skills.py. Unstamped dirs are the old
+# hook's copies and get one re-seed; after that the stamp protects edits.
 #
-# SOUL.md is the opposite kind of file: repo-owned deliberate content, not
-# agent-edited state -- the same class config.yaml is in, which agent-mgr
-# publishes on every deploy. So the persona is copied unconditionally, the
-# skills only when absent.
+# SOUL.md and USER.md stay repo-owned and are copied every deploy.
 #
 # agent-mgr exports AGENT_HOME; cwd is not assumed -- the script finds the
 # skill dirs beside itself, and a checkout without any is broken, not drifted.
 set -eu
 cd "$(dirname "$0")"
 home="${AGENT_HOME:?agent-mgr exports this}"
-skills_home="$home/skills"
 
-found=""
-for dir in pt-*; do
-    [ -d "$dir" ] || continue
-    [ -f "$dir/SKILL.md" ] || { echo "the-plow-times: $dir has no SKILL.md -- broken checkout" >&2; exit 1; }
-    found="$found $dir"
-    dest="$skills_home/$dir"
-    # An EMPTY dir is absent, not the agent's copy: a retired mount could have
-    # left its bare mountpoint behind. rmdir encodes that state directly -- it
-    # removes only an empty dir, and a non-empty (agent-owned) one makes it
-    # fail, which is the keep signal.
-    [ ! -e "$dest" ] || rmdir "$dest" 2>/dev/null || { echo "the-plow-times: keeping agent-owned $dest" ; continue; }
-    # Stage beside the destination and rename into place, the same shape
-    # agent-mgr's fetch-tree uses: an interrupted copy leaves *.incoming,
-    # never a half skill that a later deploy would mistake for the agent's.
-    mkdir -p "$skills_home"
-    rm -rf "$dest.incoming"
-    cp -R "$dir" "$dest.incoming"
-    mv "$dest.incoming" "$dest"
-    echo "the-plow-times: seeded $dir into $dest"
-done
-[ -n "$found" ] || { echo "the-plow-times: no pt-* skill dirs beside deploy-hook -- broken checkout" >&2; exit 1; }
+python3 pt-shared/scripts/reconcile_pt_skills.py "$home"
 
 # The persona, published every deploy like config.yaml is.
 if [ -f runtime/SOUL.md ]; then

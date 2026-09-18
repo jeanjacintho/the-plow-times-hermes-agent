@@ -69,6 +69,12 @@ or a stage change. Only the owner's notes file can do that.
 Leave out any optional field you have nothing real for; never pad one. Write every text
 field in the owner's language (`owner.language` in `pt/config.json`).
 
+**The page talks to the reader, not about them.** This is a newspaper in their hands:
+every field except `draft` is spoken to you / você, never a memo about "the founder",
+"o fundador deve", "the CEO should". Measured live: a card printed "O fundador deve
+revisar o pipeline do segundo vendedor" on a paper whose owner was that person. `draft` is
+the one field in the owner's own voice, to the person it is addressed to.
+
 ## Write the notes
 
 Use `write_file` for `/var/lib/hermes/pt/run/desk-priority/notes.json`:
