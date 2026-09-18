@@ -7,7 +7,7 @@ Needs Latch on the Mac. Until a human run, **NEEDS HUMAN RUN**.
 | # | Action | Expected |
 | --- | --- | --- |
 | 1 | New setup (`docker compose down -v`, "oi") | Questions in order: hour, printer, **priority**, mail, sections. Slow Latch/file steps post ⏳ hang-on (`chat_status.py --busy`), never a play-by-play |
-| 2 | Priority question | If `~/Plow/prioritization.md` is missing, creates it from the template **before** asking; then asks yes/no with the path. Yes → `priority.configured: true`. No → configured false; file stays. Seeds `~/Plow/advisors/` on yes if missing |
+| 2 | Priority question | If `~/Plow/prioritization.md` is missing, creates it from the template **before** asking; then asks yes/no with the path. Yes → `priority.configured: true`. No → configured false; file stays. Seeds missing `~/Plow/advisors/` files on yes; never overwrites ones already there |
 | 3 | Fill the file: company state, goals, 1 deadline, 3 pieces of advice, one rule | — |
 | 4 | Check `pt/config.json` | `priority.configured: true`, `priority.file` |
 | 5 | Force the edition (`hermes cron run pt-daily-edition`) | The page opens with the priority; the "why" cites the file and the calendar |

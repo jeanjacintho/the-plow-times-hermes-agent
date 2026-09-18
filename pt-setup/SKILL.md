@@ -380,16 +380,22 @@ Stop. On their next message:
   The file stays on the Mac. Do not delete it.
 - **Yes** → `record_setup.py <config path> priority.configured=true priority.file=~/Plow/prioritization.md`
 
-Then, only on **Yes**, seed the advisor library, once:
+Then, only on **Yes**, seed the advisor library. Missing files get
+created; files the owner already has stay untouched (a folder that
+already exists is not a reason to skip new seed files — measured as a
+review finding: installs with the original four stage files never
+received later advisor notes).
 
 1. `mcp__plow__plow_run_command` `argv=["/bin/ls","-1","<home>/Plow/advisors"]`
-   (absolute path; `plow_run_command` does not expand `~`).
-2. Exit code 0 with names listed → leave it alone. Do not mention the path in chat.
-3. Anything else (no such directory) → for each file in
-   `/var/lib/hermes/skills/pt-setup/assets/advisors/`, read it with `read_file` and write it
-   with `mcp__plow__plow_write_file` `path=~/Plow/advisors/<name>`, content unchanged.
-   Do not announce the folder; the ⭐ question already pointed at the Plow folder.
-4. Never overwrite a file that is already there.
+   (absolute path; `plow_run_command` does not expand `~`). A missing
+   directory is fine: create it by writing the first file.
+2. For **each** file in `/var/lib/hermes/skills/pt-setup/assets/advisors/`
+   (including `README.md`): if `ls` already listed that exact name, skip
+   it. If it is absent, `read_file` the asset and
+   `mcp__plow__plow_write_file` `path=~/Plow/advisors/<name>`, content
+   unchanged.
+3. Never overwrite a file that is already there. Do not announce the
+   folder; the ⭐ question already pointed at the Plow folder.
 
 Then continue with the mail question in the same turn.
 

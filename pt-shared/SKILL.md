@@ -41,6 +41,11 @@ does not, and every run fails on the import.
   `record_owner_language.py <config.json path> English`. Prints `LANG:<language>`.
   Setup-unfinished → draft; `READY` → `pt/config.json`. Skip only on a
   lone yes/ok/sim. **This bullet is the contract.**
+- `scripts/reconcile_pt_skills.py` — agent-mgr skill seed. Bare:
+  `reconcile_pt_skills.py <AGENT_HOME>`. Updates a pt-* copy whose
+  content still matches the last origin stamp; keeps a copy the agent
+  edited. Unstamped dirs are re-seeded once (old hook). **This bullet is
+  the contract.**
 - `scripts/bearer_http.py` — one bearer JSON call that never follows a redirect
   (a forwarded Authorization header is the credential walking to a host the API
   did not authenticate)

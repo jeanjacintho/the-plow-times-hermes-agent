@@ -700,6 +700,8 @@ class TestSkills:
         assert "~/Plow/prioritization.md" in section
         assert "never paste" in section.lower()
         assert "advisors" in section
+        assert "if it is absent" in section.lower()
+        assert "leave it alone" not in section.lower()
 
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
@@ -746,7 +748,8 @@ class TestSkills:
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
-                     "record_owner_language.py", "seal_chat_session.py"):
+                     "record_owner_language.py", "reconcile_pt_skills.py",
+                     "seal_chat_session.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_record_setup_is_executable_and_referenced(self):
@@ -817,6 +820,16 @@ class TestDeployment:
     def test_deploy_hook_is_executable(self):
         mode = (ROOT / "deploy-hook").stat().st_mode
         assert mode & stat.S_IXUSR, "deploy-hook must be executable"
+
+    def test_deploy_hook_reconciles_skills_by_origin_hash(self):
+        hook = (ROOT / "deploy-hook").read_text()
+        assert "reconcile_pt_skills.py" in hook
+        assert "keeping agent-owned" not in hook
+        script = ROOT / "pt-shared" / "scripts" / "reconcile_pt_skills.py"
+        assert script.is_file()
+        text = script.read_text()
+        assert "keeping user-modified" in text
+        assert ".the-plow-times-origin" in text
 
     def test_agent_env_declares_hook_and_config(self):
         env = (ROOT / "agent.env").read_text()
