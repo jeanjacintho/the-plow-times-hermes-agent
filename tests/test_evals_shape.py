@@ -10,9 +10,9 @@ def scenarios():
     return sorted((ROOT / "evals" / "scenarios").glob("*.json"))
 
 
-def test_six_scenarios_with_valid_context_shape():
+def test_ten_scenarios_with_valid_context_shape():
     files = scenarios()
-    assert len(files) == 6
+    assert len(files) == 10
     for path in files:
         s = json.loads(path.read_text())
         assert {"name", "context", "history", "expect"} <= set(s)

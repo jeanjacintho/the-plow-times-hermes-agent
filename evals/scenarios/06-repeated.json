@@ -1,9 +1,21 @@
 {
   "name": "repeated",
   "history": [
-    {"date": "2026-09-15", "priority": "Close the seed extension with Fund X", "status": "open"},
-    {"date": "2026-09-16", "priority": "Close the seed extension with Fund X", "status": "open"},
-    {"date": "2026-09-17", "priority": "Close the seed extension with Fund X", "status": "open"}
+    {
+      "date": "2026-09-15",
+      "priority": "Close the seed extension with Fund X",
+      "status": "open"
+    },
+    {
+      "date": "2026-09-16",
+      "priority": "Close the seed extension with Fund X",
+      "status": "open"
+    },
+    {
+      "date": "2026-09-17",
+      "priority": "Close the seed extension with Fund X",
+      "status": "open"
+    }
   ],
   "context": {
     "today": "2026-09-18",
@@ -13,18 +25,39 @@
       "status": "ok",
       "truncated": false,
       "sections": [
-        {"id": "projects-deadlines", "kind": "projects", "heading": "Projects", "text": "Seed extension — due 2026-09-30\nShip pricing page"}
+        {
+          "id": "projects-deadlines",
+          "kind": "projects",
+          "heading": "Projects",
+          "text": "Seed extension \u2014 due 2026-09-30\nShip pricing page"
+        }
       ]
     },
     "calendar": {
       "status": "ok",
       "events": [],
-      "free_blocks": [{"start": "09:00", "end": "12:00"}]
+      "free_blocks": [
+        {
+          "start": "09:00",
+          "end": "12:00"
+        }
+      ]
     },
     "history": [],
-    "notes": []
+    "notes": [],
+    "stage": {
+      "stage": "unknown",
+      "modifiers": [],
+      "domain": "unknown",
+      "signals": [],
+      "why": "",
+      "label": "Stage unknown"
+    },
+    "advisors": []
   },
   "expect": {
-    "priority_not_contains": ["seed extension"]
+    "priority_not_contains": [
+      "seed extension"
+    ]
   }
 }

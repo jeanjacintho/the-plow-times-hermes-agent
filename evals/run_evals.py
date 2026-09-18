@@ -45,6 +45,8 @@ def check(scenario, priority):
     prefix = expect.get("cites_source_prefix")
     if prefix and not any(str(w.get("source", "")).startswith(prefix) for w in priority.get("why", [])):
         failures.append(f"no why cites {prefix}")
+    if expect.get("no_advisor_cite") and any(str(w.get("source", "")).startswith("advisor:") for w in priority.get("why", [])):
+        failures.append("must not cite an advisor")
     if expect.get("block_is_null") and priority.get("block") is not None:
         failures.append("block must be null")
     return failures

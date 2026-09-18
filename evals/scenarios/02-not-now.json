@@ -9,19 +9,45 @@
       "status": "ok",
       "truncated": false,
       "sections": [
-        {"id": "projects-deadlines", "kind": "projects", "heading": "Projects", "text": "Website rebrand — due tomorrow\nClose pilot with Acme"},
-        {"id": "not-now", "kind": "not_now", "heading": "Not now", "text": "Website rebrand"}
+        {
+          "id": "projects-deadlines",
+          "kind": "projects",
+          "heading": "Projects",
+          "text": "Website rebrand \u2014 due tomorrow\nClose pilot with Acme"
+        },
+        {
+          "id": "not-now",
+          "kind": "not_now",
+          "heading": "Not now",
+          "text": "Website rebrand"
+        }
       ]
     },
     "calendar": {
       "status": "ok",
       "events": [],
-      "free_blocks": [{"start": "09:00", "end": "12:00"}]
+      "free_blocks": [
+        {
+          "start": "09:00",
+          "end": "12:00"
+        }
+      ]
     },
     "history": [],
-    "notes": []
+    "notes": [],
+    "stage": {
+      "stage": "unknown",
+      "modifiers": [],
+      "domain": "unknown",
+      "signals": [],
+      "why": "",
+      "label": "Stage unknown"
+    },
+    "advisors": []
   },
   "expect": {
-    "priority_not_contains": ["rebrand"]
+    "priority_not_contains": [
+      "rebrand"
+    ]
   }
 }

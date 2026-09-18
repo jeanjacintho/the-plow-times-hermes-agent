@@ -9,21 +9,54 @@
       "status": "ok",
       "truncated": false,
       "sections": [
-        {"id": "rules", "kind": "rules", "heading": "Rules", "text": "Fridays: hiring only."},
-        {"id": "goals", "kind": "goals", "heading": "Goals", "text": "Raise $1.5M."},
-        {"id": "projects-deadlines", "kind": "projects", "heading": "Projects", "text": "Hire a founding engineer"}
+        {
+          "id": "rules",
+          "kind": "rules",
+          "heading": "Rules",
+          "text": "Fridays: hiring only."
+        },
+        {
+          "id": "goals",
+          "kind": "goals",
+          "heading": "Goals",
+          "text": "Raise $1.5M."
+        },
+        {
+          "id": "projects-deadlines",
+          "kind": "projects",
+          "heading": "Projects",
+          "text": "Hire a founding engineer"
+        }
       ]
     },
     "calendar": {
       "status": "ok",
       "events": [],
-      "free_blocks": [{"start": "09:00", "end": "12:00"}]
+      "free_blocks": [
+        {
+          "start": "09:00",
+          "end": "12:00"
+        }
+      ]
     },
     "history": [],
-    "notes": []
+    "notes": [],
+    "stage": {
+      "stage": "unknown",
+      "modifiers": [],
+      "domain": "unknown",
+      "signals": [],
+      "why": "",
+      "label": "Stage unknown"
+    },
+    "advisors": []
   },
   "expect": {
-    "priority_contains_any": ["hire", "hiring", "engineer"],
+    "priority_contains_any": [
+      "hire",
+      "hiring",
+      "engineer"
+    ],
     "cites_source_prefix": "file:"
   }
 }

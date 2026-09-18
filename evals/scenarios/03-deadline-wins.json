@@ -9,19 +9,46 @@
       "status": "ok",
       "truncated": false,
       "sections": [
-        {"id": "goals", "kind": "goals", "heading": "Goals", "text": "Grow revenue"},
-        {"id": "projects-deadlines", "kind": "projects", "heading": "Projects", "text": "Board deck due 2026-09-19"}
+        {
+          "id": "goals",
+          "kind": "goals",
+          "heading": "Goals",
+          "text": "Grow revenue"
+        },
+        {
+          "id": "projects-deadlines",
+          "kind": "projects",
+          "heading": "Projects",
+          "text": "Board deck due 2026-09-19"
+        }
       ]
     },
     "calendar": {
       "status": "ok",
       "events": [],
-      "free_blocks": [{"start": "09:00", "end": "12:00"}]
+      "free_blocks": [
+        {
+          "start": "09:00",
+          "end": "12:00"
+        }
+      ]
     },
     "history": [],
-    "notes": []
+    "notes": [],
+    "stage": {
+      "stage": "unknown",
+      "modifiers": [],
+      "domain": "unknown",
+      "signals": [],
+      "why": "",
+      "label": "Stage unknown"
+    },
+    "advisors": []
   },
   "expect": {
-    "priority_contains_any": ["board", "deck"]
+    "priority_contains_any": [
+      "board",
+      "deck"
+    ]
   }
 }
