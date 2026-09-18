@@ -251,11 +251,6 @@ def validate(edition):
                 step = priority.get("first_step")
                 if not (isinstance(step, str) and step.strip()):
                     failures.append(f"{where}.priority.first_step is blank")
-                tags = priority.get("tags")
-                if tags is not None and not (
-                    isinstance(tags, list) and all(isinstance(t, str) for t in tags)
-                ):
-                    failures.append(f"{where}.priority.tags is not a list of strings")
                 not_today = priority.get("not_today")
                 if not_today is not None:
                     if not (isinstance(not_today, list) and all(isinstance(t, str) for t in not_today)):
@@ -625,10 +620,6 @@ def priority_block(priority):
     if not_today:
         items = "".join(f"<li>{html.escape(str(t).strip())}</li>" for t in not_today[:2])
         blocks.append("<h3>NOT TODAY</h3><ul class=\"priority-avoid\">" + items + "</ul>")
-    tags = priority.get("tags") or []
-    if tags:
-        spans = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in tags)
-        blocks.append(f'<div class="tags">{spans}</div>')
     return "\n".join(blocks)
 
 
