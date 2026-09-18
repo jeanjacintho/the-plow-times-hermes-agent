@@ -194,6 +194,21 @@ class TestCreateArgv:
         assert argv[argv.index("--deliver") + 1] == "plow_chat:chat_123"
 
 
+class TestEditArgv:
+    def test_argv_updates_in_place(self):
+        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00",
+                                  {"PLOW_HOME_CHANNEL": "chat_123"})
+        daily = next(j for j in jobs if j["name"] == crons.DAILY_NAME)
+        argv = crons.edit_argv(daily, {"PLOW_HOME_CHANNEL": "chat_123"})
+        assert argv[:4] == [crons.HERMES, "cron", "edit", crons.DAILY_NAME]
+        assert argv[argv.index("--schedule") + 1] == daily["schedule"]
+        assert argv[argv.index("--prompt") + 1] == daily["prompt"]
+        assert argv[argv.index("--skill") + 1] == daily["skill"]
+        assert argv[argv.index("--deliver") + 1] == "plow_chat:chat_123"
+        assert argv[2] == "edit"
+
+
+
 class TestMain:
     @pytest.fixture
     def hermes(self, tmp_path, monkeypatch):
@@ -605,7 +620,7 @@ class TestDriftMain:
             runner=runner,
         )
 
-    def test_drifted_job_removed_and_recreated(self, tmp_path, monkeypatch, hermes):
+    def test_drifted_job_edited_in_place(self, tmp_path, monkeypatch, hermes):
         calls = []
         def runner(argv):
             calls.append(argv)
@@ -617,12 +632,25 @@ class TestDriftMain:
               "schedule": "15 6 * * *", "skill": "pt-research"}],
             runner)
         assert code == 0
-        assert any("remove" in c for c in calls)
-        assert any("create" in " ".join(c) for c in calls)
-        assert not any(c == ["already present"] for c in calls)
-        remove_at = next(i for i, c in enumerate(calls) if "remove" in c)
-        create_at = next(i for i, c in enumerate(calls) if "create" in " ".join(c))
-        assert remove_at < create_at
+        assert any("edit" in c for c in calls)
+        assert not any("remove" in c for c in calls)
+        assert not any("create" in " ".join(c) for c in calls)
+        edit = next(c for c in calls if "edit" in c)
+        assert crons.DAILY_NAME in edit
+        assert "--schedule" in edit
+
+    def test_failed_edit_lears_loud(self, tmp_path, monkeypatch, hermes):
+        def failing(argv):
+            return type("P", (), {"returncode": 1, "stdout": "boom",
+                                  "stderr": "no such job"})()
+        with pytest.raises(SystemExit, match="could not update drifted job"):
+            self.run_main(
+                tmp_path, monkeypatch,
+                [topic("t_1", kind="section")],
+                [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
+                  "schedule": "15 6 * * *", "skill": "pt-research"}],
+                runner=failing,
+            )
 
     def test_blank_channel_does_not_remove_a_drifted_job(
             self, tmp_path, monkeypatch, hermes):

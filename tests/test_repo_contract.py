@@ -774,6 +774,7 @@ class TestSkills:
         assert "PRIORITY_BLOCK" in template
         assert "kicker" in template
         assert "desks-row" in template
+        assert "break-inside: avoid" in template
         assert "news-well" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
