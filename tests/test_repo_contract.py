@@ -709,6 +709,7 @@ class TestSkills:
         assert "plow_run_applescript" in desks
         assert "assets/calendar.applescript" in desks
         assert "Nenhum evento hoje" in desks
+        assert "failed or returned no event today" in desks
         assert "tell application \"Calendar\" to launch" in script
         assert "time string of start date of item 1" not in script
         assert "every event of item 1 of every calendar" not in script

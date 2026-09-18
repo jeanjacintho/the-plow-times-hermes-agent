@@ -103,8 +103,7 @@ dead domain.
 ## 2. Calendar — every daily run
 
 Read-only. Today's events, then the next few days. **Google Calendar via
-Latch first, Calendar.app only if that fails** — the same order as the mail
-desk.
+Latch first, Calendar.app only when Google failed or had nothing today.**
 
 **1. Google Calendar (`plow-gog`).** Exact argv, no substitutions (Latch
 always-allow rules key on the exact argv, and the relative range keeps it the
@@ -123,11 +122,14 @@ Source label: `Google Calendar`. Do not improvise another subcommand: measured
 live, `plow-gog calendar today --json` failed (`unexpected argument today`,
 exit 2) and `calendar list` lists calendars, not events (`items: []`).
 
-**2. Calendar.app — only if step 1 failed.** Measured live on 2026-09-18:
-Calendar.app AppleScript over a full set of synced calendars hit
-`AppleEvent timed out (-1712)` on every attempt, so try it at most once. Do not
-invent a script: copy `pt-research/assets/calendar.applescript` **verbatim**
-into `plow_run_applescript`:
+**2. Calendar.app — only if step 1 failed or returned no event today.** An
+empty Google day is not a free day: measured live, two appointments that lived
+only in Calendar.app printed as "the calendar is free". It is not every run
+because, measured live on 2026-09-18, this very script timed out
+(`AppleEvent timed out (-1712)`, 120 s) on a Mac whose Google calendars are all
+synced into Calendar.app, a day Google had already covered. Try it at most
+once. Do not invent a script: copy `pt-research/assets/calendar.applescript`
+**verbatim** into `plow_run_applescript`:
 
 ```json
 {"app": "Calendar", "script": "<exact file contents>", "goal": "Read today's and next-7-days Calendar.app events for the newspaper"}
@@ -142,7 +144,8 @@ lines:
 
 Never hand `osascript` to `plow_run_command` (sandboxed; it reproduced -600).
 Any error → `could_not_source` includes `Calendar.app`. Source label:
-`Calendar.app`.
+`Calendar.app`. When both returned rows, the same title and start on the same
+day is one event.
 
 If **both** failed, write `{"date": "<today>", "events": []}` and say in
 `could_not_source` / body that the desk could not read the agenda. An empty
