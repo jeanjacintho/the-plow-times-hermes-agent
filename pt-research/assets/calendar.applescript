@@ -26,7 +26,7 @@ tell application "Calendar"
 	set dayEnd to dayStart + (1 * days) - 1
 	set weekEnd to dayStart + (8 * days) - 1
 	repeat with cal in calendars
-		set evList to (every event of cal whose start date ≥ dayStart and start date ≤ weekEnd)
+		set evList to (every event of cal whose end date > dayStart and start date ≤ weekEnd)
 		repeat with ev in evList
 			set s to start date of ev
 			set e to end date of ev
