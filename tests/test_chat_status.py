@@ -114,17 +114,7 @@ class TestLanguageFromConfig:
         )
         assert status.owner_language(cfg) == "Portuguese"
 
-    def test_falls_back_to_the_setup_draft_during_the_interview(self, tmp_path):
-        cfg = tmp_path / "config.json"
-        cfg.write_text("{}", encoding="utf-8")
-        (tmp_path / ".setup-draft.json").write_text(
-            json.dumps({"owner": {"language": "Portuguese"}}), encoding="utf-8"
-        )
-        assert status.owner_language(cfg) == "Portuguese"
-
-    def test_draft_language_wins_over_config_during_re_setup(self, tmp_path):
-        # Issue #4: config-first made --busy English while the interview
-        # (setup_needed.py LANG:) stayed Portuguese.
+    def test_setup_draft_wins_during_the_interview(self, tmp_path):
         cfg = tmp_path / "config.json"
         cfg.write_text(
             json.dumps({"owner": {"language": "English"}}), encoding="utf-8"
