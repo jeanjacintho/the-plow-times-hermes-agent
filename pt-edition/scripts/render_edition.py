@@ -971,7 +971,7 @@ def render_html(edition, name, template_text):
     # still have one rail slot instead of four. New template.html uses the
     # named slots and leaves this empty of news.
     desks_html = "\n".join(
-        part for part in (priority_html, weather_html, calendar_html, mail_html, sports_html) if part
+        part for part in (weather_html, calendar_html, mail_html, sports_html) if part
     )
 
     # Calendar, mail and sports read as full-width stories now, the same
@@ -979,7 +979,8 @@ def render_html(edition, name, template_text):
     # three desks plus their own wrapper/rule), empty string when none of
     # them ran today, so the template never prints a bare rule above
     # nothing. Weather isn't here -- it lives in the masthead's ear.
-    inline_parts = [part for part in (priority_html, calendar_html, mail_html, sports_html) if part]
+    # Priority has its own {{PRIORITY}} slot and must not also land here.
+    inline_parts = [part for part in (calendar_html, mail_html, sports_html) if part]
     desks_inline_html = (
         '<div class="desks-inline-wrap">' + "".join(inline_parts) + "</div>"
         if inline_parts else ""

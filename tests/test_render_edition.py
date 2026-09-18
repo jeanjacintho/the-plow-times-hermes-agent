@@ -10,6 +10,16 @@ from conftest import load_module
 render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
 
 
+def edition_with_priority_and_weather():
+    return edition(sections=[
+        {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []},
+        {"kind": "section", "title": "Your #1 priority today", "desk": "priority",
+         "headline": "Close the seed extension", "body": "Send the deck",
+         "priority": {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"},
+         "sources": []},
+    ])
+
+
 def edition(**overrides):
     base = {
         "date": "2026-09-11",
@@ -215,6 +225,14 @@ class TestValidate:
             {"kind": "section", "title": "P", "desk": "priority", "body": "p", "sources": []},
         ]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}{{WEATHER}}{{LEAD}}")
         assert html.index("section--priority") < html.index("section--weather")
+
+    def test_priority_renders_exactly_once(self):
+        html = render.render_html(
+            edition_with_priority_and_weather(),
+            render.DEFAULT_MASTHEAD,
+            "{{PRIORITY}}{{DESKS_INLINE}}{{SIDEBAR}}",
+        )
+        assert html.count('section--priority"') == 1
 
     def test_chat_edition_keeps_the_priority_body(self):
         p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"}
