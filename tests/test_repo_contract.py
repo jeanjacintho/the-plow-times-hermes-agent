@@ -713,6 +713,7 @@ class TestSkills:
         assert "time string of start date of item 1" not in script
         assert "every event of item 1 of every calendar" not in script
         assert 'date "Friday' not in script
+        assert "on error" not in script
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "could not read the agenda" in edition
 
