@@ -43,7 +43,11 @@ this, "already present, skipped" means a changed delivery hour or a new
 chat payload is silently ignored forever -- the exact class of failure this
 script exists to prevent. Drift is only judged when hermes's own jobs.json
 carries the field; a fixture or an older row without a schedule is left
-alone rather than recreated on a guess.
+alone rather than recreated on a guess. Recreate is never "remove, then
+hope create_argv works": every --deliver expansion for jobs this run would
+create or recreate is resolved first. A blank PLOW_HOME_CHANNEL (typical
+of docker compose exec, which does not inherit s6's env) must refuse while
+the existing morning job is still registered.
 
 One refusal is the point of the script, inherited from ld-dashboard: an
 unreadable or unexpected jobs.json aborts. Never read "I could not tell what
@@ -696,6 +700,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
     paused = []
+    pending = []
 
     for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours):
         if job["name"] in registered:
@@ -711,6 +716,12 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
             if not job_drift(job, spec):
                 print(f"already present, skipped: {job['name']}")
                 continue
+            pending.append(("recreate", job, spec, create_argv(job, env)))
+        else:
+            pending.append(("create", job, None, create_argv(job, env)))
+
+    for action, job, spec, argv in pending:
+        if action == "recreate":
             proc = runner([HERMES, "cron", "remove", job["name"]])
             if proc.returncode != 0:
                 raise SystemExit(
@@ -721,7 +732,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
                 f"recreating drifted job: {job['name']} "
                 f"(was {spec.get('schedule')!r}, now {job['schedule']!r})"
             )
-        proc = runner(create_argv(job, env))
+        proc = runner(argv)
         if proc.returncode != 0:
             raise SystemExit(
                 f"could not register {job['name']}:\n{proc.stdout}\n{proc.stderr}"

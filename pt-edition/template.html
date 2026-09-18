@@ -50,16 +50,15 @@
     The card's own title bar IS the label; style it, don't hide it.
   - LEAD: the first news story, full width -- a kicker (the story's
     tag, letterspaced small caps, the broadsheet department label), a
-    very large uppercase headline, an italic deck, then the body in
-    three balanced columns (.lead-body/.lb-col, filled by
-    html_section(body_cols=3)) with a drop cap.
+    very large uppercase headline, an italic deck, then the body as
+    ordinary paragraphs (they fill leftover space on the sheet; a
+    3-cell table of the body used to jump whole to the next page).
   - DESKS_INLINE: calendar, mail and sports as a row of boxed
     departments with the same black label bar as the priority box --
     the "inside today's edition" teaser row of a real front page.
     Weather is not here; it lives in the masthead's ear.
-  - News well: every remaining story in three columns (.news-col) with
-    vertical hairline rules between them, each story wearing its kicker
-    above the headline.
+  - News well: remaining stories stacked in block flow so they fill
+    leftover space and only start a new page when this one is full.
   - SUDOKU: the puzzle box, generated and solved by scripts/sudoku.py,
     seeded on the edition's date -- never authored by the model.
   - Footer: the double rule again and the folio repeated.
@@ -253,7 +252,9 @@
   }
   .lead-cell .section {
     border: none; margin: 0; padding: 0;
-    break-after: avoid-page;
+    /* Do not glue the lead to the next block. Measured 2026-09-18:
+       break-after:avoid-page kept the desks with a jumped lead body
+       and left the front page empty under the headline. */
   }
   .kicker {
     font-size: 8.5px; font-weight: 700; letter-spacing: 2px;
@@ -276,15 +277,12 @@
     line-height: 1.45; margin: 0 0 14px;
     padding: 0; border-bottom: none;
   }
-  /* The lead's body in three balanced columns -- filled by
-     html_section(body_cols=3); drawn with table-cell because multicol
-     is broken in WeasyPrint's paginated engine (header comment).
-     break-inside:avoid because a split table row repaints continued
-     cell text in the wrong column (same WeasyPrint bug as the news
-     well); a lead body is a few paragraphs, short enough to move whole. */
+  /* The lead's body, if a caller still requests columns. The daily
+     paper paginates the lead as ordinary paragraphs so leftover space
+     on the front page fills instead of jumping the whole block.
+     break-inside stays AUTO: avoid on this table was the jump. */
   .lead-body {
     display: table; width: 100%; table-layout: fixed;
-    break-inside: avoid; page-break-inside: avoid;
   }
   .lb-col {
     display: table-cell; vertical-align: top;
@@ -372,13 +370,20 @@
     color: var(--accent-soft); font-size: 12px; line-height: 1;
   }
 
-  /* -- News well: rows of three cells, each row its own table that
-     never splits across pages. A single well-spanning table is not an
-     option: measured on WeasyPrint 62.3, a cell continuing onto the
-     next page paints its continuation one column to the RIGHT. ------ */
+  /* -- News well: ordinary block flow. Stories fill leftover space on
+     the current page and only start a new sheet when this one is full.
+     A 3-cell table with break-inside:avoid (the previous well) jumped
+     whole rows -- measured 2026-09-18, headline on page 1, body on
+     page 2, sudoku alone on page 3. WeasyPrint 62.3 still cannot split
+     a table cell without painting the continuation in the wrong
+     column, so this well is not a table. .news-cols stays defined for
+     older custom templates. --------------------------------------- */
+  .news-well .section {
+    break-inside: auto; page-break-inside: auto;
+    orphans: 2; widows: 2;
+  }
   .news-cols {
     display: table; width: 100%; table-layout: fixed;
-    break-inside: avoid; page-break-inside: avoid;
   }
   .news-col {
     display: table-cell; vertical-align: top; width: 33.3%;
@@ -397,7 +402,7 @@
     padding: 0 0 12px;
     margin: 0 0 12px;
     border-bottom: 1px solid var(--hairline);
-    orphans: 3; widows: 3;
+    orphans: 2; widows: 2;
   }
   .news-col > .section:last-child { border-bottom: none; }
   .section h2 {

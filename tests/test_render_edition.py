@@ -220,17 +220,21 @@ class TestValidate:
         assert html.index("kicker") < html.index("Markets rally")
         assert '<span class="tag">Economia</span>' not in html
 
-    def test_lead_body_runs_in_three_columns(self):
+    def test_lead_body_paginates_as_ordinary_paragraphs(self):
         html = render.render_html(edition(sections=[{
             "kind": "section", "title": "Lead", "desk": "news",
             "body": "One.\n\nTwo.\n\nThree.\n\nFour.",
             "sources": [],
         }]), render.DEFAULT_MASTHEAD, "{{LEAD}}")
-        assert '<div class="lead-body">' in html
-        assert html.count('<div class="lb-col">') == 3
+        # A 3-cell lead-body table had to stay whole (WeasyPrint paints
+        # a split cell in the wrong column), so the body jumped to page
+        # 2 while the front still had room. The lead fills leftover
+        # space as normal paragraphs.
+        assert '<div class="lead-body">' not in html
         assert "dropcap" in html
+        assert "<p>" in html
 
-    def test_news_well_lays_out_rows_of_three(self):
+    def test_news_well_is_a_stack_not_an_unbreakable_row(self):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
@@ -238,15 +242,13 @@ class TestValidate:
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
                                   "{{SECTIONS}}")
-        # 7 stories: 1 lead + 6 in the well = two rows of three. Each row
-        # is its own table -- a single well-spanning table repaints
-        # continued cell text in the wrong column in WeasyPrint 62.3
-        # (measured), so rows must never split.
-        assert html.count('<div class="news-cols">') == 2
+        # 1 lead + 6 in the well. Unbreakable 3-col tables jumped whole
+        # rows onto the next sheet; the well is now a stack that can
+        # fill leftover space.
+        assert '<div class="news-cols">' not in html
         assert html.count("<article") == 6
-        assert html.count('news-col--empty') == 0
 
-    def test_news_well_pads_a_short_last_row(self):
+    def test_news_well_keeps_every_story(self):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
@@ -254,10 +256,8 @@ class TestValidate:
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
                                   "{{SECTIONS}}")
-        # 1 lead + 4 in the well: a full row, then a row of one plus two
-        # empty padding cells so column widths and rules stay put.
-        assert html.count('<div class="news-cols">') == 2
-        assert html.count('news-col--empty') == 2
+        assert html.count("<article") == 4
+        assert "Story 1" in html and "Story 4" in html
 
     def test_desks_render_as_a_boxed_teaser_row(self):
         html = render.render_html(edition(sections=[
@@ -307,7 +307,7 @@ class TestValidate:
             "STAGE · Discovery", "No revenue yet &amp; you still sell alone",
             "<h3>TODAY</h3>", "10:00", "Customer call: Dana", "Go in with: what they use today",
             "Write the memo", "<h3>THIS WEEK</h3>", "Customer conversations: 2.",
-            "Book 3 customer calls by Friday", "→ x", "<h3>WHO</h3>", "Raj — replied",
+            "Book 3 customer calls by Friday", '<p class="priority-step">x</p>', "<h3>WHO</h3>", "Raj — replied",
             "Priya — trial user", "<h3>DRAFT</h3>", "Hey Raj, 20 minutes this week? &quot;Tue&quot;",
             "<h3>NOT TODAY</h3>", "Hire a sales team",
         ]
@@ -671,3 +671,73 @@ class TestMain:
         render.main([str(path), "--html", str(first)])
         render.main([str(path), "--html", str(second)])
         assert first.read_text() == second.read_text()
+
+
+class TestEnsurePriorityDesk:
+    def test_leaves_the_edition_alone_when_priority_is_off(self):
+        ed = edition()
+        out, inserted = render.ensure_priority_desk(ed, {"priority": {"configured": False}})
+        assert inserted is False
+        assert out["sections"] == ed["sections"]
+
+    def test_inserts_a_card_when_configured_and_the_model_omitted_it(self):
+        ed = edition()
+        config = {
+            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
+            "owner": {"language": "English"},
+        }
+        out, inserted = render.ensure_priority_desk(ed, config, notes=None)
+        assert inserted is True
+        assert render.desk_of(out["sections"][0]) == "priority"
+        assert "What to prioritize today" in out["sections"][0]["title"]
+        assert out["sections"][0]["body"]
+        assert render.validate(out) == ""
+
+    def test_copies_notes_when_research_did_run(self):
+        ed = edition()
+        config = {"priority": {"configured": True}, "owner": {"language": "English"}}
+        notes = {
+            "desk": "priority",
+            "status": "ok",
+            "priority": {
+                "headline": "Close the seed extension",
+                "first_step": "Send the deck this morning",
+                "why": [{"text": "The round is due", "source_label": "your file, Goals"}],
+                "stage_label": "Blueprint ($1–10M ARR)",
+                "who": ["Raj — lead on the extension"],
+                "draft": "Raj, sending the revised deck now.",
+            },
+        }
+        out, inserted = render.ensure_priority_desk(ed, config, notes=notes)
+        assert inserted is True
+        pri = out["sections"][0]
+        assert pri["headline"] == "Close the seed extension"
+        assert pri["priority"]["first_step"] == "Send the deck this morning"
+        assert pri["priority"]["who"] == ["Raj — lead on the extension"]
+        assert pri["priority"]["draft"] == "Raj, sending the revised deck now."
+        assert "headline" not in pri["priority"]
+        assert render.validate(out) == ""
+
+    def test_does_not_duplicate_an_existing_priority_desk(self):
+        ed = edition_with_priority_and_weather()
+        out, inserted = render.ensure_priority_desk(
+            ed, {"priority": {"configured": True}}, notes=None
+        )
+        assert inserted is False
+        assert sum(1 for s in out["sections"] if render.desk_of(s) == "priority") == 1
+
+    def test_main_injects_the_card_from_config_and_notes(self, tmp_path):
+        # Measured live 2026-09-18: priority.configured was true, research
+        # never wrote desk-priority, edition.json shipped weather/mail/news
+        # only. The renderer must put the card on the page itself.
+        ed_path = write(tmp_path, edition())
+        cfg = tmp_path / "config.json"
+        cfg.write_text(json.dumps({
+            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
+            "owner": {"language": "English"},
+        }), encoding="utf-8")
+        html_path = tmp_path / "out.html"
+        render.main([str(ed_path), "--html", str(html_path), "--config", str(cfg)])
+        html = html_path.read_text()
+        assert "section--priority" in html
+        assert "What to prioritize today" in html

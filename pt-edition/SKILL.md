@@ -116,7 +116,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
   sources shape in every slot.
 - **`priority` is optional, priority-desk-only, and copied from
-  `run/desk-priority/notes.json` without rewriting.** When present it
+  `run/desk-priority/notes.json` without rewriting.** The printed card
+  already talks to the reader; do not turn it into a memo about "the
+  founder". When present it
   replaces the prose body on the printed page (`skip_body`); `headline` is
   the day's priority and `body` is the first step in prose for the chat
   edition. Shape: `why` (1–3 objects with `text` and `source_label`),
@@ -184,7 +186,17 @@ HTML.** Hand-write `edition.json` under the run directory:
   "9am — Product sync. 11am — Investor call." reads as a dense wall of
   text. One event, one sender, one line each.
 - The daily paper always includes weather and calendar from
-  `run/desk-*/notes.json`. Mail only when `pt/config.json` has
+  `run/desk-*/notes.json`. If calendar notes list `could_not_source` and
+  no events, the headline is that the desk could not read the agenda —
+  never "no events today" / "Nenhum evento hoje" / "the calendar is free"
+  (measured live: two real appointments, empty `events.json` after a
+  failed gather). **Priority is the same when `pt/config.json` has
+  `priority.configured: true`: always a `"desk": "priority"` section.** Copy
+  it from `run/desk-priority/notes.json` without rewriting. If those notes
+  are missing, still include the desk — `render_edition.py` will insert the
+  card (from notes if they exist, or an honest "not built in time" card).
+  Never omit the slot because research skipped it. Mail only when
+  `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
   otherwise omit the mail block entirely so that slot stays empty.
   Sports is the same pattern: only when `pt/config.json` has

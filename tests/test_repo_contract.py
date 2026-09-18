@@ -166,6 +166,8 @@ class TestSoul:
         assert "LANG:" in gate
         # ...and it must survive into the config a scheduled edition reads.
         assert '"language"' in (ROOT / "pt-setup" / "scripts" / "finalize_setup.py").read_text()
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "record_owner_language.py" in intake
 
     def test_on_demand_copy_is_routed_and_not_filed_as_a_topic(self):
         # Measured live: "generate a copy for me to read right now" had no
@@ -473,22 +475,23 @@ class TestSoul:
         assert "and only that message" in setup
         assert "DRAFT:none. This is step 1a" in setup
         assert "This is a bare greeting 'Oi' with DRAFT:none" in setup
-        assert "reply's very first character is the opener's own first character" in setup
+        assert "reply's very first character is the catalog emoji" in setup
         assert "nothing else — never" in soul
         assert "your own reasoning about which step" in soul
         assert "reworded version of the same thing" in soul
         assert "reworded" in setup
-        assert "first character must be the real answer's own" in soul
+        assert "first character must be the catalog emoji" in soul
 
     def test_soul_reapplies_language_and_silence_rules_after_setup_is_ready(self):
         # Measured live: a whole setup interview ran correctly in Portuguese,
         # then the very next request -- "send me a paper now", answered live
         # with the owner watching -- narrated its entire research and print
-        # run in English. LANG: only prints while SETUP_NEEDED; READY gave
-        # no reminder to keep checking owner.language, and no skill outside
-        # pt-setup had ever been told to stay silent between tool calls.
+        # run in English. READY used to print no LANG line; it now does,
+        # and no skill outside pt-setup had ever been told to stay silent
+        # between tool calls.
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
-        assert "gives you no such" in soul
+        assert "still prints" in soul and "LANG:" in soul
+        assert "record_owner_language.py" in soul
         assert "silent between them" in soul
         assert "--show-daily-recipe" in soul
 
@@ -560,6 +563,42 @@ class TestSoul:
         assert script.read_text().startswith("#!")
         import os
         assert os.access(script, os.X_OK)
+
+    def test_owner_chat_voice_is_emoji_then_plain_speech(self):
+        # Measured live 2026-09-18: setup was correct but read as a
+        # product spec ("news desk", "~/Plow/prioritization.md",
+        # "departments"). Real people get one emoji, a space, then a
+        # spoken line — no paths, no desk names.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        status = (ROOT / "pt-shared" / "scripts" / "chat_status.py").read_text()
+        assert "CHAT_VOICE" in soul
+        assert "emoji, then a space, then one or two short spoken lines" in soul
+        for mark in ("📰", "🕖", "🖨️", "⭐", "✉️", "🗞️", "⏳", "⏰"):
+            assert mark in soul
+        assert "> 📰 " in setup
+        assert "> 🕖 " in setup
+        assert "> 🖨️ " in setup
+        assert "> ⭐ " in setup
+        assert "> ✉️ " in setup
+        assert "> 🗞️ " in setup
+        spoken = "\n".join(
+            line for line in setup.splitlines() if line.startswith("> ")
+        )
+        assert "~/" not in spoken
+        assert "news desk" not in spoken.lower()
+        assert '"⏳ ' in status and '"⏰ ' in status
+        assert "--busy" in status
+
+    def test_setup_posts_a_hang_on_while_latch_work_runs(self):
+        # Typed mid-turn text is dropped on plow_chat. Slow setup work
+        # (printer probe, Mac files, location) has to POST a hang-on
+        # through chat_status.py --busy, never a play-by-play.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "chat_status.py --busy" in setup
+        assert "chat_status.py --busy" in soul
+        assert "do not type" in setup.lower() or "never type" in setup.lower()
 
     def test_setup_treats_yes_as_the_default_hour(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
@@ -646,6 +685,9 @@ class TestSkills:
         assert "never overwrite an existing file" in text.lower()
         assert "trying to make true" in text
         assert not (ROOT / "pt-setup" / "assets" / "prioritization.template.md").exists()
+        section = text.split("## NEXT_QUESTION=priority", 1)[1].split("\n## ", 1)[0]
+        assert "if it is absent" in section.lower()
+        assert "leave it alone" not in section.lower()
 
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
@@ -657,11 +699,39 @@ class TestSkills:
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "history.py record" in edition
+        assert "Skipping this desk is a bug" in desks
+        assert "the founder" in skill
+        assert "you / você" in skill
+        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
+        assert "def ensure_priority_desk" in renderer
+        assert "Never omit the slot" in edition
+
+    def test_calendar_desk_uses_google_then_a_locked_applescript(self):
+        # Measured live 2026-09-18: two real appointments, paper said the
+        # day was empty. Google was called as `calendar today` (exit 2) and
+        # `calendar list` (empty calendars, not events); Calendar.app was
+        # queried while closed (-600) or with `time string of start date of
+        # item 1 of every event` (-1700).
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        script = (ROOT / "pt-research" / "assets" / "calendar.applescript").read_text()
+        assert '["plow-gog", "calendar", "events", "--from", "today", "--days", "8",' in desks
+        assert "unexpected argument today" in desks
+        assert "calendar list" in desks
+        assert "plow_run_applescript" in desks
+        assert "assets/calendar.applescript" in desks
+        assert "Nenhum evento hoje" in desks
+        assert "tell application \"Calendar\" to launch" in script
+        assert "time string of start date of item 1" not in script
+        assert "every event of item 1 of every calendar" not in script
+        assert 'date "Friday' not in script
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "could not read the agenda" in edition
 
     def test_shared_helpers_exist_and_are_referenced(self):
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
+                     "record_owner_language.py", "reconcile_pt_skills.py",
                      "seal_chat_session.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
@@ -699,25 +769,23 @@ class TestSkills:
         # with a double rule, a folio line, the lead as a large headline,
         # and news in columns.
         template = (ROOT / "pt-edition" / "template.html").read_text()
+        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "nameplate" in template
         assert "rule-double" in template
         assert "folio" in template
-        assert "columns" in template or "column-count" in template
         assert "dropcap" in template
         assert "border-image" not in template  # no fake photo frames
         assert "masthead-row" in template
         assert "ear-box" in template
-        assert "news-col" in template
         # The priority card's heading is model-written (owner.language),
         # not a hardcoded English/Portuguese string.
         assert "What should I prioritize today?" not in template
         assert "O que devo priorizar hoje?" not in template
         assert "PRIORITY_BLOCK" in template
-        # Broadsheet anatomy: kickers label each story's section, the
-        # lead's body runs in columns, desks are a boxed teaser row.
         assert "kicker" in template
-        assert "lead-body" in template
         assert "desks-row" in template
+        assert "body_cols=1" in renderer
+        assert "news-well" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).
@@ -735,6 +803,16 @@ class TestDeployment:
     def test_deploy_hook_is_executable(self):
         mode = (ROOT / "deploy-hook").stat().st_mode
         assert mode & stat.S_IXUSR, "deploy-hook must be executable"
+
+    def test_deploy_hook_reconciles_skills_by_origin_hash(self):
+        hook = (ROOT / "deploy-hook").read_text()
+        assert "reconcile_pt_skills.py" in hook
+        assert "keeping agent-owned" not in hook
+        script = ROOT / "pt-shared" / "scripts" / "reconcile_pt_skills.py"
+        assert script.is_file()
+        text = script.read_text()
+        assert "keeping user-modified" in text
+        assert ".the-plow-times-origin" in text
 
     def test_agent_env_declares_hook_and_config(self):
         env = (ROOT / "agent.env").read_text()
@@ -764,7 +842,9 @@ class TestDeployment:
         assert "interim_assistant_messages: false" in config
         assert "tool_progress: off" in config
         assert "long_running_notifications: false" in config
+        assert "anthropic/claude-sonnet-5" in config
         assert "default: anthropic/claude-sonnet-5" in config
+        assert "anthropic/claude-sonnet-5: {}" in config
 
     def test_compose_yml_is_the_plow_agents_surface(self):
         # plow-agents' compose.example.yml: service `agent`, credential drop-in,
@@ -812,6 +892,15 @@ class TestDeployment:
         assert "COPY runtime/SOUL.md /var/lib/hermes/SOUL.md" in dockerfile
         assert "COPY runtime/SOUL.md /opt/hermes/plow-seed/SOUL.md" in dockerfile
         assert "COPY runtime/USER.md /var/lib/hermes/memories/USER.md" in dockerfile
+        # Boot recopies plow-seed over home; Sonnet lives there, not only in
+        # runtime/config.yaml. Do not sed the seed onto another model.
+        assert "plow-seed/config.yaml" in dockerfile
+        assert "anthropic/claude-sonnet-5" in dockerfile
+        assert "moonshotai/kimi-k2.5" not in dockerfile
+        # plow-init writes seed display every boot; quiet chat has to be
+        # stamped there, not only in runtime/config.yaml.
+        assert "merge_pt_seed_config.py" in dockerfile
+        assert "interim_assistant_messages: false" in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()

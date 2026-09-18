@@ -3,13 +3,11 @@
 # are deliberately absent, so the pinned image supplies its current defaults
 # rather than a frozen snapshot of them.
 #
-# Default model is Claude Sonnet 5 on the Plow provider — the same OpenAI-compat
-# path this agent already authenticates with. The id has to be listed under
-# providers.plow.models too (fleet seed: image/seed/config.yaml), not only
-# as model.default, or Hermes keeps offering the previous catalog entry.
-# Measured live on this fork: Kimi K2.5 ran the daily paper out of order,
-# invented the date, and skipped the advisor desk's skill; Sonnet 5 is what the
-# paper ran on before the pin appeared.
+# Default model is Claude Sonnet 5 on the Plow provider — the same
+# OpenAI-compat path this agent already authenticates with, and the id
+# the base image pins in plow-seed. It has to be listed under
+# providers.plow.models too, not only as model.default, or Hermes keeps
+# offering the previous catalog entry.
 #
 # No group_sessions_per_user override at MVP scope: this agent has one private
 # chat and no groups (design doc §3.2), so the image default is fine.
@@ -87,6 +85,9 @@ agent:
 # edition.pdf. Skills telling the model to stay quiet are not a gate —
 # these keys are. Wait lines go through chat_status.py (a POST), not
 # assistant text. Gateway restart is required after this block changes.
+# plow-init recopies seed display over this file every boot — the image
+# must stamp the same block into /opt/hermes/plow-seed/config.yaml
+# (merge_pt_seed_config.py) or a recreate restores the loud defaults.
 display:
   tool_progress: off
   interim_assistant_messages: false
