@@ -651,3 +651,68 @@ class TestMain:
         render.main([str(path), "--html", str(first)])
         render.main([str(path), "--html", str(second)])
         assert first.read_text() == second.read_text()
+
+
+class TestEnsurePriorityDesk:
+    def test_leaves_the_edition_alone_when_priority_is_off(self):
+        ed = edition()
+        out, inserted = render.ensure_priority_desk(ed, {"priority": {"configured": False}})
+        assert inserted is False
+        assert out["sections"] == ed["sections"]
+
+    def test_inserts_a_card_when_configured_and_the_model_omitted_it(self):
+        ed = edition()
+        config = {
+            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
+            "owner": {"language": "English"},
+        }
+        out, inserted = render.ensure_priority_desk(ed, config, notes=None)
+        assert inserted is True
+        assert render.desk_of(out["sections"][0]) == "priority"
+        assert "What should I prioritize today?" in out["sections"][0]["title"]
+        assert out["sections"][0]["body"]
+        assert render.validate(out) == ""
+
+    def test_copies_notes_when_research_did_run(self):
+        ed = edition()
+        config = {"priority": {"configured": True}, "owner": {"language": "English"}}
+        notes = {
+            "desk": "priority",
+            "status": "ok",
+            "priority": {
+                "headline": "Close the seed extension",
+                "first_step": "Send the deck this morning",
+                "why": [{"text": "The round is due", "source_label": "your file, Goals"}],
+                "stage_label": "Blueprint ($1–10M ARR)",
+            },
+        }
+        out, inserted = render.ensure_priority_desk(ed, config, notes=notes)
+        assert inserted is True
+        pri = out["sections"][0]
+        assert pri["headline"] == "Close the seed extension"
+        assert pri["priority"]["first_step"] == "Send the deck this morning"
+        assert render.validate(out) == ""
+
+    def test_does_not_duplicate_an_existing_priority_desk(self):
+        ed = edition_with_priority_and_weather()
+        out, inserted = render.ensure_priority_desk(
+            ed, {"priority": {"configured": True}}, notes=None
+        )
+        assert inserted is False
+        assert sum(1 for s in out["sections"] if render.desk_of(s) == "priority") == 1
+
+    def test_main_injects_the_card_from_config_and_notes(self, tmp_path):
+        # Measured live 2026-09-18: priority.configured was true, research
+        # never wrote desk-priority, edition.json shipped weather/mail/news
+        # only. The renderer must put the card on the page itself.
+        ed_path = write(tmp_path, edition())
+        cfg = tmp_path / "config.json"
+        cfg.write_text(json.dumps({
+            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
+            "owner": {"language": "English"},
+        }), encoding="utf-8")
+        html_path = tmp_path / "out.html"
+        render.main([str(ed_path), "--html", str(html_path), "--config", str(cfg)])
+        html = html_path.read_text()
+        assert "section--priority" in html
+        assert "What should I prioritize today?" in html

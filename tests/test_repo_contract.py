@@ -702,9 +702,14 @@ class TestSkills:
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## 0. Priority" in desks
         assert "run/desk-calendar/events.json" in desks
+        assert "Skipping this desk is a bug" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
         assert "--run-dir run/desk-priority" in skill
+        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
+        assert "def ensure_priority_desk" in renderer
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "Never omit the slot" in edition
 
     def test_intake_routes_the_priority_commands(self):
         text = (ROOT / "pt-intake" / "SKILL.md").read_text()

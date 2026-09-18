@@ -54,8 +54,9 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
 ## The loop
 
 0. **Paper batch only — standing desks first.** Follow
-   `pt-research/references/desks.md` before any news topic: location via
-   Latch, then weather in the browser; calendar today and upcoming; mail
+   `pt-research/references/desks.md` before any news topic: **priority
+   (when configured — notes.json must exist before weather)**, then location
+   via Latch, then weather in the browser; calendar today and upcoming; mail
    only if configured. Flush each desk's notes as you go.
    **Before desks, reopen news:**
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections`
@@ -114,11 +115,14 @@ Two rules make a batch survivable in one session:
   clock by the section count. Only an assignment the owner explicitly asked
   to be "properly" done runs `deep`.
 - **Standing desks run first, every paper batch, and they are not topics.**
-  Follow `pt-research/references/desks.md`: priority (only if
-  `priority.configured` is true; it spends no web budget), then location
-  via Latch then weather; calendar (today and upcoming); mail only if
-  `mail.configured` is true (Gmail via `plow-gog` first, Mail.app only if
-  that fails). Notes at `run/desk-priority/notes.json`,
+  Follow `pt-research/references/desks.md`: **priority first** when
+  `priority.configured` is true (it spends no web budget). Do not open
+  weather, calendar, or the news browser until
+  `run/desk-priority/notes.json` exists — measured live, skipping it
+  shipped a paper with no #1 even though the owner had turned the desk
+  on. Then location via Latch then weather; calendar (today and upcoming);
+  mail only if `mail.configured` is true (Gmail via `plow-gog` first,
+  Mail.app only if that fails). Notes at `run/desk-priority/notes.json`,
   `run/desk-weather/notes.json`, `run/desk-calendar/notes.json`,
   `run/desk-mail/notes.json`. Do not `topics.py mark` a desk.
 - **The batch budget is global, and the per-topic budget is a slice of it.**

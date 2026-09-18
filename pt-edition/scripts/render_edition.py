@@ -8,7 +8,7 @@ printable HTML and (when weasyprint is present) the PDF. The model never
 writes HTML. Same JSON + same template = the same layout, byte for byte, so
 two editions differ only in their content, exactly like a printed paper.
 
-    render_edition.py <edition.json> [--chat OUT] [--html OUT] [--pdf OUT]
+    render_edition.py <edition.json> [--chat OUT] [--html OUT] [--pdf OUT] [--config PATH]
 
 With no output flags the chat edition goes to stdout -- the cron-fired
 session's final response *is* the chat leg, so this is the normal path. The
@@ -50,6 +50,25 @@ KINDS = ("section", "assignment")
 # and assignment -- same story shape, different page slot.
 DESKS = ("priority", "news", "weather", "calendar", "mail", "sports")
 DESK_ORDER = {"priority": -1, "weather": 0, "calendar": 1, "mail": 2, "sports": 3, "news": 4}
+CONFIG_DEFAULT = "/var/lib/hermes/pt/config.json"
+PRIORITY_UNAVAILABLE = {
+    "pt": {
+        "title": "O que devo priorizar hoje?",
+        "headline": "Hoje o #1 não entrou nesta edição.",
+        "body": (
+            "O jornal ia abrir com a sua prioridade, mas essa parte não "
+            "foi montada a tempo. O resto da página segue."
+        ),
+    },
+    "en": {
+        "title": "What should I prioritize today?",
+        "headline": "Today's #1 did not make this edition.",
+        "body": (
+            "The paper was supposed to open with your priority, but that "
+            "block was not built in time. The rest of the page still runs."
+        ),
+    },
+}
 # Controlled vocabulary for a sports desk game row -- what state the game
 # is in, drawn as a label/tag, never free text.
 GAME_STATUSES = ("scheduled", "live", "final")
@@ -311,6 +330,109 @@ def desk_of(section):
     """Which newspaper desk this block belongs to. Default news."""
     desk = section.get("desk")
     return desk if desk in DESKS else "news"
+
+
+def _is_portuguese(language):
+    s = (language or "").lower().replace("_", "-")
+    return "portug" in s or s in {"pt", "pt-br"}
+
+
+def _owner_language(config):
+    if not isinstance(config, dict):
+        return ""
+    owner = config.get("owner")
+    if not isinstance(owner, dict):
+        return ""
+    lang = owner.get("language")
+    return lang if isinstance(lang, str) else ""
+
+
+def _priority_configured(config):
+    if not isinstance(config, dict):
+        return False
+    block = config.get("priority")
+    return isinstance(block, dict) and block.get("configured") is True
+
+
+def _unavailable_priority_section(language):
+    copy = PRIORITY_UNAVAILABLE["pt"] if _is_portuguese(language) else PRIORITY_UNAVAILABLE["en"]
+    return {
+        "kind": "section",
+        "desk": "priority",
+        "title": copy["title"],
+        "headline": copy["headline"],
+        "body": copy["body"],
+        "sources": [],
+        "could_not_source": ["today's priority"],
+    }
+
+
+def _priority_section_from_notes(notes, language):
+    """A printable priority desk from research notes, or the honest gap card."""
+    if not isinstance(notes, dict) or notes.get("status") == "unavailable":
+        return _unavailable_priority_section(language)
+    pri = notes.get("priority")
+    if not isinstance(pri, dict):
+        return _unavailable_priority_section(language)
+    why = pri.get("why")
+    step = pri.get("first_step")
+    if not (isinstance(why, list) and 1 <= len(why) <= 3
+            and isinstance(step, str) and step.strip()):
+        return _unavailable_priority_section(language)
+    copy = PRIORITY_UNAVAILABLE["pt"] if _is_portuguese(language) else PRIORITY_UNAVAILABLE["en"]
+    headline = pri.get("headline")
+    if not (isinstance(headline, str) and headline.strip()):
+        headline = step.strip()
+    payload = {
+        "why": why,
+        "first_step": step.strip(),
+    }
+    for key in ("block", "tags", "not_today", "stage_label"):
+        if key in pri:
+            payload[key] = pri[key]
+    return {
+        "kind": "section",
+        "desk": "priority",
+        "title": copy["title"],
+        "headline": headline.strip(),
+        "body": step.strip(),
+        "priority": payload,
+        "sources": [],
+    }
+
+
+def ensure_priority_desk(edition, config=None, notes=None):
+    """If the owner turned priority on, the page always has that desk.
+
+    Measured live 2026-09-18: pt/config.json had priority.configured true
+    and the file on disk, but the research pass never wrote
+    run/desk-priority and edition.json shipped weather/mail/news only.
+    The model omitting a slot is not a reason to hide a department the
+    owner asked for.
+    """
+    if not _priority_configured(config) or not isinstance(edition, dict):
+        return edition, False
+    sections = edition.get("sections")
+    if not isinstance(sections, list):
+        return edition, False
+    if any(isinstance(s, dict) and desk_of(s) == "priority" for s in sections):
+        return edition, False
+    out = json.loads(json.dumps(edition))
+    section = _priority_section_from_notes(notes, _owner_language(config))
+    out["sections"] = [section] + list(out.get("sections") or [])
+    return out, True
+
+
+def _load_json_file(path):
+    try:
+        data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def notes_beside_edition(edition_path):
+    return pathlib.Path(edition_path).resolve().parent / "desk-priority" / "notes.json"
 
 
 def ordered_sections(sections):
@@ -1119,12 +1241,20 @@ def main(argv=None):
     parser.add_argument("--chat", default=None, help="write the chat text here")
     parser.add_argument("--html", default=None, help="write the printable HTML here")
     parser.add_argument("--pdf", default=None, help="write a PDF here (needs weasyprint)")
+    parser.add_argument("--config", default=CONFIG_DEFAULT,
+                        help="pt/config.json; used to force the priority desk on")
     args = parser.parse_args(argv)
 
     try:
         edition = json.loads(pathlib.Path(args.edition).read_text())
     except (OSError, ValueError) as exc:
         sys.exit(f"error: could not read {args.edition}: {exc!r}")
+
+    edition, _ = ensure_priority_desk(
+        edition,
+        _load_json_file(args.config),
+        _load_json_file(notes_beside_edition(args.edition)),
+    )
 
     failures = validate(edition)
     if failures:
