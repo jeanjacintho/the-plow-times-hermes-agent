@@ -369,8 +369,7 @@ class TestMasthead:
         template = (ROOT / "pt-edition" / "template.html").read_text()
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, template)
         assert render.DEFAULT_MASTHEAD in page
-        assert render.DEFAULT_MASTHEAD_CREDIT in page
-        assert "nameplate-credit" in page
+        assert "inspired by Mayfield" in page
 
 
 class TestChat:

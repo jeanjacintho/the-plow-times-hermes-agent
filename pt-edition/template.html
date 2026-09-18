@@ -12,7 +12,7 @@
   before this HTML is even built, so by the time the browser or
   WeasyPrint sees an <img> tag there is nothing left to fetch, same as
   everything else on the page. The renderer substitutes the
-  placeholders (MASTHEAD, MASTHEAD_CREDIT, DATE, LOCATION, LEAD, PRIORITY_BLOCK,
+  placeholders (MASTHEAD, DATE, LOCATION, LEAD, PRIORITY_BLOCK,
   WEATHER_EAR, DESKS_INLINE, SECTIONS, SUDOKU,
   and PAGE_CLASS/PRIORITY/WEATHER/CALENDAR/MAIL/SPORTS/SIDEBAR for older
   templates that still read them individually) and escapes every value
@@ -25,10 +25,10 @@
   out) on a real run. Every color below is a flat CSS value for the same
   reason: nothing here is fetched at render time.
 
-  The masthead is drawn from PT_MASTHEAD (default "THE FOUNDER TIMES")
-  with the credit line PT_MASTHEAD_CREDIT (default "inspired by Mayfield"),
+  The masthead is drawn from PT_MASTHEAD (default "THE FOUNDER TIMES"),
   resolved by the renderer -- not from edition.json, so the chat edition
-  and the printed page can never show two different names. Layout edits
+  and the printed page can never show two different names. The credit
+  "inspired by Mayfield" is fixed in this template. Layout edits
   here survive redeploys: the deploy hook copies a skill into the
   agent's home only when absent.
 
@@ -573,7 +573,7 @@
   <hr class="rule-top">
   <div class="masthead-row">
     <div class="ear ear-left"><span class="ear-box">Every claim<br>carries its source</span></div>
-    <div class="masthead-cell"><h1 class="nameplate">{{MASTHEAD}}</h1><p class="nameplate-credit">{{MASTHEAD_CREDIT}}</p></div>
+    <div class="masthead-cell"><h1 class="nameplate">{{MASTHEAD}}</h1><p class="nameplate-credit">inspired by Mayfield</p></div>
     <div class="ear ear-right">{{WEATHER_EAR}}</div>
   </div>
   <div class="ornament"><span class="orn-rule"></span><svg class="orn-diamond" viewBox="0 0 10 10" width="8" height="8" aria-hidden="true"><path d="M5 0 L10 5 L5 10 L0 5 Z" fill="currentColor"/></svg><span class="orn-rule"></span></div>
