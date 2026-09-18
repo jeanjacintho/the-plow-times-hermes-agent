@@ -425,17 +425,39 @@ class TestSoul:
         assert "--html /var/lib/hermes" in render_step
         assert "never an argument to a" in render_step
 
-    def test_print_skill_says_how_to_read_the_html_without_flailing(self):
-        # Measured live: told only to "write it there" with no word on how
-        # to get the rendered HTML into plow_write_file's content, a run
-        # tried the paginated read_file tool (silently truncated a page
-        # this size), then wc -c and a base64 dump into a temp file nothing
-        # ever consumed -- several minutes with the page still not sent.
+    def test_print_skill_ships_html_through_print_edition_not_the_model(self):
+        # Measured live 2026-09-17: the model cat'd edition.html (~43k) then
+        # tried to paste it into plow_write_file's content. The LLM stream
+        # died (RemoteProtocolError / incomplete chunked read) twice; lp
+        # never ran. Chat still worked because post_to_chat.py reads the
+        # PDF from disk. Print must be the same shape: one bare script,
+        # HTML stays in the file, never in a tool-call argument.
         text = (ROOT / "pt-print" / "SKILL.md").read_text()
-        assert "one `cat`, once" in text
-        assert "silently truncates" in text
-        assert "base64" in text
+        assert (
+            "/var/lib/hermes/skills/pt-print/scripts/print_edition.py"
+        ) in text
+        ship = text[text.index("## Ship it through Latch"):]
+        assert "one `cat`, once" not in ship
+        assert "content=<the HTML>" not in ship
+        assert "plow_write_file" not in ship
         assert "Every step below runs silently" in text
+        script = ROOT / "pt-print" / "scripts" / "print_edition.py"
+        assert script.is_file()
+        assert script.read_text().startswith("#!")
+        import os
+        assert os.access(script, os.X_OK)
+
+    def test_on_demand_paper_warns_the_owner_it_takes_a_few_minutes(self):
+        # Measured live: with no heads-up, an on-demand "send me a paper
+        # now" silently took over fifteen minutes and the owner sent /stop
+        # partway through the print handoff, right as the page was about to
+        # reach the printer. One upfront message is the exception to "no
+        # narration" -- sent once, before any tool call, not a progress
+        # update during them.
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "one message saying this takes a few" in intake
+        assert "over fifteen minutes" in intake
+        assert "partway through the" in intake
 
     def test_setup_treats_yes_as_the_default_hour(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()

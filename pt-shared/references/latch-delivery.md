@@ -6,30 +6,37 @@ container has no printer of its own — so when `pt/config.json` says
 the same "reach the owner's machine, never this container" pattern every
 Latch-using skill draws. The Mac authorises each action; that is the point.
 
-The handoff is two calls, in this order and nothing else. Paths under
-`~/Plow` auto-approve on the Mac, which is why the HTML is written there.
+**The model does not perform this handoff.** Measured live, pasting the
+rendered HTML into a Latch tool argument killed the LLM stream and `lp`
+never ran. `print_edition.py` is the whole mechanism: it reads the HTML
+from a container path, calls Latch over HTTP with `DOMO_DEVICE_UID` /
+`DOMO_MCP_TOKEN`, and prints. One command:
 
-    1. mcp__plow__plow_write_file  path=~/Plow/pt/edition-<date>.html  content=<the HTML>
-    2. mcp__plow__plow_run_command argv=["lp","-d","<printer name>","/Users/<user>/Plow/pt/edition-<date>.html"]
+    /var/lib/hermes/skills/pt-print/scripts/print_edition.py /var/lib/hermes/pt/run/edition.html /var/lib/hermes/pt/config.json
+
+Inside the script, in this order and nothing else. Paths under `~/Plow`
+auto-approve on the Mac, which is why the HTML is written there.
+
+    1. plow_write_file  path=~/Plow/pt/edition-<date>.html  content=<the HTML file's bytes>
+    2. plow_run_command argv=["lp","-d","<printer name>","/Users/<user>/Plow/pt/edition-<date>.html"]  network=true
 
 `plow_run_command` takes an **argv array and runs it directly — there is no
-shell**. `~` is never expanded, so step 2's path is the real absolute path to
-the file step 1 just wrote. No token is involved: `lp` talks to the Mac's own
-CUPS, so unlike the kiosk handoff there is no header file to read.
+shell**. `~` is never expanded, so step 2's path is the real absolute path
+the write returned. `network: true` is required: `lp` reaches `cupsd` over
+a local Unix socket, and Latch's sandbox only grants that with the flag
+(the same "Bad file descriptor" failure as the printer probe). If sandboxed
+`lp` still returns that error, the script retries once through
+`plow_run_applescript` (unsandboxed), which also wakes `cupsd`.
 
 **The print is not done until step 2 exited 0.** A CUPS job id in its output
-is the receipt; paste both outputs verbatim. Any other exit — `lp: unable to
-print file`, `no such printer`, a deny on the Mac — is a failed step: say so
-and stop; do not pretend the page printed.
+is the receipt. Any other exit — `lp: unable to print file`, `no such
+printer`, a deny on the Mac — is a failed step: the script exits non-zero;
+do not pretend the page printed.
 
 **A `{"status":"pending","handle":…}` answer is not a result.** Either call
 outruns the Mac's 10-second Latch call budget when review ahead of exec takes
-its time; the call keeps running and hands back a handle. Poll
-`mcp__plow__plow_get_result handle=<that handle>` about once a second until
-its `status` is `ready`, and read its `result` as the answer the original
-call would have given — the write's confirmation, or lp's exit — held to the
-same zero-exit rule above. `denied`, `failed`, `expired` or `unknown` is a
-failed step: say so and stop.
+its time; the script polls `plow_get_result` until `ready`. `denied` /
+`failed` / `expired` / `unknown` is a failed step.
 
 ## Printing is best-effort, never a delivery blocker
 

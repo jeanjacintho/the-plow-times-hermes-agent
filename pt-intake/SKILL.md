@@ -148,6 +148,18 @@ while 48 saved sections sat unread, because a one-off edition carries only
 its own topic. Do not add a topic. Run the daily edition's own steps, which
 `pt-edition` documents under **On demand**.
 
+**Before running those steps, send one message saying this takes a few
+minutes.** This is real, live research over Latch — desks plus every
+standing section, each a genuine round trip to a real browser on the
+owner's Mac — the same work the 7am cron does, just started now instead of
+waited for. Measured live: with no such message, an on-demand run silently
+took over fifteen minutes, and the owner sent `/stop` partway through the
+print handoff, right as the page was about to reach the printer. One line
+first — "seu jornal leva alguns minutos, já volto" / "give me a few minutes
+to put this together" — is the one exception to "no narration": it is the
+message this step calls for, sent once, before any tool call, not a
+progress update during them.
+
 A subscription/section is anything with a cadence in it. A one-off/assignment
 is a single ask. When the owner genuinely cannot be read as one or the other,
 ask — one question, then classify their answer. Do not silently guess a

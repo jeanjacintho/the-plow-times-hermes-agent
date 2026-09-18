@@ -46,4 +46,5 @@ does not, and every run fails on the import.
   enforces (including the optional `delivery.lead_minutes`, default 0, and
   optional `mail.configured`, default off)
 - `references/latch-delivery.md` — how the printed edition reaches the owner's
-  printer over Latch (the print path's "NOT DELIVERED" sheet)
+  printer over Latch (`print_edition.py` is the handoff; this file is the
+  contract that script holds to)
