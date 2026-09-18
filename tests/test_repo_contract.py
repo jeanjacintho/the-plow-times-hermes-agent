@@ -718,26 +718,59 @@ class TestSkills:
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "Never omit the slot" in edition
 
-    def test_calendar_desk_uses_google_then_a_locked_applescript(self):
-        # Measured live 2026-09-18: two real appointments, paper said the
-        # day was empty. Google was called as `calendar today` (exit 2) and
-        # `calendar list` (empty calendars, not events); Calendar.app was
-        # queried while closed (-600) or with `time string of start date of
-        # item 1 of every event` (-1700).
+    def test_calendar_desk_is_plow_gog_only(self):
+        # Latch google-workspace (gog 0.36): selected calendars are the
+        # event read; --from now; compact startLocal as HH:MM; truncated
+        # continues with --from/--to.
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
-        script = (ROOT / "pt-research" / "assets" / "calendar.applescript").read_text()
-        assert '["plow-gog", "calendar", "events", "--today", "--json"]' in desks
-        assert "unexpected argument today" in desks
+        research = (ROOT / "pt-research" / "SKILL.md").read_text()
+        crons = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
+        assert '["plow-gog", "calendar", "calendars"]' in desks
+        assert '"--calendars"' in desks
+        assert '"--account"' in desks
+        assert '["plow-gog", "calendar", "events", "--from", "now"]' in desks
+        assert "--today" not in desks
+        assert "calendar today" in desks  # anti-pattern only
+        assert "calendar today" not in crons
+        assert "calendar today" not in research
         assert "calendar list" in desks
-        assert "plow_run_applescript" in desks
-        assert "assets/calendar.applescript" in desks
+        assert "startDayOfWeek" in desks
+        assert "startLocal" in desks
+        assert "HH:MM" in desks
+        assert "declined" in desks
+        assert "transparent" in desks
+        assert "degraded" in desks
+        assert "truncated" in desks
+        assert '"--to"' in desks
+        assert "selected: true" in desks
+        assert "assets/calendar.applescript" not in desks
+        assert "plow_run_applescript" not in desks
+        assert not (ROOT / "pt-research" / "assets" / "calendar.applescript").exists()
         assert "Nenhum evento hoje" in desks
-        assert "tell application \"Calendar\" to launch" in script
-        assert "time string of start date of item 1" not in script
-        assert "every event of item 1 of every calendar" not in script
-        assert 'date "Friday' not in script
+        assert "Calendar.app" not in desks
+        assert "Mail.app" not in desks
+        assert "Mail.app" not in research
+        assert "calendar.applescript" not in research
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "could not read the agenda" in edition
+        assert '"sources": ["Google Calendar"]' in edition
+
+    def test_mail_desk_and_setup_are_plow_gog_only(self):
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        crons = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
+        gate = (ROOT / "pt-shared" / "scripts" / "pt_config_gate.py").read_text()
+        assert '"plow-gog", "gmail", "search"' in desks
+        assert "newer_than:1d" in desks
+        probe = setup.split("**3b.", 1)[1].split("**4a.", 1)[0]
+        assert probe.index("degraded") < probe.index("zero messages")
+        assert "tell application \\\"Mail\\\"" not in setup
+        assert "Mail.app" not in setup
+        assert "Mail.app" not in intake
+        assert "Mail.app" not in crons
+        assert "Mail.app" not in gate
+        assert "plow-gog" in gate
 
     def test_intake_routes_the_priority_commands(self):
         text = (ROOT / "pt-intake" / "SKILL.md").read_text()

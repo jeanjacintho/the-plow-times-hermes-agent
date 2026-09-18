@@ -1,6 +1,6 @@
 ---
 name: pt-research
-description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail and Google Calendar events --today --json, plow_run_applescript with pt-research/assets/calendar.applescript for Calendar.app, plow_run_command for Mail.app fallback, plow_browser_* for every web page including weather and sports). Never Hermes web_search, web_extract, Firecrawl, Exa, Keenable, or Parallel. Producing structured sourced notes. Runs in a cron-fired session, or live in
+description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail and Google Calendar events --from now plus calendar calendars, plow_browser_* for every web page including weather and sports). Never Hermes web_search, web_extract, Firecrawl, Exa, Keenable, or Parallel. Producing structured sourced notes. Runs in a cron-fired session, or live in
 chat when the owner asks for a copy right now (pt-dashboard's
 --show-daily-recipe) -- either way, tool calls only, no owner-facing text
 until the run is done. Stops at the budget, not when it feels done.
@@ -56,7 +56,8 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
 0. **Paper batch only — standing desks first.** Follow
    `pt-research/references/desks.md` before any news topic: **priority
    (when configured — notes.json must exist before weather)**, then location
-   via Latch, then weather in the browser; calendar today and upcoming; mail
+   via Latch, then weather in the browser; calendar via plow-gog
+   (`calendars`, then selected `events --from now`); mail
    only if configured. Flush each desk's notes as you go.
    **Before desks, reopen news:**
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections`
@@ -120,11 +121,12 @@ Two rules make a batch survivable in one session:
   weather, calendar, or the news browser until
   `run/desk-priority/notes.json` exists — measured live, skipping it
   shipped a paper with no #1 even though the owner had turned the desk
-  on. Then location via Latch then weather; calendar (Google `plow-gog
-  calendar events --today --json` first, then Calendar.app via
-  `plow_run_applescript` copying `assets/calendar.applescript` verbatim);
-  mail only if `mail.configured` is true (Gmail via `plow-gog` first,
-  Mail.app only if that fails). Notes at `run/desk-priority/notes.json`,
+  on. Then location via Latch then weather; calendar (`plow-gog calendar
+  calendars`, then per-account selected `events --from now`; compact
+  `startLocal` as `HH:MM` / `startDayOfWeek`; honor `degraded`/`truncated`
+  with `--from`/`--to` on continuation); mail only if
+  `mail.configured` is true (`plow-gog gmail search` only). Notes at
+  `run/desk-priority/notes.json`,
   `run/desk-weather/notes.json`, `run/desk-calendar/notes.json`,
   `run/desk-mail/notes.json`. Do not `topics.py mark` a desk.
 - **The batch budget is global, and the per-topic budget is a slice of it.**

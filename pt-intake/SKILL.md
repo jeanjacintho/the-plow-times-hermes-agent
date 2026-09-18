@@ -122,8 +122,8 @@ These are ordinary turns, not classifications. Do them and end:
   not dropping the whole paper.
 - **"put my mail in the paper" / "drop the letters column"** — `mail.configured`
   in `pt/config.json`. Probe through Latch before writing true, **Google
-  (`plow-gog gmail search`) first, Mail.app only if that fails** (same
-  argv order as pt-setup). Validate with the gate, then confirm in one line.
+  (`plow-gog gmail search` only — same argv as pt-setup)**. Validate with
+  the gate, then confirm in one line.
   The daily job already exists; no extra cron.
 
 ## New topic — classify, then write

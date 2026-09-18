@@ -507,7 +507,7 @@ class TestHtml:
                 {"time": "9am", "title": "Product <sync>", "icon": "meeting"},
                 {"time": "11am", "title": "Investor call", "icon": "call"},
             ],
-            "sources": ["Calendar.app"],
+            "sources": ["Google Calendar"],
         }])
         page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
         assert 'class="cal-list"' in page
@@ -551,7 +551,7 @@ class TestHtml:
             "kind": "section", "title": "Agenda", "desk": "calendar",
             "body": "9am — Product sync.",
             "schedule": [{"time": "9am", "title": "Product sync", "icon": "meeting"}],
-            "sources": ["Calendar.app"],
+            "sources": ["Google Calendar"],
         }])
         text = render.render_chat(data, render.DEFAULT_MASTHEAD)
         assert "<svg" not in text
@@ -586,7 +586,7 @@ class TestHtml:
         data = edition(sections=[{
             "kind": "section", "title": "Diary", "desk": "calendar",
             "body": "Today: dentist at 9.\n\nUpcoming: flight on Friday.",
-            "sources": ["Calendar.app"],
+            "sources": ["Google Calendar"],
         }])
         page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
         assert "Today: dentist at 9." in page

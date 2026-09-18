@@ -411,9 +411,9 @@ English:
 > ✉️ Want today's mail in the paper? Just who sent it and the subject, not the full text. (yes / no)
 
 **3b. On their next message**, whatever they answered, **probe once
-through Latch before recording `mail.configured`**, Google first,
-Mail.app only if that fails. `--busy` before the probe and after every
-poll; do not type what the probe is.
+through Latch before recording `mail.configured`**, Gmail only.
+`--busy` before the probe and after every poll; do not type what the
+probe is.
 
 1. `plow_run_command` argv (exact):
 
@@ -421,22 +421,18 @@ poll; do not type what the probe is.
 { "argv": ["plow-gog", "gmail", "search", "newer_than:1d", "--max", "5", "--json", "--fields", "id,date,from,subject"] }
 ```
 
-   A result (including zero messages) means the Google account in Latch
-   works.
-2. Only if that call is denied, 401/412, or Latch has no Google account:
-   probe Mail.app:
-
-```json
-{ "argv": ["osascript", "-e", "tell application \"Mail\" to get name"], "apple_events": true, "goal": "See whether Mail.app is reachable for the letters desk" }
-```
+   Non-empty `degraded` with no items, deny, 401/412, or no Google
+   account is a failed probe — do not invent a second mail source.
+   A completed result with empty `degraded` (including zero messages)
+   means the Google account in Latch works.
 
 Then record the outcome:
 
-- They said yes and **either** probe works:
+- They said yes and **the** probe works:
 
       record_setup.py /var/lib/hermes/pt/config.json mail.configured=true
 
-- They said no, or both probes fail / the Mac is unreachable:
+- They said no, or the probe fails / the Mac is unreachable:
 
       record_setup.py /var/lib/hermes/pt/config.json mail.configured=false
 

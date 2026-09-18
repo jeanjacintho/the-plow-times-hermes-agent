@@ -58,7 +58,7 @@ The ten checks:
   8. mail.configured, when the mail object is present, must be a boolean.
      Absent mail is valid and means the letters desk is off -- this agent
      does not invent an inbox. True means the daily paper reads today's
-     mail through Latch (Gmail via plow-gog first, Mail.app if that fails);
+     mail through Latch (Gmail via plow-gog);
      false is an explicit no.
   9. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
   10. priority, when present, has a boolean `configured`; if true, `file`

@@ -47,7 +47,7 @@ HTML.** Hand-write `edition.json` under the run directory:
         { "time": "11am", "title": "Investor call", "icon": "call" },
         { "time": "Thu", "title": "Dentist at 3pm", "icon": "reminder" }
       ],
-      "sources": ["Calendar.app"] },
+      "sources": ["Google Calendar"] },
     { "kind": "section", "desk": "mail",
       "title": "Letters",
       "headline": "Three messages overnight",
