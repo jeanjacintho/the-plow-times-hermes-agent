@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Stamp newspaper display gates onto plow-seed/config.yaml.
+"""Stamp newspaper gates onto plow-seed/config.yaml.
 
-plow-init writes seed['display'] onto the home config every boot. The base
-seed leaves plow_chat interim messages on (Hermes default) and
-long_running_notifications true. runtime/config.yaml copied into
-/var/lib/hermes is shadowed by the agent-home volume, so a recreate that
-only updates the model still puts tool narration back in the owner's DM.
-This overlay is the gate that survives that recopy.
+plow-init recopies the seed over the home config every boot.
+runtime/config.yaml copied into /var/lib/hermes is shadowed by the
+agent-home volume, so display quiet-chat and context_file_max_chars
+have to live on the seed or a recreate restores Hermes defaults (loud
+plow_chat, 20 000-char SOUL truncation).
 """
 from __future__ import annotations
 
@@ -53,6 +52,7 @@ def main(argv=None):
     with open(ours_path) as handle:
         ours = yaml.safe_load(handle) or {}
     overlay_display(seed, ours)
+    seed["context_file_max_chars"] = ours["context_file_max_chars"]
     disp = seed.get("display") or {}
     pc = (disp.get("platforms") or {}).get("plow_chat") or {}
     if disp.get("interim_assistant_messages") is not False:

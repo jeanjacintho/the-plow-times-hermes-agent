@@ -30,7 +30,8 @@ COPY image/merge_pt_seed_config.py /opt/plow/merge_pt_seed_config.py
 RUN /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
       /opt/hermes/plow-seed/config.yaml /tmp/pt-runtime-config.yaml \
  && grep -q 'interim_assistant_messages: false' /opt/hermes/plow-seed/config.yaml \
- && grep -q 'long_running_notifications: false' /opt/hermes/plow-seed/config.yaml
+ && grep -q 'long_running_notifications: false' /opt/hermes/plow-seed/config.yaml \
+ && grep -q 'context_file_max_chars: 40000' /opt/hermes/plow-seed/config.yaml
 
 # Boot also recomposes $HOME/SOUL.md from this seed. COPY to the home is
 # shadowed by the volume and then overwritten; the newspaper identity has
