@@ -147,7 +147,10 @@ HTML.** Hand-write `edition.json` under the run directory:
   pick the one that actually matches the event (a call is `call`, not
   `meeting`; a standing reminder like "dentist at 3pm" is `reminder`;
   anything that doesn't fit the other four is `note`, never guessed as
-  `meeting` to avoid picking). `messages` is a non-empty list of
+  `meeting` to avoid picking). The printed strip shows at most six
+  events (issue #7: a taller calendar box jumped the whole desks row
+  to the next page); list every event in JSON anyway — the chat
+  edition uses `body`, and extra rows are dropped only at render. `messages` is a non-empty list of
   `{ "sender", "subject" }` — no icon field, since every letter draws
   the same envelope mark. `games` is a non-empty list of `{ "home",
   "away", "status", "home_score", "away_score", "note" }` — `status`

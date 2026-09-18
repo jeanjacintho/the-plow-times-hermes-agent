@@ -775,6 +775,12 @@ class TestSkills:
         assert "PRIORITY_BLOCK" in template
         assert "kicker" in template
         assert "desks-row" in template
+        assert "break-inside: avoid" in template
+        # Issue #7: the desks row stays avoid (WeasyPrint table-split);
+        # the print calendar strip is capped so the row cannot grow to
+        # a full page and jump, leaving the previous sheet blank.
+        assert "SCHEDULE_STRIP_MAX" in renderer
+        assert "issue #7" in renderer.lower() or "issue 7" in renderer.lower()
         assert "body_cols=1" in renderer
         assert "news-well" in template
         # Never display:none an element that gets a background from

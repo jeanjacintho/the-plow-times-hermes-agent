@@ -80,6 +80,11 @@ FORECAST_ICONS = ("sun", "partly-cloudy", "cloud", "rain", "storm", "snow")
 # Same idea for the calendar desk's schedule rows -- what kind of event this
 # is, drawn from CALENDAR_ICONS, never free text.
 SCHEDULE_ICONS = ("meeting", "call", "task", "reminder", "note")
+# Issue #7: the calendar+letters row is break-inside:avoid (WeasyPrint
+# table-split workaround). A full Google day made that row a page tall,
+# so it jumped whole and left the previous sheet blank. The print strip
+# keeps this many events; the JSON `body` (chat edition) is uncapped.
+SCHEDULE_STRIP_MAX = 6
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
@@ -661,12 +666,12 @@ def desk_header_icon(desk):
 
 
 def calendar_icon(key):
-    """One 20x20 inline SVG for a schedule row. `key` is pre-validated
+    """One 16x16 inline SVG for a schedule row. `key` is pre-validated
     against SCHEDULE_ICONS by validate(); falls back to the generic note
     icon rather than trust an unchecked caller."""
     body = CALENDAR_ICONS.get(key, CALENDAR_ICONS["note"])
     return (
-        '<svg class="cal-icon" viewBox="0 0 24 24" width="20" height="20" '
+        '<svg class="cal-icon" viewBox="0 0 24 24" width="16" height="16" '
         'fill="none" stroke="currentColor" stroke-width="1.5" '
         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         f"{body}</svg>"
@@ -676,9 +681,13 @@ def calendar_icon(key):
 def schedule_list(items):
     """The calendar desk's agenda: one row per event, icon plus a bold
     time and the title -- every string here came from the day's own
-    note, so it is escaped like any other section field."""
+    note, so it is escaped like any other section field.
+
+    Print only the first SCHEDULE_STRIP_MAX rows (issue #7). Extra
+    events stay in `body` for the chat edition.
+    """
     rows = []
-    for item in items:
+    for item in items[:SCHEDULE_STRIP_MAX]:
         icon = calendar_icon(item.get("icon"))
         time_str = html.escape(item["time"].strip())
         title = html.escape(item["title"].strip())
