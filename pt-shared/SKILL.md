@@ -51,7 +51,7 @@ does not, and every run fails on the import.
   did not authenticate)
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
   body) to the owner's home channel, or the chat text if there is no PDF.
-  `--filename The-Plow-Times-<date>.pdf` is the name shown in chat (the
+  `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
   run file stays `edition.pdf` on disk). A successful `--pdf` POST stamps
   `seal_chat_session.py` and then runs `print_edition.py` when the printer
   is configured (best-effort; a print failure does not undo the chat).

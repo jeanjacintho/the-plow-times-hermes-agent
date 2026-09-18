@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!--
-  The Plow Times -- the fixed edition layout.
+  The Founder Times -- the fixed edition layout.
 
   This file is deliberately plain: inline CSS, no JavaScript, and no
   external assets loaded AT RENDER TIME -- the one exception, a news
@@ -25,9 +25,10 @@
   out) on a real run. Every color below is a flat CSS value for the same
   reason: nothing here is fetched at render time.
 
-  The masthead is drawn from PT_MASTHEAD (default "THE PLOW TIMES"),
+  The masthead is drawn from PT_MASTHEAD (default "THE FOUNDER TIMES"),
   resolved by the renderer -- not from edition.json, so the chat edition
-  and the printed page can never show two different names. Layout edits
+  and the printed page can never show two different names. The credit
+  "inspired by Mayfield" is fixed in this template. Layout edits
   here survive redeploys: the deploy hook copies a skill into the
   agent's home only when absent.
 
@@ -145,10 +146,17 @@
        only (WeasyPrint doesn't synthesize bold for it), so size and
        letter-spacing carry the presence a bold weight would give. */
     font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", "Times New Roman", Georgia, serif;
-    font-size: 58px; font-weight: 900; letter-spacing: 0.5px;
+    font-size: 48px; font-weight: 900; letter-spacing: 0.5px;
     margin: 0;
     line-height: 0.95;
     color: var(--ink);
+  }
+  .nameplate-credit {
+    margin: 6px 0 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 9px; font-style: italic; font-weight: 400;
+    letter-spacing: 0.8px;
+    color: var(--ink-soft);
   }
   .ornament {
     display: flex; align-items: center; gap: 10px;
@@ -565,7 +573,7 @@
   <hr class="rule-top">
   <div class="masthead-row">
     <div class="ear ear-left"><span class="ear-box">Every claim<br>carries its source</span></div>
-    <div class="masthead-cell"><h1 class="nameplate">{{MASTHEAD}}</h1></div>
+    <div class="masthead-cell"><h1 class="nameplate">{{MASTHEAD}}</h1><p class="nameplate-credit">inspired by Mayfield</p></div>
     <div class="ear ear-right">{{WEATHER_EAR}}</div>
   </div>
   <div class="ornament"><span class="orn-rule"></span><svg class="orn-diamond" viewBox="0 0 10 10" width="8" height="8" aria-hidden="true"><path d="M5 0 L10 5 L5 10 L0 5 Z" fill="currentColor"/></svg><span class="orn-rule"></span></div>

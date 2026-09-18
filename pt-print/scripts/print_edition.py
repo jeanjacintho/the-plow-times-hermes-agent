@@ -247,7 +247,7 @@ def ship(pdf_path, printer, date, call_tool, sleep=time.sleep):
                 "argv": ["lp", "-d", printer, abs_pdf],
                 "network": True,
                 "read_paths": [abs_pdf],
-                "goal": "Print today's Plow Times edition",
+                "goal": "Print today's Founder Times edition",
             },
         ),
         poll,
@@ -261,7 +261,7 @@ def ship(pdf_path, printer, date, call_tool, sleep=time.sleep):
                 {
                     "app": "System Events",
                     "script": f"do shell script {json.dumps(cmd)}",
-                    "goal": "Print today's Plow Times edition (sandboxed lp failed)",
+                    "goal": "Print today's Founder Times edition (sandboxed lp failed)",
                 },
             ),
             poll,

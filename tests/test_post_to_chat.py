@@ -29,16 +29,16 @@ class TestComposePayload:
         assert (
             post.attachment_filename(
                 "/var/lib/hermes/pt/run/edition.pdf",
-                "The-Plow-Times-2026-09-17.pdf",
+                "The-Founder-Times-2026-09-17.pdf",
             )
-            == "The-Plow-Times-2026-09-17.pdf"
+            == "The-Founder-Times-2026-09-17.pdf"
         )
         with pytest.raises(SystemExit, match="filename"):
             post.attachment_filename("edition.pdf", "../secret.pdf")
 
     def test_text_only_when_no_pdf(self):
-        payload = post.compose_payload("THE PLOW TIMES")
-        assert payload == {"body": "THE PLOW TIMES"}
+        payload = post.compose_payload("THE FOUNDER TIMES")
+        assert payload == {"body": "THE FOUNDER TIMES"}
 
     def test_text_only_refuses_blank_stdin(self):
         with pytest.raises(SystemExit, match="no edition text"):
@@ -73,8 +73,8 @@ class TestTextFileFlag:
 
     def test_reads_the_edition_text_from_a_file(self, tmp_path):
         f = tmp_path / "edition.chat.txt"
-        f.write_text("THE PLOW TIMES\nfront page\n", encoding="utf-8")
-        assert post.read_text_file(str(f)) == "THE PLOW TIMES\nfront page"
+        f.write_text("THE FOUNDER TIMES\nfront page\n", encoding="utf-8")
+        assert post.read_text_file(str(f)) == "THE FOUNDER TIMES\nfront page"
 
     def test_missing_file_is_refused_by_name(self, tmp_path):
         with pytest.raises(SystemExit, match="text-file"):

@@ -43,7 +43,7 @@ from datetime import date
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import sudoku  # noqa: E402 -- sibling script beside this one
 
-DEFAULT_MASTHEAD = "THE PLOW TIMES"
+DEFAULT_MASTHEAD = "THE FOUNDER TIMES"
 KINDS = ("section", "assignment")
 # Standing newspaper desks. weather and calendar always run; mail only when
 # pt/config.json says mail.configured. news is every owner-chosen section

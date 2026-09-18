@@ -1,4 +1,4 @@
--- The Plow Times calendar desk. Copy this file VERBATIM into
+-- The Founder Times calendar desk. Copy this file VERBATIM into
 -- plow_run_applescript (app: "Calendar"). Do not rewrite it.
 --
 -- Measured live 2026-09-18 on the owner's Mac:

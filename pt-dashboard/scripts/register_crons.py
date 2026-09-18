@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register the Plow Times' crons, idempotently, from the topic store.
+"""Register the Founder Times' crons, idempotently, from the topic store.
 
 Why this exists at all. `hermes cron` persists jobs to
 /var/lib/hermes/cron/jobs.json, which no rebuild replays -- so a rebuilt

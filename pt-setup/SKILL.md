@@ -92,7 +92,7 @@ whole visible reply to a bare "Oi" was
 > The message is "Oi" — a bare greeting, DRAFT:none. This is step 1a:
 > send the opener in Portuguese, then stop.
 >
-> Sou o The Plow Times, seu jornal. A que horas quer o jornal da manhã?
+> Sou o The Founder Times (inspired by Mayfield), seu jornal. A que horas quer o jornal da manhã?
 > Se não disser, uso 7h.
 
 — the actual opener buried under a paragraph of the model's own reasoning
@@ -120,11 +120,11 @@ ask their name or how they like to work.
 **Opener — send this, then stop and wait.** Copy it. Match the owner's language.
 Portuguese:
 
-> 📰 Oi! Eu sou o The Plow Times, o seu jornal. A que horas você quer ele de manhã? Se não disser nada, mando às 7h.
+> 📰 Oi! Eu sou o The Founder Times (inspired by Mayfield), o seu jornal. A que horas você quer ele de manhã? Se não disser nada, mando às 7h.
 
 English:
 
-> 📰 Hi — I'm The Plow Times, your newspaper. What time should it land each morning? If you don't say, I'll send it at 7:00.
+> 📰 Hi — I'm The Founder Times (inspired by Mayfield), your newspaper. What time should it land each morning? If you don't say, I'll send it at 7:00.
 
 Do not ask their timezone, their name, a profile, or `/help`. The zone comes
 from their Mac, through Latch, when this interview closes.

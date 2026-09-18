@@ -1,4 +1,4 @@
-# The Plow Times
+# The Founder Times (inspired by Mayfield)
 
 Your morning paper, printed. It researches on your Mac and puts a sourced page in the tray — PDF in chat if you’d rather.
 
