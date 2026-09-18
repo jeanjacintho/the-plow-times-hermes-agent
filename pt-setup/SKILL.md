@@ -339,6 +339,19 @@ Stop. On their next message:
     every morning."
   - **never overwrite an existing file**, and never paste the owner's file back in chat.
 
+Then seed the advisor library, once:
+
+1. `mcp__plow__plow_run_command` `argv=["/bin/ls","-1","<home>/Plow/advisors"]`
+   (absolute path; `plow_run_command` does not expand `~`).
+2. Exit code 0 with names listed → leave it alone; say "Using the advisor notes already in
+   ~/Plow/advisors."
+3. Anything else (no such directory) → for each file in
+   `/var/lib/hermes/skills/pt-setup/assets/advisors/`, read it with `read_file` and write it
+   with `mcp__plow__plow_write_file` `path=~/Plow/advisors/<name>`, content unchanged. Say:
+   "I put stage-by-stage advisor notes in ~/Plow/advisors — edit them, add your own
+   investors, delete what doesn't fit."
+4. Never overwrite a file that is already there.
+
 Then continue with the mail question in the same turn.
 
 **3a. Ask whether the paper should carry today's mail** (a letters

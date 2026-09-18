@@ -64,7 +64,9 @@ The ten checks:
   10. priority, when present, has a boolean `configured`; if true, `file`
      is a non-blank string starting with `~/Plow/` or `/Users/`. Absent
      priority is valid and means the desk is off -- the paper never
-     invents a prioritization file.
+     invents a prioritization file. When configured, `advisors_dir` is
+     optional; if present it follows the same path rule, otherwise readers
+     default to `~/Plow/advisors`.
 
 The owner's name, location, or any other personal fact is deliberately not
 among the checks, and not in the schema: location is fetched each run via
@@ -209,6 +211,12 @@ def gate(config):
                 failures.append("priority.file is blank while priority.configured is true")
             elif not (path.startswith("~/Plow/") or path.startswith("/Users/")):
                 failures.append("priority.file is not an absolute or ~/Plow path")
+            advisors_dir = _index(priority, "advisors_dir")
+            if advisors_dir is not None:
+                if not _nonblank(advisors_dir):
+                    failures.append("priority.advisors_dir is blank")
+                elif not (advisors_dir.startswith("~/Plow/") or advisors_dir.startswith("/Users/")):
+                    failures.append("priority.advisors_dir is not an absolute or ~/Plow path")
 
     # 9. no leftover [UPPER_SNAKE] placeholder anywhere.
     if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):

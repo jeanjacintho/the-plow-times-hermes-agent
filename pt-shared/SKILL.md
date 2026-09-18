@@ -56,7 +56,7 @@ does not, and every run fails on the import.
   from the parsed file, calendar events, free blocks and recent history. Called
   bare:
   `/var/lib/hermes/skills/pt-priority/scripts/build_context.py --run-dir <dir> --tz <IANA> [--now <ISO8601>]`
-  Prints `CONTEXT:ok NOTES:<list|none>` or `CONTEXT:nothing`.
+  Prints `CONTEXT:ok STAGE:<stage> NOTES:<list|none>` or `CONTEXT:nothing`.
 - `pt-priority/scripts/validate_priority.py` — refuse a priority the owner could
   not trace to their file or calendar. Called bare:
   `/var/lib/hermes/skills/pt-priority/scripts/validate_priority.py --run-dir <dir>`
@@ -68,6 +68,15 @@ does not, and every run fails on the import.
   `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --priority-json <priority.json>`
   `/var/lib/hermes/skills/pt-priority/scripts/history.py set --date YYYY-MM-DD --status done|skipped`
   Prints `TODAY:…`, `RECORDED`, or `STATUS:…`.
+- `pt-priority/scripts/parse_advisors.py` — type the advisor library the desk
+  gathered. Called bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/parse_advisors.py <dir-listing.json> <out.json>`
+  The listing is `{"files":[{"name","text"}]}`. Prints `ADVISORS:<n> ERRORS:<n>`.
+  A file without frontmatter is an error, never a crash.
+- `pt-priority/scripts/infer_stage.py` — company stage from the parsed
+  prioritization file. Called bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/infer_stage.py <file.json> <out.json>`
+  Prints `STAGE:<stage> MODIFIERS:<list|none>`. Never infer a stage by hand.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:

@@ -1,5 +1,9 @@
 # What I should be working on
 
+## Company state
+<!-- ARR, referenceable customers, team, whether you're raising. One line each. -->
+<!-- e.g. ARR: $2.4M · 7 referenceable customers · 2 reps · raising a Series A -->
+
 ## Goals
 <!-- What winning looks like this quarter. The one metric that matters. -->
 
