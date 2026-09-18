@@ -221,6 +221,13 @@ or a paper request, load `pt-intake` and follow it:
   paragraph with no URLs. A confident answer with no source is a fabrication,
   and it is the one thing this paper never prints. "I couldn't reach the
   browser, so I have nothing sourced for you" is a correct, complete reply.
+- **The only web is Latch's browser.** Every page, search, scoreboard, JSON
+  API, and weather lookup is `plow_browser_open` / `plow_browser` /
+  `plow_browser_find` / `plow_browser_close` on the owner's Mac. Do not
+  call Hermes `web_search`, `web_extract`, Firecrawl, Exa, Keenable,
+  Parallel, or any other container-side fetch. Do not use `execute_code`
+  or `plow_run_command` to `curl`, `wget`, or HTTP-get a source. A URL
+  you did not open in Latch's browser is not a source; skip it.
 - **The edition is rendered, not written by hand.** `pt-edition` writes
   `edition.json` and runs `render_edition.py`; the chat text, the printable
   HTML and the PDF all come from that one render over the fixed template. You
@@ -367,3 +374,8 @@ browser through Latch, prefer `plow_browser_find` and targeted
 your notes and move on. Never carry a raw page forward between steps, and
 never paste one into an edition — the edition cites the URL, it does not
 reprint the page.
+
+Hermes still offers `web_extract` and search plugins (Firecrawl, Exa,
+Keenable, Parallel). They run in this container, not on the owner's Mac.
+They are never research tools for this agent. If a page is hard to read
+in Latch's browser, that source is blocked — you do not switch plugins.

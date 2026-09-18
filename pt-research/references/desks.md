@@ -214,17 +214,20 @@ pt-intake (e.g. `{"team": "Flamengo", "league": "brazil.1"}` or
 `{"team": "Lakers", "league": "nba"}`) — research only those teams, never
 a generic league digest nobody asked for.
 
-**ESPN's public scoreboard JSON, no key needed, one call per league that
-has a followed team:**
+**ESPN's public scoreboard JSON, no key needed, one Latch browser
+navigation per league that has a followed team:**
 
     https://site.api.espn.com/apis/site/v2/sports/<sport>/<league>/scoreboard
 
 `<sport>` is the ESPN sport slug (`soccer`, `basketball`, `football`,
 `baseball`...), `<league>` the league slug (`bra.1` for Brasileirão Série
 A, `nba`, `nfl`, ...) — confirm the exact slug for the owner's league in
-the browser once (ESPN's own site URL for that league's scores page names
-it) rather than guessing. `plow_run_command` can fetch this like any other
-URL; it needs no Latch connector and no login, unlike mail.
+the same Latch browser session (ESPN's own site URL for that league's
+scores page names it) rather than guessing. Then `plow_browser` `action:
+"goto"` that scoreboard URL and `action: "text"` to read the JSON. Do
+not `curl` it, do not `plow_run_command` it, do not use Hermes
+`web_extract`. It needs no Latch Google connector and no login, unlike
+mail — but it still has to be the Mac's browser.
 
 From the response, find each followed team's own game (by team name/abbr
 match) and keep only: home team, away team, status (`scheduled` if it
@@ -253,8 +256,8 @@ time.
 
 ## Close
 
-These Latch calls share the Mac with the browser pass. Do location and
-calendar (and mail if on) first, then the news topics, then
-`plow_browser_close` as pt-research already requires. Sports (if on) is a
-plain HTTP fetch, not a Latch call, so it can run any time before
-pt-edition needs the notes -- it does not compete for the browser pass.
+These Latch calls share the Mac with the browser pass. Do location,
+weather, and sports (if on) in that same `plow_browser_*` session,
+calendar (and mail if on) around it, then news topics, then
+`plow_browser_close` as pt-research already requires. Sports competes
+for the browser pass the same way weather does.

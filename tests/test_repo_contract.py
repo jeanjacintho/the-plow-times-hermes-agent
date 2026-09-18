@@ -324,6 +324,30 @@ class TestSoul:
         assert "execute_code" in soul
         assert "shebang" in soul
 
+    def test_research_web_is_latch_browser_only(self):
+        # Measured live, 2026-09-17: an on-demand paper opened Latch for
+        # the priority file, then spent ~70 tool turns on Hermes
+        # web_extract / Firecrawl / Exa / Keenable / Parallel against
+        # ESPN and F1 from the container. Those calls never hit the
+        # owner's Mac. The paper's web is Latch's browser or it is not
+        # sourced -- including sports JSON that desks.md used to call a
+        # "plain HTTP fetch" that "does not compete for the browser pass".
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        research = (ROOT / "pt-research" / "SKILL.md").read_text()
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        for text in (soul, research):
+            assert "plow_browser_" in text
+            assert "web_extract" in text
+            assert "Firecrawl" in text
+            assert "Exa" in text
+            assert "Keenable" in text
+            assert "Parallel" in text
+        assert "plain HTTP fetch" not in desks
+        assert "does not compete for the browser pass" not in desks
+        assert "plow_run_command can fetch this" not in desks
+        assert "plow_browser" in desks
+        assert "site.api.espn.com" in desks
+
     def test_setup_warns_against_wrapping_record_setup_in_python(self):
         # Measured live: with a real printer found (network:true worked),
         # the assistant recorded a perfectly valid printer name by
@@ -636,6 +660,11 @@ class TestDeployment:
         assert "https://api.plow.co/v1/relay/devices/" in config
         # The credential is interpolated from the dotenv, never a literal.
         assert "DOMO_MCP_TOKEN" in config and "DOMO_DEVICE_UID" in config
+        # Hard gate: Hermes web_extract / web_search / Playwright stay off.
+        assert "disabled_toolsets" in config
+        assert "\n    - web\n" in config
+        assert "\n    - search\n" in config
+        assert "\n    - browser\n" in config
 
     def test_compose_yml_is_the_plow_agents_surface(self):
         # plow-agents' compose.example.yml: service `agent`, credential drop-in,

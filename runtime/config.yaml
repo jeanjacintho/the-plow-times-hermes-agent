@@ -49,6 +49,16 @@ cron:
 # lives and owns its own state (pt/, skills/, memories/).
 terminal:
   cwd: /var/lib/hermes
+# Hermes still ships web_search / web_extract (Firecrawl, Exa, Keenable,
+# Parallel) and its own Playwright `browser_*` tools. Measured live, an
+# on-demand paper used those from the container instead of Latch's Mac
+# browser. They are off globally: research is plow_browser_* or it is not
+# sourced. MCP `latch` is not a toolset and stays enabled.
+agent:
+  disabled_toolsets:
+    - web
+    - search
+    - browser
 plugins:
   enabled:
   - plow-chat-platform
