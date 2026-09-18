@@ -143,6 +143,62 @@ class TestValidate:
              "messages": [{"sender": "Ana", "subject": "Hi"}]},
         ])) == ""
 
+    def test_priority_only_on_priority_desk(self):
+        edition_data = edition(sections=[{
+            "kind": "section", "title": "News", "desk": "news", "body": "n",
+            "priority": {"why": [], "first_step": "x"},
+        }])
+        assert "priority is only valid on the priority desk" in render.validate(edition_data)
+
+    def test_priority_why_must_have_one_to_three_sourced_items(self):
+        p = {"why": [], "first_step": "Send the deck"}
+        assert "priority.why needs 1 to 3 items" in render.validate(edition(sections=[{
+            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
+        }]))
+        p = {"why": [{"text": "t"}], "first_step": "Send the deck"}
+        assert "priority.why[0].source_label is blank" in render.validate(edition(sections=[{
+            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
+        }]))
+
+    def test_priority_block_must_be_hhmm(self):
+        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x",
+             "block": {"start": "9am", "end": "11:30"}}
+        assert "priority.block is not HH:MM" in render.validate(edition(sections=[{
+            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
+        }]))
+
+    def test_priority_renders_headline_why_and_first_step(self):
+        p = {"why": [{"text": "Q3 goal", "quote": "raise $1.5M by Sep 30",
+                      "source_label": "your file, Goals"}],
+             "first_step": "Send the deck", "block": {"start": "09:00", "end": "11:30"},
+             "tags": ["carried over from yesterday"]}
+        html = render.render_html(edition(sections=[{
+            "kind": "section", "title": "Your #1 priority today", "desk": "priority",
+            "headline": "Close the seed extension", "body": "Send the deck", "priority": p,
+            "sources": [],
+        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        assert "Close the seed extension" in html
+        assert "“raise $1.5M by Sep 30” — your file, Goals" in html
+        assert "Send the deck" in html and "09:00–11:30" in html
+        assert "carried over from yesterday" in html
+        assert "<script" not in html.lower()
+
+    def test_priority_is_the_first_section_on_the_page(self):
+        html = render.render_html(edition(sections=[
+            {"kind": "section", "title": "News", "desk": "news", "body": "n", "sources": []},
+            {"kind": "section", "title": "Weather", "desk": "weather", "body": "w", "sources": []},
+            {"kind": "section", "title": "P", "desk": "priority", "body": "p", "sources": []},
+        ]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}{{WEATHER}}{{LEAD}}")
+        assert html.index("section--priority") < html.index("section--weather")
+
+    def test_chat_edition_keeps_the_priority_body(self):
+        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"}
+        text = render.render_chat(edition(sections=[{
+            "kind": "section", "title": "P", "desk": "priority", "body": "Send the deck",
+            "priority": p, "sources": [],
+        }]), render.DEFAULT_MASTHEAD)
+        assert "Send the deck" in text
+
 
 class TestMasthead:
     def test_json_cannot_name_the_paper(self):

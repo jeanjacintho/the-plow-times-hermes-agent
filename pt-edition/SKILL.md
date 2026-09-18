@@ -115,6 +115,13 @@ HTML.** Hand-write `edition.json` under the run directory:
   `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
   `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
   sources shape in every slot.
+- **`priority` is optional, priority-desk-only, and copied from
+  `run/desk-priority/notes.json` without rewriting.** When present it
+  replaces the prose body on the printed page (`skip_body`); `headline` is
+  the day's priority and `body` is the first step in prose for the chat
+  edition. Shape: `why` (1–3 objects with `text` and `source_label`;
+  `quote` optional), `first_step`, optional `block` `{start, end}` in
+  `HH:MM`, optional `tags` list of strings.
 - **`forecast` is optional, weather-only, and drawn — not written.** 1-6
   day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
   "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,

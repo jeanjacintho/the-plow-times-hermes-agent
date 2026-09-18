@@ -48,8 +48,8 @@ KINDS = ("section", "assignment")
 # Standing newspaper desks. weather and calendar always run; mail only when
 # pt/config.json says mail.configured. news is every owner-chosen section
 # and assignment -- same story shape, different page slot.
-DESKS = ("news", "weather", "calendar", "mail", "sports")
-DESK_ORDER = {"weather": 0, "calendar": 1, "mail": 2, "sports": 3, "news": 4}
+DESKS = ("priority", "news", "weather", "calendar", "mail", "sports")
+DESK_ORDER = {"priority": -1, "weather": 0, "calendar": 1, "mail": 2, "sports": 3, "news": 4}
 # Controlled vocabulary for a sports desk game row -- what state the game
 # is in, drawn as a label/tag, never free text.
 GAME_STATUSES = ("scheduled", "live", "final")
@@ -62,6 +62,7 @@ FORECAST_ICONS = ("sun", "partly-cloudy", "cloud", "rain", "storm", "snow")
 # is, drawn from CALENDAR_ICONS, never free text.
 SCHEDULE_ICONS = ("meeting", "call", "task", "reminder", "note")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+HHMM_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
 
@@ -228,6 +229,42 @@ def validate(edition):
                     note = item.get("note")
                     if note is not None and not isinstance(note, str):
                         failures.append(f"{gwhere}.note is not a string")
+        priority = section.get("priority")
+        if priority is not None:
+            if desk != "priority":
+                failures.append(f"{where}.priority is only valid on the priority desk")
+            elif not isinstance(priority, dict):
+                failures.append(f"{where}.priority is not an object")
+            else:
+                why = priority.get("why")
+                if not isinstance(why, list) or not (1 <= len(why) <= 3):
+                    failures.append(f"{where}.priority.why needs 1 to 3 items")
+                else:
+                    for i, item in enumerate(why):
+                        iwhere = f"{where}.priority.why[{i}]"
+                        if not isinstance(item, dict):
+                            failures.append(f"{iwhere} is not an object")
+                            continue
+                        if not (isinstance(item.get("text"), str) and item["text"].strip()):
+                            failures.append(f"{iwhere}.text is blank")
+                        if not (isinstance(item.get("source_label"), str) and item["source_label"].strip()):
+                            failures.append(f"{iwhere}.source_label is blank")
+                step = priority.get("first_step")
+                if not (isinstance(step, str) and step.strip()):
+                    failures.append(f"{where}.priority.first_step is blank")
+                block = priority.get("block")
+                if block is not None:
+                    if not (isinstance(block, dict)
+                            and isinstance(block.get("start"), str)
+                            and isinstance(block.get("end"), str)
+                            and HHMM_RE.fullmatch(block["start"])
+                            and HHMM_RE.fullmatch(block["end"])):
+                        failures.append(f"{where}.priority.block is not HH:MM")
+                tags = priority.get("tags")
+                if tags is not None and not (
+                    isinstance(tags, list) and all(isinstance(t, str) for t in tags)
+                ):
+                    failures.append(f"{where}.priority.tags is not a list of strings")
         image = section.get("image")
         if image is not None:
             if desk not in (None, "news"):
@@ -489,6 +526,10 @@ DESK_HEADER_ICONS = {
         '<path d="M8 4v4M16 4v4M4 11h16"/>'
     ),
     "mail": MAIL_ICON,
+    "priority": (
+        '<circle cx="12" cy="12" r="8.5"/>'
+        '<path d="M12 7v5l3 2"/>'
+    ),
     "sports": (
         '<circle cx="12" cy="12" r="8.5"/>'
         '<path d="M12 3.5v17M3.5 12h17M6 6.3c2 1.7 4 2.6 6 2.6s4-.9 6-2.6'
@@ -567,6 +608,34 @@ def messages_list(items):
             "</div>"
         )
     return '<div class="mail-list">' + "".join(rows) + "</div>"
+
+
+def priority_block(priority):
+    """The priority desk's structured block: first step, sourced why, optional window."""
+    blocks = [
+        f'<p class="priority-step">→ {html.escape(priority["first_step"].strip())}</p>'
+    ]
+    items = []
+    for item in priority["why"]:
+        text = html.escape(str(item.get("text") or "").strip())
+        label = html.escape(str(item.get("source_label") or "").strip())
+        quote = str(item.get("quote") or "").strip()
+        if quote:
+            src = f'<span class="src">“{html.escape(quote)}” — {label}</span>'
+        else:
+            src = f'<span class="src">— {label}</span>'
+        items.append(f"<li>{text} {src}</li>")
+    blocks.append('<ul class="priority-why">' + "".join(items) + "</ul>")
+    block = priority.get("block")
+    if isinstance(block, dict) and block.get("start") and block.get("end"):
+        start = html.escape(str(block["start"]))
+        end = html.escape(str(block["end"]))
+        blocks.append(f'<p class="priority-window">{start}–{end}</p>')
+    tags = priority.get("tags") or []
+    if tags:
+        spans = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in tags)
+        blocks.append(f'<div class="tags">{spans}</div>')
+    return "\n".join(blocks)
 
 
 def games_list(games):
@@ -714,7 +783,8 @@ def html_section(section, drop_cap=False):
     schedule = section.get("schedule") if desk == "calendar" else None
     messages = section.get("messages") if desk == "mail" else None
     games = section.get("games") if desk == "sports" else None
-    structured = forecast or schedule or messages or games
+    priority = section.get("priority") if desk == "priority" else None
+    structured = forecast or schedule or messages or games or priority
     # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
     # no caption) -- the title bar, headline, body prose and sources line
     # are all dropped for weather when it's carrying a grid, so the box
@@ -755,6 +825,8 @@ def html_section(section, drop_cap=False):
         blocks.append(messages_list(messages))
     if games:
         blocks.append(games_list(games))
+    if priority:
+        blocks.append(priority_block(priority))
     if skip_body:
         pass
     elif paras:
@@ -856,6 +928,7 @@ def render_html(edition, name, template_text):
     calendar = [s for s in ordered if desk_of(s) == "calendar"]
     mail = [s for s in ordered if desk_of(s) == "mail"]
     sports = [s for s in ordered if desk_of(s) == "sports"]
+    priority = [s for s in ordered if desk_of(s) == "priority"]
 
     # The lead story renders separately from the rest of the news well so
     # it can run alone, full width, in its own row above everything else
@@ -870,11 +943,12 @@ def render_html(edition, name, template_text):
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
     sports_html = wrap_desk(join_articles(sports))
+    priority_html = wrap_desk(join_articles(priority))
     # {{SIDEBAR}} is the desks column as a whole, for older templates that
     # still have one rail slot instead of four. New template.html uses the
     # named slots and leaves this empty of news.
     desks_html = "\n".join(
-        part for part in (weather_html, calendar_html, mail_html, sports_html) if part
+        part for part in (priority_html, weather_html, calendar_html, mail_html, sports_html) if part
     )
 
     # Calendar, mail and sports read as full-width stories now, the same
@@ -882,7 +956,7 @@ def render_html(edition, name, template_text):
     # three desks plus their own wrapper/rule), empty string when none of
     # them ran today, so the template never prints a bare rule above
     # nothing. Weather isn't here -- it lives in the masthead's ear.
-    inline_parts = [part for part in (calendar_html, mail_html, sports_html) if part]
+    inline_parts = [part for part in (priority_html, calendar_html, mail_html, sports_html) if part]
     desks_inline_html = (
         '<div class="desks-inline-wrap">' + "".join(inline_parts) + "</div>"
         if inline_parts else ""
@@ -900,6 +974,7 @@ def render_html(edition, name, template_text):
         .replace("{{LOCATION}}", location)
         .replace("{{PAGE_CLASS}}", page_class)
         .replace("{{LEAD}}", lead_html)
+        .replace("{{PRIORITY}}", priority_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
         .replace("{{SECTIONS}}", main_html)
