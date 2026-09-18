@@ -959,6 +959,9 @@ def render_html(edition, name, template_text):
     if news:
         lead_html = html_section(news[0], drop_cap=True)
         main_html = join_articles(news[1:])
+    elif priority:
+        lead_html = ""
+        main_html = ""
     else:
         lead_html = '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
         main_html = ""

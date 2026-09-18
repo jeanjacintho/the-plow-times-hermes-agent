@@ -234,6 +234,18 @@ class TestValidate:
         )
         assert html.count('section--priority"') == 1
 
+    def test_priority_without_news_does_not_print_the_empty_budget_placeholder(self):
+        html = render.render_html(
+            edition_with_priority_and_weather(),
+            render.DEFAULT_MASTHEAD,
+            "{{LEAD}}{{PRIORITY}}",
+        )
+        assert "Nothing usable in the budget this time." not in html
+        assert "Close the seed extension" in html
+        assert html.count("<article") >= 1
+        assert "{{LEAD}}" not in html
+      
+
     def test_chat_edition_keeps_the_priority_body(self):
         p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"}
         text = render.render_chat(edition(sections=[{
