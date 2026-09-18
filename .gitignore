@@ -14,5 +14,5 @@ plow-credentials
 .siblings/
 .mockup/
 
-# Intermediate PDF from index/render_screenshots.sh
-index/.edition.pdf
+# Staging dir from index/render_screenshots.sh
+index/.shoot-tmp/
