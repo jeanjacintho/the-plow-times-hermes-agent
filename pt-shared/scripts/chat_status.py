@@ -33,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import post_to_chat  # noqa: E402
+import setup_needed as _gate  # noqa: E402
 from bearer_http import post_json  # noqa: E402
 
 WAIT_SECONDS = 240
@@ -76,24 +77,7 @@ def status_text(kind, language):
     return table["pt"] if is_portuguese(language) else table["en"]
 
 
-def _language_from_json(path):
-    try:
-        data = json.loads(open(str(path), encoding="utf-8").read())
-    except (OSError, json.JSONDecodeError):
-        return ""
-    owner = data.get("owner") if isinstance(data, dict) else None
-    if not isinstance(owner, dict):
-        return ""
-    lang = owner.get("language")
-    return lang if isinstance(lang, str) else ""
-
-
-def owner_language(config_path):
-    lang = _language_from_json(config_path)
-    if lang:
-        return lang
-    sibling = Path(str(config_path)).with_name(".setup-draft.json")
-    return _language_from_json(sibling)
+owner_language = _gate.owner_language
 
 
 def _load_stamp(path):

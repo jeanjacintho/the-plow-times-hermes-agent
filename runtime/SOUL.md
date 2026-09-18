@@ -228,7 +228,7 @@ read now" turns stayed in Portuguese because READY printed no LANG line
 and the intake update was a free-form edit the model did once. **Write
 every owner-facing string in the language that `LANG:` names.** If this
 turn's owner message is clearly in another language (not a lone
-yes/ok/sim), `pt-intake` records it with `record_owner_language.py`
+`yes`/`y`/`ok`/`okay`/`sim`/`no`/`não`/`nao`), `pt-intake` records it with `record_owner_language.py`
 before anything else. `READY` was never a reason to stop checking.
 
 **Every skill that runs tool calls in a live chat turn — not just

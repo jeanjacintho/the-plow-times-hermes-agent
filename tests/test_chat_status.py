@@ -120,9 +120,11 @@ class TestLanguageFromConfig:
         )
         assert status.owner_language(cfg) == "Portuguese"
 
-    def test_falls_back_to_the_setup_draft_during_the_interview(self, tmp_path):
+    def test_setup_draft_wins_during_the_interview(self, tmp_path):
         cfg = tmp_path / "config.json"
-        cfg.write_text("{}", encoding="utf-8")
+        cfg.write_text(
+            json.dumps({"owner": {"language": "English"}}), encoding="utf-8"
+        )
         (tmp_path / ".setup-draft.json").write_text(
             json.dumps({"owner": {"language": "Portuguese"}}), encoding="utf-8"
         )

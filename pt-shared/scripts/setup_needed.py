@@ -82,6 +82,28 @@ def _language_from(data):
     return None
 
 
+def owner_language(config_path):
+    """The recorded language: draft first (setup), then config (READY).
+
+    Empty string when neither file has a language. language_line() wraps
+    this as LANG:…; chat_status.py --busy uses the same value.
+    """
+    config_path = Path(config_path)
+    draft_path = config_path.with_name(".setup-draft.json")
+    try:
+        draft = json.loads(draft_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        draft = None
+    from_draft = _language_from(draft)
+    if from_draft:
+        return from_draft
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        config = None
+    return _language_from(config) or ""
+
+
 def language_line(config_path):
     """LANG line for every gate reply: draft first (setup), then config (READY).
 
@@ -92,23 +114,8 @@ def language_line(config_path):
     has to ride back on READY too, from pt/config.json, with the in-progress
     draft still winning while SETUP_NEEDED.
     """
-    config_path = Path(config_path)
-    draft_path = config_path.with_name(".setup-draft.json")
-    try:
-        draft = json.loads(draft_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        draft = None
-    from_draft = _language_from(draft)
-    if from_draft:
-        return "LANG:" + from_draft
-    try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        config = None
-    from_config = _language_from(config)
-    if from_config:
-        return "LANG:" + from_config
-    return "LANG:unrecorded"
+    language = owner_language(config_path)
+    return "LANG:" + language if language else "LANG:unrecorded"
 
 
 def main(argv=None):

@@ -495,6 +495,9 @@ class TestSoul:
         assert "record_owner_language.py" in soul
         assert "silent between them" in soul
         assert "--show-daily-recipe" in soul
+        # Issue #4: a lone no/não was recorded as a language change.
+        for text in (soul, (ROOT / "pt-shared" / "SKILL.md").read_text()):
+            assert "`no`" in text and "`não`" in text and "`nao`" in text
 
     def test_research_and_edition_run_silently_even_live(self):
         # Same measured incident: pt-research and pt-edition were written
