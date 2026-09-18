@@ -14,6 +14,23 @@
 # under a running agent that holds live credentials. Bump both together.
 FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-51f83158a70a383f03a4d03dbd8b6ea102cf0361@sha256:253d7ed3409effa7fa59113d93b4b79bb731d8264cdaf4cd60294924d0110a2e
 
+# Boot recopies /opt/hermes/plow-seed/config.yaml over the agent home on
+# every start. The base pins anthropic/claude-sonnet-5 there; writing
+# runtime/config.yaml into /var/lib/hermes is not enough, because that
+# file is replaced from this seed. Same two-line swap as the fleet seed
+# (model.default and providers.plow.models).
+RUN sed -i \
+      -e 's|^  default: anthropic/claude-sonnet-5$|  default: moonshotai/kimi-k2.5|' \
+      -e 's|^      anthropic/claude-sonnet-5: {}$|      moonshotai/kimi-k2.5: {}|' \
+      /opt/hermes/plow-seed/config.yaml \
+ && grep -q 'default: moonshotai/kimi-k2.5' /opt/hermes/plow-seed/config.yaml \
+ && grep -q 'moonshotai/kimi-k2.5: {}' /opt/hermes/plow-seed/config.yaml
+
+# Boot also recomposes $HOME/SOUL.md from this seed. COPY to the home is
+# shadowed by the volume and then overwritten; the newspaper identity has
+# to live here or the generic "Plow assistant" seed wins.
+COPY runtime/SOUL.md /opt/hermes/plow-seed/SOUL.md
+
 # WeasyPrint's native dependencies. The Python wheel is pure Python but binds
 # Pango/Cairo through cffi at import time, so the shared libraries have to be
 # present or `import weasyprint` fails with a cffi error that reads like a
@@ -145,6 +162,8 @@ RUN set -eu; \
     chmod 0644 /opt/plow/agent-index-client.py
 
 COPY image/s6-overlay/ /etc/s6-overlay/
+COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
+RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials
 
 # Hermes' billing wall concatenates the HTTP body, the provider name, a
 # billing URL and `/model`. Pin one user-facing line and fail the build if
@@ -154,3 +173,13 @@ COPY image/hermes/patch_billing_user_message.py /opt/plow/patch_billing_user_mes
 RUN /opt/hermes/.venv/bin/python3 /opt/plow/patch_billing_user_message.py \
       /opt/hermes/agent/conversation_loop.py \
  && chmod 0644 /opt/hermes/agent/billing_user_message.py
+
+# After each paper, rotate the owner's plow_chat session so the next
+# "send me the paper" does not re-ingest Latch dumps from this turn.
+COPY image/hermes/plow_seal_session.py /opt/hermes/plow_seal_session.py
+COPY image/hermes/patch_seal_session.py /opt/plow/patch_seal_session.py
+RUN /opt/hermes/.venv/bin/python3 /opt/plow/patch_seal_session.py \
+      /opt/hermes/gateway/run_turn.py \
+ && /opt/hermes/.venv/bin/python3 /opt/plow/patch_seal_session.py \
+      /opt/hermes/gateway/response_filters.py \
+ && chmod 0644 /opt/hermes/plow_seal_session.py

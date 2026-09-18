@@ -165,6 +165,10 @@ def main():
         text = status_text("soon", language)
         post_status(text, args.dry_run)
         record_soon(args.stamp)
+        if not args.dry_run:
+            import seal_chat_session
+
+            seal_chat_session.request(seal_chat_session.STAMP_DEFAULT)
         print("STATUS:soon")
         return
     action = wait_action(args.stamp)

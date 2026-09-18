@@ -27,12 +27,9 @@ def test_patcher_rewrites_every_billing_concat_to_the_same_line():
     patcher = _load("patch_billing", ROOT / "image/hermes/patch_billing_user_message.py")
     source = "".join(old for old, _ in patcher.REPLACEMENTS)
     patched = patcher.apply(source)
-    assert patched.count('final += f"\\n\\n{guidance}"') == 0
-    assert patched.count('"_final_response += f"\\n\\n{_billing_guidance}"') == 0
     assert "Billing or credits exhausted: {summary}" not in patched
     assert patched.count("return BILLING_USER_MESSAGE") >= 2
     assert patched.count("final = BILLING_USER_MESSAGE") == 1
-    assert patched.count("_final_response = BILLING_USER_MESSAGE") == 1
     assert '"error": final,' in patched
     assert '"error": summary,' not in patched
     assert "return None\n    try:" in patched

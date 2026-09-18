@@ -3,13 +3,31 @@
 # are deliberately absent, so the pinned image supplies its current defaults
 # rather than a frozen snapshot of them.
 #
-# No model pin, unlike property-hunt-hermes-agent's config: that pin exists to
-# close a compression-fallback hole a sibling agent lost ~30h to, and this
-# agent starts on the same defaults that incident produced. Add one only with
-# the same evidence, verified against this agent's own auth.
+# Default model is Kimi K2.5 on the Plow provider — the same OpenAI-compat
+# path this agent already authenticates with. The id has to be listed under
+# providers.plow.models too (fleet seed: image/seed/config.yaml), not only
+# as model.default, or Hermes keeps offering the previous catalog entry.
 #
 # No group_sessions_per_user override at MVP scope: this agent has one private
 # chat and no groups (design doc §3.2), so the image default is fine.
+
+model:
+  default: moonshotai/kimi-k2.5
+  provider: plow
+  base_url: "${PLOW_API_BASE}/v1"
+  key_env: HERMES_CUSTOM_PLOW_API_KEY
+providers:
+  plow:
+    name: plow
+    base_url: "${PLOW_API_BASE}/v1"
+    key_env: HERMES_CUSTOM_PLOW_API_KEY
+    stale_timeout_seconds: 55
+    models:
+      moonshotai/kimi-k2.5: {}
+
+# Boot recomposes SOUL.md from plow-seed; the newspaper file has to be
+# that seed or the generic Plow-assistant persona wins every start.
+context_file_max_chars: 40000
 
 mcp_servers:
   # Plow Latch, reached over the Plow relay. This is the whole point of this

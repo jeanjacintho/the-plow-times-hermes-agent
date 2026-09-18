@@ -13,22 +13,12 @@ from pathlib import Path
 REPLACEMENTS: tuple[tuple[str, str], ...] = (
     (
         """def _billing_or_entitlement_message(
-    *,
-    capability: str,
-    provider: str,
-    base_url: str,
-    model: str,
-    unverified: bool = False,
+    *, capability: str, provider: str, base_url: str, model: str, unverified: bool = False
 ) -> str:
     if _is_nous_inference_route(provider, base_url):
 """,
         """def _billing_or_entitlement_message(
-    *,
-    capability: str,
-    provider: str,
-    base_url: str,
-    model: str,
-    unverified: bool = False,
+    *, capability: str, provider: str, base_url: str, model: str, unverified: bool = False
 ) -> str:
     from agent.billing_user_message import BILLING_USER_MESSAGE
     return BILLING_USER_MESSAGE
@@ -36,80 +26,41 @@ REPLACEMENTS: tuple[tuple[str, str], ...] = (
 """,
     ),
     (
-        """def _billing_block_dict(
-    provider, base_url, model, message="", *, unverified: bool = False
-) -> Optional[dict]:
+        """def _billing_block_dict(provider, base_url, model, message="", *, unverified: bool = False) -> Optional[dict]:
     \"\"\"Best-effort structured billing descriptor (None if billing_links is unavailable).\"\"\"
     try:
 """,
-        """def _billing_block_dict(
-    provider, base_url, model, message="", *, unverified: bool = False
-) -> Optional[dict]:
+        """def _billing_block_dict(provider, base_url, model, message="", *, unverified: bool = False) -> Optional[dict]:
     \"\"\"Pinned off: a billing_block lets the gateway attach a second CTA.\"\"\"
     return None
     try:
 """,
     ),
     (
-        """    if unverified:
-        return (
-            "Provider reported usage/credit exhaustion (unverified — the same "
-            f"error can be a content-filter rejection, not billing): {summary}"
-        )
-    return f"Billing or credits exhausted: {summary}"
+        """def _billing_terminal_label(summary: str, unverified: bool) -> str:
+    \"\"\"Terminal-failure prefix for a billing-classified error; ``unverified`` (#82154) must
+    not assert exhaustion as fact.\"\"\"
+    if unverified:
 """,
-        """    from agent.billing_user_message import BILLING_USER_MESSAGE
+        """def _billing_terminal_label(summary: str, unverified: bool) -> str:
+    \"\"\"Terminal-failure prefix for a billing-classified error; ``unverified`` (#82154) must
+    not assert exhaustion as fact.\"\"\"
+    from agent.billing_user_message import BILLING_USER_MESSAGE
     return BILLING_USER_MESSAGE
+    if unverified:
 """,
     ),
     (
-        """    final = _billing_terminal_label(summary, unverified)
-    if guidance:
-        final += f"\\n\\n{guidance}"
+        """    final = _billing_terminal_label(summary, unverified) + (f"\\n\\n{guidance}" if guidance else "")
+    return {
+        "final_response": final, "messages": messages, "api_calls": api_call_count,
+        "completed": False, "failed": True, "error": summary,
 """,
         """    from agent.billing_user_message import BILLING_USER_MESSAGE
     final = BILLING_USER_MESSAGE
-""",
-    ),
-    (
-        """        "completed": False,
-        "failed": True,
-        "error": summary,
-        "failure_reason": classified.reason.value,
-""",
-        """        "completed": False,
-        "failed": True,
-        "error": final,
-        "failure_reason": classified.reason.value,
-""",
-    ),
-    (
-        """                            agent._emit_status(
-                                "❌ Provider reported usage/credit exhaustion "
-                                f"(unverified — may be a content-filter rejection) — {_final_summary}"
-                            )
-""",
-        """                            from agent.billing_user_message import BILLING_USER_MESSAGE
-                            agent._emit_status(BILLING_USER_MESSAGE)
-""",
-    ),
-    (
-        """                            agent._emit_status(f"❌ Billing or credits exhausted — {_final_summary}")
-""",
-        """                            from agent.billing_user_message import BILLING_USER_MESSAGE
-                            agent._emit_status(BILLING_USER_MESSAGE)
-""",
-    ),
-    (
-        """                        _final_response = _billing_terminal_label(
-                            _final_summary, _billing_unverified
-                        )
-                        if _billing_guidance:
-                            _final_response += f"\\n\\n{_billing_guidance}"
-""",
-        """                        from agent.billing_user_message import BILLING_USER_MESSAGE
-                        _final_response = BILLING_USER_MESSAGE
-                        _final_summary = BILLING_USER_MESSAGE
+    return {
+        "final_response": final, "messages": messages, "api_calls": api_call_count,
+        "completed": False, "failed": True, "error": final,
 """,
     ),
 )

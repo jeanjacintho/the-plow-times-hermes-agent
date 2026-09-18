@@ -31,8 +31,10 @@ base its own bearer is sent to. Any of the three unset or blank is refused
 BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
-attachment_uids) and sends no caption. `--dry-run` prints the
-redacted envelope and never sends.
+attachment_uids) and sends no caption. After a successful `--pdf` POST it
+stamps the session seal and runs print_edition.py when the printer is
+configured (best-effort; a print failure does not undo the chat).
+`--dry-run` prints the redacted envelope and never sends.
 """
 from __future__ import annotations
 
@@ -40,8 +42,18 @@ import argparse
 import mimetypes
 import os
 import sys
+from pathlib import Path
 
 from bearer_http import post_json, post_json_read, put_bytes, require
+
+
+CONFIG_DEFAULT = "/var/lib/hermes/pt/config.json"
+PRINT_SCRIPT = (
+    Path(__file__).resolve().parent.parent.parent
+    / "pt-print"
+    / "scripts"
+    / "print_edition.py"
+)
 
 
 def resolve_chat():
@@ -87,6 +99,83 @@ def attachment_filename(pdf_path, override=None):
     if not name.lower().endswith(".pdf"):
         name += ".pdf"
     return name
+
+
+def after_posted(stamp=None):
+    """The PDF is out; the next owner message must not re-read this turn.
+
+    A dry-run never calls this. Marks the stamp delivered so the gateway
+    swallows any recap the model types, then on agent:end rotates the
+    plow_chat session.
+    """
+    import seal_chat_session
+
+    path = stamp or seal_chat_session.STAMP_DEFAULT
+    prev = seal_chat_session.peek(path) or {}
+    seal_chat_session.request(
+        path,
+        session_key=prev.get("session_key") or "",
+        platform=prev.get("platform") or "",
+        delivered=True,
+    )
+
+
+def html_beside(pdf_path):
+    return str(Path(pdf_path).parent / "edition.html")
+
+
+def _printer_name(config_path):
+    scripts = str(PRINT_SCRIPT.parent)
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import print_edition
+
+    return print_edition.printer_name(config_path)
+
+
+def run_print_edition(html_path, config_path):
+    import subprocess
+
+    proc = subprocess.run(
+        [sys.executable, str(PRINT_SCRIPT), html_path, config_path],
+        capture_output=True,
+        text=True,
+    )
+    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        if "page not printed" in blob:
+            return blob
+        return f"page not printed — {blob or proc.returncode}"
+    return blob
+
+
+def maybe_print(pdf_path, config_path=None, runner=None):
+    """Ship the page after the chat PDF. Best-effort: never undoes the POST.
+
+    Measured live 2026-09-18: the model posted the PDF, had edition.html
+    and printer.configured true, and never ran print_edition.py.
+    """
+    config_path = config_path or CONFIG_DEFAULT
+    if not pdf_path:
+        return "skipped: no pdf"
+    html = html_beside(pdf_path)
+    if not os.path.isfile(html):
+        return "skipped: no html"
+    if not _printer_name(config_path):
+        return "skipped: printer.configured is not true"
+    run = runner or run_print_edition
+    try:
+        out = run(str(Path(html).resolve()), config_path)
+    except SystemExit as exc:
+        out = str(exc) if exc.args else "page not printed"
+    except Exception as exc:
+        out = f"page not printed — {exc}"
+    text = (out or "").strip()
+    if not text:
+        return "page not printed — empty print result"
+    if "page not printed" in text:
+        return text
+    return text
 
 
 def compose_payload(text, attachment_uid=None):
@@ -174,8 +263,10 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
+    after_posted()
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
+        print(maybe_print(args.pdf))
     else:
         print(f"chat edition posted ({len(text)} chars)")
 

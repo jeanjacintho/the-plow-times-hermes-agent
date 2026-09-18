@@ -222,6 +222,36 @@ class TestSoul:
         script = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
         assert '"--text-file"' in script
 
+    def test_edition_post_seals_the_owner_chat_session(self):
+        # Measured live: one plow_chat DM since 14/09 carried 150k tokens
+        # of Latch dumps into the next "gera um jornal", and Kimi spent
+        # the turn hand-patching desk JSON. post_to_chat stamps; the
+        # gateway pin rotates the session on agent:end.
+        script = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
+        assert "after_posted" in script
+        assert "seal_chat_session" in script
+        assert "maybe_print" in script
+        assert "print_edition.py" in script
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "print_edition.py" in edition
+        assert "call `pt-print`" in edition
+
+        seal = ROOT / "pt-shared" / "scripts" / "seal_chat_session.py"
+        assert seal.is_file()
+        import os
+        assert os.access(seal, os.X_OK)
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "seal_chat_session.py" in edition or "after_posted" in edition or "new session" in edition.lower()
+        dockerfile = (ROOT / "Dockerfile").read_text()
+        assert "patch_seal_session.py" in dockerfile
+        assert "plow_seal_session.py" in dockerfile
+        assert "/opt/hermes/gateway/run_turn.py" in dockerfile
+        assert "/opt/hermes/gateway/response_filters.py" in dockerfile
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "seal_chat_session.py" in soul or "next chat is a new session" in soul
+
+
+
     def test_close_step_names_a_command_for_writing_the_config(self):
         # Measured live: step 3 said "**Write** config.json from the draft"
         # and named no tool, and nothing in the tree wrote that file. A run
@@ -479,6 +509,7 @@ class TestSoul:
         # PDF from disk. Print must be the same shape: one bare script,
         # HTML stays in the file, never in a tool-call argument.
         text = (ROOT / "pt-print" / "SKILL.md").read_text()
+        assert "Do not run this skill from the live turn" in text
         assert (
             "/var/lib/hermes/skills/pt-print/scripts/print_edition.py"
         ) in text
@@ -615,7 +646,8 @@ class TestSkills:
     def test_shared_helpers_exist_and_are_referenced(self):
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
-                     "run_lock.py", "setup_needed.py", "record_setup.py"):
+                     "run_lock.py", "setup_needed.py", "record_setup.py",
+                     "seal_chat_session.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_record_setup_is_executable_and_referenced(self):
@@ -679,6 +711,9 @@ class TestDeployment:
         assert "interim_assistant_messages: false" in config
         assert "tool_progress: off" in config
         assert "long_running_notifications: false" in config
+        assert "moonshotai/kimi-k2.5" in config
+        assert "default: moonshotai/kimi-k2.5" in config
+        assert "moonshotai/kimi-k2.5: {}" in config
 
     def test_compose_yml_is_the_plow_agents_surface(self):
         # plow-agents' compose.example.yml: service `agent`, credential drop-in,
@@ -724,7 +759,13 @@ class TestDeployment:
             ), f"COPY {name}/ does not land at /opt/hermes/skills/{name}/"
             assert f"/var/lib/hermes/skills/{name}" not in dockerfile
         assert "COPY runtime/SOUL.md /var/lib/hermes/SOUL.md" in dockerfile
+        assert "COPY runtime/SOUL.md /opt/hermes/plow-seed/SOUL.md" in dockerfile
         assert "COPY runtime/USER.md /var/lib/hermes/memories/USER.md" in dockerfile
+        # Boot recopies plow-seed over home; Sonnet lives there, not only in
+        # runtime/config.yaml.
+        assert "plow-seed/config.yaml" in dockerfile
+        assert "moonshotai/kimi-k2.5" in dockerfile
+        assert "02-copy-plow-credentials" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()
 

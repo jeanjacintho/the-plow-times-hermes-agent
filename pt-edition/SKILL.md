@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into printable HTML and PDF, post the PDF only via post_to_chat.py, end the turn with NO_REPLY, mark the topics it carried, and hand the print leg to pt-print when a printer is configured. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into printable HTML and PDF, post the PDF only via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -292,7 +292,23 @@ transcript after it is the wall of text they did not ask for.
    `PLOW_API_BASE`, `PLOW_HOME_CHANNEL` and `PLOW_AGENT_TOKEN` come from the
    process environment already; nothing to pass for those.
 
-   **Final response is `NO_REPLY` and nothing else.** The cron job still
+   A successful `--pdf` POST then runs `print_edition.py` itself when
+   `printer.configured` is true (sibling `edition.html`, same run dir). Do
+   **not** call `pt-print` or `print_edition.py` after this — measured live,
+   the model posted the PDF and skipped the print script. A print failure
+   prints `page not printed — …` on stdout and still leaves the chat
+   edition delivered.
+
+   A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
+   (you do not have to run that script yourself). When this turn ends, the
+   gateway starts a **new plow_chat session**. Do not keep researching,
+   patching desk JSON, or reading this turn's Latch dumps after the PDF
+   is out — the next owner message will not see them anyway.
+
+   **Final response is `NO_REPLY` and nothing else.** Never a recap of
+   the desks or headlines — measured live, "Seu jornal foi gerado e
+   entregue" plus a bullet list landed after the PDF. The PDF is the
+   delivery. The cron job still
    carries `--deliver`, and a final response that is the chat transcript
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
@@ -309,12 +325,6 @@ transcript after it is the wall of text they did not ask for.
      crash the delivery over a valid cancellation.
    - **Never mark a standing desk.** Weather, calendar, mail and sports
      have no topic id on purpose.
-4. **If `pt/config.json` says `printer.configured: true`, hand the print leg
-   to `pt-print`.** That leg is separate from the PDF the chat already
-   carried in step 2 (Latch printing needs the HTML, not the PDF) and is the
-   same class of best-effort: treat any failure as costing only the page.
-   Neither the print leg nor a failed PDF ever blocks the chat edition or
-   re-runs research.
 
 ## Repo note — the edition gate
 

@@ -1,6 +1,7 @@
 """post_to_chat.py -- PDF-only payload vs text fallback."""
 from __future__ import annotations
 
+import json
 import sys
 
 import pytest
@@ -43,6 +44,12 @@ class TestComposePayload:
         with pytest.raises(SystemExit, match="no edition text"):
             post.compose_payload("")
 
+    def test_successful_post_stamps_a_session_seal(self, tmp_path):
+        stamp = tmp_path / "seal-session.json"
+        post.after_posted(stamp)
+        assert json.loads(stamp.read_text(encoding="utf-8"))["pending"] is True
+        assert json.loads(stamp.read_text(encoding="utf-8"))["delivered"] is True
+
 
 class TestTextFileFlag:
     """`--text-file` exists so the text leg needs no shell redirect.
@@ -67,3 +74,71 @@ class TestTextFileFlag:
         f.write_text("   \n", encoding="utf-8")
         with pytest.raises(SystemExit, match="empty"):
             post.read_text_file(str(f))
+
+
+class TestMaybePrint:
+    """Measured live 2026-09-18: PDF posted, edition.html existed,
+    printer.configured true (JornalVirtual), and print_edition.py was
+    never invoked — the model marked topics and NO_REPLY'd. Chat is
+    not a gate for paper; post_to_chat.py is.
+    """
+
+    def test_html_is_the_pdf_sibling(self, tmp_path):
+        pdf = tmp_path / "run" / "edition.pdf"
+        assert post.html_beside(str(pdf)) == str(pdf.parent / "edition.html")
+
+    def test_no_html_is_a_skip(self, tmp_path):
+        pdf = tmp_path / "edition.pdf"
+        pdf.write_bytes(b"%PDF")
+        called = []
+        assert "skipped" in post.maybe_print(str(pdf), str(tmp_path / "nope.json"), runner=called.append)
+        assert called == []
+
+    def test_unconfigured_printer_does_not_call_the_runner(self, tmp_path):
+        (tmp_path / "edition.pdf").write_bytes(b"%PDF")
+        (tmp_path / "edition.html").write_text("<html></html>", encoding="utf-8")
+        cfg = tmp_path / "config.json"
+        cfg.write_text(
+            json.dumps({"printer": {"configured": False, "name": None}}),
+            encoding="utf-8",
+        )
+        called = []
+        out = post.maybe_print(str(tmp_path / "edition.pdf"), str(cfg), runner=called.append)
+        assert "skipped" in out
+        assert called == []
+
+    def test_configured_printer_runs_print_edition_with_the_html(self, tmp_path):
+        pdf = tmp_path / "edition.pdf"
+        html = tmp_path / "edition.html"
+        pdf.write_bytes(b"%PDF")
+        html.write_text("<html></html>", encoding="utf-8")
+        cfg = tmp_path / "config.json"
+        cfg.write_text(
+            json.dumps({"printer": {"configured": True, "name": "JornalVirtual"}}),
+            encoding="utf-8",
+        )
+        seen = []
+
+        def runner(html_path, config_path):
+            seen.append((html_path, config_path))
+            return "page printed on JornalVirtual"
+
+        out = post.maybe_print(str(pdf), str(cfg), runner=runner)
+        assert seen == [(str(html.resolve()), str(cfg))]
+        assert "page printed" in out
+
+    def test_a_print_failure_does_not_undo_the_chat_post(self, tmp_path):
+        pdf = tmp_path / "edition.pdf"
+        (tmp_path / "edition.html").write_text("<html></html>", encoding="utf-8")
+        pdf.write_bytes(b"%PDF")
+        cfg = tmp_path / "config.json"
+        cfg.write_text(
+            json.dumps({"printer": {"configured": True, "name": "JornalVirtual"}}),
+            encoding="utf-8",
+        )
+
+        def runner(html_path, config_path):
+            raise SystemExit("error: page not printed — lp 1")
+
+        out = post.maybe_print(str(pdf), str(cfg), runner=runner)
+        assert "page not printed" in out

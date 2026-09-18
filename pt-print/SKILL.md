@@ -1,6 +1,6 @@
 ---
 name: pt-print
-description: Best-effort paper delivery — render the edition as a single-page HTML layout with a masthead and ship it to the owner's printer through Latch when pt/config.json says printer.configured. Called by pt-edition after the chat edition is out. Never a delivery requirement: every failure here ends with the chat edition as the outcome.
+description: Best-effort paper delivery — render the edition as a single-page HTML layout with a masthead and ship it to the owner's printer through Latch when pt/config.json says printer.configured. Invoked by post_to_chat.py after the PDF POST, not by the model. Never a delivery requirement: every failure here ends with the chat edition as the outcome.
 ---
 
 # pt-print — the paper edition, best-effort
@@ -17,7 +17,11 @@ way). A tool result is never something to narrate back to the owner.
 
 ## When to run at all
 
-Run the print script below. It reads `pt/config.json` itself. If
+Do not run this skill from the live turn. `post_to_chat.py --pdf` already
+calls `print_edition.py` after the chat POST. A second invocation would
+double-print. The script itself is still the Latch/`lp` implementation.
+
+It reads `pt/config.json` itself. If
 `printer.configured` is not exactly `true` — false, null, absent, malformed,
 missing file — it prints `skipped: printer.configured is not true` and
 exits 0. That skip is silence: say nothing about printing in the edition;
