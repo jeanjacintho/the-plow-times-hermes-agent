@@ -1,6 +1,6 @@
 ---
 name: pt-research
-description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail, plow_run_command for calendar/Mail.app fallback, plow_browser_* for every web page including weather and sports). Never Hermes web_search, web_extract, Firecrawl, Exa, Keenable, or Parallel. Producing structured sourced notes. Runs in a cron-fired session, or live in
+description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail and Google Calendar events --today --json, plow_run_applescript with pt-research/assets/calendar.applescript for Calendar.app, plow_run_command for Mail.app fallback, plow_browser_* for every web page including weather and sports). Never Hermes web_search, web_extract, Firecrawl, Exa, Keenable, or Parallel. Producing structured sourced notes. Runs in a cron-fired session, or live in
 chat when the owner asks for a copy right now (pt-dashboard's
 --show-daily-recipe) -- either way, tool calls only, no owner-facing text
 until the run is done. Stops at the budget, not when it feels done.
@@ -120,7 +120,9 @@ Two rules make a batch survivable in one session:
   weather, calendar, or the news browser until
   `run/desk-priority/notes.json` exists — measured live, skipping it
   shipped a paper with no #1 even though the owner had turned the desk
-  on. Then location via Latch then weather; calendar (today and upcoming);
+  on. Then location via Latch then weather; calendar (Google `plow-gog
+  calendar events --today --json` first, then Calendar.app via
+  `plow_run_applescript` copying `assets/calendar.applescript` verbatim);
   mail only if `mail.configured` is true (Gmail via `plow-gog` first,
   Mail.app only if that fails). Notes at `run/desk-priority/notes.json`,
   `run/desk-weather/notes.json`, `run/desk-calendar/notes.json`,

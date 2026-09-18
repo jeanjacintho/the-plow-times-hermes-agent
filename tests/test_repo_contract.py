@@ -716,6 +716,27 @@ class TestSkills:
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "Never omit the slot" in edition
 
+    def test_calendar_desk_uses_google_then_a_locked_applescript(self):
+        # Measured live 2026-09-18: two real appointments, paper said the
+        # day was empty. Google was called as `calendar today` (exit 2) and
+        # `calendar list` (empty calendars, not events); Calendar.app was
+        # queried while closed (-600) or with `time string of start date of
+        # item 1 of every event` (-1700).
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        script = (ROOT / "pt-research" / "assets" / "calendar.applescript").read_text()
+        assert '["plow-gog", "calendar", "events", "--today", "--json"]' in desks
+        assert "unexpected argument today" in desks
+        assert "calendar list" in desks
+        assert "plow_run_applescript" in desks
+        assert "assets/calendar.applescript" in desks
+        assert "Nenhum evento hoje" in desks
+        assert "tell application \"Calendar\" to launch" in script
+        assert "time string of start date of item 1" not in script
+        assert "every event of item 1 of every calendar" not in script
+        assert 'date "Friday' not in script
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "could not read the agenda" in edition
+
     def test_intake_routes_the_priority_commands(self):
         text = (ROOT / "pt-intake" / "SKILL.md").read_text()
         for needle in ("--status done", "--status skipped", "run/desk-priority/priority.json"):

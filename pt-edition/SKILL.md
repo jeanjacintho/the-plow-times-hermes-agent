@@ -183,7 +183,11 @@ HTML.** Hand-write `edition.json` under the run directory:
   "9am — Product sync. 11am — Investor call." reads as a dense wall of
   text. One event, one sender, one line each.
 - The daily paper always includes weather and calendar from
-  `run/desk-*/notes.json`. **Priority is the same when `pt/config.json` has
+  `run/desk-*/notes.json`. If calendar notes list `could_not_source` and
+  no events, the headline is that the desk could not read the agenda —
+  never "no events today" / "Nenhum evento hoje" / "the calendar is free"
+  (measured live: two real appointments, empty `events.json` after a
+  failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
   it from `run/desk-priority/notes.json` without rewriting. If those notes
   are missing, still include the desk — `render_edition.py` will insert the

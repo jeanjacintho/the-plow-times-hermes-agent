@@ -140,19 +140,70 @@ dead domain.
 
 ## 2. Calendar — every daily run
 
-Read-only. Today's events, then the next few days. Write
-`~/Plow/pt/calendar.applescript` (or a small Python+EventKit helper) and run
-it through `plow_run_command`. Calendar.app AppleScript is enough:
+Read-only. Today's events, then the next few days. **Google via Latch
+first, Calendar.app second, merge what both actually returned.** Measured
+live 2026-09-18: the owner had two appointments on the day, the paper
+printed "Nenhum evento hoje" / "the calendar is free". Root cause was
+three stacked misses: this desk only documented Calendar.app; the model
+improvised `plow-gog calendar today --json` (`unexpected argument today`,
+exit 2) and `plow-gog calendar list --days 7` (`items: []`, that command
+does not list events); Calendar.app was closed (`Application isn't
+running`, -600) or the improvised script asked `time string of start
+date of item 1 of every event of item 1 of every calendar whose …`
+(-1700). An empty `events.json` after a failed gather is not a free day.
 
-    tell application "Calendar"
-      -- list today's events (title, start, calendar name)
-      -- then events from tomorrow through +7 days
-    end tell
+**1. Google Calendar (`plow-gog`) — try this once, first.** Exact argv,
+no substitutions, no `--account`, no `today` as a subcommand:
+
+    ["plow-gog", "calendar", "events", "--today", "--json"]
+
+That argv was the one Latch completed. `calendar today` is a different
+command and fails. `calendar list` lists calendars, not events — never
+use it as the day's agenda. Parse title and start from the JSON as
+returned; map into `events.json`. Source label: `Google Calendar`.
+
+If this gather fails — `unexpected argument`, exit 2, approval card,
+401/412/deny, non-empty `degraded`, an error envelope, or no Google
+account in Latch — **do not retry plow-gog with invented flags.** Go to
+step 2. A completed empty `items`/`events` array is a real empty Google
+calendar, not a failure: still run step 2, because the two appointments
+may live only in Calendar.app.
+
+**2. Calendar.app — always run once**, even when Google returned rows
+(the owner may have events in both). Do not invent a script. Copy
+`pt-research/assets/calendar.applescript` **verbatim** into
+`plow_run_applescript`:
+
+```json
+{"app": "Calendar", "script": "<exact file contents>", "goal": "Read today's and next-7-days Calendar.app events for the newspaper"}
+```
+
+The file already `launch`es Calendar (fixes -600), waits 2 seconds, walks
+each calendar then each event in a date window built from `current date`
+(not an English `date "Friday, …"` string), and reads `summary` / `start
+date` / `end date` / `allday event` of **that** event (fixes -1700). It
+prints `EMPTY` or TSV lines:
+
+    TODAY<tab>-<tab>09:00<tab>09:30<tab>0<tab>Product sync
+    LATER<tab>2026-09-19<tab>15:00<tab>16:00<tab>0<tab>Dentist
+
+**Do not** hand `osascript` to `plow_run_command` — that is sandboxed
+and reproduced -600. **Do not** rewrite the script, add `time string of
+start date of item 1 of every event`, or construct `date "Friday, …"`.
+One call. If it still returns -600 after this launch, or -1700, stop:
+`could_not_source` includes `Calendar.app`. Source label: `Calendar.app`.
+
+Merge Google and Calendar.app rows that both succeeded. Same title +
+start on the same day is one event. Never invent a meeting.
+
+If **both** gathers failed, write `{"date": "<today>", "events": []}`
+and say so in `could_not_source` / body — the desk could not read the
+agenda. **Never** print "no events today" / "the calendar is free" /
+"Nenhum evento hoje" unless at least one gather succeeded with a real
+empty list.
 
 Print a tight, sourced list the edition can turn into two paragraphs
-("Today: …" / "Upcoming: …"). Source label: `Calendar.app` (plain text, not
-a URL). If Calendar is locked or empty, say so in `could_not_source` /
-body; never invent a meeting. Notes at `run/desk-calendar/notes.json`.
+("Today: …" / "Upcoming: …"). Notes at `run/desk-calendar/notes.json`.
 
 Besides the prose notes, write `run/desk-calendar/events.json` — the structured shape the
 schedule strip and the priority desk both read:
@@ -166,9 +217,8 @@ schedule strip and the priority desk both read:
 
 Times are the owner's local clock, clamped to today: an event that began yesterday starts
 at `00:00`, one that runs past midnight ends at `23:59`. Tomorrow's events before noon get
-`"tomorrow": true` and no clamping. Never invent an event; if Calendar.app is locked, write
-`{"date": "...", "events": []}` and say so in the prose notes.
-Each timed event needs a stable `id` the priority desk can cite (`calendar:<id>`).
+`"tomorrow": true` and no clamping. Never invent an event. Each timed event needs a
+stable `id` the priority desk can cite (`calendar:<id>`).
 
 Keep each event's own start time and title distinct in the notes (not
 pre-joined into one sentence) and, where it's obvious from the title or
