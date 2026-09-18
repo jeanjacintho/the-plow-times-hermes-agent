@@ -95,10 +95,12 @@ Two rules make a batch survivable in one session:
   clock by the section count. Only an assignment the owner explicitly asked
   to be "properly" done runs `deep`.
 - **Standing desks run first, every paper batch, and they are not topics.**
-  Follow `pt-research/references/desks.md`: location via Latch then weather;
-  calendar (today and upcoming); mail only if `mail.configured` is true
-  (Gmail via `plow-gog` first, Mail.app only if that fails).
-  Notes at `run/desk-weather/notes.json`, `run/desk-calendar/notes.json`,
+  Follow `pt-research/references/desks.md`: priority (only if
+  `priority.configured` is true; it spends no web budget), then location
+  via Latch then weather; calendar (today and upcoming); mail only if
+  `mail.configured` is true (Gmail via `plow-gog` first, Mail.app only if
+  that fails). Notes at `run/desk-priority/notes.json`,
+  `run/desk-weather/notes.json`, `run/desk-calendar/notes.json`,
   `run/desk-mail/notes.json`. Do not `topics.py mark` a desk.
 - **The batch budget is global, and the per-topic budget is a slice of it.**
   Keep a running total: when the batch budget is spent, stop starting new
