@@ -50,6 +50,17 @@ class TestComposePayload:
         assert json.loads(stamp.read_text(encoding="utf-8"))["pending"] is True
         assert json.loads(stamp.read_text(encoding="utf-8"))["delivered"] is True
 
+    def test_after_posted_reopens_delivered_sections(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
+        intake = load_module("topics_reopen", "pt-intake/scripts/topics.py")
+        intake.main(["add", "--text", "AI", "--kind", "section", "--depth", "quick"])
+        tid = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["id"]
+        intake.main(["mark", tid, "--status", "running"])
+        intake.main(["mark", tid, "--status", "delivered"])
+        post.after_posted(tmp_path / "seal.json")
+        status = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["status"]
+        assert status == "pending"
+
 
 class TestTextFileFlag:
     """`--text-file` exists so the text leg needs no shell redirect.

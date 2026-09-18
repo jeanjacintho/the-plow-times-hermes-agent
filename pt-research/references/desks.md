@@ -80,17 +80,27 @@ errors (DNS failure, timeout, connection refused) — never for an empty
 or malformed body, which is a real "can't determine" answer, not a
 dead domain.
 
-1. `plow_browser_open` with `origins: ["ipapi.co", "ipwho.is",
-   "ifconfig.co"]` (all three up front — you don't know yet which one
-   will resolve), goal: "Look up the owner's Mac location and timezone
-   for the newspaper's dateline and schedule."
+1. `plow_browser_open` **once for the whole paper** with origins covering
+   location, weather, search, and sports — each host as apex, `www.`, and
+   `*.host` (Latch does not treat `*.accuweather.com` as covering
+   `www.accuweather.com`). Example starter list: `ipapi.co`, `ipwho.is`,
+   `ifconfig.co`, `google.com`, `www.google.com`, `*.google.com`,
+   `weather.com`, `www.weather.com`, `*.weather.com`, `accuweather.com`,
+   `www.accuweather.com`, `*.accuweather.com`, `climatempo.com.br`,
+   `*.climatempo.com.br`, `inmet.gov.br`, `www.inmet.gov.br`,
+   `*.inmet.gov.br`, `tempo.com`, `*.tempo.com`, `espn.com`, `www.espn.com`,
+   `*.espn.com`, `espn.com.br`, `www.espn.com.br`, `*.espn.com.br`. Goal:
+   "Look up location, then weather, then news and sports for today's paper."
+   **Do not close** this session after location — weather, sports, and news
+   reuse it. `plow_browser_close` only at the end of pt-research.
 2. `plow_browser` `action: "goto"`, `url: "https://ipapi.co/json/"` —
    a bare JSON endpoint, no login, no page chrome to navigate. If
-   `goto` errors (DNS failure, timeout, connection refused), `goto`
-   `url: "https://ipwho.is/"` instead; if that also errors, `goto`
-   `url: "https://ifconfig.co/json"`. Stop after these three — three
+   `goto` errors (DNS failure, timeout, connection refused), **never retry ipapi**
+   — `goto` `url: "https://ipwho.is/"` instead; if that also errors,
+   `goto` `url: "https://ifconfig.co/json"`. Stop after these three — three
    independent domains failing DNS the same way is a real network
-   problem, not something a fourth guess will fix.
+   problem, not something a fourth guess will fix. Measured live,
+   `ipapi.co` is `NS_ERROR_UNKNOWN_HOST` on this owner's Mac every run.
 3. `plow_browser` `action: "text"` on that session to read the raw JSON
    body back from whichever provider actually loaded. Take `city`,
    `region`, `country_name` (`ipwho.is`/`ifconfig.co` differ slightly —
@@ -102,9 +112,11 @@ dead domain.
    runs on the owner's own Mac (same as the old curl-from-the-Mac
    requirement) — never fall back to fetching this yourself from the
    container, whose IP is not the owner's.
-4. `plow_browser_close` this session once you have the JSON — it isn't
-   needed again this run and there's no reason to hold it open.
-3. Open the browser and source today's forecast for that city (weather.gov,
+4. Leave the browser session open. Location JSON is done; weather is the
+   next goto on the same session. A close here forces a reopen with a
+   short origin list, and every news host then fails as outside the
+   approved origins (measured live 2026-09-18).
+5. Source today's forecast for that city (weather.gov,
    INMET, AccuWeather — whatever actually covers it). Same budget rules as
    any quick section: 3–5 sources, stop. Notes at `run/desk-weather/notes.json`.
    Source URLs are the forecast pages. If location failed, still write the

@@ -57,15 +57,19 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
    `pt-research/references/desks.md` before any news topic: location via
    Latch, then weather in the browser; calendar today and upcoming; mail
    only if configured. Flush each desk's notes as you go.
+   **Before desks, reopen news:**
+   `/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections`
+   Sections stuck at `delivered` are not "already done" — they are yesterday's
+   paper. Measured live 2026-09-18, skipping them shipped weather/calendar/mail
+   with no news. Do not skip a section because its status was delivered.
 1. Read the topic (or each news topic of the batch) from `pt/topics.json` (the id
    is in your prompt). Mark it running first:
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status running`. If it is
    already `running`, another run is working on it — skip it rather than
    racing it.
-2. Open the browser on the owner's Mac through Latch: `plow_browser_open`,
-   then navigate to a search engine, read the result list, and open the pages
-   that look like they actually carry facts. Prefer primary sources — the
-   vendor's own changelog over a blog about the changelog. **Do not leave
+2. Open the browser on the owner's Mac through Latch **once**: `plow_browser_open`
+   with the origin starter list in `references/desks.md` (location + weather +
+   Google + sports, apex and `*.host`). Then navigate. **Do not leave
    Latch.** `web_search`, `web_extract`, Firecrawl, Exa, Keenable, Parallel,
    `execute_code` HTTP, and `plow_run_command` curling a URL are not
    substitutes; a fact from those tools is unsourced.
@@ -152,6 +156,21 @@ flush the same way.
   no further calls on it, move on. Never retry the same blocked source more
   than once in a run — a fixed connection needs the owner to fix it, not four
   more identical attempts a minute apart.
+- **One browser session for the whole paper.** `plow_browser_open` once, with
+  origins for location, weather, Google, sports, and news — each host as
+  apex, `www.`, and `*.example.com` together (Latch treats `techcrunch.com`
+  and `*.techcrunch.com` as different; measured live 2026-09-18 the second
+  was allowlisted and the first still 403'd). Keep that session through
+  desks and news. `plow_browser_close` only when the batch is done. Do not
+  close after location and reopen with a weather-only list — that is how
+  Google/CNN/ESPN then spend minutes as "outside the approved origins".
+- **Widen with origins, or skip the host.** `plow_browser_request` with no
+  `origins` returns `needs origins and/or credential_items`. Never call it
+  empty; never retry that error. If goto says "outside the approved origins",
+  request **once** with `origins: ["example.com", "www.example.com",
+  "*.example.com"]` for that host, then goto again. If Latch answers
+  `Paused for ~Ns` (three failures tripped the MCP brake), stop that tool
+  for this host, log `sources_blocked`, continue. Do not sit in the pause.
 - **Keep fetches small** (SOUL.md's rule): prefer `plow_browser_find` and
   targeted `read_page` selections; never carry a whole raw page forward.
 - **No fabrication under pressure.** A thin budget produces a short notes

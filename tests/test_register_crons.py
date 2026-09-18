@@ -755,6 +755,12 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "post_to_chat.py already runs" in p
         assert "printer.configured" in p
         assert "Do not invoke pt-print" in p
+        assert "reopen-sections" in p
+
+    def test_daily_prompt_forbids_origin_retry_loops(self):
+        p = crons.daily_prompt("daily")
+        assert "plow_browser_open" in p
+        assert "needs origins" in p or "apex" in p
 
     def test_hour_paper_prompt_carries_the_print_leg(self):
         p = crons.paper_prompt("paper1", "12:00")

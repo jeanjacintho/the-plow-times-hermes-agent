@@ -118,6 +118,29 @@ def after_posted(stamp=None):
         platform=prev.get("platform") or "",
         delivered=True,
     )
+    reopen_sections_after_paper()
+
+
+def reopen_sections_after_paper():
+    """Sections must be pending for the next paper. The model often marks
+    delivered and stops; the next on-demand copy then ships desks only.
+    """
+    intake = Path("/var/lib/hermes/skills/pt-intake/scripts/topics.py")
+    if not intake.is_file():
+        intake = Path(__file__).resolve().parent.parent.parent / "pt-intake" / "scripts" / "topics.py"
+    if not intake.is_file():
+        return "REOPEN:skipped"
+    import subprocess
+
+    proc = subprocess.run(
+        [sys.executable, str(intake), "reopen-sections"],
+        capture_output=True,
+        text=True,
+    )
+    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        return f"REOPEN:failed {blob or proc.returncode}"
+    return blob or "REOPEN:none"
 
 
 def html_beside(pdf_path):

@@ -21,6 +21,10 @@ Subcommands:
   cancel   <id>            any topic the owner says stop on
   mark     <id> --status {pending,running,delivered} [--at ISO8601]
   list     [--kind K]      prints the topics array as JSON
+  reopen-sections          every section/subscription that is delivered or
+                           running becomes pending (a paper about to run;
+                           measured live, delivered sections were skipped
+                           and the next edition had desks only)
 
 `--run-on` is the date a `section`/`assignment` belongs to the paper:
 required for `assignment` (the one day its result appears) and refused for
@@ -289,6 +293,37 @@ def cmd_list(args):
     return 0
 
 
+EVERGREEN = ("section", "subscription")
+REOPEN_FROM = ("delivered", "running")
+
+
+def reopen_evergreen(topic_list=None):
+    """Put evergreen topics back on the next paper's research list.
+
+    One-offs and assignments stay delivered. Cancelled stays cancelled.
+    """
+    owned = topic_list is None
+    topics = load_topics() if owned else topic_list
+    reopened = []
+    for topic in topics:
+        if topic.get("kind") not in EVERGREEN:
+            continue
+        if topic.get("status") not in REOPEN_FROM:
+            continue
+        topic["status"] = "pending"
+        topic["scheduled_for"] = None
+        reopened.append(topic["id"])
+    if owned:
+        save_topics(topics)
+    return reopened
+
+
+def cmd_reopen_sections(args):
+    reopened = reopen_evergreen()
+    print(json.dumps({"reopened": reopened}))
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -320,6 +355,12 @@ def main(argv=None):
     p_list = sub.add_parser("list", help="print topics as JSON")
     p_list.add_argument("--kind", choices=KINDS, default=None)
     p_list.set_defaults(func=cmd_list)
+
+    p_reopen = sub.add_parser(
+        "reopen-sections",
+        help="pending every delivered/running section and subscription",
+    )
+    p_reopen.set_defaults(func=cmd_reopen_sections)
 
     args = parser.parse_args(argv)
     return args.func(args)

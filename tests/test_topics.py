@@ -306,3 +306,41 @@ class TestSectionsDoNotDuplicate:
         capsys.readouterr()
         kept = [t for t in topics.load_topics() if t["kind"] == "one_off"]
         assert len(kept) == 2
+
+
+class TestReopenSections:
+    """Measured live 2026-09-18: a second on-demand paper shipped desks
+    only. Sections were stuck at delivered (the model marked delivered
+    and never pending). Research only runs pending sections, so news
+    vanished until something reopened them.
+    """
+
+    def test_delivered_and_running_sections_become_pending(self, pt_home, capsys):
+        topics.main(["add", "--text", "AI", "--kind", "section", "--depth", "quick"])
+        topics.main(["add", "--text", "F1", "--kind", "section", "--depth", "quick"])
+        topics.main(["add", "--text", "once", "--kind", "one_off", "--depth", "quick"])
+        ai, f1, once = (t["id"] for t in read_store(pt_home))
+        topics.main(["mark", ai, "--status", "running"])
+        topics.main(["mark", ai, "--status", "delivered"])
+        topics.main(["mark", f1, "--status", "running"])
+        topics.main(["mark", once, "--status", "running"])
+        topics.main(["mark", once, "--status", "delivered"])
+        capsys.readouterr()
+        topics.main(["reopen-sections"])
+        out = json.loads(capsys.readouterr().out)
+        by_id = {t["id"]: t for t in read_store(pt_home)}
+        assert by_id[ai]["status"] == "pending"
+        assert by_id[f1]["status"] == "pending"
+        assert by_id[once]["status"] == "delivered"
+        assert set(out["reopened"]) == {ai, f1}
+
+    def test_pending_and_cancelled_are_untouched(self, pt_home, capsys):
+        topics.main(["add", "--text", "keep", "--kind", "section", "--depth", "quick"])
+        topics.main(["add", "--text", "stop", "--kind", "section", "--depth", "quick"])
+        stop = read_store(pt_home)[-1]["id"]
+        topics.main(["cancel", stop])
+        capsys.readouterr()
+        topics.main(["reopen-sections"])
+        by_id = {t["id"]: t for t in read_store(pt_home)}
+        assert by_id[read_store(pt_home)[0]["id"]]["status"] == "pending"
+        assert by_id[stop]["status"] == "cancelled"

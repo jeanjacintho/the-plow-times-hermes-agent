@@ -378,6 +378,22 @@ class TestSoul:
         assert "plow_browser" in desks
         assert "site.api.espn.com" in desks
 
+    def test_research_one_browser_session_does_not_retry_origin_errors(self):
+        # Measured live 2026-09-18: an on-demand paper spent ~30 minutes.
+        # ipapi.co NS_ERROR_UNKNOWN_HOST every run; then plow_browser_request
+        # with no origins ("needs origins and/or credential_items"); then
+        # goto techcrunch.com while only *.techcrunch.com was allowlisted;
+        # then MCP "Paused for ~44s" and the same call again. The contract:
+        # one open for the whole paper, apex+wildcard together, fail once.
+        research = (ROOT / "pt-research" / "SKILL.md").read_text()
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        assert "needs origins" in research
+        assert "apex" in research and "*.example.com" in research
+        assert "Paused" in research
+        assert "do not close" in desks or "Do not close" in desks
+        assert "do not retry ipapi" in desks or "never retry ipapi" in desks
+        assert "reopen-sections" in research
+
     def test_setup_warns_against_wrapping_record_setup_in_python(self):
         # Measured live: with a real printer found (network:true worked),
         # the assistant recorded a perfectly valid printer name by
