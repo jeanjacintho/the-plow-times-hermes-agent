@@ -2,7 +2,11 @@
 """What the priority desk printed on recent days, so the next morning can follow up.
 
 usage:
-  history.py record --date YYYY-MM-DD --notes-json <run/desk-priority/notes.json>
+  history.py record --date YYYY-MM-DD --edition-json <run/<id>/edition.json>
+
+Records the priority section the delivered edition carried, never desk notes:
+run/desk-priority/notes.json outlives the run, so on a day the desk was
+skipped it is yesterday's advice, which the owner never received today.
 """
 from __future__ import annotations
 
@@ -59,10 +63,16 @@ def main(argv):
     sub = parser.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("record")
     r.add_argument("--date", required=True)
-    r.add_argument("--notes-json", required=True)
+    r.add_argument("--edition-json", required=True)
     args = parser.parse_args(argv)
-    with open(args.notes_json, encoding="utf-8") as fh:
-        record(args.date, json.load(fh)["priority"])
+    with open(args.edition_json, encoding="utf-8") as fh:
+        sections = json.load(fh).get("sections") or []
+    printed = next((s for s in sections if isinstance(s, dict) and s.get("desk") == "priority"
+                    and isinstance(s.get("priority"), dict)), None)
+    if printed is None:
+        print("SKIPPED: this edition carried no priority desk")
+        return 0
+    record(args.date, {**printed["priority"], "headline": printed["headline"]})
     print("RECORDED")
     return 0
 

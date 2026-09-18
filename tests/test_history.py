@@ -34,9 +34,19 @@ def test_unreadable_history_is_set_aside(pt_home, content):
     assert hist.load() == [{"date": "2026-09-16", "desk": DESK}]
 
 
-def test_cli_records_the_printed_desk(tmp_path, capsys):
-    notes = tmp_path / "notes.json"
-    notes.write_text(json.dumps({"desk": "priority", "status": "ok", "priority": DESK}))
-    hist.main(["record", "--date", "2026-09-16", "--notes-json", str(notes)])
-    assert capsys.readouterr().out.strip() == "RECORDED"
-    assert hist.load() == [{"date": "2026-09-16", "desk": DESK}]
+PRINTED = {"desk": "priority", "headline": DESK["headline"], "body": "b",
+           "priority": {"stage_label": "Discovery"}}
+NEWS = {"desk": "news", "headline": "h", "body": "b"}
+
+
+@pytest.mark.parametrize("sections, out, history", [
+    ([PRINTED, NEWS], "RECORDED", [{"date": "2026-09-16", "desk": DESK}]),
+    # The desk was skipped: stale run/desk-priority notes must not be recorded.
+    ([NEWS], "SKIPPED: this edition carried no priority desk", []),
+])
+def test_cli_records_only_what_the_edition_printed(tmp_path, capsys, sections, out, history):
+    edition = tmp_path / "edition.json"
+    edition.write_text(json.dumps({"date": "2026-09-16", "sections": sections}))
+    hist.main(["record", "--date", "2026-09-16", "--edition-json", str(edition)])
+    assert capsys.readouterr().out.strip() == out
+    assert hist.load() == history

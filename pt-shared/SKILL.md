@@ -66,8 +66,8 @@ does not, and every run fails on the import.
   session). Cron never calls it.
 - `pt-priority/scripts/history.py` — what the priority desk printed on recent
   days, so the next morning can follow up. Called bare:
-  `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --notes-json <notes.json>`
-  Prints `RECORDED`.
+  `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --edition-json <run/<id>/edition.json>`
+  Prints `RECORDED`, or `SKIPPED: …` when the edition carried no priority desk.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:
