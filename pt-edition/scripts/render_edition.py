@@ -1102,11 +1102,7 @@ def render_html(edition, name, template_text):
     # painting the continuation one column to the right, so the well is
     # not a table at all -- ordinary block flow fills leftover space and
     # only starts a new page when the current one is full.
-    # {{SECTIONS_2}}/{{SECTIONS_3}} stay as empty slots for older templates.
     news_well_html = "".join(html_section(section) for section in rest)
-    main_html = news_well_html
-    main_html_2 = ""
-    main_html_3 = ""
     weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
@@ -1157,9 +1153,7 @@ def render_html(edition, name, template_text):
         .replace("{{PRIORITY_BLOCK}}", priority_block_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
-        .replace("{{SECTIONS}}", main_html)
-        .replace("{{SECTIONS_2}}", main_html_2)
-        .replace("{{SECTIONS_3}}", main_html_3)
+        .replace("{{SECTIONS}}", news_well_html)
         .replace("{{WEATHER}}", weather_html)
         .replace("{{CALENDAR}}", calendar_html)
         .replace("{{MAIL}}", mail_html)
