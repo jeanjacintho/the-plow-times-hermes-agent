@@ -27,6 +27,14 @@ LIST_MARKERS = (";", "\n", "•", " and then ")
 MIN_QUOTE_WORDS = 3
 MAX_QUOTE_WORDS = 25
 LIST_PREFIX = re.compile(r"^\s*(-|\*|\d+\.)\s")
+FOUNDER_TALK = re.compile(
+    r"\b("
+    r"the founder|o fundador|a fundadora|"
+    r"founder should|fundador deve|fundadora deve|"
+    r"the ceo should|o ceo deve"
+    r")\b",
+    re.I,
+)
 
 
 def _load_json(path):
@@ -117,6 +125,15 @@ def validate(context, p, streak=0):
         errors.append("first_step_empty: first_step is blank")
     elif len(step) > 160:
         errors.append("first_step_too_long: keep it under 160 characters")
+    spoken = [text, step]
+    for item in (p.get("why") or []):
+        if isinstance(item, dict) and isinstance(item.get("text"), str):
+            spoken.append(item["text"])
+    if any(FOUNDER_TALK.search(s or "") for s in spoken):
+        errors.append(
+            "talks_about_the_founder: speak to the reader (you / você), "
+            "never 'the founder should'"
+        )
 
     why = p["why"]
     if not 1 <= len(why) <= 3:

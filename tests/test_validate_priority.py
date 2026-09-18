@@ -23,13 +23,13 @@ CONTEXT = {
 }
 GOOD = {
     "date": "2026-09-16",
-    "priority": "Close the seed extension with Fund X",
+    "priority": "What unlocks the month is closing the seed extension with Fund X",
     "stage": "unknown",
     "why": [
         {"text": "Q3 goal", "source": "file:goals", "quote": "raise $1.5M by  sep 30"},
         {"text": "Partner call today", "source": "calendar:evt_1"},
     ],
-    "first_step": "Send the updated deck before the 2pm call",
+    "first_step": "Start this morning: send the updated deck before the 2pm call",
     "block": {"start": "09:00", "end": "11:00"},
     "carried_over": False,
 }
@@ -72,6 +72,10 @@ def test_good_is_valid():
     ({"block": {"start": "10:00", "end": "12:00"}}, ["block_not_free"]),
     ({"block": {"start": "10:00", "end": "10:00"}}, ["block_not_free"]),
     ({"priority": "Website rebrand project kickoff"}, ["matches_not_now"]),
+    ({"priority": "The founder should review the pipeline"}, ["talks_about_the_founder"]),
+    ({"first_step": "O fundador deve puxar os fechamentos QTD"}, ["talks_about_the_founder"]),
+    ({"why": [{"text": "The founder should review pipeline", "source": "file:goals",
+               "quote": "raise $1.5M by Sep 30"}]}, ["talks_about_the_founder"]),
 ])
 def test_each_rule(changes, expected):
     assert codes(bad(**changes)) == expected
@@ -79,6 +83,19 @@ def test_each_rule(changes, expected):
 
 def test_null_block_is_fine():
     assert codes(bad(block=None)) == []
+
+
+def test_advisor_quote_may_mention_the_founder():
+    ctx = copy.deepcopy(CONTEXT)
+    ctx["file"]["sections"][0]["text"] = "The founder writes the playbook personally."
+    p = bad(
+        why=[{
+            "text": "The playbook still has to come from you.",
+            "source": "file:goals",
+            "quote": "The founder writes the playbook personally",
+        }],
+    )
+    assert codes(p, context=ctx) == []
 
 
 def test_repeated():

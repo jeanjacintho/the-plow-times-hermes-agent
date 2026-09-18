@@ -190,6 +190,8 @@ class TestValidate:
         assert "Close the seed extension" in html
         assert "“raise $1.5M by Sep 30” — your file, Goals" in html
         assert "Send the deck" in html and "09:00–11:30" in html
+        assert "→" not in html
+        assert html.index("Q3 goal") < html.index("Send the deck")
         assert "carried over from yesterday" in html
         assert "<script" not in html.lower()
 
@@ -220,17 +222,21 @@ class TestValidate:
         assert html.index("kicker") < html.index("Markets rally")
         assert '<span class="tag">Economia</span>' not in html
 
-    def test_lead_body_runs_in_three_columns(self):
+    def test_lead_body_paginates_as_ordinary_paragraphs(self):
         html = render.render_html(edition(sections=[{
             "kind": "section", "title": "Lead", "desk": "news",
             "body": "One.\n\nTwo.\n\nThree.\n\nFour.",
             "sources": [],
         }]), render.DEFAULT_MASTHEAD, "{{LEAD}}")
-        assert '<div class="lead-body">' in html
-        assert html.count('<div class="lb-col">') == 3
+        # A 3-cell lead-body table had to stay whole (WeasyPrint paints
+        # a split cell in the wrong column), so the body jumped to page
+        # 2 while the front still had room. The lead fills leftover
+        # space as normal paragraphs.
+        assert '<div class="lead-body">' not in html
         assert "dropcap" in html
+        assert "<p>" in html
 
-    def test_news_well_lays_out_rows_of_three(self):
+    def test_news_well_is_a_stack_not_an_unbreakable_row(self):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
@@ -238,15 +244,13 @@ class TestValidate:
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
                                   "{{SECTIONS}}")
-        # 7 stories: 1 lead + 6 in the well = two rows of three. Each row
-        # is its own table -- a single well-spanning table repaints
-        # continued cell text in the wrong column in WeasyPrint 62.3
-        # (measured), so rows must never split.
-        assert html.count('<div class="news-cols">') == 2
+        # 1 lead + 6 in the well. Unbreakable 3-col tables jumped whole
+        # rows onto the next sheet; the well is now a stack that can
+        # fill leftover space.
+        assert '<div class="news-cols">' not in html
         assert html.count("<article") == 6
-        assert html.count('news-col--empty') == 0
 
-    def test_news_well_pads_a_short_last_row(self):
+    def test_news_well_keeps_every_story(self):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
@@ -254,10 +258,8 @@ class TestValidate:
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
                                   "{{SECTIONS}}")
-        # 1 lead + 4 in the well: a full row, then a row of one plus two
-        # empty padding cells so column widths and rules stay put.
-        assert html.count('<div class="news-cols">') == 2
-        assert html.count('news-col--empty') == 2
+        assert html.count("<article") == 4
+        assert "Story 1" in html and "Story 4" in html
 
     def test_desks_render_as_a_boxed_teaser_row(self):
         html = render.render_html(edition(sections=[
@@ -293,6 +295,8 @@ class TestValidate:
             "sources": [],
         }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         assert "STAGE · Blueprint" in html and "Hiring another rep" in html
+        assert "Leave it for later" in html
+        assert "NOT TODAY" not in html
 
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
@@ -669,7 +673,7 @@ class TestEnsurePriorityDesk:
         out, inserted = render.ensure_priority_desk(ed, config, notes=None)
         assert inserted is True
         assert render.desk_of(out["sections"][0]) == "priority"
-        assert "What should I prioritize today?" in out["sections"][0]["title"]
+        assert "What to prioritize today" in out["sections"][0]["title"]
         assert out["sections"][0]["body"]
         assert render.validate(out) == ""
 
@@ -691,6 +695,7 @@ class TestEnsurePriorityDesk:
         pri = out["sections"][0]
         assert pri["headline"] == "Close the seed extension"
         assert pri["priority"]["first_step"] == "Send the deck this morning"
+        assert pri["priority"]["not_today_heading"] == "Leave it for later"
         assert render.validate(out) == ""
 
     def test_does_not_duplicate_an_existing_priority_desk(self):
@@ -715,4 +720,4 @@ class TestEnsurePriorityDesk:
         render.main([str(ed_path), "--html", str(html_path), "--config", str(cfg)])
         html = html_path.read_text()
         assert "section--priority" in html
-        assert "What should I prioritize today?" in html
+        assert "What to prioritize today" in html

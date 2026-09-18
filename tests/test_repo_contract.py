@@ -706,6 +706,8 @@ class TestSkills:
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
         assert "--run-dir run/desk-priority" in skill
+        assert "the founder" in skill
+        assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "def ensure_priority_desk" in renderer
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
@@ -757,25 +759,23 @@ class TestSkills:
         # with a double rule, a folio line, the lead as a large headline,
         # and news in columns.
         template = (ROOT / "pt-edition" / "template.html").read_text()
+        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "nameplate" in template
         assert "rule-double" in template
         assert "folio" in template
-        assert "columns" in template or "column-count" in template
         assert "dropcap" in template
         assert "border-image" not in template  # no fake photo frames
         assert "masthead-row" in template
         assert "ear-box" in template
-        assert "news-col" in template
         # The priority card's heading is model-written (owner.language),
         # not a hardcoded English/Portuguese string.
         assert "What should I prioritize today?" not in template
         assert "O que devo priorizar hoje?" not in template
         assert "PRIORITY_BLOCK" in template
-        # Broadsheet anatomy: kickers label each story's section, the
-        # lead's body runs in columns, desks are a boxed teaser row.
         assert "kicker" in template
-        assert "lead-body" in template
         assert "desks-row" in template
+        assert "body_cols=1" in renderer
+        assert "news-well" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).

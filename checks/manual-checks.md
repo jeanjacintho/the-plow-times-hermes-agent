@@ -12,8 +12,8 @@ Needs Latch on the Mac. Until a human run, **NEEDS HUMAN RUN**.
 | 4 | Check `pt/config.json` | `priority.configured: true`, `priority.file` |
 | 5 | Force the edition (`hermes cron run pt-daily-edition`) | The page opens with the priority; the "why" cites the file and the calendar |
 | 6 | Check `run/desk-calendar/events.json`, `stage.json`, `advisors.json` and `context.json` | Shapes from the plan; `STAGE:` matches `## Company state`; only this stage's advisors in context |
-| 6b | Check the page | Line `STAGE · …`, a why citing the advisor, `NOT TODAY` block |
-| 6c | Change `## Company state` to ARR $14M and run again | Stage becomes Scale; priority and `NOT TODAY` switch advisor files |
+| 6b | Check the page | Line `STAGE · …`, a why citing the advisor, `Leave it for later` / `Deixa pra depois` block; copy talks to you, never "the founder should" |
+| 6c | Change `## Company state` to ARR $14M and run again | Stage becomes Scale; priority and the later-list switch advisor files |
 | 6d | Delete `~/Plow/advisors/` and run | Paper still ships; priority from file + calendar; note `no_advisor_for_stage` |
 | 7 | "why?" in chat | Explains with the quotes, does not decide again |
 | 8 | "done" | Confirms; the next day the priority does not repeat without a reason |

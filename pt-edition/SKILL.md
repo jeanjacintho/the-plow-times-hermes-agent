@@ -116,10 +116,11 @@ HTML.** Hand-write `edition.json` under the run directory:
   `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
   sources shape in every slot.
 - **`priority` is optional, priority-desk-only, and copied from
-  `run/desk-priority/notes.json` without rewriting.** When present it
-  replaces the prose body on the printed page (`skip_body`); `headline` is
-  the day's priority and `body` is the first step in prose for the chat
-  edition. Shape: `why` (1–3 objects with `text` and `source_label`;
+  `run/desk-priority/notes.json` without rewriting.** The printed card
+  already talks to the reader; do not turn it into a memo about "the
+  founder". When present it replaces the prose body on the printed page
+  (`skip_body`); `headline` is the day's stake and `body` is the first
+  step in prose for the chat edition. Shape: `why` (1–3 objects with `text` and `source_label`;
   `quote` optional, at most 25 words), `first_step`, optional `block`
   `{start, end}` in `HH:MM`, optional `tags` and `not_today` (at most two
   strings), optional `stage_label`.

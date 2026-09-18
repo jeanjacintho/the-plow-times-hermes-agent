@@ -53,20 +53,22 @@ DESK_ORDER = {"priority": -1, "weather": 0, "calendar": 1, "mail": 2, "sports": 
 CONFIG_DEFAULT = "/var/lib/hermes/pt/config.json"
 PRIORITY_UNAVAILABLE = {
     "pt": {
-        "title": "O que devo priorizar hoje?",
+        "title": "O que priorizar hoje",
         "headline": "Hoje o #1 não entrou nesta edição.",
         "body": (
             "O jornal ia abrir com a sua prioridade, mas essa parte não "
             "foi montada a tempo. O resto da página segue."
         ),
+        "not_today": "Deixa pra depois",
     },
     "en": {
-        "title": "What should I prioritize today?",
+        "title": "What to prioritize today",
         "headline": "Today's #1 did not make this edition.",
         "body": (
             "The paper was supposed to open with your priority, but that "
             "block was not built in time. The rest of the page still runs."
         ),
+        "not_today": "Leave it for later",
     },
 }
 # Controlled vocabulary for a sports desk game row -- what state the game
@@ -390,6 +392,7 @@ def _priority_section_from_notes(notes, language):
     for key in ("block", "tags", "not_today", "stage_label"):
         if key in pri:
             payload[key] = pri[key]
+    payload["not_today_heading"] = copy["not_today"]
     return {
         "kind": "section",
         "desk": "priority",
@@ -748,10 +751,7 @@ def messages_list(items):
 
 
 def priority_block(priority):
-    """The priority desk's structured block: first step, sourced why, optional window."""
-    blocks = [
-        f'<p class="priority-step">→ {html.escape(priority["first_step"].strip())}</p>'
-    ]
+    """The priority desk as a briefing to the reader: argument, then how you start."""
     items = []
     for item in priority["why"]:
         text = html.escape(str(item.get("text") or "").strip())
@@ -762,7 +762,10 @@ def priority_block(priority):
         else:
             src = f'<span class="src">— {label}</span>'
         items.append(f"<li>{text} {src}</li>")
-    blocks.append('<ul class="priority-why">' + "".join(items) + "</ul>")
+    blocks = ['<ul class="priority-why">' + "".join(items) + "</ul>"]
+    blocks.append(
+        f'<p class="priority-step">{html.escape(priority["first_step"].strip())}</p>'
+    )
     block = priority.get("block")
     if isinstance(block, dict) and block.get("start") and block.get("end"):
         start = html.escape(str(block["start"]))
@@ -770,8 +773,11 @@ def priority_block(priority):
         blocks.append(f'<p class="priority-window">{start}–{end}</p>')
     not_today = [t for t in (priority.get("not_today") or []) if str(t).strip()]
     if not_today:
+        heading = html.escape(
+            str(priority.get("not_today_heading") or "Leave it for later").strip()
+        )
         items = "".join(f"<li>{html.escape(str(t).strip())}</li>" for t in not_today[:2])
-        blocks.append("<h3>NOT TODAY</h3><ul class=\"priority-avoid\">" + items + "</ul>")
+        blocks.append(f"<h3>{heading}</h3><ul class=\"priority-avoid\">" + items + "</ul>")
     tags = priority.get("tags") or []
     if tags:
         spans = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in tags)
@@ -900,12 +906,12 @@ def html_section(section, drop_cap=False, body_cols=1):
     section label above the headline, the way a broadsheet labels
     departments. On desks the tag stays inline in the title bar.
 
-    ``body_cols`` (lead story only) splits the body paragraphs into that
-    many balanced ``.lb-col`` cells inside a ``.lead-body`` row -- the
-    three-column body under a full-width headline that a real front page
-    gives its top story. Drawn with display:table-cell because CSS
-    multicol is broken in WeasyPrint's paginated engine (see the
-    template's header comment).
+    ``body_cols`` (lead story only) used to split the body into a
+    three-cell table. That table had to stay whole (WeasyPrint 62.3
+    repaints a split cell in the wrong column), so a long lead jumped
+    to the next page while the front still had room. The lead now
+    paginates as ordinary paragraphs. The argument is kept so a caller
+    can still request columns; the daily paper passes 1.
 
     ``drop_cap`` (lead story only) wraps the first character of the first
     paragraph in ``<span class="dropcap">`` for the CSS to float and
@@ -1128,7 +1134,7 @@ def render_html(edition, name, template_text):
     # it can run alone, full width, in its own row above everything else
     # (see the top comment for why the desks no longer sit beside it).
     if news:
-        lead_html = html_section(news[0], drop_cap=True, body_cols=3)
+        lead_html = html_section(news[0], drop_cap=True, body_cols=1)
         rest = news[1:]
     elif priority:
         lead_html = ""
@@ -1137,27 +1143,16 @@ def render_html(edition, name, template_text):
         lead_html = '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
         rest = []
 
-    # The news well is laid out as ROWS of three cells, each row its own
-    # table with break-inside:avoid -- not one table for the whole well.
-    # Measured on WeasyPrint 62.3: when a single table spans a page
-    # break, a cell whose content continues on the next page paints the
-    # continuation one column to the RIGHT (a story's remainder lands in
-    # the wrong column). Independent row tables never split, so the bug
-    # never triggers. {{SECTIONS_2}}/{{SECTIONS_3}} stay as empty slots
-    # for older templates; this one uses only {{SECTIONS}}.
-    rows = []
-    for row_start in range(0, len(rest), 3):
-        row = rest[row_start:row_start + 3]
-        cells = "".join(
-            f'<div class="news-col">{html_section(section)}</div>'
-            for section in row
-        )
-        # Pad with empty cells so column widths and the vertical rules
-        # stay put when the last row is short.
-        for _ in range(3 - len(row)):
-            cells += '<div class="news-col news-col--empty"></div>'
-        rows.append(f'<div class="news-cols">{cells}</div>')
-    news_well_html = "\n".join(rows)
+    # The news well is a vertical stack of stories that MAY split across
+    # pages. Measured live 2026-09-18: wrapping them in 3-cell tables with
+    # break-inside:avoid left a half-empty page 1 (the lead body jumped
+    # whole) and parked leftover news on page 2 while space remained
+    # above. WeasyPrint 62.3 still cannot split a table cell without
+    # painting the continuation one column to the right, so the well is
+    # not a table at all -- ordinary block flow fills leftover space and
+    # only starts a new page when the current one is full.
+    # {{SECTIONS_2}}/{{SECTIONS_3}} stay as empty slots for older templates.
+    news_well_html = "".join(html_section(section) for section in rest)
     main_html = news_well_html
     main_html_2 = ""
     main_html_3 = ""
