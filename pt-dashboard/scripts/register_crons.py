@@ -38,16 +38,17 @@ not start with pt-: those are not this agent's to manage.
 It also RECONCILES drift, which create-if-missing alone does not: a job
 that is registered with a different schedule, skill or prompt than the spec
 calls for (the owner changed delivery.hour, the lead changed, the delivery
-contract moved -- PDF-only vs transcript) is removed and recreated. Without
-this, "already present, skipped" means a changed delivery hour or a new
-chat payload is silently ignored forever -- the exact class of failure this
-script exists to prevent. Drift is only judged when hermes's own jobs.json
-carries the field; a fixture or an older row without a schedule is left
-alone rather than recreated on a guess. Recreate is never "remove, then
-hope create_argv works": every --deliver expansion for jobs this run would
-create or recreate is resolved first. A blank PLOW_HOME_CHANNEL (typical
-of docker compose exec, which does not inherit s6's env) must refuse while
-the existing morning job is still registered.
+contract moved -- PDF-only vs transcript) is updated in place with
+`hermes cron edit`. Without this, "already present, skipped" means a
+changed delivery hour or a new chat payload is silently ignored forever --
+the exact class of failure this script exists to prevent. Drift is only
+judged when hermes's own jobs.json carries the field; a fixture or an older
+row without a schedule is left alone rather than edited on a guess. A
+blank PLOW_HOME_CHANNEL (typical of docker compose exec, which does not
+inherit s6's env) must refuse before any create or edit, while the
+existing morning job is still registered. Never remove-then-create a
+drifted job: if create failed after remove, the morning paper had no job
+until someone reran the script.
 
 One refusal is the point of the script, inherited from ld-dashboard: an
 unreadable or unexpected jobs.json aborts. Never read "I could not tell what
@@ -603,7 +604,7 @@ def job_drift(job, spec):
     fields a spec change actually moves (the delivery hour, the lead, the
     PDF-only vs transcript contract); deliver is not compared because its
     resolved form depends on the turn's environment and a false drift would
-    recreate every job on every run.
+    edit every job on every run.
     """
     for key in ("schedule", "skill", "prompt"):
         stored = spec.get(key)
@@ -650,6 +651,18 @@ def prune_runtime(topics, home):
 def create_argv(job, env=None):
     argv = [HERMES, "cron", "create", job["schedule"], job["prompt"],
             "--name", job["name"], "--skill", job["skill"]]
+    if job["deliver"]:
+        argv += ["--deliver", resolve_deliver(job["deliver"], env)]
+    return argv
+
+
+def edit_argv(job, env=None):
+    """Update a registered job in place. `hermes cron edit` takes the name
+    (or id); never remove-then-create, or a failed create leaves no job."""
+    argv = [HERMES, "cron", "edit", job["name"],
+            "--schedule", job["schedule"],
+            "--prompt", job["prompt"],
+            "--skill", job["skill"]]
     if job["deliver"]:
         argv += ["--deliver", resolve_deliver(job["deliver"], env)]
     return argv
@@ -716,28 +729,28 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
             if not job_drift(job, spec):
                 print(f"already present, skipped: {job['name']}")
                 continue
-            pending.append(("recreate", job, spec, create_argv(job, env)))
+            pending.append(("edit", job, spec, edit_argv(job, env)))
         else:
             pending.append(("create", job, None, create_argv(job, env)))
 
     for action, job, spec, argv in pending:
-        if action == "recreate":
-            proc = runner([HERMES, "cron", "remove", job["name"]])
-            if proc.returncode != 0:
-                raise SystemExit(
-                    f"could not remove drifted job {job['name']}:\n"
-                    f"{proc.stdout}\n{proc.stderr}"
-                )
+        if action == "edit":
             print(
-                f"recreating drifted job: {job['name']} "
+                f"updating drifted job: {job['name']} "
                 f"(was {spec.get('schedule')!r}, now {job['schedule']!r})"
             )
         proc = runner(argv)
         if proc.returncode != 0:
+            if action == "edit":
+                raise SystemExit(
+                    f"could not update drifted job {job['name']}:\n"
+                    f"{proc.stdout}\n{proc.stderr}"
+                )
             raise SystemExit(
                 f"could not register {job['name']}:\n{proc.stdout}\n{proc.stderr}"
             )
-        print(f"registered: {job['name']} ({job['schedule']})")
+        verb = "updated" if action == "edit" else "registered"
+        print(f"{verb}: {job['name']} ({job['schedule']})")
 
     for name in stale_names(topics, registered, len(extra_hours), delivery_hour):
         proc = runner([HERMES, "cron", "remove", name])

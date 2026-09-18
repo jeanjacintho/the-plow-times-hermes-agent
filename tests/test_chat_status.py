@@ -43,6 +43,10 @@ class TestCopy:
         assert en.startswith("⏳ ")
         assert "jornal" not in en.lower()
 
+    def test_unknown_kind_fails_loudly(self):
+        with pytest.raises(KeyError):
+            status.status_text("not-a-kind", "English")
+
 
 class TestSoonGate:
     def test_soon_posts_when_there_is_no_stamp(self, tmp_path):
@@ -81,29 +85,31 @@ class TestWaitGate:
 
 
 class TestBusyGate:
-    def test_first_busy_posts_the_hang_on(self, tmp_path):
+    @pytest.mark.parametrize(
+        "prep,now,expected",
+        [
+            (None, 1000.0, "send-start"),
+            ("start", 1008.0, "too-early"),
+            ("start", 1000.0 + status.BUSY_REPEAT_SECONDS + 1, "send-still"),
+            (
+                "start-still",
+                1000.0 + status.BUSY_REPEAT_SECONDS + 6,
+                "already",
+            ),
+            (
+                "start-still",
+                1000.0 + status.BUSY_NEW_WAVE_SECONDS + 1,
+                "send-start",
+            ),
+        ],
+    )
+    def test_busy_wave(self, tmp_path, prep, now, expected):
         stamp = tmp_path / "setup-busy.json"
-        assert status.busy_action(stamp, now=1000.0) == "send-start"
-
-    def test_busy_is_quiet_until_a_few_seconds_pass(self, tmp_path):
-        stamp = tmp_path / "setup-busy.json"
-        status.record_busy_start(stamp, now=1000.0)
-        assert status.busy_action(stamp, now=1000.0 + 8) == "too-early"
-
-    def test_busy_posts_still_on_it_once(self, tmp_path):
-        stamp = tmp_path / "setup-busy.json"
-        status.record_busy_start(stamp, now=1000.0)
-        later = 1000.0 + status.BUSY_REPEAT_SECONDS + 1
-        assert status.busy_action(stamp, now=later) == "send-still"
-        status.record_busy_still(stamp)
-        assert status.busy_action(stamp, now=later + 5) == "already"
-
-    def test_busy_starts_again_on_the_next_slow_step(self, tmp_path):
-        stamp = tmp_path / "setup-busy.json"
-        status.record_busy_start(stamp, now=1000.0)
-        status.record_busy_still(stamp)
-        nxt = 1000.0 + status.BUSY_NEW_WAVE_SECONDS + 1
-        assert status.busy_action(stamp, now=nxt) == "send-start"
+        if prep in ("start", "start-still"):
+            status.record_busy_start(stamp, now=1000.0)
+        if prep == "start-still":
+            status.record_busy_still(stamp)
+        assert status.busy_action(stamp, now=now) == expected
 
 
 class TestLanguageFromConfig:
@@ -114,9 +120,11 @@ class TestLanguageFromConfig:
         )
         assert status.owner_language(cfg) == "Portuguese"
 
-    def test_falls_back_to_the_setup_draft_during_the_interview(self, tmp_path):
+    def test_setup_draft_wins_during_the_interview(self, tmp_path):
         cfg = tmp_path / "config.json"
-        cfg.write_text("{}", encoding="utf-8")
+        cfg.write_text(
+            json.dumps({"owner": {"language": "English"}}), encoding="utf-8"
+        )
         (tmp_path / ".setup-draft.json").write_text(
             json.dumps({"owner": {"language": "Portuguese"}}), encoding="utf-8"
         )

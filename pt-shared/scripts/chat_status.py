@@ -33,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import post_to_chat  # noqa: E402
+import setup_needed as _gate  # noqa: E402
 from bearer_http import post_json  # noqa: E402
 
 WAIT_SECONDS = 240
@@ -72,28 +73,11 @@ def status_text(kind, language):
         "busy": BUSY,
         "busy-still": BUSY_STILL,
     }
-    table = tables.get(kind, WAIT)
+    table = tables[kind]
     return table["pt"] if is_portuguese(language) else table["en"]
 
 
-def _language_from_json(path):
-    try:
-        data = json.loads(open(str(path), encoding="utf-8").read())
-    except (OSError, json.JSONDecodeError):
-        return ""
-    owner = data.get("owner") if isinstance(data, dict) else None
-    if not isinstance(owner, dict):
-        return ""
-    lang = owner.get("language")
-    return lang if isinstance(lang, str) else ""
-
-
-def owner_language(config_path):
-    lang = _language_from_json(config_path)
-    if lang:
-        return lang
-    sibling = Path(str(config_path)).with_name(".setup-draft.json")
-    return _language_from_json(sibling)
+owner_language = _gate.owner_language
 
 
 def _load_stamp(path):
@@ -105,23 +89,19 @@ def _load_stamp(path):
 
 
 def record_soon(path, now=None):
-    path = str(path)
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    payload = {"soon_at": float(now if now is not None else time.time()), "wait_sent": False}
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh)
-    os.replace(tmp, path)
+    _write_stamp(
+        path,
+        {
+            "soon_at": float(now if now is not None else time.time()),
+            "wait_sent": False,
+        },
+    )
 
 
 def record_wait_sent(path):
-    path = str(path)
-    data = _load_stamp(path) or {}
+    data = _load_stamp(str(path)) or {}
     data["wait_sent"] = True
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(data, fh)
-    os.replace(tmp, path)
+    _write_stamp(path, data)
 
 
 def soon_action(path, now=None, stale_seconds=7200):

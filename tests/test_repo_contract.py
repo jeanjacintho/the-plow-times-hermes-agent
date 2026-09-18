@@ -496,6 +496,9 @@ class TestSoul:
         assert "record_owner_language.py" in soul
         assert "silent between them" in soul
         assert "--show-daily-recipe" in soul
+        # Issue #4: a lone no/não was recorded as a language change.
+        for text in (soul, (ROOT / "pt-shared" / "SKILL.md").read_text()):
+            assert "`no`" in text and "`não`" in text and "`nao`" in text
 
     def test_research_and_edition_run_silently_even_live(self):
         # Same measured incident: pt-research and pt-edition were written
@@ -761,7 +764,6 @@ class TestSkills:
         # with a double rule, a folio line, the lead as a large headline,
         # and news in columns.
         template = (ROOT / "pt-edition" / "template.html").read_text()
-        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "nameplate" in template
         assert "rule-double" in template
         assert "folio" in template
@@ -776,7 +778,7 @@ class TestSkills:
         assert "PRIORITY_BLOCK" in template
         assert "kicker" in template
         assert "desks-row" in template
-        assert "body_cols=1" in renderer
+        assert "break-inside: avoid" in template
         assert "news-well" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway

@@ -13,7 +13,7 @@
   WeasyPrint sees an <img> tag there is nothing left to fetch, same as
   everything else on the page. The renderer substitutes the
   placeholders (MASTHEAD, DATE, LOCATION, LEAD, PRIORITY_BLOCK,
-  WEATHER_EAR, DESKS_INLINE, SECTIONS, SECTIONS_2, SECTIONS_3, SUDOKU,
+  WEATHER_EAR, DESKS_INLINE, SECTIONS, SUDOKU,
   and PAGE_CLASS/PRIORITY/WEATHER/CALENDAR/MAIL/SPORTS/SIDEBAR for older
   templates that still read them individually) and escapes every value
   it inserts, so a page from the web can never inject markup here. Keep
@@ -276,24 +276,6 @@
     line-height: 1.45; margin: 0 0 14px;
     padding: 0; border-bottom: none;
   }
-  /* The lead's body, if a caller still requests columns. The daily
-     paper paginates the lead as ordinary paragraphs so leftover space
-     on the front page fills instead of jumping the whole block.
-     break-inside stays AUTO: avoid on this table was the jump. */
-  .lead-body {
-    display: table; width: 100%; table-layout: fixed;
-  }
-  .lb-col {
-    display: table-cell; vertical-align: top;
-    padding: 0 11px;
-  }
-  .lb-col:first-child { padding-left: 0; }
-  .lb-col:last-child { padding-right: 0; }
-  .lb-col + .lb-col { border-left: 1px solid var(--hairline); }
-  .lb-col p {
-    margin: 0 0 8px; font-size: 11.5px; line-height: 1.55;
-    text-align: justify; hyphens: auto; -webkit-hyphens: auto;
-  }
   /* Drop cap: a real <span class="dropcap"> emitted by html_section()
      -- not a ::first-letter pseudo-element, which measured broken with
      float in WeasyPrint (the second character printed underneath the
@@ -324,7 +306,10 @@
     border-bottom: 2px solid var(--ink);
     /* Same WeasyPrint table-split bug as the news well: never let the
        row break across pages or a box's continuation paints in the
-       wrong column. */
+       wrong column. Issue #7: a full-day calendar used to make this
+       row a page tall so avoid jumped it and left the previous sheet
+       blank -- the print schedule strip is capped (SCHEDULE_STRIP_MAX)
+       and tightened below so the row stays on the page. */
     break-inside: avoid; page-break-inside: avoid;
   }
   .desks-cell {
@@ -375,25 +360,11 @@
      whole rows -- measured 2026-09-18, headline on page 1, body on
      page 2, sudoku alone on page 3. WeasyPrint 62.3 still cannot split
      a table cell without painting the continuation in the wrong
-     column, so this well is not a table. .news-cols stays defined for
-     older custom templates. --------------------------------------- */
+     column, so this well is not a table. -------------------------- */
   .news-well .section {
     break-inside: auto; page-break-inside: auto;
     orphans: 2; widows: 2;
   }
-  .news-cols {
-    display: table; width: 100%; table-layout: fixed;
-  }
-  .news-col {
-    display: table-cell; vertical-align: top; width: 33.3%;
-    padding: 0 11px;
-  }
-  .news-col:first-child { padding-left: 0; }
-  .news-col:last-child { padding-right: 0; }
-  .news-col + .news-col { border-left: 1px solid var(--hairline); }
-  /* Empty padding cells keep their rule too: the vertical column lines
-     then run the full row height even on a short last row, the way a
-     broadsheet's column rules do. */
 
   .section {
     border: none;
@@ -403,7 +374,6 @@
     border-bottom: 1px solid var(--hairline);
     orphans: 2; widows: 2;
   }
-  .news-col > .section:last-child { border-bottom: none; }
   .section h2 {
     font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
     font-size: 18.5px; font-weight: 900; line-height: 1.12;
@@ -476,20 +446,21 @@
   .wx-low { font-size: 10px; color: var(--ink-soft); }
 
   /* -- Calendar strip: one drawn icon per event kind, a bold time, then
-     the title. */
-  .cal-list, .mail-list { margin: 8px 0 0; padding: 0 10px 10px; }
+     the title. Tightened for issue #7 so a full day does not inflate
+     the desks-row past one page (the row cannot split). */
+  .cal-list, .mail-list { margin: 6px 0 0; padding: 0 8px 8px; }
   .cal-item {
-    display: flex; align-items: flex-start; gap: 6px;
-    margin: 0 0 8px;
+    display: flex; align-items: flex-start; gap: 5px;
+    margin: 0 0 3px;
   }
   .cal-item:last-child { margin-bottom: 0; }
   .cal-icon-wrap { color: var(--ink-soft); flex: 0 0 auto; margin-top: 1px; }
   .cal-icon { display: block; }
   .cal-time {
-    flex: 0 0 auto; min-width: 40px;
-    font-weight: 800; font-size: 10px; color: var(--ink);
+    flex: 0 0 auto; min-width: 36px;
+    font-weight: 800; font-size: 9px; color: var(--ink);
   }
-  .cal-title { font-size: 10px; line-height: 1.4; color: var(--ink); }
+  .cal-title { font-size: 9px; line-height: 1.3; color: var(--ink); }
 
   /* -- Mail strip: an envelope mark, the sender bold, the subject after. */
   .mail-item {

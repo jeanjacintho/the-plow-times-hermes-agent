@@ -80,6 +80,11 @@ FORECAST_ICONS = ("sun", "partly-cloudy", "cloud", "rain", "storm", "snow")
 # Same idea for the calendar desk's schedule rows -- what kind of event this
 # is, drawn from CALENDAR_ICONS, never free text.
 SCHEDULE_ICONS = ("meeting", "call", "task", "reminder", "note")
+# Issue #7: the calendar+letters row is break-inside:avoid (WeasyPrint
+# table-split workaround). A full Google day made that row a page tall,
+# so it jumped whole and left the previous sheet blank. The print strip
+# keeps this many events; the JSON `body` (chat edition) is uncapped.
+SCHEDULE_STRIP_MAX = 6
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
@@ -454,8 +459,13 @@ def chat_section(section):
     headline = (section.get("headline") or "").strip()
     if headline:
         lines.append(f"  {headline}")
-    body = section.get("body", "").strip()
-    lines.append(f"  {body}" if body else "  (nothing usable in the budget this time)")
+    schedule = section.get("schedule") if desk == "calendar" else None
+    if schedule:
+        for item in schedule:
+            lines.append(f"  {item['time'].strip()} {item['title'].strip()}")
+    else:
+        body = section.get("body", "").strip()
+        lines.append(f"  {body}" if body else "  (nothing usable in the budget this time)")
     sources = dedupe(section.get("sources", []))
     if sources:
         lines.append("  Sources: " + ", ".join(sources))
@@ -661,12 +671,12 @@ def desk_header_icon(desk):
 
 
 def calendar_icon(key):
-    """One 20x20 inline SVG for a schedule row. `key` is pre-validated
+    """One 16x16 inline SVG for a schedule row. `key` is pre-validated
     against SCHEDULE_ICONS by validate(); falls back to the generic note
     icon rather than trust an unchecked caller."""
     body = CALENDAR_ICONS.get(key, CALENDAR_ICONS["note"])
     return (
-        '<svg class="cal-icon" viewBox="0 0 24 24" width="20" height="20" '
+        '<svg class="cal-icon" viewBox="0 0 24 24" width="16" height="16" '
         'fill="none" stroke="currentColor" stroke-width="1.5" '
         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         f"{body}</svg>"
@@ -676,9 +686,13 @@ def calendar_icon(key):
 def schedule_list(items):
     """The calendar desk's agenda: one row per event, icon plus a bold
     time and the title -- every string here came from the day's own
-    note, so it is escaped like any other section field."""
+    note, so it is escaped like any other section field.
+
+    Print only the first SCHEDULE_STRIP_MAX rows (issue #7). Extra
+    events stay on `schedule` for the chat edition.
+    """
     rows = []
-    for item in items:
+    for item in items[:SCHEDULE_STRIP_MAX]:
         icon = calendar_icon(item.get("icon"))
         time_str = html.escape(item["time"].strip())
         title = html.escape(item["title"].strip())
@@ -874,7 +888,7 @@ def fetch_grayscale_photo(url):
         return None
 
 
-def html_section(section, drop_cap=False, body_cols=1):
+def html_section(section, drop_cap=False):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
     ``desk`` (optional, default ``news``) is the newspaper department.
@@ -887,12 +901,10 @@ def html_section(section, drop_cap=False, body_cols=1):
     section label above the headline, the way a broadsheet labels
     departments. On desks the tag stays inline in the title bar.
 
-    ``body_cols`` (lead story only) used to split the body into a
-    three-cell table. That table had to stay whole (WeasyPrint 62.3
-    repaints a split cell in the wrong column), so a long lead jumped
-    to the next page while the front still had room. The lead now
-    paginates as ordinary paragraphs. The argument is kept so a caller
-    can still request columns; the daily paper passes 1.
+    The lead paginates as ordinary paragraphs. A multi-cell body table
+    had to stay whole (WeasyPrint 62.3 repaints a split cell in the
+    wrong column), so a long lead jumped to the next page while the
+    front still had room.
 
     ``drop_cap`` (lead story only) wraps the first character of the first
     paragraph in ``<span class="dropcap">`` for the CSS to float and
@@ -983,43 +995,15 @@ def html_section(section, drop_cap=False, body_cols=1):
     if skip_body:
         pass
     elif paras:
-        if body_cols > 1:
-            # Balanced column sizes (4 paragraphs over 3 columns =
-            # 2/1/1, never an empty trailing column).
-            sizes = [
-                len(paras) // body_cols + (1 if i < len(paras) % body_cols else 0)
-                for i in range(body_cols)
-            ]
-            col_divs = []
-            start = 0
-            for col_index, size in enumerate(sizes):
-                chunk = paras[start:start + size]
-                start += size
-                if not chunk:
-                    continue
-                cell = ['<div class="lb-col">']
-                for para_index, para in enumerate(chunk):
-                    if drop_cap and col_index == 0 and para_index == 0 and para:
-                        first, remainder = para[0], para[1:]
-                        cell.append(
-                            f'  <p><span class="dropcap">{html.escape(first)}</span>'
-                            f"{html.escape(remainder)}</p>"
-                        )
-                    else:
-                        cell.append(f"  <p>{html.escape(para)}</p>")
-                cell.append("</div>")
-                col_divs.append("\n".join(cell))
-            blocks.append('  <div class="lead-body">' + "".join(col_divs) + "</div>")
-        else:
-            for index, para in enumerate(paras):
-                if drop_cap and index == 0 and para:
-                    first, rest = para[0], para[1:]
-                    blocks.append(
-                        f'  <p><span class="dropcap">{html.escape(first)}</span>'
-                        f"{html.escape(rest)}</p>"
-                    )
-                else:
-                    blocks.append(f"  <p>{html.escape(para)}</p>")
+        for index, para in enumerate(paras):
+            if drop_cap and index == 0 and para:
+                first, rest = para[0], para[1:]
+                blocks.append(
+                    f'  <p><span class="dropcap">{html.escape(first)}</span>'
+                    f"{html.escape(rest)}</p>"
+                )
+            else:
+                blocks.append(f"  <p>{html.escape(para)}</p>")
     else:
         blocks.append("  <p>(nothing usable in the budget this time)</p>")
     if not skip_caption:
@@ -1115,7 +1099,7 @@ def render_html(edition, name, template_text):
     # it can run alone, full width, in its own row above everything else
     # (see the top comment for why the desks no longer sit beside it).
     if news:
-        lead_html = html_section(news[0], drop_cap=True, body_cols=1)
+        lead_html = html_section(news[0], drop_cap=True)
         rest = news[1:]
     elif priority:
         lead_html = ""
@@ -1132,11 +1116,7 @@ def render_html(edition, name, template_text):
     # painting the continuation one column to the right, so the well is
     # not a table at all -- ordinary block flow fills leftover space and
     # only starts a new page when the current one is full.
-    # {{SECTIONS_2}}/{{SECTIONS_3}} stay as empty slots for older templates.
     news_well_html = "".join(html_section(section) for section in rest)
-    main_html = news_well_html
-    main_html_2 = ""
-    main_html_3 = ""
     weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
@@ -1187,9 +1167,7 @@ def render_html(edition, name, template_text):
         .replace("{{PRIORITY_BLOCK}}", priority_block_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
-        .replace("{{SECTIONS}}", main_html)
-        .replace("{{SECTIONS_2}}", main_html_2)
-        .replace("{{SECTIONS_3}}", main_html_3)
+        .replace("{{SECTIONS}}", news_well_html)
         .replace("{{WEATHER}}", weather_html)
         .replace("{{CALENDAR}}", calendar_html)
         .replace("{{MAIL}}", mail_html)

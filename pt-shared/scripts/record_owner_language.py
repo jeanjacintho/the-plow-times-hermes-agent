@@ -58,25 +58,20 @@ def record(config_path, language):
     if not language:
         raise ValueError("language is blank")
     config_path = Path(config_path)
-    if _gate.setup_needed(config_path):
-        draft_path = config_path.with_name(".setup-draft.json")
-        draft = _load_json(draft_path)
-        owner = draft.get("owner")
-        if not isinstance(owner, dict):
-            owner = {}
-            draft["owner"] = owner
-        owner["language"] = language
-        _write_json(draft_path, draft)
-        return "LANG:" + language
-    config = _load_json(config_path)
-    owner = config.get("owner")
+    path = (
+        config_path.with_name(".setup-draft.json")
+        if _gate.setup_needed(config_path)
+        else config_path
+    )
+    data = _load_json(path)
+    owner = data.get("owner")
     if not isinstance(owner, dict):
         owner = {}
-        config["owner"] = owner
+        data["owner"] = owner
     if owner.get("language") == language:
         return "LANG:" + language
     owner["language"] = language
-    _write_json(config_path, config)
+    _write_json(path, data)
     return "LANG:" + language
 
 
