@@ -958,13 +958,20 @@ def render_html(edition, name, template_text):
     # (see the top comment for why the desks no longer sit beside it).
     if news:
         lead_html = html_section(news[0], drop_cap=True)
-        main_html = join_articles(news[1:])
+        rest = news[1:]
     elif priority:
         lead_html = ""
-        main_html = ""
+        rest = []
     else:
         lead_html = '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
-        main_html = ""
+        rest = []
+
+    # Split the remaining news into two columns for the broadsheet look.
+    # The template has two .news-col slots; the renderer fills them with
+    # roughly equal column counts so the page doesn't leave one side blank.
+    mid = (len(rest) + 1) // 2
+    main_html = join_articles(rest[:mid])
+    main_html_2 = join_articles(rest[mid:])
     weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
@@ -1005,6 +1012,7 @@ def render_html(edition, name, template_text):
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
         .replace("{{SECTIONS}}", main_html)
+        .replace("{{SECTIONS_2}}", main_html_2)
         .replace("{{WEATHER}}", weather_html)
         .replace("{{CALENDAR}}", calendar_html)
         .replace("{{MAIL}}", mail_html)

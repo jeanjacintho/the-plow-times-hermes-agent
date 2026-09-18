@@ -246,7 +246,7 @@
        Didot/Bodoni/Playfair fallbacks stay for the rare system without
        Big Caslon, where their own font-weight:900 still applies. */
     font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", "Times New Roman", Georgia, serif;
-    font-size: 47px; font-weight: 900; letter-spacing: 0.6px;
+    font-size: 52px; font-weight: 900; letter-spacing: 0.8px;
     margin: 0;
     line-height: 0.92;
     color: var(--ink);
@@ -257,6 +257,7 @@
     font-size: 9px; letter-spacing: 0.4px;
     color: var(--ink-soft);
     border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
     margin: 6px 0 0;
   }
   .folio span { display: table-cell; padding: 4px 2px; vertical-align: middle; }
@@ -276,15 +277,15 @@
      did, in an early pass of this feature). content-box keeps the 2px
      as real daylight between the strokes. */
   .rule-double {
-    box-sizing: content-box; height: 2px;
-    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
-    margin: 3px 0 14px;
+    box-sizing: content-box; height: 3px;
+    border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink);
+    margin: 4px 0 16px;
   }
 
   /* -- Page layout: the lead alone, then desks full width, then news --- */
   .top-row {
-    margin-bottom: 16px; padding-bottom: 16px;
-    border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 18px; padding-bottom: 18px;
+    border-bottom: 2px solid var(--ink);
   }
 
   /* Calendar and mail read as full-width stories now, the same anatomy
@@ -294,8 +295,8 @@
      already produces for the (retired) sidebar, reused here as the
      full-width row. */
   .desks-inline-wrap {
-    margin-bottom: 16px; padding-bottom: 2px;
-    border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 18px; padding-bottom: 2px;
+    border-bottom: 2px solid var(--ink);
   }
   .desks-inline-wrap .desk-slot { margin: 0 0 16px; }
   .desks-inline-wrap .desk-slot:last-child { margin-bottom: 0; }
@@ -308,8 +309,8 @@
   }
   .desks-inline-wrap .section--desk h2 {
     background: none; color: var(--ink); margin: 0 0 7px; padding: 0 0 6px;
-    font-size: 15px; font-weight: 800; letter-spacing: 0.2px;
-    text-transform: uppercase; border-bottom: 1.5px solid var(--ink);
+    font-size: 16px; font-weight: 900; letter-spacing: 0.2px;
+    text-transform: none; border-bottom: 1.5px solid var(--ink);
   }
   .desks-inline-wrap .section--desk .headline {
     font-size: 12.5px; font-style: italic; font-weight: 700;
@@ -322,12 +323,24 @@
   .desks-inline-wrap .mail-list,
   .desks-inline-wrap .sp-list { padding: 0; margin: 10px 0 0; }
 
-  /* News well: one column, stories stacked top to bottom with a hairline
-     rule between them. CSS multicol (column-count: 2) read fine in a
-     browser but rendered as a single column with the second column's
-     width just left blank in an actual WeasyPrint PDF (see the top
-     comment) -- a single column has no such gap to risk. */
-  .main-col { }
+  /* -- News well: two columns, the broadsheet way. CSS multicol
+     (column-count: 2) read fine in a browser but rendered as a single
+     column with the second column's width just left blank in an actual
+     WeasyPrint PDF (see the top comment) -- so the columns are drawn
+     with display:table-cell, not column-count. Each story is a block
+     with a hairline rule under it; the lead story spans both columns. */
+  .news-cols { display: table; width: 100%; table-layout: fixed; }
+  .news-col {
+    display: table-cell; vertical-align: top; width: 50%;
+    padding: 0 12px;
+  }
+  .news-col:first-child { padding-left: 0; border-right: 1px solid var(--hairline); }
+  .news-col:last-child { padding-right: 0; }
+  /* Stories in a column must not split across a page break -- a story
+     that starts at the bottom of page 1 and continues on page 2 reads
+     as a broken column, not a newspaper. break-inside:avoid keeps each
+     story whole. */
+  .news-col .section { break-inside: avoid; page-break-inside: avoid; }
 
   /* Lead story, alone in the top row, full width: the size alone signals
      importance, the way a real front page does it -- left-aligned,
@@ -338,14 +351,16 @@
     break-after: avoid-page;
   }
   .lead-cell h2 {
-    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-    font-style: italic; font-weight: 700;
+    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+    font-style: normal; font-weight: 900;
     text-transform: none;
-    font-size: 27px; letter-spacing: -0.3px; line-height: 1.12;
-    border-bottom: none; padding-bottom: 0; margin: 0 0 8px;
+    font-size: 38px; letter-spacing: -0.5px; line-height: 1.05;
+    border-bottom: none; padding-bottom: 0; margin: 0 0 10px;
   }
   .lead-cell .headline {
-    font-size: 13px; font-style: normal; color: var(--ink);
+    font-size: 14px; font-style: italic; color: var(--ink);
+    line-height: 1.4; margin: 0 0 12px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--hairline);
   }
   .lead-cell p:not(.headline):not(.sources):not(.unsourced) {
     font-size: 12.5px; line-height: 1.6; text-align: justify;
@@ -387,12 +402,12 @@
        break from stranding a single dangling line. */
     orphans: 3; widows: 3;
   }
-  .main-col > .section:last-child { border-bottom: none; }
+  .news-col > .section:last-child { border-bottom: none; }
   .section h2 {
-    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-    font-size: 15px; font-weight: 800; line-height: 1.22;
-    text-transform: uppercase; margin: 0 0 6px;
-    letter-spacing: 0.2px;
+    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+    font-size: 17px; font-weight: 900; line-height: 1.15;
+    text-transform: none; margin: 0 0 6px;
+    letter-spacing: -0.2px;
     padding-bottom: 5px; border-bottom: 1.5px solid var(--ink);
     break-after: avoid;
   }
@@ -445,7 +460,8 @@
   }
   .section--desk h2 {
     background: var(--ink); color: var(--paper); margin: 0; padding: 7px 11px 6px;
-    font-size: 10.5px; letter-spacing: 1.8px; font-weight: 800;
+    font-size: 11px; letter-spacing: 1.8px; font-weight: 800;
+    text-transform: uppercase;
   }
   .section--desk h2 .desk-icon {
     display: inline-block; vertical-align: -2px; margin-right: 7px;
@@ -458,12 +474,19 @@
     padding-bottom: 9px; border-bottom: 1px solid var(--hairline);
   }
   .section--priority {
-    border: 2px solid var(--ink);
+    border: 2.5px solid var(--ink);
+    background: #f7f7f7;
+  }
+  .section--priority h2 {
+    background: var(--ink); color: var(--paper);
+    font-size: 12px; letter-spacing: 2px;
   }
   .section--priority .headline {
-    font-size: 30px;
-    line-height: 1.15;
-    font-weight: 800;
+    font-size: 32px;
+    line-height: 1.1;
+    font-weight: 900;
+    font-style: normal;
+    color: var(--ink);
   }
   .priority-why {
     list-style: none; margin: 6px 0 0; padding: 0 11px;
@@ -605,9 +628,9 @@
     break-inside: avoid; page-break-inside: avoid;
   }
   .sudoku-section h2 {
-    font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-    font-size: 15px; font-weight: 800; text-transform: uppercase;
-    letter-spacing: 0.2px; margin: 0 0 10px; border-bottom: none;
+    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+    font-size: 17px; font-weight: 900; text-transform: none;
+    letter-spacing: -0.2px; margin: 0 0 10px; border-bottom: none;
   }
   /* Difficulty as filled/hollow dots (one per step) instead of a word --
      "Easy"/"Medium" would be Python-authored text that can't follow the
@@ -642,6 +665,8 @@
     font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase;
     color: var(--ink-soft);
     break-inside: avoid;
+    border-top: 1px solid var(--ink);
+    padding-top: 6px;
   }
   .rule-double.rule-double--footer { margin: 14px 0 3px; }
   footer span { display: table-cell; vertical-align: middle; }
@@ -669,8 +694,9 @@
     <div class="lead-cell">{{LEAD}}</div>
   </div>
 {{DESKS_INLINE}}
-  <div class="main-col">
-{{SECTIONS}}
+  <div class="news-cols">
+    <div class="news-col">{{SECTIONS}}</div>
+    <div class="news-col">{{SECTIONS_2}}</div>
   </div>
 
   <div class="puzzle-row">

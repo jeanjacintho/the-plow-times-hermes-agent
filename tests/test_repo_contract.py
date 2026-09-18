@@ -670,6 +670,30 @@ class TestSkills:
         assert "<script" not in template.lower()
         assert "onload=" not in template.lower()
 
+    def test_template_keeps_every_slot_the_renderer_fills(self):
+        # A restyle that drops a placeholder silently drops that desk from
+        # the page. The renderer fills these; the template must keep them.
+        template = (ROOT / "pt-edition" / "template.html").read_text()
+        for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY",
+                     "WEATHER_EAR", "DESKS_INLINE", "SECTIONS", "SUDOKU"):
+            assert "{{" + slot + "}}" in template, f"template lost {{{{{slot}}}}}"
+
+    def test_template_has_a_newspaper_front_page(self):
+        # Measured live 2026-09-18: the page read as a newsletter, not a
+        # newspaper. The reference is a broadsheet front page: nameplate
+        # with a double rule, a folio line, the lead as a large headline,
+        # and news in columns.
+        template = (ROOT / "pt-edition" / "template.html").read_text()
+        assert "nameplate" in template
+        assert "rule-double" in template
+        assert "folio" in template
+        assert "columns" in template or "column-count" in template
+        assert "dropcap" in template
+        assert "border-image" not in template  # no fake photo frames
+        assert "masthead-row" in template
+        assert "ear-box" in template
+        assert "news-col" in template
+
     def test_cross_skill_imports_resolve(self):
         # register_crons.py imports topics from pt-intake/scripts at run time;
         # both must be seeded side by side for that to work.
