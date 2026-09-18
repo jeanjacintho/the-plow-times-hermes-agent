@@ -193,8 +193,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
   it from `run/desk-priority/notes.json` without rewriting. If those notes
-  are missing, still include the desk — `render_edition.py` will insert the
-  card (from notes if they exist, or an honest "not built in time" card).
+  are missing, still include the desk — `render_edition.py` will insert an
+  honest "not built in time" card.
   Never omit the slot because research skipped it. Mail only when
   `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;

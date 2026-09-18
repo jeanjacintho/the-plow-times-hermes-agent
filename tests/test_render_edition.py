@@ -674,63 +674,28 @@ class TestMain:
 
 
 class TestEnsurePriorityDesk:
-    def test_leaves_the_edition_alone_when_priority_is_off(self):
-        ed = edition()
-        out, inserted = render.ensure_priority_desk(ed, {"priority": {"configured": False}})
-        assert inserted is False
-        assert out["sections"] == ed["sections"]
+    WEATHER = {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []}
+    ON = {"priority": {"configured": True}, "owner": {"language": "English"}}
 
-    def test_inserts_a_card_when_configured_and_the_model_omitted_it(self):
-        ed = edition()
-        config = {
-            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
-            "owner": {"language": "English"},
-        }
-        out, inserted = render.ensure_priority_desk(ed, config, notes=None)
-        assert inserted is True
-        assert render.desk_of(out["sections"][0]) == "priority"
-        assert "What to prioritize today" in out["sections"][0]["title"]
-        assert out["sections"][0]["body"]
+    @pytest.mark.parametrize("config, sections, inserted, priority_desks", [
+        ({"priority": {"configured": False}}, [WEATHER], False, 0),
+        (ON, [WEATHER], True, 1),
+        # A one-topic subscription edition carries no standing desk.
+        (ON, edition()["sections"], False, 0),
+        (ON, edition_with_priority_and_weather()["sections"], False, 1),
+    ])
+    def test_inserts_the_gap_card_only_on_a_paper_missing_it(
+            self, config, sections, inserted, priority_desks):
+        out, did = render.ensure_priority_desk(edition(sections=sections), config)
+        assert did is inserted
+        assert [render.desk_of(s) for s in out["sections"]].count("priority") == priority_desks
         assert render.validate(out) == ""
 
-    def test_copies_notes_when_research_did_run(self):
-        ed = edition()
-        config = {"priority": {"configured": True}, "owner": {"language": "English"}}
-        notes = {
-            "desk": "priority",
-            "status": "ok",
-            "priority": {
-                "headline": "Close the seed extension",
-                "first_step": "Send the deck this morning",
-                "why": [{"text": "The round is due", "source_label": "your file, Goals"}],
-                "stage_label": "Blueprint ($1–10M ARR)",
-                "who": ["Raj — lead on the extension"],
-                "draft": "Raj, sending the revised deck now.",
-            },
-        }
-        out, inserted = render.ensure_priority_desk(ed, config, notes=notes)
-        assert inserted is True
-        pri = out["sections"][0]
-        assert pri["headline"] == "Close the seed extension"
-        assert pri["priority"]["first_step"] == "Send the deck this morning"
-        assert pri["priority"]["who"] == ["Raj — lead on the extension"]
-        assert pri["priority"]["draft"] == "Raj, sending the revised deck now."
-        assert "headline" not in pri["priority"]
-        assert render.validate(out) == ""
-
-    def test_does_not_duplicate_an_existing_priority_desk(self):
-        ed = edition_with_priority_and_weather()
-        out, inserted = render.ensure_priority_desk(
-            ed, {"priority": {"configured": True}}, notes=None
-        )
-        assert inserted is False
-        assert sum(1 for s in out["sections"] if render.desk_of(s) == "priority") == 1
-
-    def test_main_injects_the_card_from_config_and_notes(self, tmp_path):
+    def test_main_injects_the_card_from_config(self, tmp_path):
         # Measured live 2026-09-18: priority.configured was true, research
         # never wrote desk-priority, edition.json shipped weather/mail/news
         # only. The renderer must put the card on the page itself.
-        ed_path = write(tmp_path, edition())
+        ed_path = write(tmp_path, edition(sections=[self.WEATHER]))
         cfg = tmp_path / "config.json"
         cfg.write_text(json.dumps({
             "priority": {"configured": True, "file": "~/Plow/prioritization.md"},

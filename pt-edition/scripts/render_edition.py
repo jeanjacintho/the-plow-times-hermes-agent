@@ -371,55 +371,28 @@ def _unavailable_priority_section(language):
     }
 
 
-def _priority_section_from_notes(notes, language):
-    """A printable priority desk from research notes, or the honest gap card."""
-    if not isinstance(notes, dict) or notes.get("status") == "unavailable":
-        return _unavailable_priority_section(language)
-    pri = notes.get("priority")
-    if not isinstance(pri, dict):
-        return _unavailable_priority_section(language)
-    why = pri.get("why")
-    step = pri.get("first_step")
-    if not (isinstance(why, list) and 1 <= len(why) <= 3
-            and isinstance(step, str) and step.strip()):
-        return _unavailable_priority_section(language)
-    copy = PRIORITY_UNAVAILABLE["pt"] if _is_portuguese(language) else PRIORITY_UNAVAILABLE["en"]
-    headline = pri.get("headline")
-    if not (isinstance(headline, str) and headline.strip()):
-        headline = step.strip()
-    payload = {k: v for k, v in pri.items() if k != "headline"}
-    payload["first_step"] = step.strip()
-    return {
-        "kind": "section",
-        "desk": "priority",
-        "title": copy["title"],
-        "headline": headline.strip(),
-        "body": step.strip(),
-        "priority": payload,
-        "sources": [],
-    }
-
-
-def ensure_priority_desk(edition, config=None, notes=None):
+def ensure_priority_desk(edition, config=None):
     """If the owner turned priority on, the page always has that desk.
 
     Measured live 2026-09-18: pt/config.json had priority.configured true
     and the file on disk, but the research pass never wrote
     run/desk-priority and edition.json shipped weather/mail/news only.
     The model omitting a slot is not a reason to hide a department the
-    owner asked for.
+    owner asked for. Only a paper batch carries the desk: it is the edition
+    with standing desks (weather, calendar), never a one-topic subscription.
+    The gap card is honest rather than a copy of run/desk-priority notes,
+    which persist across days and could be yesterday's.
     """
     if not _priority_configured(config) or not isinstance(edition, dict):
         return edition, False
     sections = edition.get("sections")
     if not isinstance(sections, list):
         return edition, False
-    if any(isinstance(s, dict) and desk_of(s) == "priority" for s in sections):
+    desks = {desk_of(s) for s in sections if isinstance(s, dict)}
+    if "priority" in desks or not desks & {"weather", "calendar"}:
         return edition, False
-    out = json.loads(json.dumps(edition))
-    section = _priority_section_from_notes(notes, _owner_language(config))
-    out["sections"] = [section] + list(out.get("sections") or [])
-    return out, True
+    gap = _unavailable_priority_section(_owner_language(config))
+    return {**edition, "sections": [gap] + sections}, True
 
 
 def _load_json_file(path):
@@ -428,10 +401,6 @@ def _load_json_file(path):
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else None
-
-
-def notes_beside_edition(edition_path):
-    return pathlib.Path(edition_path).resolve().parent / "desk-priority" / "notes.json"
 
 
 def ordered_sections(sections):
@@ -1257,11 +1226,7 @@ def main(argv=None):
     except (OSError, ValueError) as exc:
         sys.exit(f"error: could not read {args.edition}: {exc!r}")
 
-    edition, _ = ensure_priority_desk(
-        edition,
-        _load_json_file(args.config),
-        _load_json_file(notes_beside_edition(args.edition)),
-    )
+    edition, _ = ensure_priority_desk(edition, _load_json_file(args.config))
 
     failures = validate(edition)
     if failures:
