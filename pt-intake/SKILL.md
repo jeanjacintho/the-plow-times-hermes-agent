@@ -264,13 +264,23 @@ owner must hear it rather than wait for an edition that will never come.
 
 ## Confirm, in one line
 
-The turn's final response is a confirmation with a time, not a progress
-report: "On it — an edition on <topic> lands here in ~3 minutes" or "You'll
-get one on <topic> every morning at 7" or "A sports paper at 12:00" or
-"Weather joins your paper tomorrow at 7" or "The iPhone 15 price goes in
-Friday's paper". Never narrate the
-mechanics (no "writing topics.json", no "scheduling a cron"). The edition,
-when it lands, speaks for itself.
+The turn's final response is CHAT_VOICE: 📰 then a space, then one spoken
+line with a time — not a progress report.
+
+Portuguese examples:
+
+> 📰 Beleza — um jornal sobre <assunto> cai aqui em uns 3 minutos.
+> 📰 Todo dia de manhã, às 7h, isso entra no jornal.
+> 📰 O preço do iPhone vai no jornal de sexta.
+
+English examples:
+
+> 📰 On it — a paper on <topic> lands here in about 3 minutes.
+> 📰 You'll get that every morning at 7:00.
+> 📰 The iPhone price goes in Friday's paper.
+
+Never narrate the mechanics (no "writing topics.json", no "scheduling a cron").
+The edition, when it lands, speaks for itself.
 
 ## Budgeted statuses, kept honest
 

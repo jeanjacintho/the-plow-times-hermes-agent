@@ -473,12 +473,12 @@ class TestSoul:
         assert "and only that message" in setup
         assert "DRAFT:none. This is step 1a" in setup
         assert "This is a bare greeting 'Oi' with DRAFT:none" in setup
-        assert "reply's very first character is the opener's own first character" in setup
+        assert "reply's very first character is the catalog emoji" in setup
         assert "nothing else — never" in soul
         assert "your own reasoning about which step" in soul
         assert "reworded version of the same thing" in soul
         assert "reworded" in setup
-        assert "first character must be the real answer's own" in soul
+        assert "first character must be the catalog emoji" in soul
 
     def test_soul_reapplies_language_and_silence_rules_after_setup_is_ready(self):
         # Measured live: a whole setup interview ran correctly in Portuguese,
@@ -560,6 +560,42 @@ class TestSoul:
         assert script.read_text().startswith("#!")
         import os
         assert os.access(script, os.X_OK)
+
+    def test_owner_chat_voice_is_emoji_then_plain_speech(self):
+        # Measured live 2026-09-18: setup was correct but read as a
+        # product spec ("news desk", "~/Plow/prioritization.md",
+        # "departments"). Real people get one emoji, a space, then a
+        # spoken line — no paths, no desk names.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        status = (ROOT / "pt-shared" / "scripts" / "chat_status.py").read_text()
+        assert "CHAT_VOICE" in soul
+        assert "emoji, then a space, then one or two short spoken lines" in soul
+        for mark in ("📰", "🕖", "🖨️", "⭐", "✉️", "🗞️", "⏳", "⏰"):
+            assert mark in soul
+        assert "> 📰 " in setup
+        assert "> 🕖 " in setup
+        assert "> 🖨️ " in setup
+        assert "> ⭐ " in setup
+        assert "> ✉️ " in setup
+        assert "> 🗞️ " in setup
+        spoken = "\n".join(
+            line for line in setup.splitlines() if line.startswith("> ")
+        )
+        assert "~/" not in spoken
+        assert "news desk" not in spoken.lower()
+        assert '"⏳ ' in status and '"⏰ ' in status
+        assert "--busy" in status
+
+    def test_setup_posts_a_hang_on_while_latch_work_runs(self):
+        # Typed mid-turn text is dropped on plow_chat. Slow setup work
+        # (printer probe, Mac files, location) has to POST a hang-on
+        # through chat_status.py --busy, never a play-by-play.
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "chat_status.py --busy" in setup
+        assert "chat_status.py --busy" in soul
+        assert "do not type" in setup.lower() or "never type" in setup.lower()
 
     def test_setup_treats_yes_as_the_default_hour(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
@@ -645,6 +681,22 @@ class TestSkills:
         assert "NEXT_QUESTION=priority" in text
         assert "never overwrite an existing file" in text.lower()
         assert "prioritization.template.md" in text
+
+    def test_setup_creates_the_priority_template_before_asking(self):
+        # Measured: asking yes/no first meant a "no" never created the
+        # file, and a "yes" hid the path until after the owner had
+        # already opted in. Create (if missing) first, then ask, with
+        # the Mac path in the question.
+        text = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        section = text.split("## NEXT_QUESTION=priority", 1)[1]
+        section = section.split("\n## ", 1)[0]
+        write_at = section.index("plow_write_file")
+        stop_at = section.index("Stop.")
+        yes_at = section.index("priority.configured=true")
+        assert write_at < stop_at < yes_at
+        assert "~/Plow/prioritization.md" in section
+        assert "never paste" in section.lower()
+        assert "advisors" in section
 
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()

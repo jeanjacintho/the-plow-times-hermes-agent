@@ -47,10 +47,12 @@ does not, and every run fails on the import.
 - `scripts/seal_chat_session.py` — write the stamp (also called by
   `chat_status.py --soon`). Not a chat message. The gateway pin rotates
   plow_chat on `agent:end`.
-- `scripts/chat_status.py` — live on-demand wait lines only. Bare:
+- `scripts/chat_status.py` — live wait lines. Bare:
   `chat_status.py --soon` once before research; `chat_status.py --wait`
   after desks/topics (no-ops until a few minutes have passed, then posts
-  once). Cron never calls it.
+  once); `chat_status.py --busy` during pt-setup Latch/Mac work (hang-on,
+  then one "still on it", never a play-by-play; does not seal the
+  session). Cron never calls it.
 - `scripts/textnorm.py` — library only (imported by `pt-priority` history and
   validation). Normalizes owner text so quotes and similar priorities compare
   without punctuation; never invoked as a CLI.

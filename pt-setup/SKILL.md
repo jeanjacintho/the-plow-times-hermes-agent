@@ -69,9 +69,24 @@ else, none of this applies: answer what was actually asked, ask none of
 these questions, and write nothing.
 
 One or two short lines per message, no bullet lists — this lands on a
-phone. Answer what the owner actually said first. And never narrate the
+phone. **CHAT_VOICE:** emoji, then a space, then one or two short spoken lines.
+Answer what the owner actually said first. And never narrate the
 mechanics: no "let me run setup", no announcing a step. Send the message the
-step calls for — **and only that message.** Measured live: the owner's
+step calls for — **and only that message.**
+
+**Slow work needs a hang-on, not a play-by-play.** Typed mid-turn text is
+dropped on plow_chat. Before any Latch call or Mac file write, and again
+after every `plow_get_result` poll, run this bare — do not type what you
+are doing:
+
+    /var/lib/hermes/skills/pt-shared/scripts/chat_status.py --busy
+
+It POSTs at most two ⏳ lines ("tô nessa", then "ainda nisso" if it is
+still going). `STATUS:too-early` / `STATUS:already` is success; keep
+working. Never type "checking the printer", "writing a file", a URL, or
+a tool name.
+
+Measured live: the owner's
 whole visible reply to a bare "Oi" was
 
 > The message is "Oi" — a bare greeting, DRAFT:none. This is step 1a:
@@ -86,13 +101,13 @@ owner. Told to stop doing this, the very next live "Oi" got a *reworded*
 version of the identical violation instead: "This is a bare greeting 'Oi' with DRAFT:none" —
 same wording gone, same violation. Proof the fix has
 to be mechanical, not a sentence to avoid repeating. **The check: your
-reply's very first character is the opener's own first character** ("S" of
-"Sou", "I" of "I'm") **— not a capital letter starting some other
+reply's very first character is the catalog emoji** (📰 of the opener)
+**then a space — not a capital letter starting some other
 sentence.** If you notice yourself about to write "This is...", "The
 message is...", "Note:", a step name, `DRAFT:`, a language name, or
 anything at all describing what you just read or decided, that sentence
 is the violation, whatever words it uses — delete it, don't reword it, and
-start the reply at the opener itself. The owner sees the opener and
+start the reply at the locked line itself. The owner sees the opener and
 nothing else — not the classification that produced it, not `DRAFT:none`, not
 "step 1a".
 
@@ -102,14 +117,14 @@ not a continuation of a profile interview that already happened in this
 chat. Do not introduce a personal assistant, do not offer `/help`, do not
 ask their name or how they like to work.
 
-**Opener — send this, then stop and wait.** Match the owner's language.
+**Opener — send this, then stop and wait.** Copy it. Match the owner's language.
 Portuguese:
 
-> Sou o The Plow Times, seu jornal. A que horas quer o jornal da manhã? Se não disser, uso 7h.
+> 📰 Oi! Eu sou o The Plow Times, o seu jornal. A que horas você quer ele de manhã? Se não disser nada, mando às 7h.
 
 English:
 
-> I'm The Plow Times, your newspaper. What time should the morning paper land? Default is 7:00.
+> 📰 Hi — I'm The Plow Times, your newspaper. What time should it land each morning? If you don't say, I'll send it at 7:00.
 
 Do not ask their timezone, their name, a profile, or `/help`. The zone comes
 from their Mac, through Latch, when this interview closes.
@@ -149,9 +164,17 @@ the assistant asked this, the owner replied "7 is fine", and because
 nothing had been written to the draft *yet* the assistant sent this
 exact question a second time instead of recognizing the reply as an
 answer — a fresh, un-recorded draft is not proof the incoming message
-is a fresh greeting. Otherwise: suggest 07:00, do not ask a city, a
-zone, or a fuso — you will read that from Latch at the end. Send only
-this question, then stop.
+is a fresh greeting. Otherwise: copy the locked hour line. Do not ask a
+city, a zone, or a fuso — you will read that from Latch at the end. Send
+only this, then stop.
+
+Portuguese:
+
+> 🕖 A que horas você quer o jornal de manhã? Se não disser nada, mando às 7h.
+
+English:
+
+> 🕖 What time should the morning paper land? If you don't say, I'll send it at 7:00.
 
 **1b. On their next message**, treat any of "yes", "y", "sim", "ok",
 "okay", "that", "default", "7", "7h", "7:00", "07:00", "pode", "isso", or
@@ -174,14 +197,23 @@ message, in 2b, never before question 2a has actually been sent to them.
 Do not write `pt/config.json` yet: `owner.timezone` is still unknown, and
 the gate would fail.
 
-**2a. Ask whether a printer is set up on their Mac.** Send only this
-question, then stop — do not probe Latch yet, no matter what they might
-have said about a printer earlier in this same chat thread.
+**2a. Ask whether a printer is set up on their Mac.** Copy the locked
+line. Send only this, then stop — do not probe Latch yet.
+
+Portuguese:
+
+> 🖨️ Tem uma impressora no seu Mac? (sim / não)
+
+English:
+
+> 🖨️ Is there a printer on your Mac? (yes / no)
 
 **2b. On their next message**, whatever they answered, **probe once
 through Latch before recording `printer.configured`** — the same
 discipline ld-setup applies to the Pi bring-up; a yes/no alone is a
-configured printer that fails on every nightly run.
+configured printer that fails on every nightly run. First tool call of
+this step is `chat_status.py --busy`. After every pending poll, `--busy`
+again. Do not type a progress line.
 
 Latch's `plow_run_command` schema (mcp-server `tools.ts`) requires **`argv`**
 and runs the array directly — no shell, no `~`. It also accepts a defined
@@ -321,46 +353,61 @@ Send only the `NEXT_QUESTION` it prints (question 3a), then stop.
 
 ## NEXT_QUESTION=priority
 
-Ask, in the owner's language: "Every morning the paper can open with the one thing that
-matters most that day. I read it from a file on your Mac that you fill in — goals,
-deadlines, advice you trust. Want that? (yes / no)"
+Before asking, look for the file on the Mac — create it from the template
+when it is missing, so the owner can fill it whether or not they turn the
+desk on. Never paste the file (or the template) into chat. Run
+`chat_status.py --busy` first (and after each write); do not type that
+you are creating anything.
+
+1. `mcp__plow__plow_read_file` `path=~/Plow/prioritization.md`
+2. It exists → leave it. Never overwrite an existing file.
+3. It does not exist → read
+   `/var/lib/hermes/skills/pt-setup/assets/prioritization.template.md` with
+   `read_file` and write it with `mcp__plow__plow_write_file`
+   `path=~/Plow/prioritization.md`, content unchanged.
+
+Then copy the locked question (CHAT_VOICE). Portuguese:
+
+> ⭐ Todo dia o jornal pode abrir com o que mais importa pra você. Já deixei um arquivo pronto na pasta Plow do seu Mac — chama prioritization.md. É só abrir e preencher. Quer essa parte no jornal? (sim / não)
+
+English:
+
+> ⭐ Every morning the paper can open with what matters most to you. I already left a file ready in the Plow folder on your Mac — it's called prioritization.md. Just open it and fill it in. Want that in the paper? (yes / no)
 
 Stop. On their next message:
 
 - **No** → `record_setup.py <config path> priority.configured=false`
+  The file stays on the Mac. Do not delete it.
 - **Yes** → `record_setup.py <config path> priority.configured=true priority.file=~/Plow/prioritization.md`
-  then read the file once with `mcp__plow__plow_read_file` `path=~/Plow/prioritization.md`:
-  - it exists → say "Found your prioritization file."
-  - it does not exist → read
-    `/var/lib/hermes/skills/pt-setup/assets/prioritization.template.md` with `read_file`
-    and write it to the Mac with `mcp__plow__plow_write_file`
-    `path=~/Plow/prioritization.md`, content unchanged. Say: "I created
-    ~/Plow/prioritization.md — fill in your goals and the advice you trust; I read it
-    every morning."
-  - **never overwrite an existing file**, and never paste the owner's file back in chat.
 
-Then seed the advisor library, once:
+Then, only on **Yes**, seed the advisor library, once:
 
 1. `mcp__plow__plow_run_command` `argv=["/bin/ls","-1","<home>/Plow/advisors"]`
    (absolute path; `plow_run_command` does not expand `~`).
-2. Exit code 0 with names listed → leave it alone; say "Using the advisor notes already in
-   ~/Plow/advisors."
+2. Exit code 0 with names listed → leave it alone. Do not mention the path in chat.
 3. Anything else (no such directory) → for each file in
    `/var/lib/hermes/skills/pt-setup/assets/advisors/`, read it with `read_file` and write it
-   with `mcp__plow__plow_write_file` `path=~/Plow/advisors/<name>`, content unchanged. Say:
-   "I put stage-by-stage advisor notes in ~/Plow/advisors — edit them, add your own
-   investors, delete what doesn't fit."
+   with `mcp__plow__plow_write_file` `path=~/Plow/advisors/<name>`, content unchanged.
+   Do not announce the folder; the ⭐ question already pointed at the Plow folder.
 4. Never overwrite a file that is already there.
 
 Then continue with the mail question in the same turn.
 
-**3a. Ask whether the paper should carry today's mail** (a letters
-column: sender and subject, not full bodies). Weather and calendar
-always run; mail is opt-in. Send only this question, then stop.
+**3a. Ask whether the paper should carry today's mail.** Copy the locked
+line. Weather and calendar always run; mail is opt-in. Send only this, then stop.
+
+Portuguese:
+
+> ✉️ Quer as cartas do dia no jornal? Só quem mandou e o assunto, sem o texto todo. (sim / não)
+
+English:
+
+> ✉️ Want today's mail in the paper? Just who sent it and the subject, not the full text. (yes / no)
 
 **3b. On their next message**, whatever they answered, **probe once
 through Latch before recording `mail.configured`**, Google first,
-Mail.app only if that fails:
+Mail.app only if that fails. `--busy` before the probe and after every
+poll; do not type what the probe is.
 
 1. `plow_run_command` argv (exact):
 
@@ -393,13 +440,18 @@ Then record the outcome:
 
 Send only the `NEXT_QUESTION` it prints (question 4a), then stop.
 
-**4a. Ask what they want on the news desk every day** — "the dollar,
-sports news", anything. Weather and the diary already have their own
-departments; do not also add a "weather" news section unless they insist
-on a second, different weather beat. This is the one question with no
-required answer: a paper of only weather and calendar is a valid install,
-and they can add news sections later in chat (including a different
-newspaper at another hour). Send only this question, then stop.
+**4a. Ask what they want in the paper every day.** Copy the locked line.
+Do not also add a "weather" news section unless they insist on a second,
+different weather beat. "Nothing" / "skip" is a valid install. Send only
+this, then stop.
+
+Portuguese:
+
+> 🗞️ O que você quer ver toda manhã? Pode ser futebol, tech, o dólar… ou “nada”, se o tempo e a agenda já bastarem.
+
+English:
+
+> 🗞️ What do you want to see every morning? Sports, tech, the dollar… or “nothing” if weather and your day already cover it.
 
 **4b. On their next message** (including "nothing" / "skip"), take each
 thing they name as a `section` topic via `pt-intake`'s writer
@@ -439,7 +491,8 @@ scheduled yet" message in step 1, not a question back to the owner.
 
 Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
 
-1. **Read location through Latch's browser** — the same procedure as
+1. **Read location through Latch's browser** — `chat_status.py --busy`
+   first, and again after every `goto`. The same procedure as
    `pt-research/references/desks.md` §1: `plow_browser_open` scoped to
    `["ipapi.co", "ipwho.is", "ifconfig.co"]`, `goto`
    `https://ipapi.co/json/` first, then `text` to read the JSON back,
@@ -503,6 +556,13 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
    reached for an inline `-c` one-liner calling `os.remove` and handed the
    owner an `/approve` prompt in place of their finished newspaper.
 
-Say the result in the owner's own terms — "seu jornal chega às 7h" using
-the hour they named, never the container's zone, `TZ`, or the conversion.
-Invite the first topic. A first research job is still pt-intake's.
+Say the result in CHAT_VOICE, using the hour they named, never the
+container's zone, `TZ`, or the conversion. Portuguese:
+
+> 📰 Pronto — seu jornal chega todo dia às 7h. Se quiser, manda um assunto pra eu pesquisar agora.
+
+English:
+
+> 📰 All set — your paper lands every morning at 7:00. Want me to look something up right now?
+
+Swap in the hour they chose. A first research job is still pt-intake's.
