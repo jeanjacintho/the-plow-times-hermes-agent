@@ -59,6 +59,26 @@ agent:
     - web
     - search
     - browser
+# plow_chat is not in Hermes' quiet platform defaults (photon/iMessage is
+# TIER_LOW; this adapter inherits tool_progress: all and
+# interim_assistant_messages: true). Measured live: every research
+# decision landed in the owner's DM as a real message, then the PDF as
+# edition.pdf. Skills telling the model to stay quiet are not a gate —
+# these keys are. Wait lines go through chat_status.py (a POST), not
+# assistant text. Gateway restart is required after this block changes.
+display:
+  tool_progress: off
+  interim_assistant_messages: false
+  long_running_notifications: false
+  busy_ack_detail: false
+  live_status: off
+  platforms:
+    plow_chat:
+      tool_progress: off
+      interim_assistant_messages: false
+      long_running_notifications: false
+      busy_ack_detail: false
+      live_status: off
 plugins:
   enabled:
   - plow-chat-platform

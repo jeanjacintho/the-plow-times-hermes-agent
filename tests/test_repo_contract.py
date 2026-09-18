@@ -494,16 +494,25 @@ class TestSoul:
         assert os.access(script, os.X_OK)
 
     def test_on_demand_paper_warns_the_owner_it_takes_a_few_minutes(self):
-        # Measured live: with no heads-up, an on-demand "send me a paper
-        # now" silently took over fifteen minutes and the owner sent /stop
-        # partway through the print handoff, right as the page was about to
-        # reach the printer. One upfront message is the exception to "no
-        # narration" -- sent once, before any tool call, not a progress
-        # update during them.
+        # Measured live: a live on-demand turn posted every research
+        # decision into chat, then attached edition.pdf. The wait line is
+        # chat_status.py --soon (a POST, not a sentence the model types),
+        # plus one --wait if the pass is still running.
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
-        assert "one message saying this takes a few" in intake
-        assert "over fifteen minutes" in intake
-        assert "partway through the" in intake
+        research = (ROOT / "pt-research" / "SKILL.md").read_text()
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
+        assert "chat_status.py --soon" in intake
+        assert "chat_status.py --wait" in research
+        assert "chat_status.py --soon" in soul
+        assert "interim_assistant_messages: false" in soul
+        assert "The-Plow-Times-" in edition
+        assert "--filename" in edition
+        script = ROOT / "pt-shared" / "scripts" / "chat_status.py"
+        assert script.is_file()
+        assert script.read_text().startswith("#!")
+        import os
+        assert os.access(script, os.X_OK)
 
     def test_setup_treats_yes_as_the_default_hour(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
@@ -665,6 +674,11 @@ class TestDeployment:
         assert "\n    - web\n" in config
         assert "\n    - search\n" in config
         assert "\n    - browser\n" in config
+        # Hard gate: plow_chat must not stream tool progress or mid-turn
+        # assistant narration (Hermes default is both on for this platform).
+        assert "interim_assistant_messages: false" in config
+        assert "tool_progress: off" in config
+        assert "long_running_notifications: false" in config
 
     def test_compose_yml_is_the_plow_agents_surface(self):
         # plow-agents' compose.example.yml: service `agent`, credential drop-in,

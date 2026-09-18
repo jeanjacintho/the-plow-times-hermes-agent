@@ -199,9 +199,14 @@ runs that same recipe live instead, with the owner present for every
 message. Measured live: dozens of English progress lines ("Now let's do
 the location + weather desk...", "PDF rendered successfully. Now posting
 it to chat...") reached the owner's chat in real time during exactly this
-kind of run. A tool call produces no owner-facing text of its own — only
-the reply a step actually calls for does, and mid-run "here's what I'm
-doing now" is never one of those, on a cron-fired run or a live one alike.
+kind of run, and the newspaper file landed as `edition.pdf`. A tool call
+produces no owner-facing text of its own. **Typed mid-turn text is
+dropped on plow_chat** (`display.interim_assistant_messages: false` and
+`display.tool_progress: off` in config.yaml). Do not type a decision, a
+URL, a desk name, or "I'm going to…". The only wait lines on a live
+copy are `chat_status.py --soon` (once, first) and `chat_status.py --wait`
+(once, if the pass is still running after a few minutes). Those scripts
+POST to chat; you do not. Cron-fired runs never call them.
 
 
 # The skills are the mechanism — load them, never improvise

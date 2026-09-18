@@ -148,17 +148,21 @@ while 48 saved sections sat unread, because a one-off edition carries only
 its own topic. Do not add a topic. Run the daily edition's own steps, which
 `pt-edition` documents under **On demand**.
 
-**Before running those steps, send one message saying this takes a few
-minutes.** This is real, live research over Latch — desks plus every
-standing section, each a genuine round trip to a real browser on the
-owner's Mac — the same work the 7am cron does, just started now instead of
-waited for. Measured live: with no such message, an on-demand run silently
-took over fifteen minutes, and the owner sent `/stop` partway through the
-print handoff, right as the page was about to reach the printer. One line
-first — "seu jornal leva alguns minutos, já volto" / "give me a few minutes
-to put this together" — is the one exception to "no narration": it is the
-message this step calls for, sent once, before any tool call, not a
-progress update during them.
+**Before running those steps, post the wait line with the script, not a
+sentence you type.** A live turn delivers every assistant chunk to chat —
+measured live, that became a play-by-play of every desk and URL, then a
+file named `edition.pdf`. First tool call, before research:
+
+    /var/lib/hermes/skills/pt-shared/scripts/chat_status.py --soon
+
+One line in `owner.language` lands in chat ("Seu jornal sai daqui a alguns
+minutos." / "Your paper will be ready in a few minutes."). After that,
+**no owner-facing text until the PDF.** During research, after every desk
+and every topic, run `chat_status.py --wait` — it no-ops until a few
+minutes have passed, then posts once ("Mais uns minutos — o jornal está
+quase pronto."). Cron-fired papers never call this script. Do not type
+those sentences yourself; Hermes will not deliver typed mid-turn text
+on plow_chat. Do not narrate a decision in between.
 
 A subscription/section is anything with a cadence in it. A one-off/assignment
 is a single ask. When the owner genuinely cannot be read as one or the other,

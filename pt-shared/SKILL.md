@@ -39,7 +39,13 @@ does not, and every run fails on the import.
   (a forwarded Authorization header is the credential walking to a host the API
   did not authenticate)
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
-  body) to the owner's home channel, or the chat text if there is no PDF
+  body) to the owner's home channel, or the chat text if there is no PDF.
+  `--filename The-Plow-Times-<date>.pdf` is the name shown in chat (the
+  run file stays `edition.pdf` on disk).
+- `scripts/chat_status.py` — live on-demand wait lines only. Bare:
+  `chat_status.py --soon` once before research; `chat_status.py --wait`
+  after desks/topics (no-ops until a few minutes have passed, then posts
+  once). Cron never calls it.
 - `scripts/textnorm.py` — library only (imported by `pt-priority` history and
   validation). Normalizes owner text so quotes and similar priorities compare
   without punctuation; never invoked as a CLI.

@@ -23,7 +23,19 @@ preseason games listed so far... good enough for a quick pass.") reached
 them in real time — in a cron-fired run nobody sees this, but a live
 on-demand run has the owner watching for every one of them. Whether this
 run is cron-fired or live, the rule is the same: no text between tool calls,
-in any language.
+in any language. On a live copy, the first tool call is
+
+    /var/lib/hermes/skills/pt-shared/scripts/chat_status.py --soon
+
+(idempotent if intake already ran it). After **every** desk and **every**
+news topic, run
+
+    /var/lib/hermes/skills/pt-shared/scripts/chat_status.py --wait
+
+It prints `STATUS:too-early` / `STATUS:already` / `STATUS:wait` / `STATUS:soon`
+and is done — do not explain that print, do not add a sentence about the
+desk you just finished. Typed mid-turn text is not delivered on plow_chat.
+Cron-fired runs skip `--soon` and `--wait`.
 
 ## The budget is the contract
 

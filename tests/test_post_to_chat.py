@@ -16,6 +16,25 @@ class TestComposePayload:
         payload = post.compose_payload("ignored transcript", "att_1")
         assert payload == {"body": "", "attachment_uids": ["att_1"]}
 
+    def test_attachment_filename_defaults_to_basename(self):
+        assert post.attachment_filename("/var/lib/hermes/pt/run/edition.pdf") == (
+            "edition.pdf"
+        )
+
+    def test_attachment_filename_override_is_a_paper_name_not_a_path(self):
+        # Measured live: the chat showed the attachment as "edition.pdf"
+        # because declare used the run-dir basename. The owner asked for
+        # the newspaper, not a working-file name.
+        assert (
+            post.attachment_filename(
+                "/var/lib/hermes/pt/run/edition.pdf",
+                "The-Plow-Times-2026-09-17.pdf",
+            )
+            == "The-Plow-Times-2026-09-17.pdf"
+        )
+        with pytest.raises(SystemExit, match="filename"):
+            post.attachment_filename("edition.pdf", "../secret.pdf")
+
     def test_text_only_when_no_pdf(self):
         payload = post.compose_payload("THE PLOW TIMES")
         assert payload == {"body": "THE PLOW TIMES"}

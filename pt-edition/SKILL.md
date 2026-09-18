@@ -276,7 +276,7 @@ transcript after it is the wall of text they did not ask for.
    plow-chat-platform uses for photo-only sends. Do not pipe
    `edition.chat.txt` into it:
 
-       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf
+       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --filename The-Plow-Times-<date>.pdf
 
    Omit `--pdf` **only** when step 1 established that weasyprint is
    genuinely absent — never because your own command failed. In that one

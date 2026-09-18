@@ -73,6 +73,22 @@ def read_text_file(path):
     return text
 
 
+def attachment_filename(pdf_path, override=None):
+    """The name Plow Chat shows on the attachment.
+
+    Measured live: declare used os.path.basename of the run-dir file, so
+    the owner saw "edition.pdf" in the thread. An override is a single
+    basename (no slash), and always ends in .pdf.
+    """
+    name = override if override else os.path.basename(pdf_path)
+    name = name.strip()
+    if not name or "/" in name or "\\" in name or name in {".", ".."}:
+        sys.exit("error: --filename must be a basename, not a path")
+    if not name.lower().endswith(".pdf"):
+        name += ".pdf"
+    return name
+
+
 def compose_payload(text, attachment_uid=None):
     """One chat message: PDF-only when attached, otherwise the chat edition.
 
@@ -87,7 +103,7 @@ def compose_payload(text, attachment_uid=None):
     return {"body": text}
 
 
-def declare_and_upload(base, uid, token, pdf_path):
+def declare_and_upload(base, uid, token, pdf_path, filename=None):
     """Declare the attachment, PUT its bytes to the signed upload_url, return its uid.
 
     Mirrors plow-chat-platform's own ``_send_attachment`` exactly (same three
@@ -98,7 +114,7 @@ def declare_and_upload(base, uid, token, pdf_path):
         sys.exit(f"error: --pdf path does not exist: {pdf_path}")
     with open(pdf_path, "rb") as fh:
         data = fh.read()
-    filename = os.path.basename(pdf_path)
+    filename = attachment_filename(pdf_path, filename)
     content_type = mimetypes.guess_type(filename)[0] or "application/pdf"
     declared = post_json_read(
         base, f"/v1/chats/{uid}/attachments", token, "Plow Chat attachment declare",
@@ -123,6 +139,11 @@ def main():
              "empty body",
     )
     parser.add_argument(
+        "--filename", default=None,
+        help="attachment name shown in chat (basename). Default is the PDF's "
+             "own basename, which for a run file is edition.pdf",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="print the request instead of sending it"
     )
     args = parser.parse_args()
@@ -136,6 +157,8 @@ def main():
 
     if args.dry_run:
         attach_note = f" + attach {args.pdf}" if args.pdf else ""
+        if args.pdf:
+            attach_note += f" as {attachment_filename(args.pdf, args.filename)}"
         kind = "pdf-only" if args.pdf else f"{len(text)} chars"
         print(
             f"dry-run: would POST {kind} to {base}/v1/chats/{uid}/messages"
@@ -145,7 +168,9 @@ def main():
 
     attachment_uid = None
     if args.pdf:
-        attachment_uid = declare_and_upload(base, uid, token, args.pdf)
+        attachment_uid = declare_and_upload(
+            base, uid, token, args.pdf, filename=args.filename,
+        )
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
