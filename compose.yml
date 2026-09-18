@@ -21,8 +21,11 @@ services:
       # (os.environ.get("TZ")) -- their own error messages say "restart
       # with AGENT_TZ set", but measured live nothing in this image
       # actually translates AGENT_TZ into TZ, so TZ has to be set here
-      # itself. This fork's owner is in US Pacific time.
-      TZ: America/Los_Angeles
+      # itself. Per instance: register_crons.py reads delivery.hour in this
+      # zone, so changing it on an existing home shifts every paper. Default
+      # is the upstream owner's (America/Sao_Paulo); another instance sets
+      # PT_TZ in this checkout's gitignored .env.
+      TZ: ${PT_TZ:-America/Sao_Paulo}
     volumes:
       # `.host`, not the path the agent reads: a bind carries this machine's
       # ownership in, and the image copies the file into place as root itself.
