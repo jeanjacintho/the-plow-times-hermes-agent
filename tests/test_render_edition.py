@@ -193,6 +193,23 @@ class TestValidate:
         assert "carried over from yesterday" in html
         assert "<script" not in html.lower()
 
+    def test_priority_title_is_the_desk_title_not_python_text(self):
+        html = render.render_html(edition(sections=[{
+            "kind": "section", "title": "O que devo priorizar hoje?", "desk": "priority",
+            "headline": "Close the seed extension", "body": "Send the deck",
+            "priority": {"why": [{"text": "t", "source_label": "calendar"}],
+                         "first_step": "x"},
+            "sources": [],
+        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
+        assert "O que devo priorizar hoje?" in html
+        assert "priority-wrap" in html
+        assert "Close the seed extension" in html
+
+    def test_priority_title_empty_without_a_priority_desk(self):
+        html = render.render_html(edition(), render.DEFAULT_MASTHEAD,
+                                  "{{PRIORITY_BLOCK}}")
+        assert html == ""
+
     def test_priority_quote_has_a_word_cap(self):
         p = {"why": [{"text": "t", "quote": " ".join(["word"] * 26), "source_label": "x"}],
              "first_step": "x"}

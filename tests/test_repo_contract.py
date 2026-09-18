@@ -690,7 +690,7 @@ class TestSkills:
         # A restyle that drops a placeholder silently drops that desk from
         # the page. The renderer fills these; the template must keep them.
         template = (ROOT / "pt-edition" / "template.html").read_text()
-        for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY",
+        for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY_BLOCK",
                      "WEATHER_EAR", "DESKS_INLINE", "SECTIONS", "SUDOKU"):
             assert "{{" + slot + "}}" in template, f"template lost {{{{{slot}}}}}"
 
@@ -709,6 +709,11 @@ class TestSkills:
         assert "masthead-row" in template
         assert "ear-box" in template
         assert "news-col" in template
+        # The priority card's heading is model-written (owner.language),
+        # not a hardcoded English/Portuguese string.
+        assert "What should I prioritize today?" not in template
+        assert "O que devo priorizar hoje?" not in template
+        assert "PRIORITY_BLOCK" in template
 
     def test_cross_skill_imports_resolve(self):
         # register_crons.py imports topics from pt-intake/scripts at run time;

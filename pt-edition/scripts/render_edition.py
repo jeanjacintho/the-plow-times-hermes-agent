@@ -977,6 +977,18 @@ def render_html(edition, name, template_text):
     mail_html = wrap_desk(join_articles(mail))
     sports_html = wrap_desk(join_articles(sports))
     priority_html = wrap_desk(join_articles(priority))
+    # The card's heading is the model-written desk title (owner.language),
+    # not a hardcoded string in the template. Empty when there is no
+    # priority desk, so the template's priority-wrap collapses.
+    priority_title = html.escape(priority[0]["title"].strip()) if priority else ""
+    priority_block_html = ""
+    if priority_html:
+        priority_block_html = (
+            '<div class="priority-wrap">'
+            f'<h2 class="priority-title">{priority_title}</h2>'
+            f"{priority_html}"
+            "</div>"
+        )
     # {{SIDEBAR}} is the desks column as a whole, for older templates that
     # still have one rail slot instead of four. New template.html uses the
     # named slots and leaves this empty of news.
@@ -1009,6 +1021,8 @@ def render_html(edition, name, template_text):
         .replace("{{PAGE_CLASS}}", page_class)
         .replace("{{LEAD}}", lead_html)
         .replace("{{PRIORITY}}", priority_html)
+        .replace("{{PRIORITY_TITLE}}", priority_title)
+        .replace("{{PRIORITY_BLOCK}}", priority_block_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
         .replace("{{SECTIONS}}", main_html)

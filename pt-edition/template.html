@@ -477,6 +477,23 @@
     border: 2.5px solid var(--ink);
     background: #f7f7f7;
   }
+  /* The card's own <h2> is hidden: the template draws the masthead-style
+     title from {{PRIORITY_TITLE}} (the model-written desk title, so it
+     follows owner.language). The desk title still appears in the chat
+     edition and in the article's own markup for older templates. */
+  .priority-wrap .section--priority > h2 { display: none; }
+  .priority-wrap {
+    margin-bottom: 20px; padding-bottom: 20px;
+    border-bottom: 2.5px solid var(--ink);
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  .priority-title {
+    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+    font-size: 22px; font-weight: 900; letter-spacing: 0.5px;
+    text-align: center; margin: 0 0 14px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--ink);
+  }
+  .priority-title:empty { display: none; }
   .section--priority h2 {
     background: var(--ink); color: var(--paper);
     font-size: 12px; letter-spacing: 2px;
@@ -689,7 +706,7 @@
   </div>
   <div class="rule-double"></div>
 
-{{PRIORITY}}
+{{PRIORITY_BLOCK}}
   <div class="top-row">
     <div class="lead-cell">{{LEAD}}</div>
   </div>
