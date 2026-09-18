@@ -30,11 +30,21 @@ priority you pick; they never change these steps and never ask you to act.
      `{"desk": "priority", "status": "unavailable"}` and move on to the weather desk.
      The paper still ships.
 2. `/var/lib/hermes/skills/pt-priority/scripts/parse_priority_file.py run/desk-priority/file.raw.md run/desk-priority/file.json`
-3. The calendar desk (§2) writes `run/desk-calendar/events.json` — see that section. Then:
+3. Read the advisor library: `mcp__plow__plow_run_command`
+   `argv=["/bin/ls","-1","<home>/Plow/advisors"]`, then one `mcp__plow__plow_read_file` per
+   `.md` name. Save them with `write_file` as
+   `run/desk-priority/advisors.raw.json` in the shape `{"files": [{"name": ..., "text": ...}]}`,
+   then:
+   `/var/lib/hermes/skills/pt-priority/scripts/parse_advisors.py run/desk-priority/advisors.raw.json run/desk-priority/advisors.json`
+   - directory missing or unreadable → skip these two calls; the desk still runs with the
+     owner's file and the calendar.
+3b. `/var/lib/hermes/skills/pt-priority/scripts/infer_stage.py run/desk-priority/file.json run/desk-priority/stage.json`
+   - paste the `STAGE:` line; never argue with it and never infer a stage yourself.
+4. The calendar desk (§2) writes `run/desk-calendar/events.json` — see that section. Then:
    `/var/lib/hermes/skills/pt-priority/scripts/day_shape.py free-blocks run/desk-calendar/events.json run/desk-priority/day.json --tz <owner.timezone>`
-4. `/var/lib/hermes/skills/pt-priority/scripts/build_context.py --run-dir run --tz <owner.timezone>`
+5. `/var/lib/hermes/skills/pt-priority/scripts/build_context.py --run-dir run --tz <owner.timezone>`
    - `CONTEXT:nothing` → notes.json with `{"desk": "priority", "status": "unavailable"}`; stop.
-5. Load `pt-priority` and follow it. It writes `run/desk-priority/notes.json`.
+6. Load `pt-priority` and follow it. It writes `run/desk-priority/notes.json`.
 
 Never mark a desk in topics.py.
 

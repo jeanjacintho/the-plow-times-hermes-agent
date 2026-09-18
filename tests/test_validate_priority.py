@@ -18,10 +18,13 @@ CONTEXT = {
                              "all_day": False, "tomorrow": False}],
                  "free_blocks": [{"start": "09:00", "end": "11:30"}]},
     "history": [], "notes": ["file_empty"],
+    "stage": {"stage": "unknown", "modifiers": [], "domain": "unknown", "signals": [], "why": "", "label": "Stage unknown"},
+    "advisors": [],
 }
 GOOD = {
     "date": "2026-09-16",
     "priority": "Close the seed extension with Fund X",
+    "stage": "unknown",
     "why": [
         {"text": "Q3 goal", "source": "file:goals", "quote": "raise $1.5M by  sep 30"},
         {"text": "Partner call today", "source": "calendar:evt_1"},
@@ -81,6 +84,44 @@ def test_null_block_is_fine():
 def test_repeated():
     assert codes(GOOD, streak=3) == ["repeated_3_days"]
     assert codes(GOOD, streak=2) == []
+
+
+def test_stage_must_match_context():
+    assert codes(bad(stage="blueprint")) == ["schema"]
+
+
+def test_advisor_section_not_found():
+    ctx = copy.deepcopy(CONTEXT)
+    ctx["advisors"] = [{
+        "file": "blueprint.md", "advisor": "A", "stages": ["blueprint"], "domain": "b2b",
+        "sections": [{"id": "focus-first", "kind": "focus", "heading": "Focus first",
+                      "text": "Write the playbook yourself and prove reps hit 3x OTE."}],
+    }]
+    p = bad(why=[{"text": "t", "source": "advisor:nope.md#focus-first",
+                  "quote": "write the playbook yourself"}])
+    assert codes(p, context=ctx) == ["advisor_section_not_found"]
+
+
+def test_quote_too_long():
+    p = bad(why=[{"text": "t", "source": "file:goals",
+                  "quote": "Raise $1.5M by Sep 30. " + "word " * 22}])
+    assert "quote_too_long" in codes(p)
+
+
+def test_matches_stage_avoid():
+    ctx = copy.deepcopy(CONTEXT)
+    ctx["advisors"] = [{
+        "file": "blueprint.md", "advisor": "A", "stages": ["blueprint"], "domain": "b2b",
+        "sections": [{"id": "avoid", "kind": "avoid", "heading": "Do not focus on",
+                      "text": "- Hiring another rep before the ramp model works"}],
+    }]
+    p = bad(priority="Hiring another rep before the ramp model works")
+    assert "matches_stage_avoid" in codes(p, context=ctx)
+
+
+def test_why_needs_file_or_advisor():
+    p = bad(why=[{"text": "Partner call today", "source": "calendar:evt_1"}])
+    assert "why_needs_file_or_advisor" in codes(p)
 
 
 def test_short_section_may_be_quoted_whole():

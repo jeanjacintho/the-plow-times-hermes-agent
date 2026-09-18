@@ -2,7 +2,7 @@
 """Assemble run/desk-priority/context.json from the file, the calendar and recent history.
 
 usage: build_context.py --run-dir <dir> --tz <IANA> [--now <ISO8601>]
-Prints "CONTEXT:ok NOTES:<list|none>" or "CONTEXT:nothing" (neither source usable).
+Prints "CONTEXT:ok STAGE:<stage> NOTES:<list|none>" or "CONTEXT:nothing" (neither source usable).
 """
 from __future__ import annotations
 
@@ -64,9 +64,44 @@ def load_calendar(run_dir):
     }
 
 
-def build(date, tz, file_result, calendar_result, recent):
+UNKNOWN_STAGE = {
+    "stage": "unknown", "modifiers": [], "domain": "unknown",
+    "signals": [], "why": "", "label": "Stage unknown",
+}
+
+
+def applicable_advisors(payload, stage):
+    records = (payload or {}).get("advisors") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        records = []
+    name = (stage or {}).get("stage") or "unknown"
+    mods = set((stage or {}).get("modifiers") or [])
+    out = []
+    for advisor in records:
+        stages = advisor.get("stages") or []
+        if "any" in stages or name in stages or any(m in stages for m in mods):
+            out.append(advisor)
+    return out
+
+
+def domain_mismatch(stage, advisors):
+    inferred = (stage or {}).get("domain") or "unknown"
+    if inferred == "unknown":
+        return False
+    for advisor in advisors:
+        domain = advisor.get("domain") or ""
+        if inferred == "consumer-plg" and "b2b" in domain:
+            return True
+        if inferred != "consumer-plg" and "consumer" in domain:
+            return True
+    return False
+
+
+def build(date, tz, file_result, calendar_result, recent, stage=None, advisors_payload=None):
     file_result = file_result or dict(FILE_MISSING)
     calendar_result = calendar_result or dict(CALENDAR_ERROR)
+    stage = stage or dict(UNKNOWN_STAGE)
+    advisors = applicable_advisors(advisors_payload, stage)
     notes = []
     if file_result["status"] == "missing":
         notes.append("file_missing")
@@ -74,11 +109,19 @@ def build(date, tz, file_result, calendar_result, recent):
         notes.append("file_empty")
     if calendar_result["status"] != "ok":
         notes.append("calendar_unavailable")
+    if stage.get("stage") == "unknown":
+        notes.append("stage_unknown")
+    if not advisors:
+        notes.append("no_advisor_for_stage")
+    if domain_mismatch(stage, advisors):
+        notes.append("domain_mismatch")
     return {
         "today": date,
         "weekday": WEEKDAYS[Date.fromisoformat(date).weekday()],
         "tz": tz,
         "file": file_result,
+        "stage": stage,
+        "advisors": advisors,
         "calendar": calendar_result,
         "history": recent,
         "notes": notes,
@@ -110,12 +153,17 @@ def main(argv):
         except ValueError:
             return None
 
-    context = build(date, args.tz, safe("desk-priority/file.json"), load_calendar(run),
-                    history.recent(date, 7))
+    context = build(
+        date, args.tz, safe("desk-priority/file.json"), load_calendar(run),
+        history.recent(date, 7),
+        safe("desk-priority/stage.json"),
+        safe("desk-priority/advisors.json"),
+    )
     out = run / "desk-priority" / "context.json"
     _write_json(out, context)
     if has_input(context):
-        print(f"CONTEXT:ok NOTES:{','.join(context['notes']) or 'none'}")
+        notes = ",".join(context["notes"]) or "none"
+        print(f"CONTEXT:ok STAGE:{context['stage']['stage']} NOTES:{notes}")
     else:
         print("CONTEXT:nothing")
     return 0

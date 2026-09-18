@@ -22,8 +22,10 @@ import textnorm  # noqa: E402
 
 HHMM = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 SOURCE = re.compile(r"^(file|calendar):(\S+)$")
+ADVISOR_SOURCE = re.compile(r"^advisor:([^#\s]+)#(\S+)$")
 LIST_MARKERS = (";", "\n", "•", " and then ")
 MIN_QUOTE_WORDS = 3
+MAX_QUOTE_WORDS = 25
 LIST_PREFIX = re.compile(r"^\s*(-|\*|\d+\.)\s")
 
 
@@ -58,6 +60,44 @@ def _schema(context, p):
         errors.append("schema: block must be null or {start, end} in HH:MM")
     if not isinstance(p.get("carried_over"), bool):
         errors.append("schema: carried_over must be a boolean")
+    expected_stage = _context_stage(context)
+    if expected_stage is not None and p.get("stage") != expected_stage:
+        errors.append(f"schema: stage must be {expected_stage}")
+    return errors
+
+
+def _context_stage(context):
+    stage = context.get("stage")
+    if isinstance(stage, dict):
+        return stage.get("stage")
+    if isinstance(stage, str):
+        return stage
+    return None
+
+
+def _advisor_index(context):
+    found = {}
+    for advisor in context.get("advisors") or []:
+        fname = advisor.get("file")
+        for section in advisor.get("sections") or []:
+            found[(fname, section.get("id"))] = section
+    return found
+
+
+def _quote_errors(i, item, haystack):
+    errors = []
+    quote_raw = str(item.get("quote") or "").strip()
+    if not quote_raw:
+        errors.append(f"quote_missing: why[{i}] must quote the section verbatim")
+        return errors
+    if len(quote_raw.split()) > MAX_QUOTE_WORDS:
+        errors.append(f"quote_too_long: why[{i}] quote is over {MAX_QUOTE_WORDS} words")
+    quote = textnorm.normalize(item["quote"])
+    section_text = textnorm.normalize(haystack)
+    if len(quote.split()) < MIN_QUOTE_WORDS and quote != section_text:
+        errors.append(f"quote_too_short: why[{i}] quote needs {MIN_QUOTE_WORDS}+ words, or the whole section")
+    elif quote not in section_text:
+        errors.append(f"quote_not_in_section: why[{i}] quote is not in the cited section")
     return errors
 
 
@@ -83,26 +123,36 @@ def validate(context, p, streak=0):
         errors.append("why_count: give 1 to 3 reasons")
     sections = {s["id"]: s for s in context["file"]["sections"]}
     event_ids = {e["id"] for e in context["calendar"]["events"]}
+    advisor_sections = _advisor_index(context)
+    kinds_seen = []
     for i, item in enumerate(why[:3]):
-        m = SOURCE.match(str(item.get("source") or ""))
-        if not m:
-            errors.append(f"why_source: why[{i}] needs source file:<section-id> or calendar:<event-id>")
-            continue
-        kind, ref = m.groups()
-        if kind == "file":
-            if ref not in sections:
-                errors.append(f"file_section_not_found: why[{i}] cites '{ref}', known: {sorted(sections)}")
-            elif not str(item.get("quote") or "").strip():
-                errors.append(f"quote_missing: why[{i}] must quote the section verbatim")
+        source = str(item.get("source") or "")
+        m = SOURCE.match(source)
+        adv = ADVISOR_SOURCE.match(source)
+        if m:
+            kind, ref = m.groups()
+            kinds_seen.append(kind)
+            if kind == "file":
+                if ref not in sections:
+                    errors.append(f"file_section_not_found: why[{i}] cites '{ref}', known: {sorted(sections)}")
+                else:
+                    errors.extend(_quote_errors(i, item, sections[ref]["text"]))
+            elif ref not in event_ids:
+                errors.append(f"calendar_event_not_found: why[{i}] cites '{ref}'")
+        elif adv:
+            kinds_seen.append("advisor")
+            fname, sid = adv.groups()
+            section = advisor_sections.get((fname, sid))
+            if section is None:
+                errors.append(f"advisor_section_not_found: why[{i}] cites '{fname}#{sid}'")
             else:
-                quote = textnorm.normalize(item["quote"])
-                section_text = textnorm.normalize(sections[ref]["text"])
-                if len(quote.split()) < MIN_QUOTE_WORDS and quote != section_text:
-                    errors.append(f"quote_too_short: why[{i}] quote needs {MIN_QUOTE_WORDS}+ words, or the whole section")
-                elif quote not in section_text:
-                    errors.append(f"quote_not_in_section: why[{i}] quote is not in section '{ref}'")
-        elif ref not in event_ids:
-            errors.append(f"calendar_event_not_found: why[{i}] cites '{ref}'")
+                errors.extend(_quote_errors(i, item, section["text"]))
+        else:
+            errors.append(f"why_source: why[{i}] needs source file:<section-id>, calendar:<event-id> or advisor:<file>#<section-id>")
+    calendar_only = kinds_seen and not any(k in ("file", "advisor") for k in kinds_seen)
+    if 1 <= len(why) <= 3 and calendar_only and not any(
+            e.startswith("calendar_event_not_found:") for e in errors):
+        errors.append("why_needs_file_or_advisor: at least one why must cite the file or an advisor")
 
     block = p["block"]
     if block is not None:
@@ -119,6 +169,14 @@ def validate(context, p, streak=0):
             item = line.strip().lstrip("-*").strip()
             if item and textnorm.similar(p["priority"], item):
                 errors.append(f"matches_not_now: owner parked '{item}'")
+    for advisor in context.get("advisors") or []:
+        for section in advisor.get("sections") or []:
+            if section.get("kind") != "avoid":
+                continue
+            for line in section.get("text", "").splitlines():
+                item = line.strip().lstrip("-*").strip()
+                if item and textnorm.similar(p["priority"], item):
+                    errors.append(f"matches_stage_avoid: stage says not '{item}'")
     if streak >= 3:
         errors.append("repeated_3_days: this was #1 for 3 days; choose another and say so in chat")
     return errors
