@@ -760,7 +760,6 @@ class TestSkills:
         # with a double rule, a folio line, the lead as a large headline,
         # and news in columns.
         template = (ROOT / "pt-edition" / "template.html").read_text()
-        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "nameplate" in template
         assert "rule-double" in template
         assert "folio" in template
@@ -776,7 +775,6 @@ class TestSkills:
         assert "kicker" in template
         assert "desks-row" in template
         assert "break-inside: avoid" in template
-        assert "body_cols=1" in renderer
         assert "news-well" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway

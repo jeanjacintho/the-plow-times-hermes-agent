@@ -72,7 +72,7 @@ def status_text(kind, language):
         "busy": BUSY,
         "busy-still": BUSY_STILL,
     }
-    table = tables.get(kind, WAIT)
+    table = tables[kind]
     return table["pt"] if is_portuguese(language) else table["en"]
 
 
@@ -105,23 +105,19 @@ def _load_stamp(path):
 
 
 def record_soon(path, now=None):
-    path = str(path)
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    payload = {"soon_at": float(now if now is not None else time.time()), "wait_sent": False}
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh)
-    os.replace(tmp, path)
+    _write_stamp(
+        path,
+        {
+            "soon_at": float(now if now is not None else time.time()),
+            "wait_sent": False,
+        },
+    )
 
 
 def record_wait_sent(path):
-    path = str(path)
-    data = _load_stamp(path) or {}
+    data = _load_stamp(str(path)) or {}
     data["wait_sent"] = True
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(data, fh)
-    os.replace(tmp, path)
+    _write_stamp(path, data)
 
 
 def soon_action(path, now=None, stale_seconds=7200):
