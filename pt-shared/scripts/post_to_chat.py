@@ -187,9 +187,11 @@ def print_failure_line(result):
 
     The turn ends in NO_REPLY, so a failure left on stdout never reaches them.
     """
-    if "page not printed" not in result:
+    line = next((l for l in result.splitlines() if "page not printed" in l), None)
+    if line is None:
         return None
-    return result.splitlines()[0].removeprefix("error: ")[:200] + "; next scheduled run retries"
+    line = line.removeprefix("error: ")[:200]
+    return line if "next scheduled run retries" in line else line + "; next scheduled run retries"
 
 
 def compose_payload(text, attachment_uid=None):
@@ -284,7 +286,10 @@ def main():
         print(printed)
         line = print_failure_line(printed)
         if line:
-            post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", {"body": line})
+            try:  # the edition already posted: exit 0 must keep meaning that
+                post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", {"body": line})
+            except SystemExit as exc:
+                print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     else:
         print(f"chat edition posted ({len(text)} chars)")
 
