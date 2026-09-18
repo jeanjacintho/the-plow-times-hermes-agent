@@ -70,6 +70,12 @@ def build(draft, owner_tz, container_tz):
         },
         "mail": {"configured": bool((draft.get("mail") or {}).get("configured"))},
     }
+    priority = draft.get("priority") or {}
+    if isinstance(priority.get("configured"), bool):
+        block = {"configured": bool(priority.get("configured"))}
+        if block["configured"]:
+            block["file"] = priority.get("file") or "~/Plow/prioritization.md"
+        config["priority"] = block
     return config
 
 

@@ -26,14 +26,26 @@ class TestNextQuestion:
         draft = {"local_hour": "07:00", "printer": {"name": "HP"}}
         assert record.next_question(draft) == "printer"
 
-    def test_hour_and_printer_asks_mail(self):
+    def test_hour_and_printer_asks_priority(self):
         draft = {"local_hour": "07:00", "printer": {"configured": False, "name": None}}
+        assert record.next_question(draft) == "priority"
+
+    def test_priority_is_asked_after_printer(self):
+        draft = {"local_hour": "07:30", "printer": {"configured": False}}
+        assert record.next_question(draft) == "priority"
+        draft["priority"] = {"configured": True, "file": "~/Plow/prioritization.md"}
+        assert record.next_question(draft) == "mail"
+
+    def test_hour_printer_priority_asks_mail(self):
+        draft = {"local_hour": "07:00", "printer": {"configured": False, "name": None},
+                 "priority": {"configured": False}}
         assert record.next_question(draft) == "mail"
 
     def test_hour_printer_mail_asks_news(self):
         draft = {
             "local_hour": "07:00",
             "printer": {"configured": True, "name": "HP LaserJet 4"},
+            "priority": {"configured": False},
             "mail": {"configured": False},
         }
         assert record.next_question(draft) == "news"
@@ -42,6 +54,7 @@ class TestNextQuestion:
         draft = {
             "local_hour": "07:00",
             "printer": {"configured": True, "name": "HP LaserJet 4"},
+            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
             "mail": {"configured": True},
             "news_asked": True,
         }
@@ -111,7 +124,7 @@ class TestCLI:
         )
         assert rc == 0
         out = capsys.readouterr().out.strip().splitlines()
-        assert out == ["DRAFT:local_hour,printer", "NEXT_QUESTION=mail"]
+        assert out == ["DRAFT:local_hour,printer", "NEXT_QUESTION=priority"]
         assert draft_of(tmp_path) == {
             "local_hour": "07:00",
             "printer": {"configured": True, "name": "HP LaserJet 4"},
@@ -121,12 +134,13 @@ class TestCLI:
         config = tmp_path / "config.json"
         record.main(["record_setup.py", str(config), "local_hour=07:00"])
         record.main(["record_setup.py", str(config), "printer.configured=false"])
+        record.main(["record_setup.py", str(config), "priority.configured=false"])
         record.main(["record_setup.py", str(config), "mail.configured=true"])
         capsys.readouterr()
         rc = record.main(["record_setup.py", str(config), "news_asked=true"])
         assert rc == 0
         out = capsys.readouterr().out.strip().splitlines()
-        assert out == ["DRAFT:local_hour,printer,mail", "NEXT_QUESTION=close"]
+        assert out == ["DRAFT:local_hour,printer,priority,mail", "NEXT_QUESTION=close"]
 
     def test_too_few_args_is_a_usage_error(self, capsys):
         rc = record.main(["record_setup.py"])
@@ -162,6 +176,7 @@ class TestDoneClearsTheDraft:
     COMPLETE = {
         "local_hour": "07:00",
         "printer": {"configured": True, "name": "virtual_printer_online"},
+        "priority": {"configured": False},
         "mail": {"configured": True},
         "news_asked": True,
     }

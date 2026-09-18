@@ -20,7 +20,7 @@ requirement this repo does not carry):
   - Never prints PII. There is none by design: the config holds a timezone, a
     delivery hour, and whether a printer exists.
 
-The nine checks:
+The ten checks:
   1. owner.timezone must contain a non-whitespace char. register_crons.py
      refuses to register unless the container's TZ equals it, and SOUL.md
      routes first-run onboarding from the keys' presence -- a blank one
@@ -61,6 +61,10 @@ The nine checks:
      mail through Latch (Gmail via plow-gog first, Mail.app if that fails);
      false is an explicit no.
   9. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
+  10. priority, when present, has a boolean `configured`; if true, `file`
+     is a non-blank string starting with `~/Plow/` or `/Users/`. Absent
+     priority is valid and means the desk is off -- the paper never
+     invents a prioritization file.
 
 The owner's name, location, or any other personal fact is deliberately not
 among the checks, and not in the schema: location is fetched each run via
@@ -189,6 +193,22 @@ def gate(config):
         mail_configured = _index(mail, "configured")
         if not isinstance(mail_configured, bool):
             failures.append("mail.configured is not a boolean")
+
+    # 10. priority, when present, is a boolean switch with a readable path
+    #     behind it. Absent means the desk is off -- the paper never invents a
+    #     prioritization file. The path may be "~/Plow/..." (Latch expands it
+    #     for plow_read_file) or an absolute /Users path.
+    priority = _index(config, "priority")
+    if priority is not None:
+        configured_priority = _index(priority, "configured")
+        if not isinstance(configured_priority, bool):
+            failures.append("priority.configured is not a boolean")
+        elif configured_priority:
+            path = _index(priority, "file")
+            if not _nonblank(path):
+                failures.append("priority.file is blank while priority.configured is true")
+            elif not (path.startswith("~/Plow/") or path.startswith("/Users/")):
+                failures.append("priority.file is not an absolute or ~/Plow path")
 
     # 9. no leftover [UPPER_SNAKE] placeholder anywhere.
     if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):

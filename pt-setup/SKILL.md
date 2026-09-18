@@ -29,13 +29,13 @@ structurally impossible:
 
 One line, no interpreter prefix, no shell operators — same rule SOUL.md
 gives `setup_needed.py`. `key` is a dot-path (`local_hour`,
-`printer.configured`, `printer.name`, `mail.configured`, `news_asked`);
+`printer.configured`, `printer.name`, `priority.configured`, `priority.file`, `mail.configured`, `news_asked`);
 `true`/`false` become real JSON booleans, anything else stays a string. A
 value with a space needs its own quoting, e.g. `printer.name="HP LaserJet 4"`.
 It prints two lines:
 
     DRAFT:<fields already recorded>
-    NEXT_QUESTION=<hour|printer|mail|news|close>
+    NEXT_QUESTION=<hour|printer|priority|mail|news|close>
 
 **Send exactly the one message `NEXT_QUESTION` calls for, then stop.**
 Not that question plus the probe for the one after it. Not that question
@@ -318,6 +318,28 @@ Latch parked or unreachable is also an answer, not a reason to skip
   once the check works.
 
 Send only the `NEXT_QUESTION` it prints (question 3a), then stop.
+
+## NEXT_QUESTION=priority
+
+Ask, in the owner's language: "Every morning the paper can open with the one thing that
+matters most that day. I read it from a file on your Mac that you fill in — goals,
+deadlines, advice you trust. Want that? (yes / no)"
+
+Stop. On their next message:
+
+- **No** → `record_setup.py <config path> priority.configured=false`
+- **Yes** → `record_setup.py <config path> priority.configured=true priority.file=~/Plow/prioritization.md`
+  then read the file once with `mcp__plow__plow_read_file` `path=~/Plow/prioritization.md`:
+  - it exists → say "Found your prioritization file."
+  - it does not exist → read
+    `/var/lib/hermes/skills/pt-setup/assets/prioritization.template.md` with `read_file`
+    and write it to the Mac with `mcp__plow__plow_write_file`
+    `path=~/Plow/prioritization.md`, content unchanged. Say: "I created
+    ~/Plow/prioritization.md — fill in your goals and the advice you trust; I read it
+    every morning."
+  - **never overwrite an existing file**, and never paste the owner's file back in chat.
+
+Then continue with the mail question in the same turn.
 
 **3a. Ask whether the paper should carry today's mail** (a letters
 column: sender and subject, not full bodies). Weather and calendar

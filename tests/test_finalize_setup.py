@@ -21,6 +21,7 @@ finalize = load_module("finalize_setup", "pt-setup/scripts/finalize_setup.py")
 COMPLETE = {
     "local_hour": "07:00",
     "printer": {"configured": True, "name": "virtual_printer_online"},
+    "priority": {"configured": False},
     "mail": {"configured": True},
     "news_asked": True,
 }

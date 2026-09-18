@@ -200,6 +200,33 @@ class TestInvariants:
         out, _ = run_gate({**VALID, "mail": {"configured": "yes"}}, tmp_path)
         assert "mail.configured is not a boolean" in out
 
+    def test_priority_absent_is_valid(self, tmp_path):
+        config = dict(VALID)
+        config.pop("priority", None)
+        out, _ = run_gate(config, tmp_path)
+        assert out == ""
+
+    def test_priority_configured_must_be_boolean(self, tmp_path):
+        out, _ = run_gate(
+            {**VALID, "priority": {"configured": "true", "file": "~/Plow/prioritization.md"}},
+            tmp_path,
+        )
+        assert out == "priority.configured is not a boolean"
+
+    def test_priority_file_required_when_configured(self, tmp_path):
+        out, _ = run_gate(
+            {**VALID, "priority": {"configured": True, "file": "  "}},
+            tmp_path,
+        )
+        assert out == "priority.file is blank while priority.configured is true"
+
+    def test_priority_file_must_be_under_home_or_plow(self, tmp_path):
+        out, _ = run_gate(
+            {**VALID, "priority": {"configured": True, "file": "prioritization.md"}},
+            tmp_path,
+        )
+        assert out == "priority.file is not an absolute or ~/Plow path"
+
     def test_placeholder_anywhere(self, tmp_path):
         out, _ = run_gate(
             {**VALID, "owner": {"timezone": "[OWNER_TZ]"}}, tmp_path

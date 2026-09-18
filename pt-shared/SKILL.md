@@ -28,7 +28,7 @@ does not, and every run fails on the import.
   every other value is kept verbatim as a string, so a dotted or underscored
   value needs no quoting — only a value containing a space does. Prints
   `DRAFT:<fields recorded, or "none">` then
-  `NEXT_QUESTION=<hour|printer|mail|news|close>`; that second line — never
+  `NEXT_QUESTION=<hour|printer|priority|mail|news|close>`; that second line — never
   the draft's shape, never the chat thread — decides what `pt-setup` asks
   next. Called as `record_setup.py <config.json path> --done` it instead
   **clears** the draft (prints `DRAFT:cleared`) — the close step's last
@@ -43,6 +43,31 @@ does not, and every run fails on the import.
 - `scripts/textnorm.py` — library only (imported by `pt-priority` history and
   validation). Normalizes owner text so quotes and similar priorities compare
   without punctuation; never invoked as a CLI.
+- `pt-priority/scripts/parse_priority_file.py` — split the owner's
+  prioritization file into typed sections. Called bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/parse_priority_file.py <raw.md> <out.json>`
+  Prints `FILE:<ok|missing|empty> SECTIONS:<n>`. A missing raw file is status
+  `missing`, never a crash.
+- `pt-priority/scripts/day_shape.py` — today's free windows from the calendar
+  desk's `events.json`. Called bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/day_shape.py free-blocks <events.json> <out.json> --tz <IANA> [--now <ISO8601>]`
+  Prints `DAY:ok BLOCKS:<n>` or `DAY:invalid` followed by one failure per line.
+- `pt-priority/scripts/build_context.py` — assemble `run/desk-priority/context.json`
+  from the parsed file, calendar events, free blocks and recent history. Called
+  bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/build_context.py --run-dir <dir> --tz <IANA> [--now <ISO8601>]`
+  Prints `CONTEXT:ok NOTES:<list|none>` or `CONTEXT:nothing`.
+- `pt-priority/scripts/validate_priority.py` — refuse a priority the owner could
+  not trace to their file or calendar. Called bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/validate_priority.py --run-dir <dir>`
+  Prints `VALID` (and stamps notes into `priority.json`) or `INVALID` followed
+  by one error per line.
+- `pt-priority/scripts/history.py` — recent priorities and whether they got
+  done. Called bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/history.py today --date YYYY-MM-DD`
+  `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --priority-json <priority.json>`
+  `/var/lib/hermes/skills/pt-priority/scripts/history.py set --date YYYY-MM-DD --status done|skipped`
+  Prints `TODAY:…`, `RECORDED`, or `STATUS:…`.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:
