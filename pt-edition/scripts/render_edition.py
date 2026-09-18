@@ -249,6 +249,12 @@ def validate(edition):
                             failures.append(f"{iwhere}.text is blank")
                         if not (isinstance(item.get("source_label"), str) and item["source_label"].strip()):
                             failures.append(f"{iwhere}.source_label is blank")
+                        quote = item.get("quote")
+                        if quote is not None:
+                            if not isinstance(quote, str):
+                                failures.append(f"{iwhere}.quote is not a string")
+                            elif len(quote.split()) > 25:
+                                failures.append(f"{iwhere}.quote is longer than 25 words")
                 step = priority.get("first_step")
                 if not (isinstance(step, str) and step.strip()):
                     failures.append(f"{where}.priority.first_step is blank")
@@ -265,6 +271,15 @@ def validate(edition):
                     isinstance(tags, list) and all(isinstance(t, str) for t in tags)
                 ):
                     failures.append(f"{where}.priority.tags is not a list of strings")
+                not_today = priority.get("not_today")
+                if not_today is not None:
+                    if not (isinstance(not_today, list) and all(isinstance(t, str) for t in not_today)):
+                        failures.append(f"{where}.priority.not_today is not a list of strings")
+                    elif len(not_today) > 2:
+                        failures.append(f"{where}.priority.not_today has more than 2 items")
+                stage_label = priority.get("stage_label")
+                if stage_label is not None and not (isinstance(stage_label, str) and stage_label.strip()):
+                    failures.append(f"{where}.priority.stage_label is blank")
         image = section.get("image")
         if image is not None:
             if desk not in (None, "news"):
@@ -631,6 +646,10 @@ def priority_block(priority):
         start = html.escape(str(block["start"]))
         end = html.escape(str(block["end"]))
         blocks.append(f'<p class="priority-window">{start}–{end}</p>')
+    not_today = [t for t in (priority.get("not_today") or []) if str(t).strip()]
+    if not_today:
+        items = "".join(f"<li>{html.escape(str(t).strip())}</li>" for t in not_today[:2])
+        blocks.append("<h3>NOT TODAY</h3><ul class=\"priority-avoid\">" + items + "</ul>")
     tags = priority.get("tags") or []
     if tags:
         spans = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in tags)
@@ -803,6 +822,10 @@ def html_section(section, drop_cap=False):
     blocks = [f'<article class="{article_class}">']
     if not skip_caption:
         blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
+        if desk == "priority" and priority:
+            label = str(priority.get("stage_label") or "").strip()
+            if label:
+                blocks.append(f'  <p class="priority-stage">STAGE · {html.escape(label)}</p>')
         if headline:
             blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None

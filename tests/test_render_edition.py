@@ -183,6 +183,31 @@ class TestValidate:
         assert "carried over from yesterday" in html
         assert "<script" not in html.lower()
 
+    def test_priority_quote_has_a_word_cap(self):
+        p = {"why": [{"text": "t", "quote": " ".join(["word"] * 26), "source_label": "x"}],
+             "first_step": "x"}
+        assert "priority.why[0].quote is longer than 25 words" in render.validate(
+            edition(sections=[{
+                "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
+            }]))
+
+    def test_priority_not_today_is_at_most_two_strings(self):
+        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x",
+             "not_today": ["a", "b", "c"]}
+        assert "priority.not_today has more than 2 items" in render.validate(
+            edition(sections=[{
+                "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
+            }]))
+
+    def test_priority_renders_stage_and_not_today(self):
+        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x",
+             "stage_label": "Blueprint ($1–10M ARR)", "not_today": ["Hiring another rep"]}
+        html = render.render_html(edition(sections=[{
+            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
+            "sources": [],
+        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        assert "STAGE · Blueprint" in html and "Hiring another rep" in html
+
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
             {"kind": "section", "title": "News", "desk": "news", "body": "n", "sources": []},
