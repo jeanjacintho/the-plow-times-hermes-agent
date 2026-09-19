@@ -46,7 +46,7 @@ first, the time now, and their step.
    2. **Strike and save.** Strike from the old page every line without an item and every disproved line, then save it at once. From here on, any failure keeps this struck page.
    3. **Rewrite.** A writer child drafts a candidate from the struck page plus the surviving answers: same strike rule, estimates for what's missing, open questions kept.
    4. **Score.** A separate scorer child, blind to which page is which, scores both on one rubric, 1–5 each: *grounding* (every line true to its item), *stage*, *advisor fidelity* (fits this situation, in the advisor's words), *actionability* (the owner can act today) and *voice*. The candidate is kept only if its grounding is 5 AND its total strictly beats the struck page's. Otherwise the struck page is kept. The per-dimension scores go under As of.
-   5. **Card.** Today's card is written from the kept page, if it has a headline.
+   5. **Card.** If the kept page has a headline and scored grounding 5, today's card is written from it. Otherwise today's card is deleted.
 
 A failed asker or researcher: the pass continues with what came back. A failed writer or
 scorer: the struck page from step 2 is kept, and step 5 still runs. A run in which no pass
