@@ -21,7 +21,7 @@ CARD = {"stage_label": "Discovery ($0–1M ARR)", "stage_why": "$4K MRR as of Se
         "today": [{"time": "10:00", "title": "Dentist", "note": "private"}]}
 
 
-def edition(tmp_path, run="daily-2026-09-19", headline="Close the Acme pilot", card=True, news=True):
+def edition(tmp_path, headline="Close the Acme pilot", card=True, news=True):
     sections = [
         {"kind": "section", "desk": "weather", "title": "Weather", "headline": "Rain",
          "body": "Rain in Sao Paulo.", "sources": ["https://weather.example"]},
@@ -40,7 +40,7 @@ def edition(tmp_path, run="daily-2026-09-19", headline="Close the Acme pilot", c
             "topic_id": "t_9f2a",
             "notes": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx", "quote": "…"}],
             "could_not_source": ["the central bank's comment"]}))
-    run_dir = tmp_path / "run" / run
+    run_dir = tmp_path / "run" / "daily-2026-09-19"
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / "edition.json"
     path.write_text(json.dumps({"date": "2026-09-19", "location": "Sao Paulo", "sections": sections}))

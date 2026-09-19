@@ -74,7 +74,7 @@ class Wiki:
         """`wiki validate`, then `wiki index`. Only a problem on a page this paper
         writes fails it; another agent's page is that agent's to fix."""
         code, out = self.run("validate")
-        ours = [line for line in out.splitlines() if line.startswith((ROOT, GOALS))]
+        ours = [line for line in out.splitlines() if line.startswith((ROOT, GOALS, SCHEMA))]
         if ours or code not in (0, 1):
             raise LatchError("wiki validate: " + ("; ".join(ours) or out.strip()))
         code, out = self.run("index", write=True)
