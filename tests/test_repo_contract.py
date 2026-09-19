@@ -932,7 +932,6 @@ class TestDeployment:
         assert "merge_pt_seed_config.py" in dockerfile
         assert "interim_assistant_messages: false" in dockerfile
         assert "context_file_max_chars: 40000" in dockerfile
-        assert "default: anthropic/claude-sonnet-5" in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()

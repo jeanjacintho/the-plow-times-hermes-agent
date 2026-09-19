@@ -84,6 +84,7 @@ def test_overlay_model_replaces_fleet_glm_default_with_sonnet():
         "model": {"default": "z-ai/glm-5.2", "provider": "plow"},
         "providers": {
             "plow": {
+                "base_url": "https://fleet.example/v1",
                 "models": {
                     "z-ai/glm-5.2": {},
                     "anthropic/claude-sonnet-5": {},
@@ -92,9 +93,14 @@ def test_overlay_model_replaces_fleet_glm_default_with_sonnet():
         },
     }
     ours = {
-        "model": {"default": "anthropic/claude-sonnet-5", "provider": "plow"},
+        "model": {
+            "default": "anthropic/claude-sonnet-5",
+            "provider": "plow",
+            "base_url": "${PLOW_API_BASE}/v1",
+        },
         "providers": {
             "plow": {
+                "base_url": "${PLOW_API_BASE}/v1",
                 "models": {"anthropic/claude-sonnet-5": {}},
             }
         },
@@ -102,6 +108,8 @@ def test_overlay_model_replaces_fleet_glm_default_with_sonnet():
     out = merge.overlay_model(seed, ours)
     assert out["model"]["default"] == "anthropic/claude-sonnet-5"
     assert out["model"]["provider"] == "plow"
+    assert "base_url" not in out["model"]
+    assert out["providers"]["plow"]["base_url"] == "https://fleet.example/v1"
     models = out["providers"]["plow"]["models"]
-    assert "anthropic/claude-sonnet-5" in models
-    assert out["model"]["default"] != "z-ai/glm-5.2"
+    assert models["anthropic/claude-sonnet-5"] == {}
+    assert "z-ai/glm-5.2" in models

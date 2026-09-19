@@ -41,19 +41,10 @@ def overlay_display(seed: dict, ours: dict) -> dict:
 
 
 def overlay_model(seed: dict, ours: dict) -> dict:
-    """Fleet seed default is glm-5.2; the paper stays on Sonnet 5."""
-    seed_model = dict(seed.get("model") or {})
-    ours_model = dict(ours.get("model") or {})
-    seed["model"] = {**seed_model, **ours_model}
-    seed_provs = dict(seed.get("providers") or {})
-    ours_provs = dict(ours.get("providers") or {})
-    seed_plow = dict(seed_provs.get("plow") or {})
-    ours_plow = dict(ours_provs.get("plow") or {})
-    seed_models = dict(seed_plow.get("models") or {})
-    ours_models = dict(ours_plow.get("models") or {})
-    merged_plow = {**seed_plow, **ours_plow}
-    merged_plow["models"] = {**seed_models, **ours_models}
-    seed["providers"] = {**seed_provs, **ours_provs, "plow": merged_plow}
+    """Fleet seed default is glm-5.2; stamp only the paper's model id."""
+    model_id = ours["model"]["default"]
+    seed["model"]["default"] = model_id
+    seed["providers"]["plow"]["models"][model_id] = ours["providers"]["plow"]["models"][model_id]
     return seed
 
 
