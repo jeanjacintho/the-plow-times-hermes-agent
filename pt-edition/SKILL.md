@@ -132,11 +132,12 @@ HTML.** Hand-write `edition.json` under the run directory:
   date, entries}` record per post), `source_label` is its exact `title`,
   and `quote` is verbatim from one of its `entries`, at most 25 words; the
   card prints it in quotation marks with the title linked),
-  `first_step`, optional `not_today` (at most two strings), and optional
-  `stage_label`, `stage_why`, `yesterday`, `week`, `draft` (non-blank
-  strings), `who` (at most three strings) and `today` (at most four
-  `{"time", "title", "note"}`, where `time` is the printed start such as
-  "10:00", or null for an all-day event).
+  `first_step`, optional `not_today` (at most two strings), `questions`
+  (at most three strings, printed first), and optional `stage_label`,
+  `stage_why`, `yesterday`, `week`, `draft` (non-blank strings), `who`
+  (at most three strings) and `today` (at most four `{"time", "title",
+  "note"}`, where `time` is the printed start such as "10:00", or null
+  for an all-day event).
 - **`forecast` is optional, weather-only, and drawn — not written.** 1-6
   day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
   "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
