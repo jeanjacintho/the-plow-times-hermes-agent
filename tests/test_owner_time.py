@@ -31,6 +31,15 @@ class TestOwnerNow:
     def test_a_missing_config_falls_back_to_the_container_clock(self, tmp_path):
         assert owner_time.owner_today(tmp_path / "nope.json") == date.today()
 
+    def test_the_default_config_path_follows_pt_home(self, tmp_path, monkeypatch):
+        # Same override every other pt script honors (topics.py, run_lock.py,
+        # record_edition.py) -- tests point it at a tmp dir; CONFIG must read
+        # it at call time, not bake in whatever it was at import.
+        monkeypatch.setenv("PT_HOME", str(tmp_path))
+        (tmp_path / "config.json").write_text(
+            json.dumps({"owner": {"timezone": "America/Sao_Paulo"}}))
+        assert str(owner_time.owner_now().tzinfo) == "America/Sao_Paulo"
+
     def test_an_unknown_timezone_name_refuses_instead_of_guessing(self, tmp_path):
         config = tmp_path / "config.json"
         config.write_text(json.dumps({"owner": {"timezone": "Not/AZone"}}))

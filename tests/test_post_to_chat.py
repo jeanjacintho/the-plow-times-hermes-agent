@@ -115,21 +115,6 @@ class TestMaybePrint:
         assert seen == [(str(pdf.resolve()), str(cfg))]
         assert "page printed" in out
 
-    def test_a_print_failure_does_not_undo_the_chat_post(self, tmp_path):
-        pdf = tmp_path / "edition.pdf"
-        pdf.write_bytes(b"%PDF")
-        cfg = tmp_path / "config.json"
-        cfg.write_text(
-            json.dumps({"printer": {"configured": True, "name": "JornalVirtual"}}),
-            encoding="utf-8",
-        )
-
-        def runner(pdf_path, config_path):
-            raise SystemExit("error: page not printed — lp 1")
-
-        out = post.maybe_print(str(pdf), str(cfg), runner=runner)
-        assert "page not printed" in out
-
     @pytest.mark.parametrize("result, line", [
         ("page printed on JornalVirtual", None),
         ("skipped: printer.configured is not true", None),
@@ -160,16 +145,6 @@ class TestMaybeRecord:
         assert seen == [str(tmp_path / "edition.json")]
         assert "RECORDED" in out
 
-    def test_a_recorder_failure_does_not_undo_the_chat_post(self, tmp_path):
-        pdf = tmp_path / "edition.pdf"
-        pdf.write_bytes(b"%PDF")
-
-        def runner(edition_json):
-            raise SystemExit("error: edition not recorded — Mac unreachable")
-
-        out = post.maybe_record(str(pdf), runner=runner)
-        assert "edition not recorded" in out
-
     def test_a_hung_recorder_times_out_instead_of_blocking_the_run(self, monkeypatch):
         def fake_run(*args, **kwargs):
             raise subprocess.TimeoutExpired(cmd="record_edition.py", timeout=kwargs.get("timeout"))
@@ -183,7 +158,7 @@ class TestFinalizersRunIndependently:
     """The paper comes before the archive, and no finalizer's failure blocks
     another's: seal, print and record each run best-effort, in order."""
 
-    def _mock_main(self, tmp_path, monkeypatch, **overrides):
+    def _mock_main(self, tmp_path, monkeypatch, pdf_arg=None, **overrides):
         pdf = tmp_path / "edition.pdf"
         pdf.write_bytes(b"%PDF")
         monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
@@ -191,9 +166,11 @@ class TestFinalizersRunIndependently:
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
         monkeypatch.setattr(post, "post_json", lambda *a, **k: None)
         monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda: "sealed"))
-        monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
-        monkeypatch.setattr(post, "maybe_record", overrides["maybe_record"])
-        monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", str(pdf)])
+        if "maybe_print" in overrides:
+            monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
+        if "maybe_record" in overrides:
+            monkeypatch.setattr(post, "maybe_record", overrides["maybe_record"])
+        monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", pdf_arg or str(pdf)])
 
     def test_the_pdf_leg_prints_before_it_records(self, tmp_path, monkeypatch):
         order = []
@@ -228,3 +205,16 @@ class TestFinalizersRunIndependently:
         )
         post.main()
         assert order == ["print", "record"]
+
+    def test_a_print_failure_before_its_own_runner_still_records(self, tmp_path, monkeypatch):
+        # maybe_print itself is real here (not mocked): an unresolvable pdf
+        # path makes Path.resolve() raise inside maybe_print, before its
+        # runner is ever reached. main()'s own _best_effort around the call
+        # -- not one inside maybe_print -- is what has to catch this.
+        order = []
+        self._mock_main(
+            tmp_path, monkeypatch, pdf_arg="bad\x00path",
+            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
+        )
+        post.main()
+        assert order == ["record"]

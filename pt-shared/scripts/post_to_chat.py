@@ -182,7 +182,7 @@ def run_print_edition(pdf_path, config_path):
 
 
 def maybe_print(pdf_path, config_path=None, runner=None):
-    """Ship the page after the chat PDF. Best-effort: never undoes the POST.
+    """Ship the page after the chat PDF. Plain: main() makes this best-effort.
 
     Measured live 2026-09-18: the model posted the PDF, had edition.html
     and printer.configured true, and never ran print_edition.py. Later the
@@ -194,7 +194,7 @@ def maybe_print(pdf_path, config_path=None, runner=None):
     if not pdf_path:
         return "skipped: no pdf"
     run = runner or run_print_edition
-    return _best_effort(run, (str(Path(pdf_path).resolve()), config_path), "page not printed")
+    return run(str(Path(pdf_path).resolve()), config_path)
 
 
 RECORD_TIMEOUT = 300
@@ -223,16 +223,16 @@ def run_record_edition(edition_json):
 def maybe_record(posted_path, runner=None):
     """Put the edition into the owner's wiki after the chat leg is out.
 
-    Best-effort, exactly like maybe_print: never undoes the POST. Runs for
-    both the --pdf and the --text-file legs (edition.json is a sibling of
-    whichever file was actually posted); a bare stdin post has no file to
-    derive that sibling from, so it is skipped.
+    Plain, exactly like maybe_print: main() makes this best-effort. Runs
+    for both the --pdf and the --text-file legs (edition.json is a sibling
+    of whichever file was actually posted); a bare stdin post has no file
+    to derive that sibling from, so it is skipped.
     """
     if not posted_path:
         return "skipped: no posted file"
     edition_json = Path(posted_path).resolve().parent / "edition.json"
     run = runner or run_record_edition
-    return _best_effort(run, (str(edition_json),), "edition not recorded")
+    return run(str(edition_json))
 
 
 def print_failure_line(result):
@@ -335,7 +335,7 @@ def main():
     print(_best_effort(after_posted, (), "chat session not sealed"))
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
-        printed = maybe_print(args.pdf)
+        printed = _best_effort(maybe_print, (args.pdf,), "page not printed")
         print(printed)
         line = print_failure_line(printed)
         if line:
@@ -345,7 +345,7 @@ def main():
                 print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     else:
         print(f"chat edition posted ({len(text)} chars)")
-    print(maybe_record(args.pdf or args.text_file))
+    print(_best_effort(maybe_record, (args.pdf or args.text_file,), "edition not recorded"))
 
 
 if __name__ == "__main__":

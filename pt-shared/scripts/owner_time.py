@@ -20,17 +20,27 @@ would read as valid.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-CONFIG = Path("/var/lib/hermes/pt/config.json")
+# A sentinel, not a Path: PT_HOME (tests point it at a tmp dir, same as
+# topics.py/run_lock.py/record_edition.py) has to be read at call time, not
+# baked in as a default at import time.
+CONFIG = object()
+
+
+def _config_path(config_path):
+    if config_path is not CONFIG:
+        return config_path
+    return Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt")) / "config.json"
 
 
 def owner_now(config_path=CONFIG):
     """An aware datetime in the owner's own zone."""
     try:
-        config = json.loads(Path(config_path).read_text(encoding="utf-8"))
+        config = json.loads(Path(_config_path(config_path)).read_text(encoding="utf-8"))
     except FileNotFoundError:
         return datetime.now().astimezone()
     try:
