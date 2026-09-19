@@ -66,6 +66,15 @@ class TestEnsure:
         assert not (tmp_path / "advisor.md").exists()  # the container's copy is gone
         assert mac.wiki("validate")["exit_code"] == 0
 
+    def test_a_local_advisor_copy_is_kept_when_the_wiki_already_has_the_page(self, mac, tmp_path):
+        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True, pt_home=tmp_path)
+        before = (wiki_dir(mac) / ADVISOR_PAGE).read_text()
+        local = tmp_path / "advisor.md"
+        local.write_text("## As of\n\n## Company\n- product: Acme CRM\n")
+        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True, pt_home=tmp_path)
+        assert (wiki_dir(mac) / ADVISOR_PAGE).read_text() == before
+        assert local.exists()
+
 
 class TestCli:
     def test_an_unreachable_mac_is_an_error_not_ready(self, mac, monkeypatch, tmp_path):

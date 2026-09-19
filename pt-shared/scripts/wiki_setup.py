@@ -63,9 +63,11 @@ def ensure(wiki, chat, desk=False, pt_home=PT_HOME):
     if desk:
         did += _seed(wiki, GOALS, "goals.md", chat, lambda: wiki.read_path(LEGACY_NOTES))
         local = pt_home / "advisor.md"
-        did += _seed(wiki, ADVISOR_PAGE, "advisor.md", chat,
-                     lambda: local.read_text(encoding="utf-8") if local.exists() else None)
-        local.unlink(missing_ok=True)
+        carried = _seed(wiki, ADVISOR_PAGE, "advisor.md", chat,
+                         lambda: local.read_text(encoding="utf-8") if local.exists() else None)
+        if carried:
+            local.unlink(missing_ok=True)
+        did += carried
     if f'[roots."{ROOT}"]' not in toml:
         wiki.write("wiki.toml", f'{toml.rstrip()}\n\n[roots."{ROOT}"]\nwriter = "{WRITER}"\n')
         did.append(f"{ROOT} in wiki.toml")
@@ -78,8 +80,7 @@ def main(argv=None):
                         help="also the advisor's desk's pages (goals, the desk's page)")
     args = parser.parse_args(argv)
     try:
-        did = ensure(connect(), require("PLOW_HOME_CHANNEL"), desk=args.desk,
-                     pt_home=Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt")))
+        did = ensure(connect(), require("PLOW_HOME_CHANNEL"), desk=args.desk)
     except LatchError as exc:
         sys.exit(f"error: wiki not ready — {exc}")
     print("WIKI:" + ("ready" if not did else "set up " + ", ".join(did)))
