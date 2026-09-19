@@ -28,7 +28,7 @@ class TestSettle:
 
 
 class TestDecodeBody:
-    @pytest.mark.parametrize("raw", [b"", b'{"jsonrpc": "2.0", "id": 1}'])
+    @pytest.mark.parametrize("raw", [b"", b'{"jsonrpc": "2.0", "id": 1}', b"null", b'"result"'])
     def test_a_reply_with_no_result_or_error_is_refused(self, raw):
         with pytest.raises(LatchError, match="no result"):
             lm.decode_mcp_body("application/json", raw)
