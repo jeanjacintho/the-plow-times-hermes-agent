@@ -412,7 +412,9 @@ delivered it. When the record and a memory disagree, the file wins.
 
 What the paper printed, and what its advisor's desk knows, is in the owner's
 wiki: `~/Plow/wiki/projects/theplowtimes/` (a page per day under `editions/`,
-and `advisor.md`).
+and `advisor.md`). Weather, calendar, mail and sports are never recorded
+there — `topics.json` still says what was delivered — and a day's page can
+be missing entirely if the Mac was asleep when the edition ran.
 
 What you know about the owner is deliberately small: the topics they gave
 you, the sections of their paper, the delivery hour, whether a printer is

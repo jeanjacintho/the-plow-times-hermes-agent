@@ -67,7 +67,7 @@ def record(wiki, edition_json, chat, now):
     raw = Path(edition_json).read_bytes()
     edition = json.loads(raw)
     sections = edition.get("sections") or []
-    printed = next((s for s in sections if s.get("desk") == "priority"), None)
+    printed = next((s for s in sections if isinstance(s.get("priority"), dict)), None)
     news = [s for s in sections if s.get("topic_id")]
     if printed is None and not news:
         return "SKIPPED: no advisor's card and no section of the owner's"
@@ -102,9 +102,11 @@ def record(wiki, edition_json, chat, now):
     cited = {s["resource"] for s in meta["sources"]}
     meta["sources"] += [{"resource": u} for u in dict.fromkeys(urls) if u not in cited]
     meta["sources"] = meta["sources"] or [{"resource": f"plow-chat:{chat}"}]
-    meta["description"] = card["headline"] if card else (news[0].get("headline") or news[0]["title"])
     if card:
+        meta["description"] = card["headline"]
         meta["priority"] = card
+    elif not meta.get("description"):
+        meta["description"] = news[0].get("headline") or news[0]["title"]
     meta["updated"] = now.isoformat(timespec="seconds")
     wiki.write(rel, join_page(meta, body.rstrip("\n") + "\n\n" + "\n".join(lines)))
     wiki.check()
