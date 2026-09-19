@@ -103,6 +103,24 @@ class TestRecord:
         assert rec.record(w, path, "cht_1", MORNING).startswith("SKIPPED:")
         assert day(mac) == before
 
+    def test_a_skipped_repeat_still_checks_the_wiki(self, mac, tmp_path, monkeypatch):
+        # A retry must still finish an earlier check() that failed after the
+        # write landed -- the marker means "don't append again", never
+        # "don't index again".
+        w, path = Wiki(mac.call_tool), edition(tmp_path)
+        calls, real_check = [], Wiki.check
+
+        def spy_check(self):
+            calls.append(1)
+            return real_check(self)
+
+        monkeypatch.setattr(Wiki, "check", spy_check)
+        rec.record(w, path, "cht_1", MORNING)
+        before = day(mac)
+        rec.record(w, path, "cht_1", MORNING)
+        assert calls == [1, 1]
+        assert day(mac) == before
+
     def test_an_edition_of_standing_desks_only_leaves_no_page(self, mac, tmp_path):
         out = rec.record(Wiki(mac.call_tool), edition(tmp_path, card=False, news=False), "cht_1", MORNING)
         assert out.startswith("SKIPPED:")
