@@ -14,14 +14,17 @@
 # under a running agent that holds live credentials. Bump both together.
 FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-51f83158a70a383f03a4d03dbd8b6ea102cf0361@sha256:253d7ed3409effa7fa59113d93b4b79bb731d8264cdaf4cd60294924d0110a2e
 
-# plow-init re-writes a fixed key list (model, display, ...) from
-# /opt/hermes/plow-seed/config.yaml into the agent home on every start. The
-# base pins anthropic/claude-sonnet-5 there; leave that id, and declare the
-# same model in runtime/config.yaml. The base seed leaves plow_chat interim
-# messages and long_running_notifications on -- measured live, the model
-# named every tool in the owner's DM -- so the quiet block is stamped onto
-# the seed. Other seed keys reach only a new home: 03-pt-context-cap
-# carries context_file_max_chars into an existing one.
+# Boot recopies /opt/hermes/plow-seed/config.yaml over the agent home on
+# every start. The base pins anthropic/claude-sonnet-5 there; leave that
+# id. runtime/config.yaml must declare the same model so a first-boot
+# home is not a different catalog entry before the recopy.
+#
+# plow-init also writes seed['display'] whole on every boot. The base
+# seed leaves plow_chat interim messages at the Hermes default (on) and
+# long_running_notifications true — measured live after the Sonnet
+# recreate: the model named every tool in the owner's DM. Overlay the
+# newspaper quiet block onto the seed; copying runtime/config.yaml into
+# /var/lib/hermes is not enough (agent-home shadows it).
 COPY runtime/config.yaml /tmp/pt-runtime-config.yaml
 COPY image/merge_pt_seed_config.py /opt/plow/merge_pt_seed_config.py
 RUN /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
@@ -166,7 +169,8 @@ RUN set -eu; \
     chmod 0644 /opt/plow/agent-index-client.py
 
 COPY image/s6-overlay/ /etc/s6-overlay/
-COPY --chmod=0755 image/cont-init.d/ /etc/cont-init.d/
+COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
+RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials
 
 # Hermes' billing wall concatenates the HTTP body, the provider name, a
 # billing URL and `/model`. Pin one user-facing line and fail the build if
