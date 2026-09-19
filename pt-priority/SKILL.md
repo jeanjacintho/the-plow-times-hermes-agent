@@ -56,8 +56,9 @@ become a goal, a `Not now`, a company fact or a stage change.
 **Every line rests on this run's evidence.** For each line you mean to print — `yesterday`,
 a `today` note, `week`, a `who`, the headline and first step, a `not_today`, a `why` text —
 name to yourself the item read this run that it rests on: the thread and its latest message,
-the event, the message, the history entry, the company fact. No item, no line; never pad
-a field. A count is a count of the items you saw.
+the event, the message, the history entry, the company fact. No item, no optional line;
+never pad one. The focus (`headline`, `first_step`, at least one `why`) is the card itself:
+with no item for it, the desk is unavailable (below). A count is a count of the items you saw.
 
 1. **Yesterday.** Take the most recent history `desk` — the previous paper, even when it
    ran earlier today — its `headline`, `who` and `draft`; then what happened since: what got
@@ -98,9 +99,9 @@ a field. A count is a count of the items you saw.
    call gets "Go in with: <the one thing to learn>"; an investor meeting or a demo gets how
    to run it, in Salyer's terms from a picked entry. `time` is the event's start, `null`
    for an all-day event.
-6. **This week.** One line counting the owner's customer conversations, in this run's
-   gathers and in the last six days of history (`yesterday`, `today`), against the
-   advisor's bar for this stage. When history covers fewer days, say how many.
+6. **This week.** One line counting the owner's distinct customer conversations of the last
+   7 days, never the whole 14-day read: this run's gathers plus history's last six days
+   (`yesterday`, `today`), against the advisor's bar for this stage. Fewer days: say how many.
 7. **Focus.** One concrete action for today that serves the advisor's `Focus first` for
    that stage (and modifier) and the owner's goals. Never "check email", "catch up", "plan
    the week", or a list. Never something in the owner's `Not now` or the advisor's `Do not
@@ -140,4 +141,5 @@ Use `write_file` for `/var/lib/hermes/pt/run/desk-priority/notes.json`:
 
 pt-edition records the day in history once the paper is delivered.
 
-No `salyer-*` files or no bank → write `{"desk": "priority", "status": "unavailable"}`.
+No `salyer-*` files, no bank, or no item that can carry a focus → write
+`{"desk": "priority", "status": "unavailable"}`, never an unsupported focus.
