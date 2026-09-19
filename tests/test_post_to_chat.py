@@ -154,6 +154,14 @@ class TestMaybeRecord:
         assert out == f"edition not recorded — timed out after {post.RECORD_TIMEOUT}s"
 
 
+def _seal_ok():
+    return "sealed"
+
+
+def _seal_fails():
+    raise RuntimeError("disk full")
+
+
 class TestFinalizersRunIndependently:
     """The paper comes before the archive, and no finalizer's failure blocks
     another's: seal, print and record each run best-effort, in order."""
@@ -172,35 +180,16 @@ class TestFinalizersRunIndependently:
             monkeypatch.setattr(post, "maybe_record", overrides["maybe_record"])
         monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", pdf_arg or str(pdf)])
 
-    def test_the_pdf_leg_prints_before_it_records(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize("seal, print_result", [
+        (_seal_ok, "page printed"),  # the happy path: prints before it records
+        (_seal_fails, "page printed"),  # a seal failure
+        (_seal_ok, "page not printed — lp 1"),  # a print failure
+    ])
+    def test_a_failing_finalizer_never_blocks_the_next_one(self, tmp_path, monkeypatch, seal, print_result):
         order = []
         self._mock_main(
-            tmp_path, monkeypatch,
-            maybe_print=lambda *a, **k: order.append("print") or "page printed",
-            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
-        )
-        post.main()
-        assert order == ["print", "record"]
-
-    def test_a_seal_failure_still_prints_and_records(self, tmp_path, monkeypatch):
-        order = []
-
-        def failing_seal():
-            raise RuntimeError("disk full")
-
-        self._mock_main(
-            tmp_path, monkeypatch, after_posted=failing_seal,
-            maybe_print=lambda *a, **k: order.append("print") or "page printed",
-            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
-        )
-        post.main()
-        assert order == ["print", "record"]
-
-    def test_a_print_failure_still_records(self, tmp_path, monkeypatch):
-        order = []
-        self._mock_main(
-            tmp_path, monkeypatch,
-            maybe_print=lambda *a, **k: order.append("print") or "page not printed — lp 1",
+            tmp_path, monkeypatch, after_posted=seal,
+            maybe_print=lambda *a, **k: order.append("print") or print_result,
             maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
         )
         post.main()
