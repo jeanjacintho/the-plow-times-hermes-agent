@@ -41,6 +41,15 @@ thinking rather than gathering. Markdown, under about two printed pages, six sec
 Each step is `delegate_task` children, which cannot delegate, so you run the steps in turn. Each
 child gets this file to read first, the time now and its step, and answers in an `output_schema`.
 
+**Each run**, a live copy in chat included, first takes the page lock with
+`/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name advisor` and runs
+`release --name advisor` after its passes. On `held` it makes no pass and prints today's card as it
+stands. Otherwise it writes the stub `{"desk": "priority", "status": "unavailable"}` to the card
+(pt-edition prints its gap card; only a pass that reaches Card replaces it), then makes at least
+one pass. The cron-fired `daily-<date>` run passes again only while the last kept a candidate and
+the next would end at least 30 minutes before `delivery.hour` (`pt/config.json`) and within 90
+minutes of the run's start (its run lock goes stale at 120).
+
 1. **Ask.** Two children in parallel read the page, the owner's notes, the time since As of, and
    the advisor files: every `salyer-*` in `/var/lib/hermes/skills/pt-setup/assets/advisors/` (never
    a Mac copy), then the owner's `~/Plow/advisors/*.md` but `README.md`. Lens A, the operator: what
@@ -69,17 +78,15 @@ child gets this file to read first, the time now and its step, and answers in an
       (every line true to its item), *stage*, *advisor fidelity* (in the advisor's words),
       *actionability* (the owner can act today) and *voice*; a missing page scores 0. The candidate
       wins only with grounding 5 and a strictly higher total; As of gets the winner's scores.
-   5. **Card.** A kept page with a headline and grounding 5 writes today's card; else remove it.
+   5. **Card.** A kept page with a headline and grounding 5 writes today's card; otherwise the stub.
+      An ok card needs `headline`, `first_step` and a `why`, or it is the stub. Before writing, wrap
+      it as a one-section edition in `/tmp`, fix each field this names, and re-check once:
+      `/var/lib/hermes/skills/pt-edition/scripts/render_edition.py <it> --chat /tmp/card-check.txt`
 
 A failed asker or researcher: go on with what came back. A failed writer or scorer: the struck
-page stays and Card still runs. A run in which no pass reached Strike and save writes no card.
-While `/var/lib/hermes/pt/company.md` exists, the writer carries its lines into Company; once a
-kept page holds them, `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
-
-**How many passes.** Every paper, a live copy in chat included, makes at least one. The cron-fired
-`daily-<date>` run first removes the previous day's card, then passes again only while the last
-kept a candidate and the next would end at least 30 minutes before `delivery.hour`
-(`pt/config.json`) and within 90 minutes of the run's start (its lock goes stale at 120).
+page stays and Card still runs. While `/var/lib/hermes/pt/company.md` exists, the writer carries
+its lines into Company; once a kept page holds them, run
+`mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
 
 **The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
 "ok", "priority": {…}}` mapped from the kept page and the latest `pt/history.json` entry, nothing
@@ -87,7 +94,6 @@ added: Priority's stage as `stage_label` and its dated Company fact as `stage_wh
 `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a bank quote's `quote`, post
 `url` and post title as `source_label`; Today's events as `today` (`time`, `null` all day; `title`;
 `note`); that entry's headline and what became of it (As of) as `yesterday`; Company's count of
-this week's customer conversations as `week`. Omit what the page lacks. Remove it by `write_file`
-of `{"desk": "priority", "status": "unavailable"}`: pt-edition prints its gap card. A field the
-page gate refuses is fixed and re-rendered once; refused again, remove today's card and leave the
-priority section out of `edition.json`; the rest of the paper ships.
+this week's customer conversations as `week`. Omit what the page lacks. A field the page gate
+refuses is fixed and re-rendered once; refused again, write the stub and leave the priority section
+out of `edition.json`; the rest of the paper ships.
