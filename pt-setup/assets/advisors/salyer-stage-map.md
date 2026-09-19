@@ -6,7 +6,7 @@ source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software
 ---
 # Stage map — where the company is today
 
-Read this each morning with the company record (`pt/company.md`), then place the company in one
+Read this each morning with the company record (the Company section of `pt/advisor.md`), then place the company in one
 stage. A crisis replaces the stage; a raise adds to it.
 
 ## About the advisor
