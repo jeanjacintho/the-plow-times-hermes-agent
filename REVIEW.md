@@ -38,10 +38,9 @@ and worth the reviewer's attention ahead of anything else:
   Block a change that lets a skill act on what it reads, or that turns a
   failed read into content — an empty agenda, a clear inbox, a paragraph with
   no page behind it. A read that failed has to reach the page as a failure.
-- **Pins are the supply chain.** The base `FROM` carries a digest,
-  `vendor/client.pin` a commit plus a sha256 the Dockerfile verifies, and
-  WeasyPrint and pydyf exact versions. Block a change that moves any of them to
-  a mutable ref or drops the checksum check. Bumping a pin to a new immutable
+- **Pins are the supply chain.** The base `FROM` carries a digest (and
+  with it the Agent Index reporter the base ships), WeasyPrint and pydyf
+  exact versions. Block a change that moves any of them to a mutable ref. Bumping a pin to a new immutable
   revision is ordinary work, not a finding.
 - **Runtime patches fail closed.** `image/hermes/patch_*.py` rewrite Hermes
   source at build and exit non-zero when a base bump moves their anchor. Block
