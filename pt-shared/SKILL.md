@@ -71,9 +71,11 @@ does not, and every run fails on the import.
 - `pt-priority/scripts/company.py` — the paper's record of the owner's company
   (`pt/company.json`), which places it in the advisor's stage. Called bare:
   `/var/lib/hermes/skills/pt-priority/scripts/company.py show` prints one fact per line or
-  `EMPTY`; `.../company.py set <key> --value V --source S --as-of YYYY-MM-DD`, key one of
-  `product`, `revenue`, `paying_customers`, `referenceable_customers`, `team_size`,
-  `raise`, `stage`, prints `SET`, `UNCHANGED` (same value) or `REFUSED` (older evidence).
+  `EMPTY`; `.../company.py set --request <path>` records the fact in that JSON file
+  (`{"key", "value", "source", "as_of"}`, written with `write_file`, never on the command
+  line), key one of `product`, `revenue`, `paying_customers`, `referenceable_customers`,
+  `team_size`, `raise`, `stage`, prints `SET`, `UNCHANGED` (same value) or `REFUSED`
+  (older evidence, or another value on the same date).
   A corrupt record exits 1 with `CORRUPT: …` and is left for a human.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.

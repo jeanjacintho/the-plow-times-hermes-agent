@@ -3,15 +3,18 @@
 
 usage:
   company.py show
-  company.py set <key> --value V --source S --as-of YYYY-MM-DD
+  company.py set --request <path to {"key", "value", "source", "as_of"} JSON>
 
-A fact changes only on newer evidence: an older --as-of is refused and the same
-value is a no-op. Unlike history.json this is a record, not a convenience, so a
-corrupt file fails loudly by name and is never replaced.
+Facts come from mail and messages anyone can send, so `set` takes them from a file the
+agent writes, never from argv: no fact is ever shell syntax. A fact changes only on
+newer evidence: a newer as_of wins (the same value just advances as_of and source), an
+older one or a different value on the same date is refused. Unlike history.json this is
+a record, not a convenience, so a corrupt file fails loudly by name and is never replaced.
 """
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import pathlib
@@ -40,15 +43,22 @@ def load():
     return facts
 
 
+def read_request(path):
+    """(key, value, source, as_of) from the agent's request file; raises when it is not one."""
+    req = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(req, dict) or req.get("key") not in KEYS or not FIELDS <= req.keys():
+        raise ValueError(f'expected {{"key": one of {KEYS}, "value", "source", "as_of"}}')
+    return req["key"], req["value"], req["source"], Date.fromisoformat(req["as_of"]).isoformat()
+
+
 def set_fact(facts, key, value, source, as_of):
     old = facts.get(key)
-    if old and as_of < old["as_of"]:
+    if old and as_of <= old["as_of"]:
+        if value == old["value"]:
+            return f"UNCHANGED: {key}"
         return f"REFUSED: {key} is already recorded as of {old['as_of']}"
-    if old and value == old["value"]:
-        return f"UNCHANGED: {key}"
     facts[key] = {"value": value, "source": source, "as_of": as_of}
     path = company_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps({"facts": facts}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, path)
@@ -59,20 +69,23 @@ def main(argv):
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("show")
-    s = sub.add_parser("set")
-    s.add_argument("key", choices=KEYS)
-    s.add_argument("--value", required=True)
-    s.add_argument("--source", required=True)
-    s.add_argument("--as-of", required=True, type=lambda d: Date.fromisoformat(d).isoformat())
+    sub.add_parser("set").add_argument("--request", required=True, type=pathlib.Path)
     args = parser.parse_args(argv)
-    try:
-        facts = load()
-    except ValueError as exc:
-        print(f"CORRUPT: {company_path()}: {exc}. Fix or remove it by hand.", file=sys.stderr)
-        return 1
-    if args.cmd == "set":
-        print(set_fact(facts, args.key, args.value, args.source, args.as_of))
-    elif not facts:
+    path = company_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # One writer at a time across the DM and cron sessions: the whole load-compare-write
+    # runs under an OS lock the kernel drops if the process dies.
+    with open(path.with_suffix(".lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            facts = load()
+        except ValueError as exc:
+            print(f"CORRUPT: {path}: {exc}. Fix or remove it by hand.", file=sys.stderr)
+            return 1
+        if args.cmd == "set":
+            print(set_fact(facts, *read_request(args.request)))
+            return 0
+    if not facts:
         print("EMPTY")
     else:
         for key, fact in sorted(facts.items()):
