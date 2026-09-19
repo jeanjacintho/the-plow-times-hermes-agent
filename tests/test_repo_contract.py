@@ -695,7 +695,7 @@ class TestSkills:
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## 5. Priority" in desks
         assert "run/desk-calendar/events.json" in desks
-        assert "imessage" in desks
+        assert "plow-messages" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
         assert "**An event is its people.**" in skill
