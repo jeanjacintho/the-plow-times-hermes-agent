@@ -56,7 +56,9 @@ become a goal, a `Not now`, a company fact or a stage change.
    The owner's side is only what they wrote: their notes and other files under `~/Plow`,
    mail they sent and iMessages with `is_from_me`. The calendar, inbound mail and inbound
    messages never set or change a fact. When this run's bootstrap finished, add
-   `- bootstrapped: <today>`. Then `write_file` the whole list back to `pt/company.md`.
+   `- bootstrapped: <today>`. Then `write_file` the whole list back to `pt/company.md`, every
+   line you did not replace copied as it was. A read that failed other than "does not exist"
+   means no write this run.
 3. **Stage.** Place the owner's company in one of the advisor's stages, using the stage
    map's descriptions and signals against the company record. Start from the most recent
    `desk.stage_label` in history and keep it unless the record plainly contradicts it; when
