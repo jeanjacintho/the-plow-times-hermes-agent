@@ -41,15 +41,16 @@ first, the time now, and their step.
    - Each returns at most 5 questions, ranked by what on the page the answer could change.
    - When the page has a headline, one question is always asked: **"What would make today's headline wrong or already done?"**
 2. **Find.** Researcher children split the questions and answer from the owner's sources: whole mail threads in both directions, iMessage (through the Mac's own `imessage` skill), calendar, and the owner's notes and wiki. Every answer cites its item, and "no item found" is an answer.
-3. **Judge.** One child writes, and a separate one scores:
-   - **Falsify.** First try to disprove the current headline and every claim the answers touch, by re-opening their items.
-   - **Rewrite.** Draft a candidate page from the old page plus the surviving answers. Estimate what's missing, and keep what's still open.
-   - **Ratchet.** A separate scorer child, which didn't write the candidate and is blind to which page is which, scores both on one rubric, 1–5 each: *grounding* (every line true against its item), *stage*, *advisor fidelity* (the advice fits this situation, in the advisor's words), *actionability* (the owner can act on it today) and *voice*. Keep the candidate only if its total strictly beats the old page's; a tie keeps the old page. Record the per-dimension scores under As of.
-
-**The one invariant.** Before any page is kept, whether old or new and whether the pass succeeded or failed, every line without an item and every line Falsify disproved is struck from it. Today's card is written only from a kept page that still has a headline.
+3. **Judge.** Strictly in this order:
+   1. **Falsify.** Re-open the items behind the current headline and every claim the answers touch, and mark what they disprove.
+   2. **Strike and save.** Strike from the old page every line without an item and every disproved line, then save it at once. From here on, any failure keeps this struck page.
+   3. **Rewrite.** A writer child drafts a candidate from the struck page plus the surviving answers: same strike rule, estimates for what's missing, open questions kept.
+   4. **Score.** A separate scorer child, blind to which page is which, scores both on one rubric, 1–5 each: *grounding* (every line true to its item), *stage*, *advisor fidelity* (fits this situation, in the advisor's words), *actionability* (the owner can act today) and *voice*. The candidate is kept only if its grounding is 5 AND its total strictly beats the struck page's. Otherwise the struck page is kept. The per-dimension scores go under As of.
+   5. **Card.** Today's card is written from the kept page, if it has a headline.
 
 A failed asker or researcher: the pass continues with what came back. A failed writer or
-scorer: the old page is kept, under the invariant.
+scorer: the struck page from step 2 is kept, and step 5 still runs. A run in which no pass
+reached step 2 writes no card.
 
 ## How many passes
 The daily run repeats passes while the last one kept a candidate and the next would finish
@@ -61,9 +62,9 @@ The card is a projection of the Priority section into the renderer's existing fi
 (`stage_label`, `stage_why`, `headline`, `first_step`, `why[]` with bank `quote`, `url` and
 `source_label`, `who`, `draft`, `not_today`, `today`, `yesterday`, `week`). There are no
 rules beyond that mapping. What makes advice good lives in the advisor files and the judge's
-rubric. A card belongs to its date: each daily run first removes the previous day's card,
-and every pass writes today's from the kept page. If there's no card for today (the page
-can't carry a focus, or every pass failed), the renderer's existing gap card prints. A live
+rubric. A card belongs to its date: each daily run first removes the previous day's card.
+If there's no card for today (no kept page with a headline, or no pass reached step 2), the
+renderer's existing gap card prints. A live
 copy in chat prints today's card, or that gap card. When the page gate refuses a field, fix
 the named field and re-render once. If it's refused again, delete today's card and omit the
 priority section: the gap card prints, and the rest of the paper still ships.
