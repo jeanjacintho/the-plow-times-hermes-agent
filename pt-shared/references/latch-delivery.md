@@ -46,6 +46,6 @@ The chat edition is the contract; paper is the bonus. Every failure above —
 no printer configured, write refused, lp non-zero, the Mac asleep or Latch
 not running (the relay's unreachable-device error) — ends the same way: the
 chat edition already delivered is the outcome. Do not retry in a loop and do
-not queue the page: report in chat, in these words — "Mac unreachable, page
-not printed; next scheduled run retries" — and end the run. The next
+not queue the page: report in chat, in these words — "page not printed —
+Mac unreachable; next scheduled run retries" — and end the run. The next
 scheduled run recomposes and re-delivers on its own.

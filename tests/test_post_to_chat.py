@@ -136,8 +136,8 @@ class TestMaybePrint:
          "page not printed — lp 1: no such printer; next scheduled run retries"),
         ("warning: something first\nerror: page not printed — latch denied",
          "page not printed — latch denied; next scheduled run retries"),
-        ("error: Mac unreachable, page not printed; next scheduled run retries",
-         "Mac unreachable, page not printed; next scheduled run retries"),
+        ("error: page not printed — Mac unreachable",
+         "page not printed — Mac unreachable; next scheduled run retries"),
     ])
     def test_only_a_failed_print_owes_the_owner_a_chat_line(self, result, line):
         assert post.print_failure_line(result) == line

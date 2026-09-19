@@ -13,7 +13,9 @@
 # tools and the gog grammar that research, calendar, mail and print drive;
 # `agent-index-client` is the reporter the base ships as its `agent-index` service;
 # `plow-agents` owns the install contract and the compose shape `compose.yml`
-# follows; `agent-mgr` still execs `deploy-hook` and reads `agent.env`.
+# follows; `agent-mgr` still execs `deploy-hook` and reads `agent.env`;
+# `plow-wiki` is the wiki the paper writes: its schema rules and CLI are the
+# contract wiki.py and the seeds hold to.
 #
 # The two NousResearch rows are not GitHub repos: they are the reviewer
 # host's names for the `gateway/` and `agent/` subtrees of
@@ -32,5 +34,6 @@ plow-pbc/latch
 plow-pbc/agent-index-client
 plow-pbc/plow-agents
 plow-pbc/agent-mgr
+plow-pbc/plow-wiki
 NousResearch/hermes-gateway
 NousResearch/hermes-agent-core

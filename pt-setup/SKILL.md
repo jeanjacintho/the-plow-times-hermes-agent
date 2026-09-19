@@ -29,7 +29,7 @@ structurally impossible:
 
 One line, no interpreter prefix, no shell operators — same rule SOUL.md
 gives `setup_needed.py`. `key` is a dot-path (`local_hour`,
-`printer.configured`, `printer.name`, `priority.configured`, `priority.file`, `mail.configured`, `news_asked`);
+`printer.configured`, `printer.name`, `priority.configured`, `mail.configured`, `news_asked`);
 `true`/`false` become real JSON booleans, anything else stays a string. A
 value with a space needs its own quoting, e.g. `printer.name="HP LaserJet 4"`.
 It prints two lines:
@@ -360,45 +360,21 @@ Copy the question (CHAT_VOICE), in the owner's language:
 Stop. On their next message:
 
 - **No** → `record_setup.py <config path> priority.configured=false`
-- **An answer** → first put it on the Mac. Run `chat_status.py --busy` before the read
-  and after each write; do not type that you are writing anything. Read the file once
-  with `mcp__plow__plow_read_file` `path=~/Plow/prioritization.md`:
-  - it exists → add their answer as one `- ` line under `## Goals` unless it is already
-    there, and write it back with `mcp__plow__plow_write_file`.
-  - it does not exist → `mcp__plow__plow_write_file` `path=~/Plow/prioritization.md` with
-    exactly:
-
-        # What I'm working toward
-
-        ## Goals
-        - <their answer>
-
-        ## Not now
-
-        ## Notes
-
-  - **never overwrite an existing file**: every line already in it stays as it was. Never
-    paste the owner's file back in chat.
-  Only once the goal is in the file (written now, or already there): `record_setup.py <config path> priority.configured=true priority.file=~/Plow/prioritization.md`.
-  A denied or failed write → say so in one line and record nothing; the question stays open.
-  Say in one line that the desk reads their Mac every morning and that they can correct
-  it any time by texting ("Raj is my cousin", "stop telling me to hire").
-
-Then, only once the desk is on, seed the advisor folder's README. Patrick
-Salyer's notes (`salyer-*`) and quote bank are never copied: the desk reads
-the paper's own copies every morning, so an update to them reaches every
-install without touching the Mac.
-
-1. `mcp__plow__plow_run_command` `argv=["/bin/ls","-1","<home>/Plow/advisors"]`
-   (absolute path; `plow_run_command` does not expand `~`). A missing
-   directory is fine: writing the file creates it.
-2. `README.md`: if it is absent, `read_file`
-   `/var/lib/hermes/skills/pt-setup/assets/advisors/README.md` and
-   `mcp__plow__plow_write_file` `path=~/Plow/advisors/README.md`, content
-   unchanged. Never overwrite a file that is already there. If you wrote it,
-   say: "Patrick Salyer's advice comes with the paper. To add your own
-   advisors or investors, drop their notes in ~/Plow/advisors — the README
-   there shows the shape."
+- **An answer** → first put it in their wiki. Run `chat_status.py --busy` before the
+  first Latch call and after each write; do not type that you are writing anything.
+  1. `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk` — it makes
+     `~/Plow/wiki` ready (creating it when the Mac has none) and prints `WIKI:…`.
+  2. `mcp__plow__plow_read_file` `path=~/Plow/wiki/entities/owner/goals.md` once; add
+     their answer as one `- ` line under `## Goals` unless it is already there, set
+     `updated:` to today, and `mcp__plow__plow_write_file` it back. Every other line,
+     frontmatter included, stays as it was. Never paste the page back in chat.
+  Only once the goal is on the page: `record_setup.py <config path> priority.configured=true`.
+  An `error:` from step 1, or a denied or failed write → say so in one line and record
+  nothing; the question stays open.
+  Say in one line that the desk reads their Mac every morning, that they can correct it
+  any time by texting ("Raj is my cousin", "stop telling me to hire"), and that their
+  goals and the desk's Q&A are in their wiki at ~/Plow/wiki (it opens in Obsidian), where
+  The Founder Times page shows how to add their own advisors.
 
 Then continue with the mail question in the same turn.
 
