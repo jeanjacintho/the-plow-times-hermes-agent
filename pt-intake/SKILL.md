@@ -130,7 +130,10 @@ These are ordinary turns, not classifications. Do them and end:
 
 Only when `priority.configured` is true. When the owner corrects the desk or states
 something durable about their work — "Raj is my cousin, not a customer", "stop telling me
-to hire", "we signed our first pilot" — this is not a topic. `mcp__plow__plow_read_file`
+to hire", "we signed our first pilot" — this is not a topic. Run
+`/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk` first (idempotent; it seeds
+or carries over the page) — an `error:` line means the Mac's wiki isn't reachable: say so in
+one line and write nothing, the correction will need resending. Then `mcp__plow__plow_read_file`
 `~/Plow/wiki/entities/owner/goals.md`, append one line dated today (`- YYYY-MM-DD: …`)
 under `## Goals`, `## Not now` or `## Notes`, whichever fits, set `updated:` to today,
 and `mcp__plow__plow_write_file` it back with every other line unchanged, and confirm in
