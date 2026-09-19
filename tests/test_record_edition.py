@@ -104,3 +104,16 @@ class TestCli:
         with pytest.raises(SystemExit) as exc:
             rec.main([str(path)])
         assert str(exc.value).startswith("error: edition not recorded — Mac unreachable")
+
+    def test_the_heading_uses_the_owners_clock_not_the_containers(self, mac, monkeypatch, tmp_path):
+        # 23:30 on the container's own day is already 13:30 the next day in
+        # a +14 zone: the heading must show the owner's hour, never the
+        # container's, so main() has to call owner_now(), not datetime.now().
+        path = edition(tmp_path)
+        far_east = timezone(timedelta(hours=14))
+        owner_instant = datetime(2026, 9, 20, 13, 30, tzinfo=far_east)
+        monkeypatch.setattr(rec, "connect", lambda: Wiki(mac.call_tool))
+        monkeypatch.setattr(rec, "owner_now", lambda: owner_instant)
+        monkeypatch.setenv("PLOW_HOME_CHANNEL", "cht_1")
+        rec.main([str(path)])
+        assert "## 13:30 edition" in day(mac)

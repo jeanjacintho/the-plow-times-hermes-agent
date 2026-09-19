@@ -81,6 +81,12 @@ does not, and every run fails on the import.
   once); `chat_status.py --busy` during pt-setup Latch/Mac work (hang-on,
   then one "still on it", never a play-by-play; does not seal the
   session). Cron never calls it.
+- `scripts/owner_time.py` — the owner's own clock, not the container's:
+  `owner_now()` (an aware datetime) and `owner_today()`, from `owner.timezone`
+  in `pt/config.json`. Falls back to the container's clock only when the
+  config or the key is absent; a config that exists but can't be trusted (bad
+  JSON, an unreadable file, an unknown zone name) raises. Shared by
+  `history.py`'s window and `record_edition.py`'s heading below.
 - `pt-priority/scripts/history.py recent` — the cards the desk printed on the last 7 days, read
   from the wiki's edition pages; prints `[{"date", "desk"}]`.
 - `pt-edition/scripts/record_edition.py <edition.json>` — the delivered edition onto the day's

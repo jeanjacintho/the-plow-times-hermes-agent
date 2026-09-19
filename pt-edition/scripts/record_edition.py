@@ -5,11 +5,13 @@ usage: record_edition.py <run/<id>/edition.json>
 
 Run once the chat leg is out (pt-edition), never before: the wiki records what
 the owner received. The day's page is projects/theplowtimes/editions/<date>.md;
-each edition that day appends one `## HH:MM edition` block: the advisor's card,
-then every section the owner chose (anything with a topic_id) with its body,
-the evidence its research notes hold (run/<topic_id>/notes.json) and what could
-not be sourced. Weather, calendar, mail and sports stay out: they are the day's
-reads of the owner's own accounts, and the wiki is every agent's recall.
+each edition that day appends one `## HH:MM edition` block, stamped in the
+owner's own zone (`owner_time.owner_now()`), never the container's: the
+advisor's card, then every section the owner chose (anything with a
+topic_id) with its body, the evidence its research notes hold
+(run/<topic_id>/notes.json) and what could not be sourced. Weather,
+calendar, mail and sports stay out: they are the day's reads of the owner's
+own accounts, and the wiki is every agent's recall.
 
 The page's `priority` frontmatter is the last card printed that day; history.py
 reads it back as the desk's history. After the write, `wiki validate` and
@@ -29,12 +31,12 @@ import hashlib
 import json
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pt-shared" / "scripts"))
 from bearer_http import require
 from latch_mcp import LatchError
+from owner_time import owner_now
 from wiki import EDITIONS, PAPER_LINK, connect, join_page, split_page
 from wiki_setup import ensure
 
@@ -128,9 +130,8 @@ def main(argv=None):
     parser.add_argument("edition_json")
     args = parser.parse_args(argv)
     try:
-        print(record(connect(), args.edition_json, require("PLOW_HOME_CHANNEL"),
-                     datetime.now().astimezone()))
-    except LatchError as exc:
+        print(record(connect(), args.edition_json, require("PLOW_HOME_CHANNEL"), owner_now()))
+    except (LatchError, OSError, ValueError, KeyError, TypeError) as exc:
         sys.exit(f"error: edition not recorded — {exc}")
 
 

@@ -10,52 +10,25 @@ the owner never received is never history. A day with no page, or no card, is
 left out. When the Mac does not answer: `error: history unavailable — <why>`,
 non-zero; the desk then runs as if history were empty.
 
-"Today" is the owner's own day, from `owner.timezone` in pt/config.json, not
-the container's: register_crons.py no longer requires the two to agree (see
-its module docstring), so a page named for the owner's day can be a day off
-the container's own date. The container's date is the fallback only when the
-config or the key is missing; a config that exists but can't be trusted (bad
-JSON, an unreadable file, an unknown zone name) is the same `error: history
-unavailable — <why>` above, never a guessed window.
+"Today" is the owner's own day (`owner_time.owner_today()`), not the
+container's -- see that module's docstring for why, and for the same
+`error: history unavailable — <why>` refusal on a config that can't be
+trusted rather than a guessed window.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pt-shared" / "scripts"))
 from latch_mcp import LatchError
+from owner_time import owner_today
 from wiki import EDITIONS, connect, split_page
 
 DAYS = 7
-
-
-def config_path():
-    return Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt")) / "config.json"
-
-
-def owner_today():
-    """The owner's own date -- see the module docstring for why.
-
-    The container's date is the fallback only when the config or the key is
-    genuinely absent; a config that exists but can't be trusted (bad JSON,
-    an unreadable file, an unknown zone name) refuses instead of guessing --
-    a silently wrong seven-day window would read as valid history.
-    """
-    try:
-        config = json.loads(config_path().read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return date.today()
-    try:
-        tz = config["owner"]["timezone"]
-    except (KeyError, TypeError):
-        return date.today()
-    return datetime.now(ZoneInfo(tz)).date()
 
 
 def recent(wiki, today):

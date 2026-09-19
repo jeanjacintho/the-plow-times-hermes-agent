@@ -1,8 +1,7 @@
 """history.py: what the advisor's desk printed lately, read back from the wiki."""
 from __future__ import annotations
 
-import json
-from datetime import date, datetime, timezone
+from datetime import date
 
 import pytest
 
@@ -35,25 +34,6 @@ class TestRecent:
         assert history.recent(Wiki(mac.call_tool), TODAY) == []
 
 
-class TestOwnerToday:
-    def test_the_owners_zone_can_land_a_day_off_the_containers(self, tmp_path, monkeypatch):
-        # 23:30 UTC: the container (UTC) is still on the 19th; the owner in
-        # Kiritimati (UTC+14) is already on the 20th.
-        instant = datetime(2026, 9, 19, 23, 30, tzinfo=timezone.utc)
-
-        class FixedDatetime(datetime):
-            @classmethod
-            def now(cls, tz=None):
-                return instant.astimezone(tz) if tz else instant
-
-        monkeypatch.setattr(history, "datetime", FixedDatetime)
-        monkeypatch.setenv("PT_HOME", str(tmp_path))
-        (tmp_path / "config.json").write_text(
-            json.dumps({"owner": {"timezone": "Pacific/Kiritimati"}}))
-        assert instant.date() == date(2026, 9, 19)  # the container's own day
-        assert history.owner_today() == date(2026, 9, 20)
-
-
 class TestCli:
     def test_an_unreachable_mac_is_an_error(self, mac, monkeypatch):
         mac.asleep = True
@@ -62,11 +42,16 @@ class TestCli:
             history.main(["recent"])
         assert str(exc.value).startswith("error: history unavailable — Mac unreachable")
 
-    def test_an_unknown_timezone_name_refuses_instead_of_guessing(self, mac, monkeypatch, tmp_path):
+    def test_a_bad_owner_timezone_is_an_error(self, mac, monkeypatch):
+        # owner_time.owner_today()'s own refuse-instead-of-guess behavior is
+        # tested in test_owner_time.py; this just proves main() surfaces
+        # whatever it raises as the documented error, not a bare traceback.
         monkeypatch.setattr(history, "connect", lambda: Wiki(mac.call_tool))
-        monkeypatch.setenv("PT_HOME", str(tmp_path))
-        (tmp_path / "config.json").write_text(
-            json.dumps({"owner": {"timezone": "Not/AZone"}}))
+
+        def bad_owner_today():
+            raise KeyError("Not/AZone")
+
+        monkeypatch.setattr(history, "owner_today", bad_owner_today)
         with pytest.raises(SystemExit) as exc:
             history.main(["recent"])
         assert str(exc.value).startswith("error: history unavailable — ")
