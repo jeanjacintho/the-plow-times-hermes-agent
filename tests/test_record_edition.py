@@ -21,6 +21,12 @@ CARD = {"stage_label": "Discovery ($0–1M ARR)", "stage_why": "$4K MRR as of Se
         "today": [{"time": "10:00", "title": "Dentist", "note": "private"}]}
 
 
+@pytest.fixture(autouse=True)
+def pt_home(monkeypatch, tmp_path):
+    """record()'s cross-run lock file lives under PT_HOME; keep it in tmp_path."""
+    monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
+
+
 def edition(tmp_path, headline="Close the Acme pilot", card=True, news=True):
     sections = [
         {"kind": "section", "desk": "weather", "title": "Weather", "headline": "Rain",
