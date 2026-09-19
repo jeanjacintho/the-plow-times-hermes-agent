@@ -57,6 +57,15 @@ does not, and every run fails on the import.
   the root `projects/theplowtimes` (writer `theplowtimes`), the shared
   `entities/owner/goals.md`, the OKF page format, and `check()` = `wiki validate`
   then `wiki index` through Latch's wiki plugin, failing only on the paper's own pages.
+- `scripts/wiki_setup.py` — make `~/Plow/wiki` ready for the paper. Bare:
+  `wiki_setup.py` or `wiki_setup.py --desk`. Creates the wiki with `wiki init` when
+  the Mac has none, writes the paper's schema and page when absent, declares
+  `projects/theplowtimes` in `wiki.toml` (appending; no other root is touched), and
+  with `--desk` the goals page and the desk's page, carrying an older install's notes
+  file and desk page over once. Prints `WIKI:ready` or `WIKI:set up …`;
+  `error: wiki not ready — …` exits non-zero. **This bullet is the contract.**
+- `assets/wiki/` — the seeds `wiki_setup.py` writes: the root's schema (fields and the
+  Editions / Your advisors tables), the paper's page, the goals page, the desk's page.
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
   body) to the owner's home channel, or the chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
