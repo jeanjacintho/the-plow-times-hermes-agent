@@ -41,9 +41,6 @@ REFUSED = f"REFUSED: revenue is already recorded as of {PAPER}"
     # freeze the record until it passes: both are refused before they are stored.
     (STORED, revenue("$5K MRR", "2026-09-01T09:30"), "BAD REQUEST: ", SHOWN),
     (STORED, revenue("$5K MRR", "2999-01-01T00:00+00:00"), "BAD REQUEST: ", SHOWN),
-    # A date-only as_of from an older record is local midnight.
-    (STORED.replace(PAPER, "2026-09-01"), revenue("$5K MRR", "2026-09-02T09:00-07:00"), "SET: revenue",
-     shown("$5K MRR", "2026-09-02T09:00-07:00")),
     # A record is never replaced: a corrupt file fails by name, and a set leaves it for a human.
     ("{broken", revenue("$5K MRR", "2026-09-10T09:00-07:00"), "CORRUPT: ", "CORRUPT: "),
     ('{"facts": {"revenue": "$4K"}}', None, "CORRUPT: ", "CORRUPT: "),

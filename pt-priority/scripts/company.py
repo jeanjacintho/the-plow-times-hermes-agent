@@ -56,8 +56,7 @@ def read_request(path):
 
 def set_fact(facts, key, value, source, as_of):
     old = facts.get(key)
-    # A request's as_of carries an offset; a date-only one in an older record is local midnight.
-    if old and datetime.fromisoformat(as_of) <= datetime.fromisoformat(old["as_of"]).astimezone():
+    if old and datetime.fromisoformat(as_of) <= datetime.fromisoformat(old["as_of"]):
         if value == old["value"]:
             return f"UNCHANGED: {key}"
         return f"REFUSED: {key} is already recorded as of {old['as_of']}"
