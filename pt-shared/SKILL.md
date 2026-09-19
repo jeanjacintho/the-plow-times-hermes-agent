@@ -68,6 +68,13 @@ does not, and every run fails on the import.
   days, so the next morning can follow up. Called bare:
   `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --edition-json <run/<id>/edition.json>`
   Prints `RECORDED`, or `SKIPPED: …` when the edition carried no priority desk.
+- `pt-priority/scripts/company.py` — the paper's record of the owner's company
+  (`pt/company.json`), which places it in the advisor's stage. Called bare:
+  `/var/lib/hermes/skills/pt-priority/scripts/company.py show` prints one fact per line or
+  `EMPTY`; `.../company.py set <key> --value V --source S --as-of YYYY-MM-DD`, key one of
+  `product`, `revenue`, `paying_customers`, `referenceable_customers`, `team_size`,
+  `raise`, `stage`, prints `SET`, `UNCHANGED` (same value) or `REFUSED` (older evidence).
+  A corrupt record exits 1 with `CORRUPT: …` and is left for a human.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:

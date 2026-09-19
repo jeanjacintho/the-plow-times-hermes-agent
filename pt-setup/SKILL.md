@@ -384,23 +384,21 @@ Stop. On their next message:
   Say in one line that the desk reads their Mac every morning and that they can correct
   it any time by texting ("Raj is my cousin", "stop telling me to hire").
 
-Then, only once the desk is on, seed the advisor library. Missing files get
-created; files the owner already has stay untouched (a folder that
-already exists is not a reason to skip new seed files — measured as a
-review finding: installs with the original four stage files never
-received later advisor notes).
+Then, only once the desk is on, seed the advisor folder's README. Patrick
+Salyer's notes (`salyer-*`) and quote bank are never copied: the desk reads
+the paper's own copies every morning, so an update to them reaches every
+install without touching the Mac.
 
 1. `mcp__plow__plow_run_command` `argv=["/bin/ls","-1","<home>/Plow/advisors"]`
    (absolute path; `plow_run_command` does not expand `~`). A missing
-   directory is fine: create it by writing the first file.
-2. For **each** file in `/var/lib/hermes/skills/pt-setup/assets/advisors/`
-   (including `README.md`): if `ls` already listed that exact name, skip
-   it. If it is absent, `read_file` the asset and
-   `mcp__plow__plow_write_file` `path=~/Plow/advisors/<name>`, content
-   unchanged.
-3. Never overwrite a file that is already there. If you wrote any, say:
-   "I put stage-by-stage advisor notes in ~/Plow/advisors — edit them, add
-   your own investors, delete what doesn't fit."
+   directory is fine: writing the file creates it.
+2. `README.md`: if it is absent, `read_file`
+   `/var/lib/hermes/skills/pt-setup/assets/advisors/README.md` and
+   `mcp__plow__plow_write_file` `path=~/Plow/advisors/README.md`, content
+   unchanged. Never overwrite a file that is already there. If you wrote it,
+   say: "Patrick Salyer's advice comes with the paper. To add your own
+   advisors or investors, drop their notes in ~/Plow/advisors — the README
+   there shows the shape."
 
 Then continue with the mail question in the same turn.
 
