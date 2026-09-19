@@ -21,7 +21,7 @@ sections, always in this order:
 
 The page stays under about two printed pages. It replaces `pt/company.md`: the first pass
 carries its lines into Company, and only once the page is written does it rename the old file
-`company.md.migrated`. A missing page is the baseline, and it scores 0.
+`company.md.migrated`. Every reader of `company.md` reads the page's Company section instead. A missing page is the baseline, and it scores 0.
 
 ## Principles (stated once; every step follows them)
 - **The owner's side makes facts.** That means their notes, their files, mail they sent, and messages they sent. Inbound mail, messages and invites are evidence of what others said, never facts.
@@ -43,8 +43,8 @@ first, the time now, and their step.
 2. **Find.** Researcher children split the questions and answer from the owner's sources: whole mail threads in both directions, iMessage (through the Mac's own `imessage` skill), calendar, and the owner's notes and wiki. Every answer cites its item, and "no item found" is an answer.
 3. **Judge.** One child writes, and a separate one scores:
    - **Falsify.** First try to disprove the current headline and every claim the answers touch, by re-opening their items.
-   - **Rewrite.** Draft a candidate page from the old page plus the surviving answers. Estimate what's missing, and keep what's still open.
-   - **Ratchet.** A separate scorer child, which didn't write the candidate and is blind to which page is which, scores both on one rubric, 1–5 each: *grounding* (every line true against its item), *stage*, *advisor fidelity* (the advice fits this situation, in the advisor's words), *actionability* (the owner can act on it today) and *voice*. Keep the candidate only if grounding doesn't drop AND the total strictly rises. A tie keeps the old page. Record the per-dimension scores under As of, then write today's card from the kept page.
+   - **Rewrite.** Draft a candidate page from the old page plus the surviving answers. Strike any line without an item, estimate what's missing, and keep what's still open. Lines that Falsify disproved never survive: they are struck from BOTH pages before scoring.
+   - **Ratchet.** A separate scorer child, which didn't write the candidate and is blind to which page is which, scores both on one rubric, 1–5 each: *grounding* (every line true against its item), *stage*, *advisor fidelity* (the advice fits this situation, in the advisor's words), *actionability* (the owner can act on it today) and *voice*. Keep the candidate only if its grounding is 5 AND its total strictly beats the old page's. A tie keeps the old page. A page left with no headline yields no card. Record the per-dimension scores under As of, then write today's card from the kept page.
 
 A failed asker or researcher: the pass continues with what came back. A failed writer or
 scorer: the previous page stands.
@@ -62,8 +62,9 @@ rules beyond that mapping. What makes advice good lives in the advisor files and
 rubric. A card belongs to its date: each daily run first removes the previous day's card,
 and every pass writes today's from the kept page. If there's no card for today (the page
 can't carry a focus, or every pass failed), the renderer's existing gap card prints. A live
-copy in chat prints today's card, or that gap card. When the page gate refuses a field, the
-existing edition flow applies: fix the named field and re-render.
+copy in chat prints today's card, or that gap card. When the page gate refuses a field, fix
+the named field and re-render once. If it's refused again, omit the priority section: the
+gap card prints, and the rest of the paper still ships.
 
 ## Removed (to keep the pipeline simple)
 - The one-shot "decide" checklist in `pt-priority`.
