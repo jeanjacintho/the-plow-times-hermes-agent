@@ -68,27 +68,6 @@ class TestPdfAndDate:
 
 
 class TestSettleAndParse:
-    def test_pending_is_polled_until_ready(self):
-        calls = []
-
-        def get_result(handle):
-            calls.append(handle)
-            if len(calls) < 2:
-                return {"status": "pending", "handle": handle}
-            return {"status": "ready", "result": {"path": "/Users/jj/Plow/pt/edition-2026-09-17.pdf.b64"}}
-
-        out = pe.settle(
-            {"status": "pending", "handle": "h1"},
-            get_result,
-            sleep=lambda _n: None,
-        )
-        assert out["path"] == "/Users/jj/Plow/pt/edition-2026-09-17.pdf.b64"
-        assert calls == ["h1", "h1"]
-
-    def test_denied_is_a_failed_print(self):
-        with pytest.raises(SystemExit, match="denied"):
-            pe.settle({"status": "denied", "handle": "h"}, lambda _h: {}, sleep=lambda _n: None)
-
     def test_written_path_from_result(self):
         assert pe.written_path(
             {"path": "/Users/jj/Plow/pt/edition-2026-09-17.pdf.b64"}
@@ -125,7 +104,6 @@ class TestShip:
             "JornalVirtual",
             "2026-09-17",
             call_tool,
-            sleep=lambda _n: None,
         )
         write_name, write_args = calls[0]
         assert write_name == "plow_write_file"
@@ -167,7 +145,6 @@ class TestShip:
             "JornalVirtual",
             "2026-09-17",
             call_tool,
-            sleep=lambda _n: None,
         )
         assert tools == [
             "plow_write_file",
