@@ -5,10 +5,13 @@ seeded into `~/Plow/advisors/`: add your own advisors' files there, in the shape
 
 ## Patrick Salyer's files
 
-Patrick Salyer (Mayfield), prefixed `salyer-`. They ship with the paper and the desk
-reads them from the image every morning, so they are never copied to the Mac and an
-update reaches every install. Each file's `source` lists the posts that back its claims;
-`salyer-bank.json` holds his verbatim quotes, each with its post's title and URL.
+Patrick Salyer (Mayfield), prefixed `salyer-`. They ship with the paper and are
+canonical: the desk reads them from the image every morning, so an update reaches every
+install and a `salyer-*` file in `~/Plow/advisors` is ignored. Every other `.md` file
+there is one of your own advisors, read as before. To keep your edits to a `salyer-*`
+file seeded by an earlier version, rename it without the `salyer-` prefix. Each file's
+`source` lists the posts that back its claims; `salyer-bank.json` holds his verbatim
+quotes, each with its post's title and URL.
 
 - `salyer-stage-map.md` — `stages: any`, so it is in context every morning: what each
   stage means, the signals that place a company in one, the pivot override, the
