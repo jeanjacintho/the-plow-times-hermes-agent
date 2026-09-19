@@ -8,6 +8,21 @@ import pytest
 from conftest import ROOT, load_module
 
 render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
+SHIPPED_BANK = render.BANK
+BANK_ENTRY = {
+    "id": "talk#1", "url": "https://advisor.example/talk", "title": "Talk To Customers",
+    "date": "2026-01-01", "quote": "Don’t build before you’ve talked to ten customers. Then build less.",
+    "advice": "Interview customers first.", "situations": ["customer-discovery"], "stages": ["discovery"],
+}
+BANKED = {"text": "Three discovery calls this week", "source_label": "Talk To Customers",
+          "url": BANK_ENTRY["url"], "quote": "Don’t build before you’ve talked to ten customers."}
+
+
+@pytest.fixture
+def synthetic_bank(tmp_path, monkeypatch):
+    path = tmp_path / "bank.json"
+    path.write_text(json.dumps([BANK_ENTRY]), encoding="utf-8")
+    monkeypatch.setattr(render, "BANK", path)
 
 
 def edition_with_priority_and_weather():
@@ -23,10 +38,11 @@ def edition_with_priority_and_weather():
 EVENT = {"time": "10:00", "title": "Customer call: Dana", "note": "Go in with: what they use today"}
 
 
-def priority_edition(**fields):
+def priority_edition(headline="Book 3 customer calls by Friday", sources=(), **fields):
     p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x", **fields}
     return edition(sections=[{"kind": "section", "title": "P", "desk": "priority",
-                              "body": "b", "priority": p, "sources": []}])
+                              "headline": headline, "body": "b", "priority": p,
+                              "sources": list(sources)}])
 
 
 def edition(**overrides):
@@ -179,17 +195,22 @@ class TestValidate:
             "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
         }]))
 
-    def test_priority_renders_headline_why_and_first_step(self):
-        p = {"why": [{"text": "Q3 goal: raise $1.5M by Sep 30",
-                      "source_label": "your file, Goals"}],
-             "first_step": "Send the deck"}
+    @pytest.mark.parametrize("why, printed", [
+        ({"text": "Q3 goal: raise $1.5M by Sep 30", "source_label": "your file, Goals"},
+         'Q3 goal: raise $1.5M by Sep 30 <span class="src">— your file, Goals</span>'),
+        (BANKED, "Three discovery calls this week “Don’t build before you’ve talked to ten "
+                 'customers.” <span class="src">— <a href="https://advisor.example/talk">'
+                 "Talk To Customers</a></span>"),
+    ])
+    def test_priority_renders_headline_why_and_first_step(self, why, printed):
+        p = {"why": [why], "first_step": "Send the deck"}
         html = render.render_html(edition(sections=[{
             "kind": "section", "title": "Your #1 priority today", "desk": "priority",
             "headline": "Close the seed extension", "body": "Send the deck", "priority": p,
             "sources": [],
         }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         assert "Close the seed extension" in html
-        assert "Q3 goal: raise $1.5M by Sep 30 <span class=\"src\">— your file, Goals</span>" in html
+        assert printed in html
         assert "Send the deck" in html
         assert "<script" not in html.lower()
 
@@ -285,9 +306,56 @@ class TestValidate:
         ("today", [{**EVENT, "time": ""}], "priority.today[0].time is blank"),
         ("today", [{**EVENT, "title": " "}], "priority.today[0].title is blank"),
         ("today", [{"time": None, "title": "Call"}], "priority.today[0].note is blank"),
+        # A why citing the advisor bank quotes it verbatim, under the post's title.
+        ("why", [BANKED], None),
+        ("why", [{**BANKED, "quote": "Don't build before\n you've  talked to ten customers."}], None),
+        ("why", [{**BANKED, "quote": None}], None),
+        ("why", [{**BANKED, "quote": "Build before you talk to customers."}],
+         "priority.why[0].quote is not verbatim from the bank entry at its url"),
+        ("why", [{**BANKED, "quote": " ".join(["ten"] * 26)}], "priority.why[0].quote is over 25 words"),
+        ("why", [{**BANKED, "url": "https://elsewhere.example/post"}],
+         "priority.why[0].url is not in the advisor bank"),
+        ("why", [{**BANKED, "source_label": "Another Post"}],
+         "priority.why[0].source_label is not the bank title for its url"),
+        ("why", [{**BANKED, "url": " "}], "priority.why[0].url is blank"),
+        # One action, at most 120 chars.
+        ("headline", "Raise $1.5M from Acme by Friday", None),
+        ("headline", "x" * 121, "sections[0].headline is over 120 chars"),
+        ("headline", "Call Dana. Send the deck", "sections[0].headline carries more than one action"),
+        ("headline", "Call Dana then send the deck", "sections[0].headline carries more than one action"),
+        ("headline", "Call Dana + send the deck", "sections[0].headline carries more than one action"),
+        # No plumbing, and the card talks to the reader -- other people's words excepted.
+        ("sources", ["priority desk"], "sections[0].sources[0] prints a pipeline word ('desk')"),
+        ("stage_why", "Your prioritization.md says discovery",
+         "priority.stage_why prints a file path or name ('prioritization.md')"),
+        ("today", [{**EVENT, "note": "From ~/Plow/goals"}], "priority.today[0].note prints a file path"),
+        ("week", "Budget spent: 3 calls", "priority.week prints a pipeline word ('Budget')"),
+        ("first_step", "The founder should call Dana", "priority.first_step calls the reader 'The founder'"),
+        ("not_today", ["O fundador deve contratar"], "priority.not_today[0] calls the reader 'O fundador'"),
+        ("today", [{**EVENT, "title": "Pipeline review with the CEO"}], None),
+        ("who", ["Dana — the CEO at Acme, sent notes"], None),
+        ("draft", "Hi Dana, the founder of Acme here.", None),
     ])
-    def test_priority_field_shapes(self, field, value, failure):
-        assert failure in render.validate(priority_edition(**{field: value}))
+    def test_priority_field_rules(self, synthetic_bank, field, value, failure):
+        failures = render.validate(priority_edition(**{field: value}))
+        assert (failure in failures) if failure else failures == ""
+
+    @pytest.mark.parametrize("desk, field, value, failure", [
+        ("weather", "body", "Rain, per the weather desk.", "sections[0].body prints a pipeline word ('desk')"),
+        ("calendar", "headline", "Agenda from events.json", "sections[0].headline prints a file path or name"),
+        ("mail", "sources", ["run/desk-mail"], "sections[0].sources[0] prints a file path or name"),
+        # An event title or a mail subject is printed as its sender wrote it.
+        ("calendar", "body", "9am — Pipeline review", None),
+        ("mail", "body", "Ana — Q4 budget notes", None),
+        # News may say "front desk"; a desk's links are links.
+        ("news", "body", "The front desk kept notes.md.", None),
+        ("weather", "sources", ["https://example.com/run/notes.json"], None),
+    ])
+    def test_desk_text_rules(self, desk, field, value, failure):
+        failures = render.validate(edition(sections=[
+            {"kind": "section", "title": "T", "desk": desk, "body": "b", "sources": [], field: value},
+        ]))
+        assert (failure in failures) if failure else failures == ""
 
     def test_priority_renders_every_field_escaped_in_page_order(self):
         data = priority_edition(
@@ -299,7 +367,6 @@ class TestValidate:
             draft='Hey Raj, 20 minutes this week? "Tue" works.',
             not_today=["Hire a sales team"],
         )
-        data["sections"][0]["headline"] = "Book 3 customer calls by Friday"
         assert render.validate(data) == ""
         html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         order = [
@@ -379,17 +446,22 @@ class TestChat:
         assert "\u25b8 Weather in Sao Paulo" in text
         assert "Sources: https://example.com/weather" in text
 
-    def test_assignment_tag_and_unsourced(self):
+    @pytest.mark.parametrize("desk", render.DESKS)
+    def test_sources_and_unsourced_print_on_news_only(self, desk):
         data = edition(sections=[{
-            "kind": "assignment", "topic_id": "t_3f2a", "run_on": "2026-09-11",
+            "kind": "assignment", "topic_id": "t_3f2a", "run_on": "2026-09-11", "desk": desk,
             "title": "iPhone 15 price", "body": "$4,299.",
             "sources": ["https://shop.example/x"],
             "tag": "special for this edition",
             "could_not_source": ["the Pro model's price"],
         }])
         text = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        page = render.render_html(data, render.DEFAULT_MASTHEAD,
+                                  "{{LEAD}}{{PRIORITY}}{{WEATHER}}{{CALENDAR}}{{MAIL}}{{SPORTS}}")
         assert "special for this edition" in text
-        assert "Couldn't source: the Pro model's price" in text
+        for out in (text, page):
+            assert ("Sources:" in out) is (desk == "news")
+            assert ("Couldn't source: the Pro model" in out) is (desk == "news")
 
     def test_empty_budget_is_still_an_edition(self):
         text = render.render_chat(edition(sections=[]), render.DEFAULT_MASTHEAD)
@@ -686,10 +758,18 @@ class TestMain:
         assert '<table class="sk-grid">' in html
         assert "Sudoku" in html
 
-    def test_malformed_refused_by_name(self, tmp_path):
-        path = write(tmp_path, {"date": "x", "sections": []})
-        with pytest.raises(SystemExit, match="invalid edition.json"):
-            render.main([str(path)])
+    @pytest.mark.parametrize("data, named", [
+        ({"date": "x", "sections": []}, "date is not a strict YYYY-MM-DD string"),
+        # A page rule refuses the same way: by field, and no page is written.
+        (priority_edition(headline="Call Dana then send the deck"),
+         "sections[0].headline carries more than one action"),
+    ])
+    def test_malformed_refused_by_name(self, tmp_path, data, named):
+        path = write(tmp_path, data)
+        with pytest.raises(SystemExit) as refused:
+            render.main([str(path), "--html", str(tmp_path / "out.html")])
+        assert f"invalid edition.json: {named}" in str(refused.value)
+        assert not (tmp_path / "out.html").exists()
 
     def test_unreadable_refused(self, tmp_path):
         with pytest.raises(SystemExit, match="could not read"):
@@ -702,6 +782,14 @@ class TestMain:
         render.main([str(path), "--html", str(first)])
         render.main([str(path), "--html", str(second)])
         assert first.read_text() == second.read_text()
+
+
+class TestAdvisorBank:
+    def test_shipped_bank_shape(self):
+        entries = json.loads(SHIPPED_BANK.read_text(encoding="utf-8"))
+        assert all(len(e["quote"].split()) <= render.QUOTE_MAX_WORDS for e in entries)
+        assert len({e["id"] for e in entries}) == len(entries)
+        assert all(e["url"].startswith("https://") for e in entries)
 
 
 class TestEnsurePriorityDesk:
