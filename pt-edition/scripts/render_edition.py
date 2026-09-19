@@ -101,9 +101,10 @@ SELF_RE = re.compile(
     r"\b(?:the (?:founder|ceo|owner)|a founder should|o (?:fundador|ceo|dono)|a (?:fundadora|dona))\b",
     re.I,
 )
-# A second sentence (not after an initial or "Dr."/"Inc."), " then " or " + ".
+# A second sentence starts with a capital ("Oct. 15", "Acme Corp. by" never
+# split) and never follows an initial, "p.m." or a title ("Dr. Lee").
 TWO_ACTIONS_RE = re.compile(
-    r"(?<!\b[A-Z])(?<!\b(?:Dr|Mr|Ms|Sr|Jr|St|Co|vs))(?<!\b(?:Mrs|Sra|Inc|Ltd))[.!?]\s+\S"
+    r"(?<!\b\w)(?<!\b(?:Dr|Mr|Ms|Sr|Jr|St))(?<!\b(?:Dra|Mrs|Sra))[.!?]\s+[A-ZÀ-Þ]"
     r"|;\s+\S|(?i: then )| \+ "
 )
 
