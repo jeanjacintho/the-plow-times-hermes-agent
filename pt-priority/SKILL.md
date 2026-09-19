@@ -41,13 +41,12 @@ Each step is `delegate_task` children, which cannot delegate, so you run the ste
 child gets this file to read first, the time now and its step, and answers in an `output_schema`.
 
 **One writer.** Only the daily run (run lock `daily-<date>`) makes passes and writes the page and
-the card, unless its prompt says it is a live copy. It first writes the stub `{"desk": "priority",
-"status": "unavailable"}` to the card (pt-edition prints its gap card; only a pass that reaches
-Card replaces it), then makes one pass, and another while the last kept a candidate and the next
-would end at least 30 minutes before `delivery.hour` (`pt/config.json`) and within 90 minutes of
-the run's start. Every other paper (`paper-*`, a `daily2`/`daily3` reprint, a live copy) makes no
-pass and never writes the page or an ok card. It prints the card only when the page's As of date is
-today; otherwise it writes the stub before pt-edition runs, so the gap card prints.
+card, unless its prompt calls it a live copy. It first writes the stub `{"desk": "priority",
+"status": "unavailable"}` to the card (replaced only by a pass reaching Card), then passes once,
+and again while the last pass kept a candidate and the next would end at least 30 minutes before
+`delivery.hour` and within 90 minutes of its start. Every other paper (a live copy, `paper-*`,
+`daily2`/`daily3`) makes no pass and writes neither page nor ok card. It prints the card only if
+the page's As of is today, else writes the stub before pt-edition runs, for the gap card.
 
 1. **Ask.** Two children in parallel read the page, the owner's notes, the time since As of, and
    the advisor files: every `salyer-*` in `/var/lib/hermes/skills/pt-setup/assets/advisors/` (never
@@ -83,6 +82,7 @@ today; otherwise it writes the stub before pt-edition runs, so the gap card prin
       `/var/lib/hermes/skills/pt-edition/scripts/render_edition.py <it> --chat /tmp/card-check.txt`
       Fix each named field in the page section it derives from (Priority, Company, Today or As of),
       re-derive the card and re-check once; still failing, Priority keeps no headline, stub ships.
+      Only then write the card.
 
 A failed asker or researcher: go on with what came back. A failed writer or scorer: the struck
 page stays and Card still runs. While `/var/lib/hermes/pt/company.md` exists, the writer carries
