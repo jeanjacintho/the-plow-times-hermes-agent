@@ -11,16 +11,15 @@ topic list:
 
 | job | schedule | notes |
 |---|---|---|
-| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 0) in the owner's zone, wraparound exact | one job; the **main** paper: desks, sections with no `deliver_at` (or `deliver_at` equal to this hour), and assignments due today |
+| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 0) in the owner's zone, never before that day's midnight | one job; the **main** paper: desks, sections with no `deliver_at` (or `deliver_at` equal to this hour), and assignments due today |
 | `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | reprint of that **same main** roster later the same day — not a different newspaper |
 | `pt-paper-HHMM` | `<min> <hour> * * *` from a section `deliver_at` that is not `delivery.hour` (same lead subtraction) | one job per distinct hour; desks plus only the sections at that hour. Two sections at 12:30 share `pt-paper-1230`. A cancelled last section at that hour is pruned |
 | `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` (container TZ, both parts) | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-time, `now + 3m` (quick) or next `delivery.hour` (deep) | created by pt-intake at the scheduled minute; its own prompt self-removes it after firing — this script's sweep is the backstop |
 
-The daily schedule is computed in minutes and taken modulo a day, so
-`00:00 − 0min` is `0 0 * * *` (midnight itself). A non-zero lead still
-wraps: `00:00 − 20min` is `40 23 * * *` (the previous evening). `00:00` is
-a real delivery hour and the wraparound is a tested case, not an accident.
+The daily schedule is computed in minutes, so `00:00 − 0min` is `0 0 * * *`
+(midnight itself). A lead that would reach back past midnight, such as
+`00:00 − 20min`, is refused: that run would be the previous day's paper.
 
 Every row still carries `--deliver plow_chat:${PLOW_HOME_CHANNEL}` (an
 unset or blank `PLOW_HOME_CHANNEL` refuses the registration by name). The

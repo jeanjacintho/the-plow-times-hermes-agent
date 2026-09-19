@@ -693,12 +693,12 @@ class TestSkills:
 
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
-        assert "## 5. Priority" in desks
+        assert "## Priority — first" in desks
         assert "run/desk-calendar/events.json" in desks
-        assert "imessage" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
-        assert "**An event is its people.**" in skill
+        assert "`name` = `imessage`" in skill
+        assert "**An event is its people,**" in skill
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "history.py record" in edition
