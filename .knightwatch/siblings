@@ -1,0 +1,36 @@
+# Repos a reviewer of THIS repo may search and cite, materialized under
+# .siblings/<owner>/<repo>. Declared rather than left to the fallback so the
+# set is the one this repo actually depends on.
+#
+# One per line. The reviewer host must also carry a SOURCE_PATHS entry for
+# each, or the sibling reports as `missing` and is never searched.
+#
+# Each row is a real edge: `plow-hermes-agent` is the base the Dockerfile
+# builds FROM by digest, and it owns boot, `plow-init`, the gateway config
+# seed this image overlays, and the SOUL.md recompose; `hermes-plugin-plow`
+# is the `plow_chat` plugin that base pins, which frames every turn, and whose
+# chat adapter `post_to_chat.py` mirrors call for call; `latch` owns the MCP
+# tools and the gog grammar that research, calendar, mail and print drive;
+# `agent-index-client` is the reporter the base ships as its `agent-index` service;
+# `plow-agents` owns the install contract and the compose shape `compose.yml`
+# follows; `agent-mgr` still execs `deploy-hook` and reads `agent.env`.
+#
+# The two NousResearch rows are not GitHub repos: they are the reviewer
+# host's names for the `gateway/` and `agent/` subtrees of
+# NousResearch/hermes-agent, and the slug is the citation prefix. They are
+# listed because `image/hermes/patch_*.py` rewrite `gateway/run_turn.py`,
+# `gateway/response_filters.py` and `agent/conversation_loop.py` at build: a
+# reviewer of a patch needs the function it anchors on.
+#
+# `plow-pbc/plow` stays out although the chat and print scripts call its API:
+# it is private and this repo is public, so a citation into it would publish
+# private paths. `hermes-plugin-plow` makes the same API calls in public.
+
+plow-pbc/plow-hermes-agent
+plow-pbc/hermes-plugin-plow
+plow-pbc/latch
+plow-pbc/agent-index-client
+plow-pbc/plow-agents
+plow-pbc/agent-mgr
+NousResearch/hermes-gateway
+NousResearch/hermes-agent-core
