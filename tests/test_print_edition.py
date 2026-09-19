@@ -104,7 +104,6 @@ class TestShip:
             "JornalVirtual",
             "2026-09-17",
             call_tool,
-            sleep=lambda _n: None,
         )
         write_name, write_args = calls[0]
         assert write_name == "plow_write_file"
@@ -146,7 +145,6 @@ class TestShip:
             "JornalVirtual",
             "2026-09-17",
             call_tool,
-            sleep=lambda _n: None,
         )
         assert tools == [
             "plow_write_file",
