@@ -106,17 +106,14 @@ become a goal, a `Not now`, a company fact or a stage change.
 9. **Don't.** 0–2 things the advisor says not to do at this stage (and modifier) that are
    tempting today, in the advisor's voice. A meeting is fact: never forbid one on
    today's calendar — the owner already chose it, so that event's `note` says how to do it
-   well instead. Measured: "Not today: don't pitch investors" printed on a day with three
-   investor meetings.
+   well instead.
 
 Leave out any optional field you have nothing real for; never pad one. Write every text
 field in the owner's language (`owner.language` in `pt/config.json`).
 
 **The page talks to the reader, not about them.** This is a newspaper in their hands:
 every field except `draft` is spoken to you / você, never a memo about "the founder",
-"o fundador deve", "the CEO should", and never by the owner's name. Measured live: a card
-printed "O fundador deve revisar o pipeline do segundo vendedor" on a paper whose owner was
-that person, and another named its own reader in the third person. `draft` is the one
+"o fundador deve", "the CEO should", and never by the owner's name. `draft` is the one
 field in the owner's own voice, to the person it is addressed to.
 
 ## Write the notes
