@@ -20,7 +20,8 @@ sections, always in this order:
 6. **Open questions**: what no pass has settled yet.
 
 The page stays under about two printed pages. It replaces `pt/company.md`: the first pass
-carries its lines into Company and deletes it.
+carries its lines into Company, and only once the page is written does it rename the old file
+`company.md.migrated`. A missing page is the baseline, and it scores 0.
 
 ## Principles (stated once; every step follows them)
 - **The owner's side makes facts.** That means their notes, their files, mail they sent, and messages they sent. Inbound mail, messages and invites are evidence of what others said, never facts.
@@ -38,18 +39,18 @@ first, the time now, and their step.
    - Lens A is the operator: what moves the company today.
    - Lens B is the advisor: what they would press on at this stage and in these situations.
    - Each returns at most 5 questions, ranked by what on the page the answer could change.
-   - One question is always asked: **"What would make today's headline wrong or already done?"**
+   - When the page has a headline, one question is always asked: **"What would make today's headline wrong or already done?"**
 2. **Find.** Researcher children split the questions and answer from the owner's sources: whole mail threads in both directions, iMessage (through the Mac's own `imessage` skill), calendar, and the owner's notes and wiki. Every answer cites its item, and "no item found" is an answer.
-3. **Judge.** One child, in three steps:
+3. **Judge.** One child writes, and a separate one scores:
    - **Falsify.** First try to disprove the current headline and every claim the answers touch, by re-opening their items.
    - **Rewrite.** Draft a candidate page from the old page plus the surviving answers. Estimate what's missing, and keep what's still open.
-   - **Ratchet.** Score the old page and the candidate on one rubric, 1–5 each: *grounding* (every line true against its item), *stage*, *advisor fidelity* (the advice fits this situation, in the advisor's words), *actionability* (the owner can act on it today) and *voice*. Keep the candidate only if its total is at least the old one's, and record the score under As of. Then write the card from the kept page, and report whether the score rose.
+   - **Ratchet.** A separate scorer child, which didn't write the candidate and is blind to which page is which, scores both on one rubric, 1–5 each: *grounding* (every line true against its item), *stage*, *advisor fidelity* (the advice fits this situation, in the advisor's words), *actionability* (the owner can act on it today) and *voice*. Keep the candidate only if grounding doesn't drop AND the total strictly rises. A tie keeps the old page. Record the per-dimension scores under As of, then write today's card from the kept page.
 
-A failed asker or researcher: the pass continues with what came back. A failed judge: the
-previous page and card stand.
+A failed asker or researcher: the pass continues with what came back. A failed writer or
+scorer: the previous page stands.
 
 ## How many passes
-The daily run repeats passes while the last one raised the score and the next would finish
+The daily run repeats passes while the last one kept a candidate and the next would finish
 within the run's time budget. Any other paper makes one pass. A live copy in chat makes none
 and prints the card as it stands.
 
@@ -58,8 +59,11 @@ The card is a projection of the Priority section into the renderer's existing fi
 (`stage_label`, `stage_why`, `headline`, `first_step`, `why[]` with bank `quote`, `url` and
 `source_label`, `who`, `draft`, `not_today`, `today`, `yesterday`, `week`). There are no
 rules beyond that mapping. What makes advice good lives in the advisor files and the judge's
-rubric. If the page can't carry a focus, the desk writes nothing, and the renderer's
-existing gap card prints.
+rubric. A card belongs to its date: each daily run first removes the previous day's card,
+and every pass writes today's from the kept page. If there's no card for today (the page
+can't carry a focus, or every pass failed), the renderer's existing gap card prints. A live
+copy in chat prints today's card, or that gap card. When the page gate refuses a field, the
+existing edition flow applies: fix the named field and re-render.
 
 ## Removed (to keep the pipeline simple)
 - The one-shot "decide" checklist in `pt-priority`.
@@ -72,8 +76,9 @@ The target is `pt-priority/SKILL.md` at about half its current length, with net 
 No new scripts, state types or jobs. The renderer and its page gate are unchanged.
 
 ## Measurement
-Each real edition is graded against ground truth with the same rubric the judge uses. The
-page records its own score and its per-pass deltas.
+Each real edition is graded outside the agent, against ground truth (the owner's actual
+threads and calendar that day), on the same rubric the scorer uses. The page records its own
+per-pass scores, so the two can be compared.
 
 ## Open (product, later)
 Should the printed page become the full Priority brief, with its reasoning, instead of
