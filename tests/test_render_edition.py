@@ -328,11 +328,10 @@ class TestValidate:
         ("headline", "Call Dana then send the deck", "sections[0].headline carries more than one action"),
         ("headline", "Call Dana + send the deck", "sections[0].headline carries more than one action"),
         # No plumbing, and the card talks to the reader -- other people's words excepted.
-        ("sources", ["priority desk"], "sections[0].sources[0] prints a pipeline word ('desk')"),
         ("stage_why", "Your prioritization.md says discovery",
          "priority.stage_why prints a file path or name ('prioritization.md')"),
         ("today", [{**EVENT, "note": "From ~/Plow/goals"}], "priority.today[0].note prints a file path"),
-        ("week", "Budget spent: 3 calls", "priority.week prints a pipeline word ('Budget')"),
+        ("week", "Investor pipeline: 3 calls booked", None),
         ("first_step", "The founder should call Dana", "priority.first_step calls the reader 'The founder'"),
         ("not_today", ["O fundador deve contratar"], "priority.not_today[0] calls the reader 'O fundador'"),
         ("today", [{**EVENT, "title": "Pipeline review with the CEO"}], None),
@@ -344,15 +343,13 @@ class TestValidate:
         assert (failure in failures) if failure else failures == ""
 
     @pytest.mark.parametrize("desk, field, value, failure", [
-        ("weather", "body", "Rain, per the weather desk.", "sections[0].body prints a pipeline word ('desk')"),
+        ("priority", "title", "Advisor's Desk", None),
         ("calendar", "headline", "Agenda from events.json", "sections[0].headline prints a file path or name"),
         ("mail", "sources", ["run/desk-mail"], "sections[0].sources[0] prints a file path or name"),
-        ("calendar", "could_not_source", ["the calendar desk"],
-         "sections[0].could_not_source[0] prints a pipeline word ('desk')"),
+        ("calendar", "could_not_source", ["events.json"], "sections[0].could_not_source[0] prints a file path"),
         # An event title or a mail subject is printed as its sender wrote it.
-        ("calendar", "body", "9am — Pipeline review", None),
-        ("mail", "body", "Ana — Q4 budget notes", None),
-        # News may say "front desk"; a desk's links are links.
+        ("mail", "body", "Ana — Q4 budget.csv", None),
+        # News is exempt; a desk's links are links.
         ("news", "body", "The front desk kept notes.md.", None),
         ("weather", "sources", ["https://example.com/run/notes.json"], None),
     ])

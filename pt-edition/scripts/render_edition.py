@@ -94,9 +94,8 @@ QUOTE_MAX_WORDS = 25
 HEADLINE_MAX = 120
 # The bank verifier's normalization: curly quotes and runs of whitespace.
 CURLY_QUOTES = str.maketrans("‘’‚‛′“”„‟″", "'''''\"\"\"\"\"")
-# Page rules. News copy may say "front desk"; a standing desk prints no plumbing.
+# Page rules: a standing desk's own words name no file or path.
 FILE_RE = re.compile(r"\S+\.(?:md|json|csv|py|txt)\b|~/|/var/lib|\brun/")
-PIPELINE_RE = re.compile(r"\b(?:desk|notes|prioritization|pipeline|budget)\b", re.I)
 SELF_RE = re.compile(
     r"\b(?:the (?:founder|ceo|owner)|a founder should|o (?:fundador|ceo|dono)|a (?:fundadora|dona))\b",
     re.I,
@@ -357,7 +356,7 @@ def _own_words(section):
     """(field, text) a standing desk writes in its own words for the page.
 
     Other people's words stay out, so a real event title, mail subject or
-    file heading ("Q4 budget") never fails the page: calendar and mail
+    attachment ("Q4 budget.csv") never fails the page: calendar and mail
     bodies (they list those rows), priority `who`, `draft`, `today[].title`,
     and a `why`'s quote and source_label.
     """
@@ -404,9 +403,9 @@ def _why_rules(where, why):
 def page_rules(sections):
     """What a structurally valid page may print; each failure names the field.
 
-    A standing desk prints no plumbing (file names, pipeline words). The
-    priority card talks to the reader, never about "the founder"; its
-    headline is one action; a `why` with `quote` or `url` cites the bank.
+    A standing desk names no file or path. The priority card talks to the
+    reader, never about "the founder"; its headline is one action; a `why`
+    with `quote` or `url` cites the bank.
     """
     failures = []
     for index, section in enumerate(sections):
@@ -415,9 +414,8 @@ def page_rules(sections):
             continue
         where = f"sections[{index}]"
         for field, text in _own_words(section):
-            for rule, pattern in (("a file path or name", FILE_RE), ("a pipeline word", PIPELINE_RE)):
-                if match := pattern.search(text):
-                    failures.append(f"{where}.{field} prints {rule} ({match.group(0)!r})")
+            if match := FILE_RE.search(text):
+                failures.append(f"{where}.{field} prints a file path or name ({match.group(0)!r})")
             if desk == "priority" and (match := SELF_RE.search(text)):
                 failures.append(f"{where}.{field} calls the reader {match.group(0)!r}")
         if desk != "priority":
