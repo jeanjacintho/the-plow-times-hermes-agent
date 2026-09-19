@@ -209,7 +209,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
   it from `run/desk-priority/notes.json` without rewriting. If those notes
   are missing or say `"status": "unavailable"`, or the **As of** date in
-  `pt/advisor.md` is not today, leave the section out of
+  `~/Plow/wiki/projects/theplowtimes/advisor.md` is not today, leave the section out of
   `edition.json`: `render_edition.py` then fills the slot with its honest
   gap card. Never omit the slot any other way. Mail only when
   `pt/config.json` has
