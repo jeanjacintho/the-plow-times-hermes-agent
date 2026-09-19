@@ -53,6 +53,10 @@ does not, and every run fails on the import.
   `LatchClient.call_tool`, `settle` for pending handles). A failure raises
   `LatchError`; the caller names what did not happen. The print leg and the
   wiki scripts both use it.
+- `scripts/wiki.py` — the paper's pages in the owner's wiki (`~/Plow/wiki`, plow-wiki):
+  the root `projects/theplowtimes` (writer `theplowtimes`), the shared
+  `entities/owner/goals.md`, the OKF page format, and `check()` = `wiki validate`
+  then `wiki index` through Latch's wiki plugin, failing only on the paper's own pages.
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
   body) to the owner's home channel, or the chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
