@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 """Stamp newspaper gates onto plow-seed/config.yaml.
 
-plow-init writes seed['display'] onto the home config every boot, and
+plow-init recopies the seed over the home config every boot.
 runtime/config.yaml copied into /var/lib/hermes is shadowed by the
-agent-home volume, so quiet chat has to live on the seed. Any other
-seed key reaches only a new home, so --home carries
-context_file_max_chars into an existing one at boot (03-pt-context-cap).
+agent-home volume, so display quiet-chat and context_file_max_chars
+have to live on the seed or a recreate restores Hermes defaults (loud
+plow_chat, 20 000-char SOUL truncation).
 """
 from __future__ import annotations
 
-import os
 import sys
-
-import yaml
 
 
 def _progress_token(value):
@@ -43,28 +40,13 @@ def overlay_display(seed: dict, ours: dict) -> dict:
     return seed
 
 
-def carry_cap(home_path, seed_path):
-    """Set the home's top-level cap to the seed's; plow-init re-dumps this file every boot anyway."""
-    with open(seed_path) as handle:
-        cap = yaml.safe_load(handle)["context_file_max_chars"]
-    with open(home_path) as handle:
-        home = yaml.safe_load(handle) or {}
-    if home.get("context_file_max_chars") == cap:
-        return
-    home["context_file_max_chars"] = cap
-    with open(home_path + ".tmp", "w") as handle:  # a sibling, then a rename, as plow-init writes it
-        os.fchmod(handle.fileno(), 0o640)
-        yaml.safe_dump(home, handle, sort_keys=False)
-    os.replace(home_path + ".tmp", home_path)
-
-
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if len(argv) == 3 and argv[0] == "--home":
-        return carry_cap(argv[1], argv[2])
     if len(argv) != 2:
-        raise SystemExit("usage: merge_pt_seed_config.py <seed.yaml> <runtime.yaml> | --home <home.yaml> <seed.yaml>")
+        raise SystemExit("usage: merge_pt_seed_config.py <seed.yaml> <runtime.yaml>")
     seed_path, ours_path = argv
+    import yaml
+
     with open(seed_path) as handle:
         seed = yaml.safe_load(handle) or {}
     with open(ours_path) as handle:
