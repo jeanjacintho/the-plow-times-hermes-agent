@@ -123,8 +123,8 @@ the card or the stub.
       what an earlier pass already earned. Check it first, as a one-section edition in `/tmp`:
       `/var/lib/hermes/skills/pt-edition/scripts/render_edition.py <it> --chat /tmp/card-check.txt`
       Fix each named field where it derives from (Priority, Today, As of or the Q&A entry),
-      re-derive the card and re-check once; still failing, Priority keeps no headline, stub ships.
-      Only then write the card.
+      re-derive the card and re-check once; still failing, Priority keeps no headline and whatever
+      card today already has stands, the stub if it has none. Only then write the card.
 
 A failed asker or researcher: go on with what came back. A failed writer or scorer: the struck
 page stays and Card still runs. Until they are gone, Strike and save carries any Company or Open
