@@ -103,7 +103,8 @@ SELF_RE = re.compile(
 )
 # A second sentence (not after an initial or "Dr."/"Inc."), " then " or " + ".
 TWO_ACTIONS_RE = re.compile(
-    r"(?<!\b[A-Z])(?<!\b[A-Z][a-z])(?<!\b[A-Z][a-z]{2})[.!?]\s+\S|;\s+\S|(?i: then )| \+ "
+    r"(?<!\b[A-Z])(?<!\b(?:Dr|Mr|Ms|Sr|Jr|St|Co|vs))(?<!\b(?:Mrs|Sra|Inc|Ltd))[.!?]\s+\S"
+    r"|;\s+\S|(?i: then )| \+ "
 )
 
 # calendar.month_abbr is locale-independent C locale by default; pinned here
