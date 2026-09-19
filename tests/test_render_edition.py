@@ -824,11 +824,13 @@ class TestEnsurePriorityDesk:
 
 
 class TestFillNewsDesk:
-    def test_a_topic_id_section_gets_news_only_when_desk_is_missing(self):
+    def test_a_topic_id_section_gets_news_only_when_desk_is_missing_or_null(self):
         data = edition(sections=[
             {"kind": "section", "topic_id": "t_1", "title": "x", "body": "y", "sources": []},
-            {"kind": "section", "topic_id": "t_2", "desk": "weather", "title": "x", "body": "y", "sources": []},
+            {"kind": "section", "topic_id": "t_2", "desk": None, "title": "x", "body": "y", "sources": []},
+            {"kind": "section", "topic_id": "t_3", "desk": "weather", "title": "x", "body": "y", "sources": []},
         ])
         render.fill_news_desk(data)
         assert data["sections"][0]["desk"] == "news"
-        assert data["sections"][1]["desk"] == "weather"
+        assert data["sections"][1]["desk"] == "news"
+        assert data["sections"][2]["desk"] == "weather"

@@ -441,8 +441,8 @@ def fill_news_desk(edition):
     `desk == "news"`, no defaulting) can't silently archive less than
     desk_of() just rendered."""
     for section in edition.get("sections") or []:
-        if isinstance(section, dict) and section.get("topic_id"):
-            section.setdefault("desk", "news")
+        if isinstance(section, dict) and section.get("topic_id") and not section.get("desk"):
+            section["desk"] = "news"
 
 
 def _is_portuguese(language):
