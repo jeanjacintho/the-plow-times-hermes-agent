@@ -8,7 +8,7 @@ description: The advisor's desk — passes (lenses ask, researchers answer from 
 `/var/lib/hermes/pt/advisor.md` is the desk's one page, which passes only make better, by
 thinking rather than gathering. Markdown, under about two printed pages, six sections in order:
 
-1. **As of**: the last pass's time, today's pass count, and the page's scores.
+1. **As of**: the last pass's time and scores, today's pass count, what became of the last card.
 2. **Company**: facts, each with its basis and date. A fact the advice needs that nothing states is
    a labeled estimate with its basis ("MRR est. $2–5K: 8 paying teams"), never "unclear".
 3. **People and open loops**: only loops with an open action today, on something the focus or
@@ -75,18 +75,18 @@ page stays and Card still runs. A run in which no pass reached Strike and save w
 While `/var/lib/hermes/pt/company.md` exists, the writer carries its lines into Company; once a
 kept page holds them, `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
 
-**How many passes.** Every paper, a live copy in chat included, makes one. The cron-fired
-`daily-<date>` run first removes the previous day's card, then passes again only while the last kept
-a candidate and the next would end at least 30 minutes before `delivery.hour` (`pt/config.json`)
-and within 90 minutes of the run's start (its lock goes stale at 120).
+**How many passes.** Every paper, a live copy in chat included, makes at least one. The cron-fired
+`daily-<date>` run first removes the previous day's card, then passes again only while the last
+kept a candidate and the next would end at least 30 minutes before `delivery.hour`
+(`pt/config.json`) and within 90 minutes of the run's start (its lock goes stale at 120).
 
 **The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
 "ok", "priority": {…}}` mapped from the kept page and the latest `pt/history.json` entry, nothing
 added: Priority's stage as `stage_label` and its dated Company fact as `stage_why`; `headline`,
 `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a bank quote's `quote`, post
 `url` and post title as `source_label`; Today's events as `today` (`time`, `null` all day; `title`;
-`note`); that entry's headline and what happened since (open loops) as `yesterday`; the count of
-the owner's customer conversations in 7 days, from Company, as `week`. Omit what the page lacks.
-Remove it by `write_file` of `{"desk": "priority", "status": "unavailable"}`: pt-edition prints its
-gap card. A field the page gate refuses is fixed and re-rendered once; refused again, remove
-today's card and leave the priority section out of `edition.json`; the rest of the paper ships.
+`note`); that entry's headline and what became of it (As of) as `yesterday`; the count of the
+owner's customer conversations in 7 days, from Company, as `week`. Omit what the page lacks. Remove
+it by `write_file` of `{"desk": "priority", "status": "unavailable"}`: pt-edition prints its gap
+card. A field the page gate refuses is fixed and re-rendered once; refused again, remove today's
+card and leave the priority section out of `edition.json`; the rest of the paper ships.
