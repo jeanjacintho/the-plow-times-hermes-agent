@@ -13,9 +13,11 @@ The desk keeps two pages, which passes only make better, by thinking rather than
 `updated`) `wiki_setup.py --desk` seeds: keep every key in it, and on each write set `updated` to
 now and make `sources` the `{resource: <id>}` of every item its lines rest on (thread, message and
 event ids, URLs; never a file path), always keeping the seed's `plow-chat:` source too, so the list
-is never empty. It holds what the advisor, as the owner's investor, most needs to know about the
-company. Two lists, ranked by how much an answer changes the advice, at most 20 in all, new ids
-above any in it or the notes:
+is never empty. Read it again immediately before every write and fold whatever changed since the
+first read into what you write: the owner edits this page in Obsidian, and their line is evidence of
+what they say, never something a pass drops. It holds what the advisor, as the owner's investor,
+most needs to know about the company. Two lists, under `## Open` and `## Answered`, ranked by how
+much an answer changes the advice, at most 20 in all, new ids above any in it or the notes:
 - **Open**: `**Q<n>**`, the question, what was tried, the date first asked.
 - **Answered**: `**Q<n>**`, the question, the answer and its basis: a fact with its date and item, a
   source to re-read every pass (a metrics page, a file) with what it said last, or a labeled
@@ -61,14 +63,14 @@ Each step is `delegate_task` children, which cannot delegate, so you run the ste
 child gets this file to read first, the time now and its step, and answers in an `output_schema`.
 
 **One writer.** Only the daily run (run lock `daily-<date>`) makes passes and writes the page, the
-Q&A and the card, unless its prompt calls it a live copy. It reads the Q&A once, before Ask;
-`wiki_setup.py --desk` has just ensured it exists, so a Q&A that is "not read" means this pass
+Q&A and the card, unless its prompt calls it a live copy. It reads the Q&A at the start, before
+Ask; `wiki_setup.py --desk` has just ensured it exists, so a Q&A that is "not read" means this pass
 writes nothing — not the page, the Q&A or the card — and the stub stands. It first writes the stub
-`{"desk": "priority", "status": "unavailable"}` to the card (replaced only by a pass reaching Card),
-then passes once, and again while the last pass kept a candidate and the next would end at least 30
-minutes before `delivery.hour` and within 90 minutes of its start. Every other paper (a live copy,
-`paper-*`, `daily2`/`daily3`) makes no pass and writes nothing: not the page, the Q&A, the card or
-the stub.
+`{"desk": "priority", "status": "unavailable"}` to the card (replaced only by a pass reaching
+Card), then passes once, and again while the last pass kept a candidate and the next would end at
+least 30 minutes before `delivery.hour` and within 90 minutes of its start. Every other paper (a
+live copy, `paper-*`, `daily2`/`daily3`) makes no pass and writes nothing: not the page, the Q&A,
+the card or the stub.
 
 1. **Ask.** Two children in parallel read both pages, the owner's notes, the time since As of, and
    the advisor files: every `salyer-*` in `/var/lib/hermes/skills/pt-setup/assets/advisors/` (never
