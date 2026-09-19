@@ -99,7 +99,7 @@ A failed advisor or researcher: the pass goes on with what came back. A failed j
 previous page and card stand.
 
 **How many passes.** A paper run makes a pass, then another while the last one changed
-something material and its time allows: 180 minutes from the start of the cron-fired
+something material and its time allows: 110 minutes from the start of the cron-fired
 `daily-<date>` run, none beyond the first for any other paper. A live copy in chat makes
 none: it prints the card the last pass left.
 
