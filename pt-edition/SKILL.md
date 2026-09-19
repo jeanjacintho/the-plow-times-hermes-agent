@@ -325,6 +325,13 @@ transcript after it is the wall of text they did not ask for.
    posts one `page not printed — …` line to chat by itself and still leaves
    the chat edition delivered; your final response stays `NO_REPLY`.
 
+   **`post_to_chat.py` also records the edition in the owner's wiki itself**,
+   the same way it already prints: after either a successful `--pdf` or
+   `--text-file` POST, it runs `record_edition.py` on the sibling
+   `edition.json`, best-effort — whatever it prints, the delivery and the
+   marks below already stand, it is never retried, and nothing about it goes
+   to the owner. This is no longer a step you run.
+
    A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
    (you do not have to run that script yourself). When this turn ends, the
    gateway starts a **new plow_chat session**. Do not keep researching,
@@ -351,14 +358,6 @@ transcript after it is the wall of text they did not ask for.
      crash the delivery over a valid cancellation.
    - **Never mark a standing desk.** Weather, calendar, mail and sports
      have no topic id on purpose.
-4. **Record the edition in the owner's wiki**, only after the marks are set, so the
-   wiki (and tomorrow's advisor's desk, which reads its history there) only ever holds
-   what the owner received:
-   `/var/lib/hermes/skills/pt-edition/scripts/record_edition.py /var/lib/hermes/pt/run/<id>/edition.json`
-   Whatever it prints — `RECORDED …`, `SKIPPED: …`, an `error:` line, or a
-   traceback — the delivery and the marks already stand: never retry this
-   step, never re-post, and nothing about it goes to the owner. The turn's
-   final response stays `NO_REPLY` either way.
 
 ## Repo note — the edition gate
 

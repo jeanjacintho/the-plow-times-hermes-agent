@@ -141,3 +141,30 @@ class TestMaybePrint:
     ])
     def test_only_a_failed_print_owes_the_owner_a_chat_line(self, result, line):
         assert post.print_failure_line(result) == line
+
+
+class TestMaybeRecord:
+    """post_to_chat.py records the edition itself now, the same way it prints."""
+
+    def test_a_successful_post_invokes_the_recorder_with_the_sibling_edition_json(self, tmp_path):
+        pdf = tmp_path / "edition.pdf"
+        pdf.write_bytes(b"%PDF")
+        seen = []
+
+        def runner(edition_json):
+            seen.append(edition_json)
+            return "RECORDED projects/theplowtimes/editions/2026-09-19.md"
+
+        out = post.maybe_record(str(pdf), runner=runner)
+        assert seen == [str(tmp_path / "edition.json")]
+        assert "RECORDED" in out
+
+    def test_a_recorder_failure_does_not_undo_the_chat_post(self, tmp_path):
+        pdf = tmp_path / "edition.pdf"
+        pdf.write_bytes(b"%PDF")
+
+        def runner(edition_json):
+            raise SystemExit("error: edition not recorded — Mac unreachable")
+
+        out = post.maybe_record(str(pdf), runner=runner)
+        assert "edition not recorded" in out
