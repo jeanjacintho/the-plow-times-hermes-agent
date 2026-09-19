@@ -28,12 +28,11 @@ import json
 import re
 import shlex
 import sys
-import time
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
-from latch_mcp import LatchError, connect, settle
+from latch_mcp import LatchError, connect
 
 PATH_RE = re.compile(
     r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.pdf(?:\.b64)?)"
@@ -137,67 +136,48 @@ def require_lp_ok(parsed):
         sys.exit(f"error: page not printed — lp {output}")
 
 
-def ship(pdf_path, printer, date, call_tool, sleep=time.sleep):
+def ship(pdf_path, printer, date, call_tool):
     pdf = read_pdf(pdf_path)
     dest_b64 = mac_b64_path(date)
 
-    def poll(handle):
-        return call_tool("plow_get_result", {"handle": handle})
-
-    wrote = settle(
-        call_tool(
-            "plow_write_file",
-            {"path": dest_b64, "content": base64.b64encode(pdf).decode("ascii")},
-        ),
-        poll,
-        sleep=sleep,
+    wrote = call_tool(
+        "plow_write_file",
+        {"path": dest_b64, "content": base64.b64encode(pdf).decode("ascii")},
     )
     abs_b64 = written_path(wrote)
     abs_pdf = pdf_path_from_b64(abs_b64)
-    decoded = settle(
-        call_tool(
-            "plow_run_command",
-            {
-                "argv": ["base64", "-D", "-i", abs_b64, "-o", abs_pdf],
-                "read_paths": [abs_b64],
-                "write_paths": [abs_pdf],
-                "goal": "Decode the edition PDF on the owner's Mac",
-            },
-        ),
-        poll,
-        sleep=sleep,
+    decoded = call_tool(
+        "plow_run_command",
+        {
+            "argv": ["base64", "-D", "-i", abs_b64, "-o", abs_pdf],
+            "read_paths": [abs_b64],
+            "write_paths": [abs_pdf],
+            "goal": "Decode the edition PDF on the owner's Mac",
+        },
     )
     if isinstance(decoded, dict) and decoded.get("exit_code") not in (0, "0", None):
         sys.exit(
             f"error: page not printed — base64 {decoded.get('exit_code')}: "
             f"{decoded.get('output', decoded)}"
         )
-    lp = settle(
-        call_tool(
-            "plow_run_command",
-            {
-                "argv": ["lp", "-d", printer, abs_pdf],
-                "network": True,
-                "read_paths": [abs_pdf],
-                "goal": "Print today's Founder Times edition",
-            },
-        ),
-        poll,
-        sleep=sleep,
+    lp = call_tool(
+        "plow_run_command",
+        {
+            "argv": ["lp", "-d", printer, abs_pdf],
+            "network": True,
+            "read_paths": [abs_pdf],
+            "goal": "Print today's Founder Times edition",
+        },
     )
     if is_bfd(lp):
         cmd = f"lp -d {shlex.quote(printer)} {shlex.quote(abs_pdf)}"
-        lp = settle(
-            call_tool(
-                "plow_run_applescript",
-                {
-                    "app": "System Events",
-                    "script": f"do shell script {json.dumps(cmd)}",
-                    "goal": "Print today's Founder Times edition (sandboxed lp failed)",
-                },
-            ),
-            poll,
-            sleep=sleep,
+        lp = call_tool(
+            "plow_run_applescript",
+            {
+                "app": "System Events",
+                "script": f"do shell script {json.dumps(cmd)}",
+                "goal": "Print today's Founder Times edition (sandboxed lp failed)",
+            },
         )
     require_lp_ok(lp)
 
@@ -222,7 +202,7 @@ def main(argv=None):
         return
 
     try:
-        ship(args.pdf, printer, date, connect("the-plow-times-print").call_tool)
+        ship(args.pdf, printer, date, connect().call_tool)
     except LatchError as exc:
         sys.exit(f"error: page not printed — {exc}")
     print(f"page printed on {printer}")
