@@ -34,13 +34,16 @@
 
   Anatomy, modeled on a classic broadsheet front page:
 
-  - Nameplate row: a quiet ear box on the left (the paper's slogan),
-    the nameplate centered and large, and the weather ear on the right
-    (today's drawn icon and high/low, filled by weather_ear_html). A
-    thin ornament rule with a diamond sits under the nameplate, then
-    the folio line (volume/number, city and date, single copy) between
-    hairlines, then the thick-and-thin double rule that closes the
-    masthead on real front pages.
+  - Nameplate row (page 1 only): a quiet ear box on the left (the paper's
+    slogan), the nameplate centered and large, and the weather ear on
+    the right (today's drawn icon and high/low, filled by
+    weather_ear_html). The folio line (volume/number, city and date,
+    single copy) sits between two hairlines before the priority card.
+  - Inside sheets (page 2+): a running folio in the @page top margin --
+    masthead left, city center, volume right, one hairline under the
+    row. The element is position:running so it never occupies body
+    flow; @page :first leaves that margin box empty so the cover does
+    not print a second header.
   - PRIORITY_BLOCK: the day's answer in a bordered box with a black
     label bar. The bar's text is the desk's own <h2> -- the
     model-written title, in owner.language, never a hardcoded string.
@@ -78,20 +81,39 @@
   strict monochrome scale, no hue anywhere on the page.
 -->
 <style>
-  /* 12mm all around: tight enough for broadsheet density, still clear
-     of the unprintable edge most home inkjet/laser printers have. */
+  /* 12mm of empty paper on every edge -- the unprintable gutter on a
+     typical home inkjet/laser. Margin boxes live *outside* the content
+     area, so a running header parked in a 12mm top box prints inside
+     that gutter (measured: 5.5mm from the sheet edge). Inside pages
+     therefore add a second band for the folio and the page counter,
+     then pin those boxes to the content side of the band. */
   /* The running page number lives in the @page margin box (CSS Paged
      Media) -- the only way a page count WeasyPrint itself is still
      computing can be numbered without Python counting pages by hand.
      Bare numerals, no "Page"/"of" words: that text would be
-     Python-authored and can't follow the edition's own owner.language. */
+     Python-authored and can't follow the edition's own owner.language.
+     Inside pages also draw a running folio (paper / city / volume) in
+     the extra top band; :first blanks that box so the cover masthead is
+     the only header on page 1. */
   @page {
-    size: Letter; margin: 12mm; background: #ffffff;
+    size: Letter; background: #ffffff;
+    margin-top: 16mm; margin-right: 12mm;
+    margin-bottom: 16mm; margin-left: 12mm;
+    @top-center {
+      content: element(running-folio);
+      width: 100%;
+      vertical-align: bottom;
+    }
     @bottom-center {
       content: "\2014  " counter(page) " / " counter(pages) "  \2014";
       font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
       font-size: 8px; color: #9a9a9a; letter-spacing: 0.5px;
+      vertical-align: top;
     }
+  }
+  @page :first {
+    margin-top: 12mm;
+    @top-center { content: none; }
   }
   * { box-sizing: border-box; }
 
@@ -115,26 +137,27 @@
     padding: 6px 4px 8px;
   }
 
-  /* -- Masthead: ears, the nameplate, an ornament rule, the folio ----- */
-  .rule-top { border: none; border-top: 1px solid var(--ink); margin: 0 0 6px; }
+  /* -- Masthead: ears, the nameplate, the folio ----- */
   .masthead-row { display: table; width: 100%; table-layout: fixed; }
   .ear {
-    display: table-cell; vertical-align: middle; width: 96px;
+    display: table-cell; vertical-align: middle; width: 75px;
   }
   .ear-left { text-align: left; }
   .ear-right { text-align: right; }
   .ear-box {
     display: inline-block; border: 1px solid var(--ink);
+    box-sizing: border-box; max-width: 75px;
     padding: 5px 8px;
     font-family: Georgia, "Times New Roman", serif;
     font-size: 7.5px; font-style: italic; line-height: 1.35;
     color: var(--ink-soft); text-align: center;
   }
   .ear-weather {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
     font-style: normal;
+    padding: 4px 6px;
   }
-  .ear-weather .wx-icon-wrap { color: var(--ink); line-height: 0; }
+  .ear-weather .wx-icon-wrap { color: var(--ink); line-height: 0; margin: 0; }
   .ear-weather .ear-wx-temps { display: flex; flex-direction: column; align-items: flex-start; }
   .ear-weather .ear-wx-high { font-weight: 800; font-size: 11px; color: var(--ink); line-height: 1.15; }
   .ear-weather .ear-wx-low { font-size: 9px; color: var(--ink-soft); line-height: 1.15; }
@@ -152,18 +175,12 @@
     color: var(--ink);
   }
   .nameplate-credit {
-    margin: 6px 0 0;
+    margin: 6px 0 8px;
     font-family: Georgia, "Times New Roman", serif;
     font-size: 9px; font-style: italic; font-weight: 400;
     letter-spacing: 0.8px;
     color: var(--ink-soft);
   }
-  .ornament {
-    display: flex; align-items: center; gap: 10px;
-    margin: 5px 0 6px; color: var(--ink);
-  }
-  .orn-rule { flex: 1 1 auto; border-top: 1px solid var(--ink); }
-  .orn-diamond { display: block; }
   .folio {
     display: table; width: 100%; table-layout: fixed;
     font-family: Georgia, "Times New Roman", serif;
@@ -171,11 +188,24 @@
     color: var(--ink-soft);
     border-top: 1px solid var(--ink);
     border-bottom: 1px solid var(--ink);
+    margin: 0 0 18px;
   }
   .folio span { display: table-cell; padding: 4px 2px; vertical-align: middle; }
   .folio .meta-left { text-align: left; }
   .folio .meta-center { text-align: center; }
   .folio .meta-right { text-align: right; }
+  .running-folio {
+    position: running(running-folio);
+    display: table; width: 100%; table-layout: fixed;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--ink);
+  }
+  .running-folio span { display: table-cell; padding: 0 2px 4px; vertical-align: middle; }
+  .running-folio .meta-left { text-align: left; }
+  .running-folio .meta-center { text-align: center; }
+  .running-folio .meta-right { text-align: right; }
   /* Thick-and-thin double rule closing the masthead. content-box against
      the global border-box reset, or the height already equals the two
      borders and the "double" rule prints as one solid bar (measured). */
@@ -570,19 +600,21 @@
 </style>
 </head>
 <body>
-  <hr class="rule-top">
+  <div class="running-folio">
+    <span class="meta-left">{{MASTHEAD}}</span>
+    <span class="meta-center">{{LOCATION}}</span>
+    <span class="meta-right">Vol. 1 &mdash; No. 1</span>
+  </div>
   <div class="masthead-row">
     <div class="ear ear-left"><span class="ear-box">Every claim<br>carries its source</span></div>
     <div class="masthead-cell"><h1 class="nameplate">{{MASTHEAD}}</h1><p class="nameplate-credit">inspired by Mayfield</p></div>
     <div class="ear ear-right">{{WEATHER_EAR}}</div>
   </div>
-  <div class="ornament"><span class="orn-rule"></span><svg class="orn-diamond" viewBox="0 0 10 10" width="8" height="8" aria-hidden="true"><path d="M5 0 L10 5 L5 10 L0 5 Z" fill="currentColor"/></svg><span class="orn-rule"></span></div>
   <div class="folio">
     <span class="meta-left">Vol. 1 &mdash; No. 1</span>
     <span class="meta-center">{{LOCATION}}, {{DATE}}</span>
     <span class="meta-right">Single Copy</span>
   </div>
-  <div class="rule-double"></div>
 
 {{PRIORITY_BLOCK}}
 

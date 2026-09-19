@@ -423,6 +423,31 @@ class TestMasthead:
         assert render.DEFAULT_MASTHEAD in page
         assert "inspired by Mayfield" in page
 
+    def test_inside_pages_carry_a_running_folio(self):
+        # Page 1 keeps the nameplate; later sheets get a slim running
+        # head (paper / city / volume) via CSS Paged Media, not a
+        # second masthead in the body flow.
+        template = (ROOT / "pt-edition" / "template.html").read_text()
+        page = render.render_html(
+            edition(location="Sao Paulo"), render.DEFAULT_MASTHEAD, template,
+        )
+        assert 'class="masthead-row"' in page
+        assert 'class="running-folio"' in page
+        assert "position: running(running-folio)" in page
+        assert "content: element(running-folio)" in page
+        assert "@page :first" in page
+        # The 12mm gutter is unprintable; the running folio and the
+        # page counter live in extra top/bottom margin, not in that band.
+        assert "margin-left: 12mm" in page and "margin-right: 12mm" in page
+        assert "margin-top: 12mm" in page
+        assert "vertical-align: bottom" in page
+        assert "vertical-align: top" in page
+        folio = page.split('class="running-folio"', 1)[1].split("</div>", 1)[0]
+        assert f'class="meta-left">{render.DEFAULT_MASTHEAD}</span>' in folio
+        assert 'class="meta-center">Sao Paulo</span>' in folio
+        assert "Vol. 1" in folio
+        assert "Sep 11, 2026" not in folio
+
 
 class TestChat:
     def test_header_and_section(self):
@@ -580,6 +605,22 @@ class TestHtml:
         assert "<img" not in page
         # The grid needs no sources line, but its gap still reaches the reader.
         assert "Sources:" not in page and "Couldn't source: the rain chance" in page
+
+    def test_weather_icons_are_vendored_atlas_glyphs(self):
+        # Forecast keys stay the paper's vocabulary; the drawings are
+        # Atlas Icons weather glyphs (MIT), inlined, never fetched.
+        notice = (ROOT / "pt-edition" / "assets" / "weather" / "NOTICE").read_text()
+        assert "Atlas Icons" in notice
+        assert "MIT" in notice
+        for key in render.FORECAST_ICONS:
+            svg = render.weather_icon(key)
+            assert 'class="wx-icon"' in svg
+            assert 'viewBox="0 0 1024 1024"' in svg
+            assert 'fill="currentColor"' in svg
+            assert "<path" in svg
+            assert "https://" not in svg
+            assert 'circle cx="12"' not in svg
+            assert (ROOT / "pt-edition" / "assets" / "weather" / f"{key}.svg").is_file()
 
     def test_calendar_schedule_draws_kind_icons(self):
         data = edition(sections=[{

@@ -72,10 +72,10 @@ PRIORITY_UNAVAILABLE = {
 # Controlled vocabulary for a sports desk game row -- what state the game
 # is in, drawn as a label/tag, never free text.
 GAME_STATUSES = ("scheduled", "live", "final")
-# Controlled vocabulary for the weather forecast strip -- an icon is drawn
-# from this fixed inline-SVG set (see WEATHER_ICONS), never fetched, so an
-# unrecognized key is a validation failure rather than a silently broken
-# picture or a remote image request.
+# Controlled vocabulary for the weather forecast strip -- an icon is
+# inlined from pt-edition/assets/weather (Atlas Icons, MIT), never
+# fetched, so an unrecognized key is a validation failure rather than
+# a silently broken picture or a remote image request.
 FORECAST_ICONS = ("sun", "partly-cloudy", "cloud", "rain", "storm", "snow")
 # Same idea for the calendar desk's schedule rows -- what kind of event this
 # is, drawn from CALENDAR_ICONS, never free text.
@@ -583,55 +583,26 @@ def render_chat(edition, name):
     return "\n".join(lines) + "\n"
 
 
-# Inline, monochrome (currentColor) weather-strip icons -- drawn, never
-# fetched, so the "no external assets" rule in template.html holds even
-# for pictures. Each is a small fixed-viewBox line drawing; FORECAST_ICONS
-# is the only allowed set of keys into this dict.
-WEATHER_ICONS = {
-    "sun": (
-        '<circle cx="12" cy="12" r="4.5"/>'
-        '<path d="M12 2v3M12 19v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1'
-        'M2 12h3M19 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>'
-    ),
-    "partly-cloudy": (
-        '<circle cx="9.5" cy="9.5" r="3.6"/>'
-        '<path d="M9.5 2.8v2.2M4.3 4.3l1.6 1.6M2.8 9.5H5M15 9.5h2.2M13.4 5.9l1.6-1.6"/>'
-        '<path d="M8 21h9.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8.6 12.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-    ),
-    "cloud": (
-        '<path d="M7 20h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.6 11.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-    ),
-    "rain": (
-        '<path d="M6.5 15h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 6.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M8 18.5l-1.2 3M12 18.5l-1.2 3M16 18.5l-1.2 3"/>'
-    ),
-    "storm": (
-        '<path d="M6.5 13.5h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 4.7'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M12.5 15.5l-2.7 4.3h2.6l-1.7 3.4"/>'
-    ),
-    "snow": (
-        '<path d="M6.5 15h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 6.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M8 18v3.5M6.5 19.2l3 2.1M9.5 19.2l-3 2.1'
-        'M16 18v3.5M14.5 19.2l3 2.1M17.5 19.2l-3 2.1"/>'
-    ),
-}
+# Forecast drawings: Atlas Icons weather glyphs (MIT), vendored beside
+# this skill so the "no external assets" rule in template.html holds.
+# FORECAST_ICONS is the only allowed set of filenames.
+WEATHER_ICON_DIR = pathlib.Path(__file__).resolve().parent.parent / "assets" / "weather"
 
 
 def weather_icon(key, size=28):
     """One inline SVG for a forecast day, `size` px square. `key` is
     pre-validated against FORECAST_ICONS by validate(); this still falls
     back to a plain cloud rather than trust an unchecked caller."""
-    body = WEATHER_ICONS.get(key, WEATHER_ICONS["cloud"])
-    return (
-        f'<svg class="wx-icon" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        'fill="none" stroke="currentColor" stroke-width="1.4" '
-        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-        f"{body}</svg>"
+    name = key if key in FORECAST_ICONS else "cloud"
+    path = WEATHER_ICON_DIR / f"{name}.svg"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        text = (WEATHER_ICON_DIR / "cloud.svg").read_text(encoding="utf-8")
+    return text.replace(
+        "<svg ",
+        f'<svg class="wx-icon" width="{size}" height="{size}" ',
+        1,
     )
 
 
