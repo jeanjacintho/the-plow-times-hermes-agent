@@ -284,35 +284,36 @@ class TestMain:
 
 
 class TestDailySchedule:
-    def test_plain_lead(self):
-        assert crons.daily_schedule("07:00", 45) == "15 6 * * *"
-
     def test_default_lead_is_zero(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "07:00", {})
         assert jobs[0]["schedule"] == "0 7 * * *"
         assert crons.DEFAULT_LEAD_MINUTES == 0
 
-    def test_zero_lead_is_the_hour(self):
-        assert crons.daily_schedule("07:00", 0) == "0 7 * * *"
+    @pytest.mark.parametrize("hour, lead, schedule", [
+        ("07:00", 45, "15 6 * * *"),
+        ("07:00", 0, "0 7 * * *"),
+        # The owner's minute is kept, with or without a lead.
+        ("10:25", 0, "25 10 * * *"),
+        ("10:25", 10, "15 10 * * *"),
+        ("00:30", 30, "0 0 * * *"),
+    ])
+    def test_lead_is_subtracted_in_minutes(self, hour, lead, schedule):
+        assert crons.daily_schedule(hour, lead) == schedule
 
-    def test_midnight_wraps_to_previous_day(self):
-        # 00:00 - 45min is 23:15 the day before -- a valid daily expression,
-        # not "45 -1 * * *".
-        assert crons.daily_schedule("00:00", 45) == "15 23 * * *"
+    def test_lead_past_midnight_refuses(self):
+        # That run would fire the evening before: the previous day's paper.
+        with pytest.raises(SystemExit, match="before midnight of its delivery day"):
+            crons.daily_schedule("00:30", 31)
 
-    def test_lead_over_the_hour_wraps(self):
-        # 00:00 - 90min is 22:30 the day before.
-        assert crons.daily_schedule("00:00", 90) == "30 22 * * *"
+    def test_lead_up_to_179_minutes_loads(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 179}})
+        assert crons.load_lead_minutes(path) == 179
 
-    def test_owner_chosen_minute_is_not_forced_to_zero(self):
-        # delivery.hour used to be restricted to "HH:00" on the theory that
-        # the cron fires at the hour -- it never did; the minute field was
-        # always there, only ever fed a computed value.
-        assert crons.daily_schedule("10:25", 0) == "25 10 * * *"
-
-    def test_owner_chosen_minute_survives_a_lead_offset(self):
-        assert crons.daily_schedule("10:25", 10) == "15 10 * * *"
+    def test_lead_of_180_minutes_refuses(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 180}})
+        with pytest.raises(SystemExit, match="0-179"):
+            crons.load_lead_minutes(path)
 
 
 class TestSubscriptionJob:
@@ -743,11 +744,13 @@ class TestShowDailyRecipe:
     copy can never drift from what the cron actually runs.
     """
 
-    def test_flag_prints_exactly_the_cron_recipe(self, capsys):
+    def test_flag_prints_the_cron_recipe_marked_live(self, capsys):
         rc = crons.main(["--show-daily-recipe"])
         assert rc == 0
         printed = capsys.readouterr().out.strip()
-        assert printed == crons.daily_prompt("daily").strip()
+        assert printed.startswith(crons.daily_prompt("daily").strip())
+        assert printed.endswith("This is a live copy: print today's advisor card as it stands, "
+                                "or the gap card, and make no advisor pass.")
 
     def test_recipe_covers_the_sections_the_one_off_path_skipped(self, capsys):
         crons.main(["--show-daily-recipe"])
