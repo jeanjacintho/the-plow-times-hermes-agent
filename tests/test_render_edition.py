@@ -9,19 +9,20 @@ from conftest import ROOT, load_module
 
 render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
 SHIPPED_BANK = render.BANK
-BANK_ENTRY = {
-    "id": "talk#1", "url": "https://advisor.example/talk", "title": "Talk To Customers",
-    "date": "2026-01-01", "quote": "Don’t build before you’ve talked to ten customers. Then build less.",
-    "advice": "Interview customers first.", "situations": ["customer-discovery"], "stages": ["discovery"],
+BANK_POST = {
+    "url": "https://advisor.example/talk", "title": "Talk To Customers", "date": "2026-01-01",
+    "entries": [{"id": "talk#1", "quote": "Don’t build before you’ve talked to ten customers. Then build less.",
+                 "advice": "Interview customers first.", "situations": ["customer-discovery"],
+                 "stages": ["discovery"]}],
 }
 BANKED = {"text": "Three discovery calls this week", "source_label": "Talk To Customers",
-          "url": BANK_ENTRY["url"], "quote": "Don’t build before you’ve talked to ten customers."}
+          "url": BANK_POST["url"], "quote": "Don’t build before you’ve talked to ten customers."}
 
 
 @pytest.fixture
 def synthetic_bank(tmp_path, monkeypatch):
     path = tmp_path / "bank.json"
-    path.write_text(json.dumps([BANK_ENTRY]), encoding="utf-8")
+    path.write_text(json.dumps([BANK_POST]), encoding="utf-8")
     monkeypatch.setattr(render, "BANK", path)
 
 
@@ -791,10 +792,12 @@ class TestMain:
 
 class TestAdvisorBank:
     def test_shipped_bank_shape(self):
-        entries = json.loads(SHIPPED_BANK.read_text(encoding="utf-8"))
+        posts = json.loads(SHIPPED_BANK.read_text(encoding="utf-8"))
+        entries = [entry for post in posts for entry in post["entries"]]
         assert all(len(e["quote"].split()) <= render.QUOTE_MAX_WORDS for e in entries)
         assert len({e["id"] for e in entries}) == len(entries)
-        assert all(e["url"].startswith("https://") for e in entries)
+        assert len({p["url"] for p in posts}) == len(posts)
+        assert all(p["url"].startswith("https://") for p in posts)
 
 
 class TestEnsurePriorityDesk:

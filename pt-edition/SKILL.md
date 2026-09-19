@@ -127,10 +127,10 @@ HTML.** Hand-write `edition.json` under the run directory:
   the day's priority, one action in at most 120 characters, and `body` is
   the first step in prose for the chat edition. Shape: `why` (1–3 objects
   with `text` and `source_label`, and optionally `url` and `quote`: `url` is a
-  post in `pt-setup/assets/advisors/salyer-bank.json`, `source_label` is
-  that post's exact `title`, and `quote` is verbatim from that entry's
-  `quote`, at most 25 words; the card prints it in quotation marks with the
-  title linked),
+  post in `pt-setup/assets/advisors/salyer-bank.json` (one `{url, title,
+  date, entries}` record per post), `source_label` is its exact `title`,
+  and `quote` is verbatim from one of its `entries`, at most 25 words; the
+  card prints it in quotation marks with the title linked),
   `first_step`, optional `not_today` (at most two strings), and optional
   `stage_label`, `stage_why`, `yesterday`, `week`, `draft` (non-blank
   strings), `who` (at most three strings) and `today` (at most four

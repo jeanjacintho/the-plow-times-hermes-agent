@@ -353,14 +353,6 @@ def _normalized(text):
     return re.sub(r"\s+", " ", text.translate(CURLY_QUOTES)).strip()
 
 
-def _bank():
-    """The advisor bank, entries grouped by post url."""
-    by_url = {}
-    for entry in json.loads(BANK.read_text(encoding="utf-8")):
-        by_url.setdefault(entry["url"], []).append(entry)
-    return by_url
-
-
 def _own_words(section):
     """(field, text) a standing desk writes in its own words for the page.
 
@@ -392,20 +384,20 @@ def _own_words(section):
 def _why_rules(where, why):
     """A `why` citing the bank quotes it verbatim, under the post's own title."""
     cited = [(i, item) for i, item in enumerate(why) if item.get("quote") or item.get("url")]
-    bank = _bank() if cited else {}
+    posts = json.loads(BANK.read_text(encoding="utf-8")) if cited else []
     for i, item in cited:
         iwhere = f"{where}.priority.why[{i}]"
-        entries = bank.get(item.get("url"), [])
-        if not entries:
+        post = next((post for post in posts if post["url"] == item.get("url")), {})
+        if not post:
             yield f"{iwhere}.url is not in the advisor bank"
-        elif item["source_label"].strip() != entries[0]["title"]:
+        elif item["source_label"].strip() != post["title"]:
             yield f"{iwhere}.source_label is not the bank title for its url"
         quote = item.get("quote")
         if quote is None:
             continue
         if len(quote.split()) > QUOTE_MAX_WORDS:
             yield f"{iwhere}.quote is over {QUOTE_MAX_WORDS} words"
-        if not any(_normalized(quote) in _normalized(e["quote"]) for e in entries):
+        if not any(_normalized(quote) in _normalized(e["quote"]) for e in post.get("entries", [])):
             yield f"{iwhere}.quote is not verbatim from the bank entry at its url"
 
 
