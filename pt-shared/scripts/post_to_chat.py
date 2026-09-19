@@ -191,14 +191,21 @@ def maybe_print(pdf_path, config_path=None, runner=None):
     return text or "page not printed — empty print result"
 
 
+RECORD_TIMEOUT = 300
+
+
 def run_record_edition(edition_json):
     import subprocess
 
-    proc = subprocess.run(
-        [sys.executable, str(RECORD_SCRIPT), edition_json],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(RECORD_SCRIPT), edition_json],
+            capture_output=True,
+            text=True,
+            timeout=RECORD_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return f"edition not recorded — timed out after {RECORD_TIMEOUT}s"
     blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
     if proc.returncode != 0:
         if "edition not recorded" in blob:
@@ -327,7 +334,6 @@ def main():
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
     after_posted()
-    print(maybe_record(args.pdf or args.text_file))
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
         printed = maybe_print(args.pdf)
@@ -340,6 +346,7 @@ def main():
                 print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     else:
         print(f"chat edition posted ({len(text)} chars)")
+    print(maybe_record(args.pdf or args.text_file))
 
 
 if __name__ == "__main__":

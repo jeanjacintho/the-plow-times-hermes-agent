@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 
 import pytest
@@ -168,3 +169,33 @@ class TestMaybeRecord:
 
         out = post.maybe_record(str(pdf), runner=runner)
         assert "edition not recorded" in out
+
+    def test_a_hung_recorder_times_out_instead_of_blocking_the_run(self, monkeypatch):
+        def fake_run(*args, **kwargs):
+            raise subprocess.TimeoutExpired(cmd="record_edition.py", timeout=kwargs.get("timeout"))
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        out = post.run_record_edition("run/1/edition.json")
+        assert out == f"edition not recorded — timed out after {post.RECORD_TIMEOUT}s"
+
+
+class TestPrintBeforeRecord:
+    """The paper comes before the archive: a slow or hung wiki write must
+    never delay the owner's printed page."""
+
+    def test_the_pdf_leg_prints_before_it_records(self, tmp_path, monkeypatch):
+        order = []
+        pdf = tmp_path / "edition.pdf"
+        pdf.write_bytes(b"%PDF")
+
+        monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
+        monkeypatch.setattr(post, "read_message", lambda: "")
+        monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
+        monkeypatch.setattr(post, "post_json", lambda *a, **k: None)
+        monkeypatch.setattr(post, "after_posted", lambda: None)
+        monkeypatch.setattr(post, "maybe_print", lambda *a, **k: order.append("print") or "page printed")
+        monkeypatch.setattr(post, "maybe_record", lambda *a, **k: order.append("record") or "RECORDED")
+        monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", str(pdf)])
+
+        post.main()
+        assert order == ["print", "record"]

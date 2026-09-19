@@ -61,3 +61,12 @@ class TestCli:
         with pytest.raises(SystemExit) as exc:
             history.main(["recent"])
         assert str(exc.value).startswith("error: history unavailable — Mac unreachable")
+
+    def test_an_unknown_timezone_name_refuses_instead_of_guessing(self, mac, monkeypatch, tmp_path):
+        monkeypatch.setattr(history, "connect", lambda: Wiki(mac.call_tool))
+        monkeypatch.setenv("PT_HOME", str(tmp_path))
+        (tmp_path / "config.json").write_text(
+            json.dumps({"owner": {"timezone": "Not/AZone"}}))
+        with pytest.raises(SystemExit) as exc:
+            history.main(["recent"])
+        assert str(exc.value).startswith("error: history unavailable — ")

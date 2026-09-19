@@ -13,8 +13,10 @@ non-zero; the desk then runs as if history were empty.
 "Today" is the owner's own day, from `owner.timezone` in pt/config.json, not
 the container's: register_crons.py no longer requires the two to agree (see
 its module docstring), so a page named for the owner's day can be a day off
-the container's own date. The container's date is the fallback when the
-config or the key is missing.
+the container's own date. The container's date is the fallback only when the
+config or the key is missing; a config that exists but can't be trusted (bad
+JSON, an unreadable file, an unknown zone name) is the same `error: history
+unavailable — <why>` above, never a guessed window.
 """
 from __future__ import annotations
 
@@ -38,12 +40,22 @@ def config_path():
 
 
 def owner_today():
-    """The owner's own date -- see the module docstring for why."""
+    """The owner's own date -- see the module docstring for why.
+
+    The container's date is the fallback only when the config or the key is
+    genuinely absent; a config that exists but can't be trusted (bad JSON,
+    an unreadable file, an unknown zone name) refuses instead of guessing --
+    a silently wrong seven-day window would read as valid history.
+    """
     try:
-        tz = json.loads(config_path().read_text(encoding="utf-8"))["owner"]["timezone"]
-        return datetime.now(ZoneInfo(tz)).date()
-    except (OSError, ValueError, KeyError, TypeError):
+        config = json.loads(config_path().read_text(encoding="utf-8"))
+    except FileNotFoundError:
         return date.today()
+    try:
+        tz = config["owner"]["timezone"]
+    except (KeyError, TypeError):
+        return date.today()
+    return datetime.now(ZoneInfo(tz)).date()
 
 
 def recent(wiki, today):
@@ -64,7 +76,7 @@ def main(argv=None):
     parser.parse_args(argv)
     try:
         print(json.dumps(recent(connect(), owner_today()), ensure_ascii=False))
-    except LatchError as exc:
+    except (LatchError, OSError, ValueError, KeyError, TypeError) as exc:
         sys.exit(f"error: history unavailable — {exc}")
 
 
