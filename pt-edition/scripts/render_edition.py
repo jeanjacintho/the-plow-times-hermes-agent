@@ -373,9 +373,10 @@ def _own_words(section):
     for key in ("title", "headline") + (() if lists_others else ("body",)):
         if section.get(key):
             yield key, section[key]
-    for i, source in enumerate(section.get("sources", [])):
-        if not source.startswith(("http://", "https://")):
-            yield f"sources[{i}]", source
+    for key in ("sources", "could_not_source"):
+        for i, text in enumerate(section.get(key, [])):
+            if not text.startswith(("http://", "https://")):
+                yield f"{key}[{i}]", text
     priority = section.get("priority") or {}
     for key in ("yesterday", "stage_label", "stage_why", "week", "first_step"):
         if priority.get(key):
@@ -575,12 +576,12 @@ def chat_section(section):
             lines.append(f"  {item['time'].strip()} {item['title'].strip()}")
     else:
         body = section.get("body", "").strip()
-        lines.append(f"  {body}" if body else "  (nothing usable in the budget this time)")
+        lines.append(f"  {body}" if body else "  (nothing to report this time)")
     sources = dedupe(section.get("sources", []))
     could_not = section.get("could_not_source", [])
-    if desk == "news" and sources:
+    if desk != "priority" and sources:
         lines.append("  Sources: " + ", ".join(sources))
-    if desk == "news" and could_not:
+    if desk != "priority" and could_not:
         lines.append("  Couldn't source: " + "; ".join(could_not))
     return "\n".join(lines)
 
@@ -597,7 +598,7 @@ def render_chat(edition, name):
             lines.append(chat_section(section))
     else:
         lines.append("")
-        lines.append("Nothing usable in the budget this time.")
+        lines.append("Nothing to report this time.")
     return "\n".join(lines) + "\n"
 
 
@@ -1058,11 +1059,11 @@ def html_section(section, drop_cap=False):
     priority = section.get("priority") if desk == "priority" else None
     structured = forecast or schedule or messages or games or priority
     # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
-    # no caption) -- the title bar, headline and body prose are all
-    # dropped for weather when it's carrying a grid, so the box is just
-    # the days, nothing else. Calendar/mail/sports keep their title and
-    # headline either way (unlike weather, nobody asked for those gone)
-    # but drop the body PROSE specifically once a
+    # no caption) -- the title bar, headline, body prose and sources line
+    # are all dropped for weather when it's carrying a grid, so the box
+    # is just the days, nothing else. Calendar/mail/sports keep their
+    # title, headline and sources either way (unlike weather, nobody
+    # asked for those gone) but drop the body PROSE specifically once a
     # schedule, messages or games list is present -- otherwise the box
     # shows the same event twice, once as a clean icon/score row and
     # again as a redundant bullet restating it in a sentence. The
@@ -1116,10 +1117,9 @@ def html_section(section, drop_cap=False):
             else:
                 blocks.append(f"  <p>{html.escape(para)}</p>")
     else:
-        blocks.append("  <p>(nothing usable in the budget this time)</p>")
-    # Only news prints its sources and gaps: on a standing desk those lines
-    # were our own plumbing ("Sources: priority desk"), not the reader's news.
-    if desk == "news":
+        blocks.append("  <p>(nothing to report this time)</p>")
+    # The priority desk's sources were our own plumbing ("Sources: priority desk").
+    if not skip_caption and desk != "priority":
         sources = dedupe(section.get("sources", []))
         if sources:
             links = ", ".join(source_markup(url) for url in sources)
@@ -1218,7 +1218,7 @@ def render_html(edition, name, template_text):
         lead_html = ""
         rest = []
     else:
-        lead_html = '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
+        lead_html = '<article class="section"><p>Nothing to report this time.</p></article>'
         rest = []
 
     # The news well is a vertical stack of stories that MAY split across

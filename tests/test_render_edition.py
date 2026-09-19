@@ -346,6 +346,8 @@ class TestValidate:
         ("weather", "body", "Rain, per the weather desk.", "sections[0].body prints a pipeline word ('desk')"),
         ("calendar", "headline", "Agenda from events.json", "sections[0].headline prints a file path or name"),
         ("mail", "sources", ["run/desk-mail"], "sections[0].sources[0] prints a file path or name"),
+        ("calendar", "could_not_source", ["the calendar desk"],
+         "sections[0].could_not_source[0] prints a pipeline word ('desk')"),
         # An event title or a mail subject is printed as its sender wrote it.
         ("calendar", "body", "9am — Pipeline review", None),
         ("mail", "body", "Ana — Q4 budget notes", None),
@@ -405,7 +407,7 @@ class TestValidate:
             render.DEFAULT_MASTHEAD,
             "{{LEAD}}{{PRIORITY}}",
         )
-        assert "Nothing usable in the budget this time." not in html
+        assert "Nothing to report this time." not in html
         assert "Close the seed extension" in html
         assert html.count("<article") >= 1
         assert "{{LEAD}}" not in html
@@ -449,10 +451,10 @@ class TestChat:
         assert "Sources: https://example.com/weather" in text
 
     @pytest.mark.parametrize("desk", render.DESKS)
-    def test_sources_and_unsourced_print_on_news_only(self, desk):
+    def test_every_desk_but_priority_prints_sources_and_gaps(self, desk):
         data = edition(sections=[{
             "kind": "assignment", "topic_id": "t_3f2a", "run_on": "2026-09-11", "desk": desk,
-            "title": "iPhone 15 price", "body": "$4,299.",
+            "title": "iPhone 15 price", "body": " ",
             "sources": ["https://shop.example/x"],
             "tag": "special for this edition",
             "could_not_source": ["the Pro model's price"],
@@ -462,12 +464,13 @@ class TestChat:
                                   "{{LEAD}}{{PRIORITY}}{{WEATHER}}{{CALENDAR}}{{MAIL}}{{SPORTS}}")
         assert "special for this edition" in text
         for out in (text, page):
-            assert ("Sources:" in out) is (desk == "news")
-            assert ("Couldn't source: the Pro model" in out) is (desk == "news")
+            assert ("Sources:" in out) is (desk != "priority")
+            assert ("Couldn't source: the Pro model" in out) is (desk != "priority")
+            assert "(nothing to report this time)" in out and "budget" not in out
 
     def test_empty_budget_is_still_an_edition(self):
         text = render.render_chat(edition(sections=[]), render.DEFAULT_MASTHEAD)
-        assert "Nothing usable in the budget this time." in text
+        assert "Nothing to report this time." in text
 
     def test_sources_deduped(self):
         data = edition(sections=[{

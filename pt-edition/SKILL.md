@@ -110,10 +110,10 @@ HTML.** Hand-write `edition.json` under the run directory:
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block
   it qualifies. Unsourced claims are named, not hidden.
-- **Only news prints `sources` and `could_not_source`.** On a standing desk
-  those lines were the paper's own plumbing ("Sources: priority desk"), so
-  the renderer drops them: say a desk's gap in its headline or body, in the
-  reader's words.
+- **Every desk but priority prints `sources` and `could_not_source`**, in
+  the reader's words ("your calendar", never a file or a desk). On the
+  priority desk those lines were the paper's own plumbing ("Sources:
+  priority desk"), so the renderer drops them there.
 - **`desk` is the newspaper department, and each one is its own page
   slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
   `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
@@ -235,7 +235,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   desks ignore it; the renderer already puts them on the rail.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
-  sentence ("nothing usable in the budget this time"), and what was tried.
+  sentence ("nothing to report this time"), and what was tried.
   A thin weather or calendar desk is still printed; it is a department of
   the paper, not optional filler.
 
