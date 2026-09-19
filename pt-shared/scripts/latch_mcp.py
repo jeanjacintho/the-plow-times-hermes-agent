@@ -34,11 +34,11 @@ def decode_mcp_body(content_type, raw):
             if not chunk or chunk == "[DONE]":
                 continue
             obj = json.loads(chunk)
-            if "result" in obj or "error" in obj:
+            if isinstance(obj, dict) and ("result" in obj or "error" in obj):
                 return obj
         raise LatchError("empty latch stream")
     obj = json.loads(text) if text.strip() else {}
-    if "result" not in obj and "error" not in obj:
+    if not isinstance(obj, dict) or ("result" not in obj and "error" not in obj):
         raise LatchError("latch returned no result")
     return obj
 
