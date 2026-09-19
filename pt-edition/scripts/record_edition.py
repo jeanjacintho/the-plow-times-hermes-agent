@@ -40,6 +40,9 @@ from owner_time import owner_now
 from wiki import EDITIONS, PAPER_LINK, connect, join_page, split_page
 from wiki_setup import ensure
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from render_edition import fill_news_desk  # noqa: E402 -- sibling script beside this one
+
 MARK = "<!-- edition {} -->"
 CARD_LINES = (("First step", "first_step"), ("Stage", "stage_label"), ("Why this stage", "stage_why"),
               ("Yesterday", "yesterday"), ("This week", "week"), ("Draft", "draft"))
@@ -70,6 +73,7 @@ def record(wiki, edition_json, chat, now):
     run_dir = Path(edition_json).parent
     raw = Path(edition_json).read_bytes()
     edition = json.loads(raw)
+    fill_news_desk(edition)
     sections = edition.get("sections") or []
     printed = next((s for s in sections if isinstance(s.get("priority"), dict)), None)
     news = [s for s in sections if s.get("topic_id") and s.get("desk") == "news"]

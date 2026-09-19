@@ -69,6 +69,20 @@ class TestRecord:
         assert "Could not source: the central bank's comment" in body
         assert "editions/2026-09-19.md" in (mac.home / "Plow" / "wiki" / OVERVIEW).read_text()
 
+    def test_a_topic_id_section_with_no_desk_is_still_recorded_as_news(self, mac, tmp_path):
+        # render_edition.py's desk_of() already renders a no-desk topic_id
+        # section as news; record_edition.py must agree (fill_news_desk is
+        # shared), or the owner would receive it and the archive drop it.
+        sections = [{"kind": "section", "topic_id": "t_no_desk", "title": "The dollar",
+                     "headline": "The real firms", "body": "The real rose 1%.",
+                     "sources": ["https://news.example/fx"]}]
+        run_dir = tmp_path / "run" / "daily-2026-09-19"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        path = run_dir / "edition.json"
+        path.write_text(json.dumps({"date": "2026-09-19", "location": "Sao Paulo", "sections": sections}))
+        rec.record(Wiki(mac.call_tool), path, "cht_1", MORNING)
+        assert "The real rose 1%." in day(mac)
+
     def test_the_owners_own_accounts_stay_off_the_wiki(self, mac, tmp_path):
         rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
         assert "Rain in Sao Paulo" not in day(mac) and "Ana Costa" not in day(mac)
