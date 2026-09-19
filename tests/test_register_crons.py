@@ -305,6 +305,15 @@ class TestDailySchedule:
         # 00:00 - 90min is 22:30 the day before.
         assert crons.daily_schedule("00:00", 90) == "30 22 * * *"
 
+    def test_lead_up_to_179_minutes_loads(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 179}})
+        assert crons.load_lead_minutes(path) == 179
+
+    def test_lead_of_180_minutes_refuses(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 180}})
+        with pytest.raises(SystemExit, match="0-179"):
+            crons.load_lead_minutes(path)
+
     def test_owner_chosen_minute_is_not_forced_to_zero(self):
         # delivery.hour used to be restricted to "HH:00" on the theory that
         # the cron fires at the hour -- it never did; the minute field was
