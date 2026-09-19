@@ -81,7 +81,6 @@ class TestCli:
         mac.asleep = True
         monkeypatch.setattr(ws, "connect", lambda: Wiki(mac.call_tool))
         monkeypatch.setenv("PLOW_HOME_CHANNEL", "cht_1")
-        monkeypatch.setenv("PT_HOME", str(tmp_path))
         with pytest.raises(SystemExit) as exc:
             ws.main(["--desk"])
         assert str(exc.value).startswith("error: wiki not ready — Mac unreachable")

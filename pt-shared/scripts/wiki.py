@@ -9,11 +9,9 @@ plow_run_command, under whatever approval mode the Mac is in.
 """
 from __future__ import annotations
 
-import time
-
 import yaml
 
-from latch_mcp import LatchError, settle
+from latch_mcp import LatchError
 from latch_mcp import connect as latch_connect
 
 WIKI = "~/Plow/wiki"
@@ -43,18 +41,13 @@ def join_page(meta, body):
 
 
 class Wiki:
-    def __init__(self, call_tool, sleep=time.sleep):
+    def __init__(self, call_tool):
         self._call = call_tool
-        self._sleep = sleep
-
-    def _settled(self, name, args):
-        poll = lambda handle: self._call("plow_get_result", {"handle": handle})
-        return settle(self._call(name, args), poll, sleep=self._sleep)
 
     def read_path(self, path):
         """A file's text on the Mac, or None when it does not exist."""
         try:
-            return self._settled("plow_read_file", {"path": path})["content"]
+            return self._call("plow_read_file", {"path": path})["content"]
         except LatchError as exc:
             if "ENOENT" in str(exc):
                 return None
@@ -64,7 +57,7 @@ class Wiki:
         return self.read_path(f"{WIKI}/{rel}")
 
     def write(self, rel, text):
-        self._settled("plow_write_file", {"path": f"{WIKI}/{rel}", "content": text})
+        self._call("plow_write_file", {"path": f"{WIKI}/{rel}", "content": text})
 
     def run(self, *args, write=False):
         """`wiki <args>` through Latch's wiki plugin: (exit_code, output)."""
@@ -72,7 +65,7 @@ class Wiki:
                   "goal": f"Keep The Founder Times' pages in your wiki (wiki {args[0]})"}
         if write:
             params["write_paths"] = [WIKI]
-        result = self._settled("plow_run_command", params)
+        result = self._call("plow_run_command", params)
         if not isinstance(result, dict) or "exit_code" not in result:
             raise LatchError(f"wiki {args[0]} did not finish: {result}")
         return int(result["exit_code"]), str(result.get("output") or "")
@@ -90,4 +83,4 @@ class Wiki:
 
 
 def connect():
-    return Wiki(latch_connect("the-plow-times-wiki").call_tool)
+    return Wiki(latch_connect().call_tool)
