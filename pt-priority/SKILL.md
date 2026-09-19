@@ -8,17 +8,14 @@ description: The advisor's desk — passes (lenses ask, researchers answer from 
 The desk keeps two pages, which passes only make better, by thinking rather than gathering.
 
 **The Q&A**, `~/Plow/wiki/synthesis/patrick-salyer-qa.md` on the Mac, read and written whole with
-`mcp__plow__plow_read_file` and `mcp__plow__plow_write_file`: what the advisor, as the owner's
-investor, most needs to know about the company, and what is known. The wiki's front matter
-(`type: Synthesis`, `title`, `description`, `category: advisors`, `tags`, `sources`, `created`,
-`updated`), then two lists, each ranked by how much an answer changes the advice, at most 20
-entries between them:
+`mcp__plow__plow_read_file` and `mcp__plow__plow_write_file`, under the wiki's front matter (`type:
+Synthesis`, `title`, `description`, `category: advisors`, `tags`, `sources`, `created`, `updated`):
+what the advisor, as the owner's investor, most needs to know about the company. Two lists, ranked
+by how much an answer changes the advice, at most 20 entries between them, ids never reused:
 - **Open**: `**Q<n>**`, the question, what was tried, the date first asked.
-- **Answered**: `**Q<n>**`, the question, the answer and its basis: a fact with its date and item,
-  or a source to re-read every pass (a metrics page, a file) with what it said last.
-
-Ids are never reused. A disproved answer goes back to Open. A labeled estimate that names its
-basis ("MRR est. $2–5K: 8 paying teams") is an answer; "unclear" never is.
+- **Answered**: `**Q<n>**`, the question, the answer and its basis: a fact with its date and item, a
+  source to re-read every pass (a metrics page, a file) with what it said last, or a labeled
+  estimate naming its basis ("MRR est. $2–5K: 8 paying teams"), never "unclear".
 
 **The page**, `/var/lib/hermes/pt/advisor.md`: the owner's day, in Markdown under about a printed
 page, four sections in order:
@@ -83,18 +80,16 @@ the stub.
    - Mail, when `mail.configured`: whole threads both ways, as the Mac's `google-workspace` skill
      (`mcp__plow__plow_read_skill`) documents `plow-gog gmail`.
    - Calendar: as pt-research's `references/desks.md` §2 reads it.
-   - Files: the notes file (`priority.file`), at most 20 wiki pages that `plow_run_command`
+   - Files and pages: the notes file (`priority.file`), at most 20 wiki pages that `plow_run_command`
      `["/usr/bin/find","<home>/Plow/wiki","-maxdepth","4","-type","f","-name","*.md","-size","-50k"]`
-     lists, and any file under `~/Plow` that a Q&A answer names, each by `plow_read_file`. Never
-     another file under `~/Plow` but the advisor files.
-   - Pages a Q&A answer names: in Latch's browser, as every page is read.
+     lists, each by `plow_read_file`, and any file or page a Q&A answer names (a page in Latch's
+     browser). Nothing else under `~/Plow` but the advisor files.
    - iMessage: `mcp__plow__plow_read_skill` with `name` = `imessage`, and read exactly as it says;
-     it names the reader this Mac's Latch ships. A deny or an error is one blocked source: note
-     it, do not retry, go on. The owner's own messages since As of answer questions as their notes
-     do.
+     it names the reader this Mac's Latch ships. Read the owner's own messages since As of too. A
+     deny or an error is one blocked source: note it, do not retry, go on.
 3. **Judge**, strictly in this order:
-   1. **Falsify.** Re-open the items behind the current headline, the Q&A answers the new answers
-      touch, and every claim the answers touch, and mark what they disprove.
+   1. **Falsify.** Re-open the items behind the current headline and every claim the answers touch,
+      the Q&A's included, and mark what they disprove.
    2. **Strike and save.** Strike every line with no item and every disproved line; `write_file`
       the struck page to `pt/advisor.md` itself before the writer runs. Fold the answers into the
       Q&A (new questions to Open, found answers to Answered with their items, disproved ones back
@@ -115,10 +110,10 @@ the stub.
       Only then write the card.
 
 A failed asker or researcher: go on with what came back. A failed writer or scorer: the struck
-page stays and Card still runs. While `/var/lib/hermes/pt/company.md` exists, or the page still has
-a Company or Open questions section, Strike and save moves each of their lines that names its basis
-into the Q&A (facts to Answered, questions to Open) and drops the rest; the page loses those
-sections, then `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
+page stays and Card still runs. Until they are gone, Strike and save carries
+`/var/lib/hermes/pt/company.md` and any Company or Open questions section on the page into the Q&A
+(only lines naming a basis), drops the sections and runs `mv /var/lib/hermes/pt/company.md
+/var/lib/hermes/pt/company.md.migrated`.
 
 **The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
 "ok", "priority": {…}}` mapped from the kept page, the Q&A and the latest `pt/history.json` entry,
