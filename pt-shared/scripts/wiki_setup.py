@@ -55,13 +55,13 @@ def ensure(wiki, chat, desk=False):
         code, out = wiki.run("init", WIKI, write=True)
         if code != 0:
             raise LatchError(f"wiki init: {out.strip()}")
-        toml = wiki.read("wiki.toml")
         did.append(WIKI)
     did += _seed(wiki, SCHEMA, "schema.md", chat)
     did += _seed(wiki, OVERVIEW, "overview.md", chat)
     if desk:
         did += _seed(wiki, GOALS, "goals.md", chat, lambda: wiki.read_path(LEGACY_NOTES))
         did += _seed(wiki, QA, "qa.md", chat)
+    toml = wiki.read("wiki.toml")  # again after the seeds' calls: append to what is there now
     if ROOT not in tomllib.loads(toml).get("roots", {}):
         wiki.write("wiki.toml", f'{toml.rstrip()}\n\n[roots."{ROOT}"]\nwriter = "{WRITER}"\n')
         did.append(f"{ROOT} in wiki.toml")
