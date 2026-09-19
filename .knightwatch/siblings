@@ -11,7 +11,7 @@
 # is the `plow_chat` plugin that base pins, which frames every turn, and whose
 # chat adapter `post_to_chat.py` mirrors call for call; `latch` owns the MCP
 # tools and the gog grammar that research, calendar, mail and print drive;
-# `agent-index-client` is pinned by commit and sha256 in `vendor/client.pin`;
+# `agent-index-client` is the reporter the base ships as its `agent-index` service;
 # `plow-agents` owns the install contract and the compose shape `compose.yml`
 # follows; `agent-mgr` still execs `deploy-hook` and reads `agent.env`.
 #
