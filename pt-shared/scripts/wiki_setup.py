@@ -63,8 +63,8 @@ def ensure(wiki, chat, desk=False, pt_home=PT_HOME):
     if desk:
         did += _seed(wiki, GOALS, "goals.md", chat, lambda: wiki.read_path(LEGACY_NOTES))
         local = pt_home / "advisor.md"
-        carried = _seed(wiki, ADVISOR_PAGE, "advisor.md", chat,
-                         lambda: local.read_text(encoding="utf-8") if local.exists() else None)
+        old = local.read_text(encoding="utf-8") if local.exists() else None
+        carried = _seed(wiki, ADVISOR_PAGE, "advisor.md", chat, lambda: old)
         if carried:
             local.unlink(missing_ok=True)
         did += carried
