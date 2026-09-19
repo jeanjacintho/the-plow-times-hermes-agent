@@ -12,7 +12,7 @@
 # Pinned by digest, exactly like the fleet's `runtime/stack.json`: a mutable
 # tag would re-resolve on every pull and change a large unreviewed surface
 # under a running agent that holds live credentials. Bump both together.
-FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-51f83158a70a383f03a4d03dbd8b6ea102cf0361@sha256:253d7ed3409effa7fa59113d93b4b79bb731d8264cdaf4cd60294924d0110a2e
+FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-ef0019372ff8bca593611b31ebd2e08f9f1458ff@sha256:a8a2f97ad78b8192d80a984dce81d3bf5a9a883d18cb7b677704913a09b56aee
 
 # Boot recopies /opt/hermes/plow-seed/config.yaml over the agent home on
 # every start. The base pins anthropic/claude-sonnet-5 there; leave that
@@ -146,29 +146,6 @@ RUN find /opt/hermes/skills -mindepth 1 -type d -exec chmod 0755 {} + \
       /var/lib/hermes/memories/USER.md \
  && install -d -o 10000 -g 10000 -m 0700 /var/lib/hermes/pt
 
-# The usage reporter, fetched at build from the commit vendor/client.pin names
-# and checked against the hash beside it. Fetched rather than committed
-# because plow-pbc/agent-index-client owns that file; pinned rather than
-# tracked from a branch because this runs inside an agent holding a live
-# credential, and a moving reference would substitute unreviewed code under
-# it. The checksum is the second half: a sha in a URL is only as good as the
-# host serving it. Same pattern as life-assistant-hermes-agent.
-#
-# Root-owned under /opt/plow: the copy in the agent's home belongs to uid
-# 10000 in a running container, so scheduling that one would run whatever a
-# turn last wrote there.
-COPY vendor/client.pin /opt/plow/agent-index-client.pin
-RUN set -eu; \
-    sha="$(sed -n 's/^sha=//p' /opt/plow/agent-index-client.pin)"; \
-    want="$(sed -n 's/^sha256=//p' /opt/plow/agent-index-client.pin)"; \
-    path="$(sed -n 's/^path=//p' /opt/plow/agent-index-client.pin)"; \
-    curl -fsS --max-time 60 -o /opt/plow/agent-index-client.py \
-      "https://raw.githubusercontent.com/plow-pbc/agent-index-client/${sha}/${path}"; \
-    got="$(sha256sum /opt/plow/agent-index-client.py | cut -d' ' -f1)"; \
-    [ "$got" = "$want" ] || { echo "agent-index client is $got, pin says $want" >&2; exit 1; }; \
-    chmod 0644 /opt/plow/agent-index-client.py
-
-COPY image/s6-overlay/ /etc/s6-overlay/
 COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
 RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials
 
