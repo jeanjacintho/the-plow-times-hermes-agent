@@ -45,4 +45,4 @@ His framework, "The 3 Phases of Enterprise Software Sales Maturity," plus two cr
 ## Tie-break
 - When signals conflict, weight the ARR band and founder-dependence most heavily.
 - The markers that move a company on: 5–10 referenceable customers moves Discovery to Blueprint; a standardized playbook with reps at ~3x OTE moves Blueprint to Scale.
-- If the company record carries no concrete signal, say the stage is unclear rather than guessing.
+- If the Q&A carries no concrete signal, say the stage is unclear rather than guessing.
