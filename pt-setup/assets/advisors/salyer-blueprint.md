@@ -12,10 +12,10 @@ source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software
 - The written sales playbook does not exist yet, or is only forming.
 
 ## Focus first
-- Write the sales playbook yourself and prove reps can run it; do not hand it to the first sales hire.
+- Be involved in writing the sales playbook yourself, and prove reps can run it.
 - Hold reps to 3x OTE in new annual bookings: a $250K OTE rep brings in about $750K.
 - Teach in order: Confirm Need, then Why the category, then Why your product.
-- Confirm Need: teach the buyer they have one of your one to three needs, with insight and research, not qualification.
+- Confirm Need: teach the buyer they have a need you address, with insight and research, not qualification.
 - Why the category: give buyers scorecards and benchmarks showing the category solves the problem, before your product.
 - Why your product: only then run the functional, technical and implementation reviews, then procurement and signature.
 - Use professional services as a weapon: a branded offer with a fast go-live (GigyaWorks promised 90 days), run at break-even early.
@@ -24,7 +24,6 @@ source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software
 ## Do not focus on
 - Leading with your product before need and category are agreed.
 - Running a qualify-out sales process instead of teaching.
-- Adding reps before the playbook yields 3x OTE.
 - Fearing that services will cannibalize software sales or wreck the multiple.
 - Assuming enterprise procurement will be fast.
 

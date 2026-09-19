@@ -1,16 +1,18 @@
 # Advisor notes
 
-Markdown files the paper cites when it picks today's #1. Seeded on setup into
-`~/Plow/advisors/`. Edit them, add other investors, delete what does not fit.
+Markdown files the paper cites when it picks today's #1. Only this README is
+seeded into `~/Plow/advisors/`: add your own advisors' files there, in the shape below.
 
-## Seeded files
+## Patrick Salyer's files
 
-Patrick Salyer (Mayfield), prefixed `salyer-` so other investors' files can sit
-alongside. Each file's `source` lists the posts that back its claims.
+Patrick Salyer (Mayfield), prefixed `salyer-`. They ship with the paper and the desk
+reads them from the image every morning, so they are never copied to the Mac and an
+update reaches every install. Each file's `source` lists the posts that back its claims;
+`salyer-bank.json` holds his verbatim quotes, each with its post's title and URL.
 
 - `salyer-stage-map.md` — `stages: any`, so it is in context every morning: what each
   stage means, the signals that place a company in one, the pivot override, the
-  fundraising modifier, the B2B domain caveat, and the tie-break.
+  fundraising modifier, the domain caveat, and the tie-break.
 - `salyer-discovery.md` — $0–1M ARR: reach product-market fit.
 - `salyer-blueprint.md` — $1–10M ARR: the founder-written playbook, reps at 3x OTE.
 - `salyer-scale.md` — $10M+ ARR: the ramp model, from doing to designing.
@@ -46,8 +48,9 @@ source: https://example.com/the-public-post
 
 - `stages`: one or more of `discovery`, `blueprint`, `scale`, `pivot`, `fundraising`, `any`.
 - `source`: the public URLs behind the file's claims, comma-separated on one line.
-- `domain`: free label. If company state reads consumer/PLG and the file says
+- `domain`: free label. If the company record reads consumer and the file says
   B2B enterprise, the paper prints a warning instead of hiding the advice.
 - Recognized sections: `signals`, `focus` (`Focus first`), `avoid` (`Do not focus on`),
   `benchmarks`, `exit`. Other headings stay as context.
-- Quotes on the page are at most 25 words.
+- Quotes on the page are verbatim from `salyer-bank.json`, at most 25 words. Your own
+  advisors' advice is cited by name, without a quote.
