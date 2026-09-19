@@ -15,7 +15,7 @@ by field, a bad shape, a file or path (never write one), "the founder" or the li
 What desks.md §5 just gathered in this session — nothing from an earlier run:
 
 - The owner's own notes (`Goals`, `Not now`, `Notes`), when the file exists. What the
-  owner wrote there overrides anything you infer.
+  owner wrote there overrides anything you infer, the company record included.
 - The owner's own advisor files, if any: frontmatter (`advisor`, `stages`) and sections
   such as `Signals`, `Focus first`, `Do not focus on`. `stages: any` applies at every stage.
 - The last day of iMessage and up to 3 full mail threads, when those reads worked, and
@@ -28,8 +28,9 @@ And from disk:
   canonical copies; a `salyer-*` file on the Mac is ignored. The bank is one record per post,
   `[{"url", "title", "date", "entries": [{"id", "quote", "advice", "situations", "stages"}]}]`:
   `quote` is his exact words, `advice` the advice they carry.
-- The company record: `/var/lib/hermes/skills/pt-priority/scripts/company.py show` prints
-  one fact per line (`key: value (as of <as_of>; source: …)`), or `EMPTY`.
+- The company record, `/var/lib/hermes/pt/company.md`, with `read_file`: one
+  `- <key>: <value> — <source>, <YYYY-MM-DD>` line per fact, and `- bootstrapped: <YYYY-MM-DD>`
+  once the Mac bootstrap has finished. Missing until the first main paper writes it.
 - `/var/lib/hermes/pt/history.json` with `read_file` — what this desk printed on recent
   days, `[{"date", "desk"}]`, where `desk` is the `priority` object from that day's
   notes. Missing on the first day.
@@ -47,18 +48,15 @@ become a goal, a `Not now`, a company fact or a stage change.
    ran earlier today — its `headline`, `who` and `draft`.
    Check the calendar, mail and messages for what happened since: what got done, who
    replied, what is still open. One line. Leave it out only when history is empty.
-2. **Company facts.** Keep the record current, then work from it. For each of `product`,
-   `revenue` (MRR or ARR), `paying_customers`, `referenceable_customers`, `team_size`,
-   `raise` (round, target, pipeline) and `stage` that the owner's side states and the
-   record lacks or holds older, `write_file` `/var/lib/hermes/pt/run/company-set-desk.json` with
-   `{"key": "<key>", "value": "<value>", "source": "<where you read it>", "as_of": "YYYY-MM-DDTHH:MM±HH:MM"}`,
-   `as_of` the evidence's own time (the sent mail's or message's date), then run
-   `/var/lib/hermes/skills/pt-priority/scripts/company.py set --request /var/lib/hermes/pt/run/company-set-desk.json`.
-   A value never goes on the command line. The owner's side is only what they wrote: files
-   under `~/Plow`, mail they sent and iMessages with `is_from_me`. The calendar, inbound
-   mail and inbound messages never set or change a fact. `REFUSED` or `UNCHANGED` means
-   the record already knows better. When the bootstrap read files this run, record
-   `bootstrapped_at` last, the same way, with `value` and `as_of` now, `source` `bootstrap`.
+2. **Company facts.** Keep the record current, then work from it. Only the main daily paper
+   writes it; a focused paper (`pt-paper-HHMM`) reads it and never writes it. For each of
+   `product`, `revenue` (MRR or ARR), `paying_customers`, `referenceable_customers`,
+   `team_size`, `raise` (round, target, pipeline) and `stage` that the owner's side states
+   and the record lacks or dates older, set its line, dated by the evidence, not today.
+   The owner's side is only what they wrote: their notes and other files under `~/Plow`,
+   mail they sent and iMessages with `is_from_me`. The calendar, inbound mail and inbound
+   messages never set or change a fact. When this run's bootstrap finished, add
+   `- bootstrapped: <today>`. Then `write_file` the whole list back to `pt/company.md`.
 3. **Stage.** Place the owner's company in one of the advisor's stages, using the stage
    map's descriptions and signals against the company record. Start from the most recent
    `desk.stage_label` in history and keep it unless the record plainly contradicts it; when

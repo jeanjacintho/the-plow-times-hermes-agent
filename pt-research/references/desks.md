@@ -292,13 +292,13 @@ what these calls just returned, so no earlier run's copy can ever be read as tod
    config. "Does not exist" → no notes today; do not create the file here. Device
    unreachable → the desk is done: write `run/desk-priority/notes.json` with
    `{"desk": "priority", "status": "unavailable"}` and move on. The paper still ships.
-2. The company record: `/var/lib/hermes/skills/pt-priority/scripts/company.py show`. When
-   it has no `bootstrapped_at` line, other facts or not, bootstrap it, read-only and bounded:
+2. The company record: `read_file` `/var/lib/hermes/pt/company.md`. In the main paper, while
+   it has no `- bootstrapped:` line (or no file), bootstrap it, read-only and bounded:
    `mcp__plow__plow_run_command` `argv=["/usr/bin/find","<home>/Plow","-maxdepth","3","-type","f","(","-name","*.md","-o","-name","*.csv",")","-size","-64k","-not","-path","*/advisors/*"]`,
    then `mcp__plow__plow_read_file` at most 8 of the listed files, never `priority.file`,
    choosing the names likeliest to state the product, revenue, customers, team or a raise.
-   pt-priority records the facts, then `bootstrapped_at`. A deny or an error: go on without
-   them or the marker, and the next paper retries.
+   pt-priority records the facts and the `bootstrapped` line. A deny or an error: go on
+   without them, and the next main paper retries.
 3. The owner's own advisor files: `mcp__plow__plow_run_command`
    `argv=["/bin/ls","-1","<home>/Plow/advisors"]`, then one `mcp__plow__plow_read_file` per
    `.md` name except `README.md` and `salyer-*`: Patrick Salyer's files are the image's,
