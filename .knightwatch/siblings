@@ -15,8 +15,10 @@
 # `plow-agents` owns the install contract and the compose shape `compose.yml`
 # follows; `agent-mgr` still execs `deploy-hook` and reads `agent.env`.
 #
-# The two NousResearch rows are SUBTREES of upstream Hermes, because
-# `image/hermes/patch_*.py` rewrite `gateway/run_turn.py`,
+# The two NousResearch rows are not GitHub repos: they are the reviewer
+# host's names for the `gateway/` and `agent/` subtrees of
+# NousResearch/hermes-agent, and the slug is the citation prefix. They are
+# listed because `image/hermes/patch_*.py` rewrite `gateway/run_turn.py`,
 # `gateway/response_filters.py` and `agent/conversation_loop.py` at build: a
 # reviewer of a patch needs the function it anchors on.
 #
