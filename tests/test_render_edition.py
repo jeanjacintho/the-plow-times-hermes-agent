@@ -319,9 +319,10 @@ class TestValidate:
          "priority.why[0].source_label is not the bank title for its url"),
         ("why", [{**BANKED, "url": " "}], "priority.why[0].url is blank"),
         # One action, at most 120 chars.
-        ("headline", "Raise $1.5M from Acme by Friday", None),
+        ("headline", "Raise $1.5M from Acme Inc. by Friday with Dr. Lee", None),
         ("headline", "x" * 121, "sections[0].headline is over 120 chars"),
         ("headline", "Call Dana. Send the deck", "sections[0].headline carries more than one action"),
+        ("headline", "Call Dana; send the deck", "sections[0].headline carries more than one action"),
         ("headline", "Call Dana then send the deck", "sections[0].headline carries more than one action"),
         ("headline", "Call Dana + send the deck", "sections[0].headline carries more than one action"),
         # No plumbing, and the card talks to the reader -- other people's words excepted.

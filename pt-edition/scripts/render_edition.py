@@ -101,7 +101,10 @@ SELF_RE = re.compile(
     r"\b(?:the (?:founder|ceo|owner)|a founder should|o (?:fundador|ceo|dono)|a (?:fundadora|dona))\b",
     re.I,
 )
-TWO_ACTIONS_RE = re.compile(r"[.;!?]\s+\S| then | \+ ", re.I)
+# A second sentence (not after an initial or "Dr."/"Inc."), " then " or " + ".
+TWO_ACTIONS_RE = re.compile(
+    r"(?<!\b[A-Z])(?<!\b[A-Z][a-z])(?<!\b[A-Z][a-z]{2})[.!?]\s+\S|;\s+\S|(?i: then )| \+ "
+)
 
 # calendar.month_abbr is locale-independent C locale by default; pinned here
 # so the masthead's date cannot drift with the container's locale.

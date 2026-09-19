@@ -361,8 +361,9 @@ The renderer validates `edition.json` structurally before emitting anything
 exits non-zero with the failing field named. Page rules then refuse the same
 way: a standing desk's own words (not an event title, sender or subject) name
 no file or path and no pipeline word (`desk`, `notes`, `prioritization`,
-`pipeline`, `budget`); the priority card never calls the reader "the founder",
-"o fundador" or "the CEO" outside `draft`; its headline is one action (no
+`pipeline`, `budget`); the priority card never names the reader in the third
+person ("the founder", "the CEO", "the owner", "o fundador" and the like)
+outside `draft`; its headline is one action (no
 second sentence, ` then ` or ` + `) in at most 120 characters; and a `why` with
 `url` or `quote` matches the advisor bank. A run that cannot render says so
 and waits for the next cycle — it does not ship a half page.
