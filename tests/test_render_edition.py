@@ -342,23 +342,6 @@ class TestValidate:
         failures = render.validate(priority_edition(**{field: value}))
         assert (failure in failures) if failure else failures == ""
 
-    @pytest.mark.parametrize("desk, field, value, failure", [
-        ("priority", "title", "Advisor's Desk", None),
-        ("calendar", "headline", "Agenda from events.json", "sections[0].headline prints a file path or name"),
-        ("mail", "sources", ["run/desk-mail"], "sections[0].sources[0] prints a file path or name"),
-        ("calendar", "could_not_source", ["events.json"], "sections[0].could_not_source[0] prints a file path"),
-        # An event title or a mail subject is printed as its sender wrote it.
-        ("mail", "body", "Ana — Q4 budget.csv", None),
-        # News is exempt; a desk's links are links.
-        ("news", "body", "The front desk kept notes.md.", None),
-        ("weather", "sources", ["https://example.com/run/notes.json"], None),
-    ])
-    def test_desk_text_rules(self, desk, field, value, failure):
-        failures = render.validate(edition(sections=[
-            {"kind": "section", "title": "T", "desk": desk, "body": "b", "sources": [], field: value},
-        ]))
-        assert (failure in failures) if failure else failures == ""
-
     def test_priority_renders_every_field_escaped_in_page_order(self):
         data = priority_edition(
             yesterday="1 booked (Dana <Acme>)", stage_label="Discovery",

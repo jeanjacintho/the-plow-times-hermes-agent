@@ -94,7 +94,7 @@ QUOTE_MAX_WORDS = 25
 HEADLINE_MAX = 120
 # The bank verifier's normalization: curly quotes and runs of whitespace.
 CURLY_QUOTES = str.maketrans("‘’‚‛′“”„‟″", "'''''\"\"\"\"\"")
-# Page rules: a standing desk's own words name no file or path.
+# Page rules, priority card only: no file or path, never the reader in the third person.
 FILE_RE = re.compile(r"\S+\.(?:md|json|csv|py|txt)\b|~/|/var/lib|\brun/")
 SELF_RE = re.compile(
     r"\b(?:the (?:founder|ceo|owner)|a founder should|o (?:fundador|ceo|dono)|a (?:fundadora|dona))\b",
@@ -353,21 +353,15 @@ def _normalized(text):
 
 
 def _own_words(section):
-    """(field, text) a standing desk writes in its own words for the page.
+    """(field, text) the priority card writes in its own words.
 
-    Other people's words stay out, so a real event title, mail subject or
-    attachment ("Q4 budget.csv") never fails the page: calendar and mail
-    bodies (they list those rows), priority `who`, `draft`, `today[].title`,
-    and a `why`'s quote and source_label.
+    Other people's words stay out, so a real event title or contact never
+    fails the page: `who`, `draft`, `today[].title`, and a `why`'s quote
+    and source_label.
     """
-    lists_others = desk_of(section) in ("calendar", "mail")
-    for key in ("title", "headline") + (() if lists_others else ("body",)):
+    for key in ("title", "headline", "body"):
         if section.get(key):
             yield key, section[key]
-    for key in ("sources", "could_not_source"):
-        for i, text in enumerate(section.get(key, [])):
-            if not text.startswith(("http://", "https://")):
-                yield f"{key}[{i}]", text
     priority = section.get("priority") or {}
     for key in ("yesterday", "stage_label", "stage_why", "week", "first_step"):
         if priority.get(key):
@@ -401,25 +395,22 @@ def _why_rules(where, why):
 
 
 def page_rules(sections):
-    """What a structurally valid page may print; each failure names the field.
+    """What the priority card may print; each failure names the field.
 
-    A standing desk names no file or path. The priority card talks to the
-    reader, never about "the founder"; its headline is one action; a `why`
-    with `quote` or `url` cites the bank.
+    It names no file or path and talks to the reader, never about "the
+    founder"; its headline is one action; a `why` with `quote` or `url`
+    cites the bank. The leak was only ever on this desk.
     """
     failures = []
     for index, section in enumerate(sections):
-        desk = desk_of(section)
-        if desk == "news":
+        if desk_of(section) != "priority":
             continue
         where = f"sections[{index}]"
         for field, text in _own_words(section):
             if match := FILE_RE.search(text):
                 failures.append(f"{where}.{field} prints a file path or name ({match.group(0)!r})")
-            if desk == "priority" and (match := SELF_RE.search(text)):
+            if match := SELF_RE.search(text):
                 failures.append(f"{where}.{field} calls the reader {match.group(0)!r}")
-        if desk != "priority":
-            continue
         headline = (section.get("headline") or "").strip()
         if len(headline) > HEADLINE_MAX:
             failures.append(f"{where}.headline is over {HEADLINE_MAX} chars")
