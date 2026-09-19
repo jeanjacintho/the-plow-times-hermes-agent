@@ -41,14 +41,13 @@ thinking rather than gathering. Markdown, under about two printed pages, six sec
 Each step is `delegate_task` children, which cannot delegate, so you run the steps in turn. Each
 child gets this file to read first, the time now and its step, and answers in an `output_schema`.
 
-**Each run**, a live copy in chat included, first takes the page lock with
-`/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name advisor` and runs
-`release --name advisor` after its passes. On `held` it makes no pass and prints today's card as it
-stands. Otherwise it writes the stub `{"desk": "priority", "status": "unavailable"}` to the card
-(pt-edition prints its gap card; only a pass that reaches Card replaces it), then makes at least
-one pass. The cron-fired `daily-<date>` run passes again only while the last kept a candidate and
-the next would end at least 30 minutes before `delivery.hour` (`pt/config.json`) and within 90
-minutes of the run's start (its run lock goes stale at 120).
+**One writer.** Only the canonical daily run (run lock `daily-<date>`) makes passes and writes the
+page and the card. It first writes the stub `{"desk": "priority", "status": "unavailable"}` to the
+card (pt-edition prints its gap card; only a pass that reaches Card replaces it), then makes one
+pass, and another while the last kept a candidate and the next would end at least 30 minutes
+before `delivery.hour` (`pt/config.json`) and within 90 minutes of the run's start (the run lock
+goes stale at 120). Every other paper (`paper-*`, a `daily2`/`daily3` reprint, a live copy in
+chat) makes no pass and prints today's card as it stands, or the gap card.
 
 1. **Ask.** Two children in parallel read the page, the owner's notes, the time since As of, and
    the advisor files: every `salyer-*` in `/var/lib/hermes/skills/pt-setup/assets/advisors/` (never
