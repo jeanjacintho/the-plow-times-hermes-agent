@@ -11,7 +11,7 @@ install and a `salyer-*` file in `~/Plow/advisors` is ignored. Every other `.md`
 there is one of your own advisors, read as before. To keep your edits to a `salyer-*`
 file seeded by an earlier version, rename it without the `salyer-` prefix. Each file's
 `source` lists the posts that back its claims; `salyer-bank.json` holds his verbatim
-quotes, each with its post's title and URL.
+quotes grouped by post, each post with its title and URL.
 
 - `salyer-stage-map.md` — `stages: any`, so it is in context every morning: what each
   stage means, the signals that place a company in one, the pivot override, the

@@ -25,11 +25,11 @@ And from disk:
 
 - Patrick Salyer's advisor files and quote bank, with `read_file`: every `salyer-*.md` and
   `salyer-bank.json` in `/var/lib/hermes/skills/pt-setup/assets/advisors/`. They are the
-  canonical copies; a `salyer-*` file on the Mac is ignored. The bank is
-  `[{"id", "url", "title", "date", "quote", "advice", "situations", "stages"}]`: `quote`
-  is his exact words, `advice` the advice they carry.
+  canonical copies; a `salyer-*` file on the Mac is ignored. The bank is one record per post,
+  `[{"url", "title", "date", "entries": [{"id", "quote", "advice", "situations", "stages"}]}]`:
+  `quote` is his exact words, `advice` the advice they carry.
 - The company record: `/var/lib/hermes/skills/pt-priority/scripts/company.py show` prints
-  one fact per line (`key: value (as of YYYY-MM-DD; source: …)`), or `EMPTY`.
+  one fact per line (`key: value (as of <as_of>; source: …)`), or `EMPTY`.
 - `/var/lib/hermes/pt/history.json` with `read_file` — what this desk printed on recent
   days, `[{"date", "desk"}]`, where `desk` is the `priority` object from that day's
   notes. Missing on the first day.
@@ -72,12 +72,12 @@ a company fact or a stage change.
    and company facts, in the bank's `situations` tags: an investor meeting is
    `investor-pitch`, a follow-up after one `investor-followup`, a customer call or a demo
    `customer-discovery` or `founder-led-sales`, a hire `first-sales-hire` or `hiring-team`,
-   a sign the model is failing `pivot`. Then pick 1–3 bank entries whose `situations`
-   match, keeping those whose `stages` include the stage, its modifier or `any`: the
+   a sign the model is failing `pivot`. Then pick 1–3 entries whose `situations` match
+   today's, keeping those whose `stages` include the stage, its modifier or `any`: the
    situation picks, the stage filters. Each picked entry is one `why` item: `text` your
    one-line reason it matters today, `quote` the entry's `quote` copied character for
-   character, `source_label` its `title`, `url` its `url`. Never paraphrase inside `quote`,
-   and never quote him from memory, from his `.md` files or from anyone else's writing.
+   character, `source_label` its post's `title`, `url` its post's `url`. Never paraphrase
+   inside `quote`, and never quote him from memory, his `.md` files or anyone else's writing.
    Advice from an owner's own advisor file is `text` and `source_label` (that advisor's
    name) only.
 5. **Today.** Up to 4 of today's events that matter, each with a short `note` — a customer
@@ -127,7 +127,7 @@ Use `write_file` for `/var/lib/hermes/pt/run/desk-priority/notes.json`:
               "headline": "<the focus: one action, max 120 chars>",
               "first_step": "<concrete, max 160 chars>",
               "why": [{"text": "<why this focus, today>", "quote": "<the bank entry's quote, verbatim>",
-                       "source_label": "<the entry's title>", "url": "<the entry's url>"}],
+                       "source_label": "<its post's title>", "url": "<its post's url>"}],
               "who": ["Raj — replied to the launch post"],
               "draft": "<ready to send to the first person in who>",
               "not_today": ["<one thing not to do>"]}}
