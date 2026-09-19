@@ -1,4 +1,6 @@
 """plow-init recopies seed display; overlay must win over loud plow_chat defaults."""
+import pytest
+import yaml
 from conftest import load_module
 
 merge = load_module("pt_merge_seed", "image/merge_pt_seed_config.py")
@@ -74,3 +76,28 @@ def test_yaml11_bare_off_becomes_the_string_hermes_reads():
     assert disp["live_status"] == "off"
     assert pc["tool_progress"] == "off"
     assert pc["live_status"] == "off"
+
+
+SEED = "model:\n  default: anthropic/claude-sonnet-5\ncontext_file_max_chars: 40000\n"
+HOME = "model:\n  default: anthropic/claude-sonnet-5\ndisplay:\n  tool_progress: 'off'\n_config_version: 37\n"
+
+
+@pytest.mark.parametrize("home", [HOME, "context_file_max_chars: 20000\n" + HOME], ids=["absent", "lower"])
+def test_boot_carries_the_context_cap_into_an_existing_home(tmp_path, home):
+    (tmp_path / "seed.yaml").write_text(SEED)
+    config = tmp_path / "config.yaml"
+    config.write_text(home)
+    args = ["--home", str(config), str(tmp_path / "seed.yaml")]
+    merge.main(args)
+    assert yaml.safe_load(config.read_text()) == {**yaml.safe_load(HOME), "context_file_max_chars": 40000}
+    before = config.stat()
+    merge.main(args)
+    assert (config.stat().st_ino, config.stat().st_mtime_ns) == (before.st_ino, before.st_mtime_ns)
+
+
+def test_home_merge_fails_loudly_without_a_seed_cap(tmp_path):
+    (tmp_path / "seed.yaml").write_text("model: {}\n")
+    (tmp_path / "config.yaml").write_text(HOME)
+    with pytest.raises(KeyError, match="context_file_max_chars"):
+        merge.main(["--home", str(tmp_path / "config.yaml"), str(tmp_path / "seed.yaml")])
+    assert (tmp_path / "config.yaml").read_text() == HOME

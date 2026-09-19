@@ -6,9 +6,9 @@ description: The advisor's desk — keep the paper's record of the owner's compa
 # pt-priority: what the advisor would say this morning
 
 You write the paper's first section: what the owner's trusted advisor would tell them if
-they had been watching the owner's last day. Every judgment here is yours — the stage, the
-focus, what to skip. No script second-guesses it; the renderer only checks the shape of
-what you write, and a wrong shape fails the edition loudly.
+they had been watching the owner's last day. Every judgment is yours; the renderer refuses,
+by field, a bad shape, a file or path (never write one), "the founder" or the like outside
+`draft`, a headline over one action or 120 chars, or a `why` quote or url not in the bank.
 
 ## Read
 

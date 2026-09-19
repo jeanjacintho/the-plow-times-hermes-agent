@@ -41,7 +41,7 @@ class TestSoul:
 
     def test_soul_fits_hermes_context_file_limit(self):
         # Measured live: prompt_builder truncated SOUL.md at 20 000 because
-        # context_file_max_chars never reached plow-seed. The merge stamps
+        # context_file_max_chars never reached the home. The merge carries
         # the runtime value; this bound uses the same number so a longer
         # persona fails here instead of only in docker compose logs.
         check = load_module("soul_fits_context", "checks/soul_fits_context.py")
@@ -920,8 +920,8 @@ class TestDeployment:
         assert "COPY runtime/SOUL.md /var/lib/hermes/SOUL.md" in dockerfile
         assert "COPY runtime/SOUL.md /opt/hermes/plow-seed/SOUL.md" in dockerfile
         assert "COPY runtime/USER.md /var/lib/hermes/memories/USER.md" in dockerfile
-        # Boot recopies plow-seed over home; Sonnet lives there, not only in
-        # runtime/config.yaml. Do not sed the seed onto another model.
+        # plow-init re-writes the model from plow-seed every boot; Sonnet lives
+        # there, not only in runtime/config.yaml. Do not sed it onto another.
         assert "plow-seed/config.yaml" in dockerfile
         assert "anthropic/claude-sonnet-5" in dockerfile
         assert "moonshotai/kimi-k2.5" not in dockerfile
@@ -930,7 +930,7 @@ class TestDeployment:
         assert "merge_pt_seed_config.py" in dockerfile
         assert "interim_assistant_messages: false" in dockerfile
         assert "context_file_max_chars: 40000" in dockerfile
-        assert "02-copy-plow-credentials" in dockerfile
+        assert "COPY --chmod=0755 image/cont-init.d/ /etc/cont-init.d/" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()
 
