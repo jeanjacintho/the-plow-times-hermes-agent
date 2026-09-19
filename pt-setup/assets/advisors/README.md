@@ -1,15 +1,13 @@
 # Advisor notes
 
-Markdown files the paper cites when it picks today's #1. Only this README is
-seeded into `~/Plow/advisors/`: add your own advisors' files there, in the shape below.
+Patrick Salyer's notes and quote bank, which ship with the paper; none of these files is
+copied to the owner's Mac. The owner's own advisors are pages in their wiki,
+`~/Plow/wiki/projects/theplowtimes/advisors/`; the paper's page there shows the shape.
 
 ## Patrick Salyer's files
 
 Patrick Salyer (Mayfield), prefixed `salyer-`. They ship with the paper and are
-canonical: the desk reads them from the image every morning, so an update reaches every
-install and a `salyer-*` file in `~/Plow/advisors` is ignored. Every other `.md` file
-there is one of your own advisors, read as before. To keep your edits to a `salyer-*`
-file seeded by an earlier version, rename it without the `salyer-` prefix. Each file's
+canonical: the desk reads them from the image every morning. Each file's
 `source` lists the posts that back its claims; `salyer-bank.json` holds his verbatim
 quotes grouped by post, each post with its title and URL.
 

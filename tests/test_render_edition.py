@@ -813,7 +813,7 @@ class TestEnsurePriorityDesk:
         ed_path = write(tmp_path, edition(sections=[self.WEATHER]))
         cfg = tmp_path / "config.json"
         cfg.write_text(json.dumps({
-            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
+            "priority": {"configured": True},
             "owner": {"language": "English"},
         }), encoding="utf-8")
         html_path = tmp_path / "out.html"
