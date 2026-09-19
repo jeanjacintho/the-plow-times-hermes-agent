@@ -691,9 +691,10 @@ class TestSkills:
         assert "leave it alone" not in section.lower()
 
     def test_no_skill_points_at_the_pre_wiki_homes(self):
-        # The goals, the desk's page and the owner's advisors moved into ~/Plow/wiki.
+        # The goals, the desk's Q&A and the owner's advisors moved into ~/Plow/wiki.
         # A skill still naming the old homes reads a file nothing writes any more.
-        stale = ("~/Plow/prioritization.md", "priority.file", "pt/advisor.md", "~/Plow/advisors")
+        # pt/advisor.md is not stale: the desk's day page is still the container's.
+        stale = ("~/Plow/prioritization.md", "priority.file", "~/Plow/advisors")
         for skill in ROOT.glob("pt-*/**/*.md"):
             if "assets/advisors" in str(skill):
                 continue

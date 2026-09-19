@@ -18,7 +18,7 @@ WIKI = "~/Plow/wiki"
 WRITER = "theplowtimes"
 ROOT = f"projects/{WRITER}"
 OVERVIEW = f"{ROOT}/{WRITER}.md"
-ADVISOR_PAGE = f"{ROOT}/advisor.md"
+QA = f"{ROOT}/qa.md"
 GOALS = "entities/owner/goals.md"
 SCHEMA = f"_meta/schemas/{ROOT}.md"
 

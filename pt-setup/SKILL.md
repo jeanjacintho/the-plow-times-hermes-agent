@@ -373,7 +373,7 @@ Stop. On their next message:
   nothing; the question stays open.
   Say in one line that the desk reads their Mac every morning, that they can correct it
   any time by texting ("Raj is my cousin", "stop telling me to hire"), and that their
-  goals and the desk's page are in their wiki at ~/Plow/wiki (it opens in Obsidian), where
+  goals and the desk's Q&A are in their wiki at ~/Plow/wiki (it opens in Obsidian), where
   The Founder Times page shows how to add their own advisors.
 
 Then continue with the mail question in the same turn.

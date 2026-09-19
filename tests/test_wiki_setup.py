@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import load_module
-from wiki import ADVISOR_PAGE, GOALS, OVERVIEW, ROOT, SCHEMA, Wiki
+from wiki import GOALS, OVERVIEW, QA, ROOT, SCHEMA, Wiki
 
 ws = load_module("wiki_setup", "pt-shared/scripts/wiki_setup.py")
 
@@ -18,66 +18,55 @@ def files(mac):
 
 
 class TestEnsure:
-    def test_a_mac_without_a_wiki_gets_one_the_paper_can_write(self, mac, tmp_path):
-        ws.ensure(Wiki(mac.call_tool), "cht_1", pt_home=tmp_path)
+    def test_a_mac_without_a_wiki_gets_one_the_paper_can_write(self, mac):
+        ws.ensure(Wiki(mac.call_tool), "cht_1")
         toml = (wiki_dir(mac) / "wiki.toml").read_text()
         assert f'[roots."{ROOT}"]\nwriter = "theplowtimes"' in toml
         assert (wiki_dir(mac) / SCHEMA).exists() and (wiki_dir(mac) / OVERVIEW).exists()
         assert mac.wiki("validate")["exit_code"] == 0
 
-    def test_ready_means_nothing_is_rewritten(self, mac, tmp_path):
+    def test_ready_means_nothing_is_rewritten(self, mac):
         w = Wiki(mac.call_tool)
-        ws.ensure(w, "cht_1", desk=True, pt_home=tmp_path)
+        ws.ensure(w, "cht_1", desk=True)
         before = files(mac)
-        assert ws.ensure(w, "cht_1", desk=True, pt_home=tmp_path) == []
+        assert ws.ensure(w, "cht_1", desk=True) == []
         assert files(mac) == before
 
-    def test_another_agents_root_and_pages_are_left_as_they_were(self, mac, tmp_path):
+    def test_another_agents_root_and_pages_are_left_as_they_were(self, mac):
         mac.wiki("init", "~/Plow/wiki")
         toml = wiki_dir(mac) / "wiki.toml"
         toml.write_text(toml.read_text() + '\n[roots."projects/str"]\nwriter = "str"\n')
         theirs = wiki_dir(mac) / "entities" / "people" / "raj.md"
         theirs.parent.mkdir(parents=True, exist_ok=True)
         theirs.write_text("---\ntitle: Raj\n---\n")
-        ws.ensure(Wiki(mac.call_tool), "cht_1", pt_home=tmp_path)
+        ws.ensure(Wiki(mac.call_tool), "cht_1")
         assert '[roots."projects/str"]\nwriter = "str"' in toml.read_text()
         assert theirs.read_text() == "---\ntitle: Raj\n---\n"
 
-    def test_without_the_desk_no_owner_page_appears(self, mac, tmp_path):
-        ws.ensure(Wiki(mac.call_tool), "cht_1", pt_home=tmp_path)
+    def test_without_the_desk_no_owner_page_appears(self, mac):
+        ws.ensure(Wiki(mac.call_tool), "cht_1")
         assert not (wiki_dir(mac) / GOALS).exists()
-        assert not (wiki_dir(mac) / ADVISOR_PAGE).exists()
+        assert not (wiki_dir(mac) / QA).exists()
 
-    def test_the_desk_gets_valid_empty_pages(self, mac, tmp_path):
-        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True, pt_home=tmp_path)
+    def test_the_desk_gets_valid_empty_pages(self, mac):
+        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True)
         assert "## Goals" in (wiki_dir(mac) / GOALS).read_text()
-        assert "## Open questions" in (wiki_dir(mac) / ADVISOR_PAGE).read_text()
+        qa = (wiki_dir(mac) / QA).read_text()
+        assert "type: Synthesis" in qa and "## Open" in qa and "## Answered" in qa
         assert mac.wiki("validate")["exit_code"] == 0
 
-    def test_an_old_install_carries_its_notes_and_page_over(self, mac, tmp_path):
+    def test_an_old_install_carries_its_notes_over(self, mac):
         old_notes = mac.home / "Plow" / "prioritization.md"
         old_notes.parent.mkdir(parents=True)
         old_notes.write_text("# What I'm working toward\n\n## Goals\n- Reach $1M ARR\n")
-        (tmp_path / "advisor.md").write_text("## As of\n\n## Company\n- product: Acme CRM\n")
-        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True, pt_home=tmp_path)
+        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True)
         assert "- Reach $1M ARR" in (wiki_dir(mac) / GOALS).read_text()
-        assert "- product: Acme CRM" in (wiki_dir(mac) / ADVISOR_PAGE).read_text()
-        assert old_notes.exists()                      # the owner's file is theirs
-        assert not (tmp_path / "advisor.md").exists()  # the container's copy is gone
+        assert old_notes.exists()  # the owner's file is theirs
         assert mac.wiki("validate")["exit_code"] == 0
-
-    def test_a_local_advisor_copy_is_kept_when_the_wiki_already_has_the_page(self, mac, tmp_path):
-        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True, pt_home=tmp_path)
-        before = (wiki_dir(mac) / ADVISOR_PAGE).read_text()
-        local = tmp_path / "advisor.md"
-        local.write_text("## As of\n\n## Company\n- product: Acme CRM\n")
-        ws.ensure(Wiki(mac.call_tool), "cht_1", desk=True, pt_home=tmp_path)
-        assert (wiki_dir(mac) / ADVISOR_PAGE).read_text() == before
-        assert local.exists()
 
 
 class TestCli:
-    def test_an_unreachable_mac_is_an_error_not_ready(self, mac, monkeypatch, tmp_path):
+    def test_an_unreachable_mac_is_an_error_not_ready(self, mac, monkeypatch):
         mac.asleep = True
         monkeypatch.setattr(ws, "connect", lambda: Wiki(mac.call_tool))
         monkeypatch.setenv("PLOW_HOME_CHANNEL", "cht_1")

@@ -14,9 +14,9 @@ updated: {today}
 The paper writes here every morning; you can edit anything it wrote. To change
 what it covers, text the paper.
 
-- [The advisor's page](/projects/theplowtimes/advisor.md) — what the desk knows about
-  your company, your people and today. It is rewritten every morning; to correct it, add
-  a line to [What I'm working toward](/entities/owner/goals.md), or text the paper.
+- [The advisor's Q&A](/projects/theplowtimes/qa.md) — what the advisor needs to know about
+  your company, and the answers found so far. It is rewritten every morning; to correct it,
+  add a line to [What I'm working toward](/entities/owner/goals.md), or text the paper.
 - [What I'm working toward](/entities/owner/goals.md) — your goals, what not to do now,
   and notes. What you write there overrides anything the desk infers.
 
