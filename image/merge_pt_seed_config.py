@@ -3,9 +3,9 @@
 
 plow-init recopies the seed over the home config every boot.
 runtime/config.yaml copied into /var/lib/hermes is shadowed by the
-agent-home volume, so display quiet-chat and context_file_max_chars
-have to live on the seed or a recreate restores Hermes defaults (loud
-plow_chat, 20 000-char SOUL truncation).
+agent-home volume, so display quiet-chat, context_file_max_chars, and
+the Sonnet 5 default have to live on the seed or a recreate restores
+the base (loud plow_chat, 20 000-char SOUL truncation, glm-5.2).
 """
 from __future__ import annotations
 
@@ -40,6 +40,14 @@ def overlay_display(seed: dict, ours: dict) -> dict:
     return seed
 
 
+def overlay_model(seed: dict, ours: dict) -> dict:
+    """Fleet seed default is glm-5.2; stamp only the paper's model id."""
+    model_id = ours["model"]["default"]
+    seed["model"]["default"] = model_id
+    seed["providers"]["plow"]["models"][model_id] = ours["providers"]["plow"]["models"][model_id]
+    return seed
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2:
@@ -52,9 +60,13 @@ def main(argv=None):
     with open(ours_path) as handle:
         ours = yaml.safe_load(handle) or {}
     overlay_display(seed, ours)
+    overlay_model(seed, ours)
     seed["context_file_max_chars"] = ours["context_file_max_chars"]
     disp = seed.get("display") or {}
     pc = (disp.get("platforms") or {}).get("plow_chat") or {}
+    default = (seed.get("model") or {}).get("default")
+    if default != "anthropic/claude-sonnet-5":
+        raise SystemExit("refusing: seed model.default is not anthropic/claude-sonnet-5")
     if disp.get("interim_assistant_messages") is not False:
         raise SystemExit("refusing: seed display.interim_assistant_messages is not false")
     if _progress_token(disp.get("tool_progress")) != "off":

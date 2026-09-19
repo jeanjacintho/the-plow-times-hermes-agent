@@ -15,9 +15,11 @@
 FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-ef0019372ff8bca593611b31ebd2e08f9f1458ff@sha256:a8a2f97ad78b8192d80a984dce81d3bf5a9a883d18cb7b677704913a09b56aee
 
 # Boot recopies /opt/hermes/plow-seed/config.yaml over the agent home on
-# every start. The base pins anthropic/claude-sonnet-5 there; leave that
-# id. runtime/config.yaml must declare the same model so a first-boot
-# home is not a different catalog entry before the recopy.
+# every start. The base seed's model.default is z-ai/glm-5.2; this paper
+# stays on anthropic/claude-sonnet-5. merge_pt_seed_config.py stamps
+# that id (and its providers.plow.models slot) from runtime/config.yaml
+# onto the seed. Do not sed the seed onto another model, and do not pin
+# HERMES_MODEL in compose.yml.
 #
 # plow-init also writes seed['display'] whole on every boot. The base
 # seed leaves plow_chat interim messages at the Hermes default (on) and

@@ -3,11 +3,11 @@
 # are deliberately absent, so the pinned image supplies its current defaults
 # rather than a frozen snapshot of them.
 #
-# Default model is Claude Sonnet 5 on the Plow provider — the same
-# OpenAI-compat path this agent already authenticates with, and the id
-# the base image pins in plow-seed. It has to be listed under
-# providers.plow.models too, not only as model.default, or Hermes keeps
-# offering the previous catalog entry.
+# Default model is Claude Sonnet 5 on the Plow provider — a paper pin,
+# not the fleet seed (base-ef00193 defaults to z-ai/glm-5.2). merge_pt_seed_config.py
+# stamps this onto plow-seed so plow-init does not restore glm on boot.
+# It has to be listed under providers.plow.models too, not only as
+# model.default, or Hermes keeps offering the previous catalog entry.
 #
 # No group_sessions_per_user override at MVP scope: this agent has one private
 # chat and no groups (design doc §3.2), so the image default is fine.
