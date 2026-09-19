@@ -371,12 +371,10 @@ Stop. On their next message:
   Only once the goal is on the page: `record_setup.py <config path> priority.configured=true`.
   An `error:` from step 1, or a denied or failed write → say so in one line and record
   nothing; the question stays open.
-  Say in one line that the desk reads their Mac every morning and that they can correct
-  it any time by texting ("Raj is my cousin", "stop telling me to hire").
-
-Then say in one line: "Your goals and the desk's notes are in your wiki at ~/Plow/wiki —
-open it in Obsidian. Patrick Salyer's advice comes with the paper; to add your own
-advisors, see The Founder Times page there."
+  Say in one line that the desk reads their Mac every morning, that they can correct it
+  any time by texting ("Raj is my cousin", "stop telling me to hire"), and that their
+  goals and the desk's page are in their wiki at ~/Plow/wiki (it opens in Obsidian), where
+  The Founder Times page shows how to add their own advisors.
 
 Then continue with the mail question in the same turn.
 
