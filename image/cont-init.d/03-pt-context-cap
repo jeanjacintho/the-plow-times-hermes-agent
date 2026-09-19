@@ -1,0 +1,5 @@
+#!/bin/sh
+# plow-init re-writes a fixed key list that omits context_file_max_chars, so carry
+# the seed's cap into an existing home -- as the agent, which owns config.yaml.
+exec /command/s6-setuidgid hermes /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
+  --home /var/lib/hermes/config.yaml /opt/hermes/plow-seed/config.yaml

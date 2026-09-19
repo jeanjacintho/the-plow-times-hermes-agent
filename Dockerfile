@@ -169,8 +169,7 @@ RUN set -eu; \
     chmod 0644 /opt/plow/agent-index-client.py
 
 COPY image/s6-overlay/ /etc/s6-overlay/
-COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
-RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials
+COPY --chmod=0755 image/cont-init.d/ /etc/cont-init.d/
 
 # Hermes' billing wall concatenates the HTTP body, the provider name, a
 # billing URL and `/model`. Pin one user-facing line and fail the build if
