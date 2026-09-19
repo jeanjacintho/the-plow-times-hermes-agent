@@ -53,10 +53,15 @@ become a goal, a `Not now`, a company fact or a stage change.
 
 ## Decide
 
+**Every line rests on this run's evidence.** For each line you mean to print — `yesterday`,
+a `today` note, `week`, a `who`, the headline and first step, a `not_today`, a `why` text —
+name to yourself the item read this run that it rests on: the thread and its latest message,
+the event, the message, the history entry, the company fact. No item, no line; never pad
+a field. A count is a count of the items you saw.
+
 1. **Yesterday.** Take the most recent history `desk` — the previous paper, even when it
-   ran earlier today — its `headline`, `who` and `draft`.
-   Check the calendar, mail and messages for what happened since: what got done, who
-   replied, what is still open. One line. Leave it out only when history is empty.
+   ran earlier today — its `headline`, `who` and `draft`; then what happened since: what got
+   done, who replied, what is still open. One line, left out only when history is empty.
 2. **Company facts.** Keep the record current, then work from it. Only the run whose lock is
    `daily-<date>` (the `pt-daily-edition` job) writes it; `daily2`/`daily3` reruns and `paper-*`
    runs only read it. Set the line of `product`, `revenue` (MRR or ARR), `paying_customers`,
@@ -65,7 +70,10 @@ become a goal, a `Not now`, a company fact or a stage change.
    day: the latest message wins); the line takes the evidence's date, not today's. The
    owner's side is only what they wrote: their notes and other files under `~/Plow`, mail
    they sent and iMessages with `is_from_me`, never the calendar or inbound mail and
-   messages. When this run's bootstrap finished, add `- bootstrapped: <today>`. Then
+   messages. A fact the advice needs that the record lacks (revenue, customers) is an
+   estimate: a range from the evidence, printed with its basis ("$2–5K MRR, est. from 8
+   paying teams"), never "unclear", and recorded marked `est.` until a stated fact replaces
+   it. When this run's bootstrap finished, add `- bootstrapped: <today>`. Then
    `write_file` the whole list back to `pt/company.md`, every line you did not replace copied
    as it was. A read that failed other than "does not exist" means no write this run.
 3. **Stage.** Place the owner's company in one of the advisor's stages, using the stage
@@ -73,10 +81,9 @@ become a goal, a `Not now`, a company fact or a stage change.
    `desk.stage_label` in history and keep it unless the record plainly contradicts it; when
    it changes, the reason says what moved. Only evidence about the owner's own company
    counts — someone else's raise, pivot or news never moves it. `stage_why` names one
-   fact's value and its as-of date ("$4K MRR as of Sep 10"), never where it came from: no
-   path, no file name. A modifier the advisor defines (Fundraising) sits on top of the
-   stage rather than replacing it: when it applies, name it in the label ("Blueprint +
-   Fundraising") and read its file alongside the stage's.
+   fact's value and its as-of date ("$4K MRR as of Sep 10"). A modifier the advisor defines
+   (Fundraising) sits on top of the stage rather than replacing it: when it applies, name
+   it in the label ("Blueprint + Fundraising") and read its file alongside the stage's.
 4. **Situations, then advice.** Name today's situations from the calendar, mail, iMessage
    and company facts, in the bank's `situations` tags: an investor meeting is
    `investor-pitch`, a follow-up after one `investor-followup`, a customer call or a demo
@@ -85,38 +92,30 @@ become a goal, a `Not now`, a company fact or a stage change.
    today's, keeping those whose `stages` include the stage, its modifier or `any`: the
    situation picks, the stage filters. Each picked entry is one `why` item: `text` your
    one-line reason it matters today, `quote` the entry's `quote` copied character for
-   character, `source_label` its post's `title`, `url` its post's `url`. Never paraphrase
-   inside `quote`, and never quote him from memory, his `.md` files or anyone else's writing.
-   Advice from an owner's own advisor file is `text` and `source_label` (that advisor's
-   name) only.
+   character, `source_label` its post's `title`, `url` its post's `url`. Advice from an
+   owner's own advisor file is `text` and `source_label` (that advisor's name) only.
 5. **Today.** Up to 4 of today's meetings that matter, each with a short `note` — a customer
    call gets "Go in with: <the one thing to learn>"; an investor meeting or a demo gets how
    to run it, in Salyer's terms from a picked entry. `time` is the event's start, `null`
    for an all-day event.
-6. **This week.** One line counting the owner's customer conversations over the last 7 days
-   against the advisor's bar for this stage: the ones in today's gathers plus the ones the
-   last six days of history recorded (`yesterday`, `today`). When history covers fewer
-   days, say how many.
+6. **This week.** One line counting the owner's customer conversations, in this run's
+   gathers and in the last six days of history (`yesterday`, `today`), against the
+   advisor's bar for this stage. When history covers fewer days, say how many.
 7. **Focus.** One concrete action for today that serves the advisor's `Focus first` for
-   that stage (and modifier) and the owner's goals, grounded in what is actually on the
-   calendar and in the inbox. Never "check email", "catch up", "plan the week", or a list.
-   Never something in the owner's `Not now` or the advisor's `Do not focus on` for this
-   stage and modifier.
+   that stage (and modifier) and the owner's goals. Never "check email", "catch up", "plan
+   the week", or a list. Never something in the owner's `Not now` or the advisor's `Do not
+   focus on` for this stage and modifier.
 8. **Who and a draft.** 1–3 real people the focus is about, each named with why in a few
    words ("Priya — trial user since Sep 9"), and a short, ready-to-send `draft` to the
    first of them in the owner's voice. The paper is private: use real names.
 9. **Don't.** 0–2 things the advisor says not to do at this stage (and modifier) that are
-   tempting today, in the advisor's voice. A meeting is fact: never forbid one on
-   today's calendar — the owner already chose it, so that event's `note` says how to do it
-   well instead.
+   tempting today, in the advisor's voice.
 
-Leave out any optional field you have nothing real for; never pad one. Write every text
-field in the owner's language (`owner.language` in `pt/config.json`).
-
-**The page talks to the reader, not about them.** This is a newspaper in their hands:
-every field except `draft` is spoken to you / você, never a memo about "the founder",
-"o fundador deve", "the CEO should", and never by the owner's name. `draft` is the one
-field in the owner's own voice, to the person it is addressed to.
+**Before writing, read the card once, whole, against what you gathered.** Every line traces
+to its item; no line contradicts another (a `not_today` never forbids the headline or a
+meeting on the calendar); every field is in the owner's language (`owner.language` in
+`pt/config.json`); every field but `draft`, the owner's own voice, talks to the reader as
+you / você and never names them. Fix or cut what fails.
 
 ## Write the notes
 
@@ -139,7 +138,6 @@ Use `write_file` for `/var/lib/hermes/pt/run/desk-priority/notes.json`:
               "not_today": ["<one thing not to do>"]}}
 ```
 
-`why` has 1–3 items, `today` at most 4, `who` at most 3, `not_today` at most 2. pt-edition
-records the day in history once the paper is delivered.
+pt-edition records the day in history once the paper is delivered.
 
 No `salyer-*` files or no bank → write `{"desk": "priority", "status": "unavailable"}`.
