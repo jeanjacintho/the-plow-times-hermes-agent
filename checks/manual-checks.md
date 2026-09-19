@@ -11,7 +11,7 @@ Needs Latch on the Mac. Until a human run, **NEEDS HUMAN RUN**.
 | 3 | Check `pt/config.json` | `priority.configured: true` (no file) |
 | 4 | Force the edition (`hermes cron run pt-daily-edition`) | The page opens with `STAGE · …` and its reason, `TODAY` events with notes, a focus, `WHO` with real names, a `DRAFT`, `NOT TODAY`; copy talks to you, never "the founder should" |
 | 5 | Run again the next day | A `YESTERDAY` line checks the previous focus against what happened |
-| 5b | Read `pt/history.json` after the paper is delivered | Today's desk is recorded; nothing is recorded for a paper that failed to deliver |
+| 5b | Open ~/Plow/wiki/projects/theplowtimes/editions/<today>.md after the paper is delivered | Today's card and sections are there with their sources; nothing is recorded for a paper that failed to deliver |
 | 6 | Text "stop telling me to hire" | A dated line lands under `## Not now`; the next paper does not advise hiring |
 | 7 | Deny the iMessage read on the Mac and run | Paper still ships; the desk works from calendar and mail |
 | 8 | Rename the file on the Mac and run again | `wiki_setup.py --desk` re-seeds `goals.md` — empty, or carried over from `~/Plow/prioritization.md` if that file still exists; the rest of the paper is normal |

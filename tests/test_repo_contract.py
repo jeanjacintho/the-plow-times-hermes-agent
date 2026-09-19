@@ -693,8 +693,16 @@ class TestSkills:
     def test_no_skill_points_at_the_pre_wiki_homes(self):
         # The goals, the desk's page and the owner's advisors moved into ~/Plow/wiki.
         # A skill still naming the old homes reads a file nothing writes any more.
-        stale = ("~/Plow/prioritization.md", "priority.file", "pt/advisor.md", "~/Plow/advisors")
-        for skill in ROOT.glob("pt-*/**/*.md"):
+        stale = (
+            "~/Plow/prioritization.md",
+            "priority.file",
+            "pt/advisor.md",
+            "~/Plow/advisors",
+            "history.json",
+            "history.py record",
+        )
+        skills = list(ROOT.glob("pt-*/**/*.md")) + [ROOT / "runtime" / "SOUL.md"]
+        for skill in skills:
             if "assets/advisors" in str(skill):
                 continue
             text = skill.read_text(encoding="utf-8")
@@ -711,7 +719,7 @@ class TestSkills:
         assert "**An event is its people,**" in skill
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
-        assert "history.py record" in edition
+        assert "record_edition.py" in edition
         assert "Skipping this desk is a bug" in desks
         assert "the founder" in skill
         assert "you / você" in skill

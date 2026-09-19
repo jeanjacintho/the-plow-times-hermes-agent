@@ -16,6 +16,8 @@ You do not fill a profile. The first message is the paper: what time it should a
 
 Research runs on **your** browser, through [Latch](https://howto.plow.co/latch). Every claim in the edition carries a source. If a page cannot be read, the paper says so — it does not invent the paragraph.
 
+What it learns and prints goes into your wiki at `~/Plow/wiki` (Latch's Obsidian-style wiki): a page for every day's paper with its sources, your goals, and the advisor's notes on your company. Open it in Obsidian; edit anything.
+
 It reports. It does not act on what it finds: no purchases, no bookings, no logins, no downloads.
 
 ## What goes in the paper
@@ -55,7 +57,7 @@ If you have no assistant line yet: `plow-agents login --new-line`, then `lines` 
 
 Text the line you minted. The first message is the paper’s hour, not a profile interview.
 
-To print and to research in your own browser, run [Latch](https://howto.plow.co/latch) on the Mac this agent should drive. In Latch: **Agents → can’t use OAuth? create a static credential**. Put `DOMO_DEVICE_UID` and `DOMO_MCP_TOKEN` in the container’s `/var/lib/hermes/.env` (`KEY=value` at column 0), then `docker compose restart`. Chat works without Latch; the Mac and the printer do not.
+To print and to research in your own browser, run [Latch](https://howto.plow.co/latch) on the Mac this agent should drive. In Latch: **Agents → can’t use OAuth? create a static credential**. Put `DOMO_DEVICE_UID` and `DOMO_MCP_TOKEN` in the container’s `/var/lib/hermes/.env` (`KEY=value` at column 0), then `docker compose restart`. Chat works without Latch; the Mac, the printer and the wiki do not.
 
 ```sh
 docker compose down          # stop, keep memory
@@ -70,6 +72,9 @@ plow-agents revoke           # retire the line in plow-credentials
 The daily cron is computed from the delivery hour on the date setup ran.
 Time zones that change for daylight saving can land one hour off until the
 owner changes the hour in chat.
+
+An edition delivered while the Mac is unreachable is not recorded in the
+wiki, and the next morning's advisor has no "yesterday" for it.
 
 ## License
 

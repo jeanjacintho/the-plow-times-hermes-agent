@@ -48,7 +48,9 @@ child gets this file to read first, the time now and its step, and answers in an
 **One writer.** Only the daily run (run lock `daily-<date>`) makes passes and writes the page and
 card, unless its prompt calls it a live copy. It reads the page once, before Ask; `wiki_setup.py
 --desk` has just ensured it exists, so a failed read means this pass writes nothing and the stub
-stays the card. It first writes the stub `{"desk": "priority",
+stays the card. It also runs `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once,
+before Ask, and hands its JSON to the children that need it; an `error:` (or a failed run) means
+no history, so `yesterday` is omitted. It first writes the stub `{"desk": "priority",
 "status": "unavailable"}` to the card (replaced only by a pass reaching Card), then passes once,
 and again while the last pass kept a candidate and the next would end at least 30 minutes before
 `delivery.hour` and within 90 minutes of its start. Every other paper (a live copy, `paper-*`,
@@ -98,7 +100,7 @@ its lines into Company; once a kept page holds them, run
 `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
 
 **The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
-"ok", "priority": {…}}` mapped from the kept page and the latest `pt/history.json` entry, nothing
+"ok", "priority": {…}}` mapped from the kept page and the latest history entry, nothing
 added: Priority's stage as `stage_label` and its dated Company fact as `stage_why`; `headline`,
 `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a bank quote's `quote`, post
 `url` and post title as `source_label`; Today's events as `today` (`time`, `null` all day; `title`;

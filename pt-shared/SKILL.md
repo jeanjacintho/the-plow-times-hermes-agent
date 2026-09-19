@@ -1,6 +1,6 @@
 ---
 name: pt-shared
-description: The helper library every pt-* skill imports — the pt-config gate, the bearer-HTTP helpers, the chat delivery POST and the Latch print reference. Not a task; nothing here is invoked on its own. Read the references when a skill's SKILL.md points at one.
+description: The helper library every pt-* skill imports — the pt-config gate, the bearer-HTTP helpers, the chat delivery POST, the owner's wiki and the Latch print reference. Not a task; nothing here is invoked on its own. Read the references when a skill's SKILL.md points at one.
 ---
 
 # pt-shared — the pt-* skills' shared helpers
@@ -81,10 +81,10 @@ does not, and every run fails on the import.
   once); `chat_status.py --busy` during pt-setup Latch/Mac work (hang-on,
   then one "still on it", never a play-by-play; does not seal the
   session). Cron never calls it.
-- `pt-priority/scripts/history.py` — what the priority desk printed on recent
-  days, so the next morning can follow up. Called bare:
-  `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --edition-json <run/<id>/edition.json>`
-  Prints `RECORDED`, or `SKIPPED: …` when the edition carried no priority desk.
+- `pt-priority/scripts/history.py recent` — the cards the desk printed on the last 7 days, read
+  from the wiki's edition pages; prints `[{"date", "desk"}]`.
+- `pt-edition/scripts/record_edition.py <edition.json>` — the delivered edition onto the day's
+  page in the wiki, then `wiki validate` + `wiki index`.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:

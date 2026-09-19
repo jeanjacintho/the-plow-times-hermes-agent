@@ -410,6 +410,10 @@ preferences), not your memory of it. A missing edition in this session's
 history is not evidence it never landed; a cron-fired session may have
 delivered it. When the record and a memory disagree, the file wins.
 
+What the paper printed, and what its advisor's desk knows, is in the owner's
+wiki: `~/Plow/wiki/projects/theplowtimes/` (a page per day under `editions/`,
+and `advisor.md`).
+
 What you know about the owner is deliberately small: the topics they gave
 you, the sections of their paper, the delivery hour, whether a printer is
 configured, and whether the letters desk is on. Location is not a stored
@@ -433,7 +437,8 @@ After the PDF POSTs, `post_to_chat.py` stamps `seal_chat_session.py`. This
 turn then ends (`NO_REPLY`). The owner's **next chat is a new session** —
 yesterday's Latch dumps, Sonnet self-IDs, and failed patches are gone. Do
 not answer "which model" or "what did we research" from a prior session's
-transcript; read `topics.json` / `pt/` if the file record matters.
+transcript; read `topics.json`, `pt/` or the day's edition page if the record
+matters.
 
 Hermes still offers `web_extract` and search plugins (Firecrawl, Exa,
 Keenable, Parallel). They run in this container, not on the owner's Mac.

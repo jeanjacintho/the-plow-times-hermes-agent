@@ -339,11 +339,12 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Record the priority desk** from the delivered edition, only after the
-   chat leg is out, so tomorrow's follow-up never refers to advice that was not
-   delivered. It records the priority section `edition.json` carried and skips
-   an edition without one:
-   `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date <DATE> --edition-json /var/lib/hermes/pt/run/<id>/edition.json`
+3. **Record the edition in the owner's wiki**, only after the chat leg is out, so the
+   wiki (and tomorrow's advisor's desk, which reads its history there) only ever holds
+   what the owner received:
+   `/var/lib/hermes/skills/pt-edition/scripts/record_edition.py /var/lib/hermes/pt/run/<id>/edition.json`
+   It prints `RECORDED …` or `SKIPPED: …`. An `error:` line is reported and the
+   delivery still stands: go on to step 4, never retry and never re-post.
 4. **Mark every topic the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
