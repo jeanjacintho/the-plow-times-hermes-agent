@@ -73,9 +73,9 @@ does not, and every run fails on the import.
   prints one fact per line or `EMPTY`; `.../company.py set --request <path>` records the
   `{"key", "value", "source", "as_of"}` JSON `write_file` put there (never a value on the
   command line; `as_of` a past ISO-8601 time with offset; key one of `product`, `revenue`,
-  `paying_customers`, `referenceable_customers`, `team_size`, `raise`, `stage`) and prints
-  `SET`, `UNCHANGED` or `REFUSED` (older, or another value at the same instant). Exit 1 is
-  `BAD REQUEST: …`, or `CORRUPT: …`: a corrupt record is left for a human.
+  `paying_customers`, `referenceable_customers`, `team_size`, `raise`, `stage`, or the
+  desk's `bootstrapped_at`) and prints `SET`, `UNCHANGED` or `REFUSED` (older, or another
+  value at the same instant). Exit 1 is `BAD REQUEST: …`, or `CORRUPT: …` (left for a human).
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:
