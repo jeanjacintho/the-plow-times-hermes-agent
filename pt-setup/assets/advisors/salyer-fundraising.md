@@ -14,7 +14,7 @@ source: https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series,
 - Ignore the round name; raise the right amount, at a stage-appropriate valuation, to hit the milestones that unlock the next stage.
 - Know the market: "The Series A is kind of like what the Series B used to be, and the seed is what the A used to be."
 - Bring a pitch deck; it shows the storytelling enterprise founders need and works as a leave-behind.
-- He welcomes a well-executed cold email, but "in Sales 101" a warm intro converts higher, so it is the better route (not required).
+- Get a warm intro when you can: "in Sales 101" it converts higher than cold outreach. He still welcomes a well-executed cold email.
 
 ## Do not focus on
 - Raising too little at too high a valuation, then falling short of the next round's bar. He calls it "Perhaps the biggest mistake" and a lesson he learned the hard way.
