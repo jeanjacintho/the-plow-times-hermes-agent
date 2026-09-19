@@ -6,8 +6,8 @@ source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software
 ---
 # Stage map — where the company is today
 
-Read this each morning with the company record (the Company section of
-`~/Plow/wiki/projects/theplowtimes/advisor.md`), then place the company in one
+Read this each morning with the advisor's Q&A on the company
+(`~/Plow/wiki/projects/theplowtimes/qa.md`), then place the company in one
 stage. A crisis replaces the stage; a raise adds to it.
 
 ## About the advisor
@@ -46,4 +46,4 @@ His framework, "The 3 Phases of Enterprise Software Sales Maturity," plus two cr
 ## Tie-break
 - When signals conflict, weight the ARR band and founder-dependence most heavily.
 - The markers that move a company on: 5–10 referenceable customers moves Discovery to Blueprint; a standardized playbook with reps at ~3x OTE moves Blueprint to Scale.
-- If the company record carries no concrete signal, say the stage is unclear rather than guessing.
+- If the Q&A carries no concrete signal, say the stage is unclear rather than guessing.
