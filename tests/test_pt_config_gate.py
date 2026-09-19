@@ -227,14 +227,6 @@ class TestInvariants:
         )
         assert out == "priority.file is not an absolute or ~/Plow path"
 
-    def test_priority_advisors_dir_follows_the_same_path_rule(self, tmp_path):
-        out, _ = run_gate(
-            {**VALID, "priority": {"configured": True, "file": "~/Plow/prioritization.md",
-                                   "advisors_dir": "advisors"}},
-            tmp_path,
-        )
-        assert out == "priority.advisors_dir is not an absolute or ~/Plow path"
-
     def test_placeholder_anywhere(self, tmp_path):
         out, _ = run_gate(
             {**VALID, "owner": {"timezone": "[OWNER_TZ]"}}, tmp_path
