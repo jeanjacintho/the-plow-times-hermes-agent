@@ -55,7 +55,8 @@ does not, and every run fails on the import.
   names what did not happen. The print leg and the wiki scripts both use it.
 - `scripts/wiki.py` — the paper's pages in the owner's wiki (`~/Plow/wiki`, plow-wiki):
   the root `projects/theplowtimes` (writer `theplowtimes`), the shared
-  `entities/owner/goals.md`, and the OKF page format.
+  `entities/owner/goals.md`, the OKF page format, and `check()` = `wiki validate`
+  then `wiki index` through Latch's wiki plugin, failing only on the paper's own pages.
 - `scripts/wiki_setup.py` — make `~/Plow/wiki` ready for the paper. Bare:
   `wiki_setup.py` or `wiki_setup.py --desk`. Creates the wiki with `wiki init` when
   the Mac has none, writes the paper's schema and page when absent, declares

@@ -19,8 +19,10 @@ WRITER = "theplowtimes"
 ROOT = f"projects/{WRITER}"
 OVERVIEW = f"{ROOT}/{WRITER}.md"
 ADVISOR_PAGE = f"{ROOT}/advisor.md"
+EDITIONS = f"{ROOT}/editions"
 GOALS = "entities/owner/goals.md"
 SCHEMA = f"_meta/schemas/{ROOT}.md"
+PAPER_LINK = f"[The Founder Times](/{OVERVIEW})"
 
 
 def split_page(text):
@@ -67,6 +69,17 @@ class Wiki:
         if not isinstance(result, dict) or "exit_code" not in result:
             raise LatchError(f"wiki {args[0]} did not finish: {result}")
         return int(result["exit_code"]), str(result.get("output") or "")
+
+    def check(self):
+        """`wiki validate`, then `wiki index`. Only a problem on a page this paper
+        writes fails it; another agent's page is that agent's to fix."""
+        code, out = self.run("validate")
+        ours = [line for line in out.splitlines() if line.startswith((ROOT, GOALS))]
+        if ours or code not in (0, 1):
+            raise LatchError("wiki validate: " + ("; ".join(ours) or out.strip()))
+        code, out = self.run("index", write=True)
+        if code != 0:
+            raise LatchError(f"wiki index: {out.strip()}")
 
 
 def connect():
