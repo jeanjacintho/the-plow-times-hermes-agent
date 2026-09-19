@@ -14,5 +14,5 @@ Needs Latch on the Mac. Until a human run, **NEEDS HUMAN RUN**.
 | 5b | Read `pt/history.json` after the paper is delivered | Today's desk is recorded; nothing is recorded for a paper that failed to deliver |
 | 6 | Text "stop telling me to hire" | A dated line lands under `## Not now`; the next paper does not advise hiring |
 | 7 | Deny the iMessage read on the Mac and run | Paper still ships; the desk works from calendar and mail |
-| 8 | Rename the file on the Mac and run again | Page ships without the owner's goals; the rest of the paper is normal |
+| 8 | Rename the file on the Mac and run again | `wiki_setup.py --desk` re-seeds `goals.md` — empty, or carried over from `~/Plow/prioritization.md` if that file still exists; the rest of the paper is normal |
 | 9 | Close Latch and run | Desk marks `unavailable`; the paper is still delivered |
