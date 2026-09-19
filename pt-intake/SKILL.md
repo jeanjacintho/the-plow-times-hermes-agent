@@ -273,7 +273,9 @@ edition, and relaying it is the chat leg.
   pt-research on topic <id> now, then pt-edition for it. Post the PDF only
   (post_to_chat.py --pdf, empty body). Final response is NO_REPLY. When the
   edition is delivered, mark the
-  topic delivered with topics.py and remove this job with `hermes cron
+  topic delivered with topics.py, then record the edition in the owner's
+  wiki with record_edition.py (pt-edition's step 4) — whatever it prints,
+  the delivery and the mark stand — and remove this job with `hermes cron
   remove pt-oneoff-<id>`." Record the scheduled moment at add time via
   `--scheduled-for`.
 - **One-off, deep** — the same, including `--deliver

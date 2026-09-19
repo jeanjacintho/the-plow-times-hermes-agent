@@ -192,6 +192,7 @@ class TestCreateArgv:
         assert "--name" in argv and "pt-subscription-t_9f2a" in argv
         assert "--deliver" in argv and "plow_chat:chat_123" in argv
         assert argv[argv.index("--deliver") + 1] == "plow_chat:chat_123"
+        assert "record_edition.py" in sub["prompt"]
 
 
 class TestEditArgv:
@@ -812,6 +813,7 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "printer.configured" in p
         assert "Do not invoke pt-print" in p
         assert "reopen-sections" in p
+        assert "record_edition.py" in p
 
     def test_daily_prompt_forbids_origin_retry_loops(self):
         p = crons.daily_prompt("daily")
@@ -823,6 +825,7 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
         assert "printer.configured" in p
+        assert "record_edition.py" in p
 
     def test_print_leg_is_best_effort_and_after_the_chat_edition(self):
         p = crons.daily_prompt("daily")
