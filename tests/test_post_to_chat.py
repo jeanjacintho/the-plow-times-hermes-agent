@@ -179,23 +179,52 @@ class TestMaybeRecord:
         assert out == f"edition not recorded — timed out after {post.RECORD_TIMEOUT}s"
 
 
-class TestPrintBeforeRecord:
-    """The paper comes before the archive: a slow or hung wiki write must
-    never delay the owner's printed page."""
+class TestFinalizersRunIndependently:
+    """The paper comes before the archive, and no finalizer's failure blocks
+    another's: seal, print and record each run best-effort, in order."""
 
-    def test_the_pdf_leg_prints_before_it_records(self, tmp_path, monkeypatch):
-        order = []
+    def _mock_main(self, tmp_path, monkeypatch, **overrides):
         pdf = tmp_path / "edition.pdf"
         pdf.write_bytes(b"%PDF")
-
         monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
         monkeypatch.setattr(post, "read_message", lambda: "")
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
         monkeypatch.setattr(post, "post_json", lambda *a, **k: None)
-        monkeypatch.setattr(post, "after_posted", lambda: None)
-        monkeypatch.setattr(post, "maybe_print", lambda *a, **k: order.append("print") or "page printed")
-        monkeypatch.setattr(post, "maybe_record", lambda *a, **k: order.append("record") or "RECORDED")
+        monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda: "sealed"))
+        monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
+        monkeypatch.setattr(post, "maybe_record", overrides["maybe_record"])
         monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", str(pdf)])
 
+    def test_the_pdf_leg_prints_before_it_records(self, tmp_path, monkeypatch):
+        order = []
+        self._mock_main(
+            tmp_path, monkeypatch,
+            maybe_print=lambda *a, **k: order.append("print") or "page printed",
+            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
+        )
+        post.main()
+        assert order == ["print", "record"]
+
+    def test_a_seal_failure_still_prints_and_records(self, tmp_path, monkeypatch):
+        order = []
+
+        def failing_seal():
+            raise RuntimeError("disk full")
+
+        self._mock_main(
+            tmp_path, monkeypatch, after_posted=failing_seal,
+            maybe_print=lambda *a, **k: order.append("print") or "page printed",
+            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
+        )
+        post.main()
+        assert order == ["print", "record"]
+
+    def test_a_print_failure_still_records(self, tmp_path, monkeypatch):
+        order = []
+        self._mock_main(
+            tmp_path, monkeypatch,
+            maybe_print=lambda *a, **k: order.append("print") or "page not printed — lp 1",
+            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
+        )
         post.main()
         assert order == ["print", "record"]
