@@ -105,9 +105,13 @@ class TestValidate:
         }])
         assert "layout is not main|sidebar" in render.validate(bad)
 
-    def test_desk_must_be_known(self):
+    @pytest.mark.parametrize("desk", ["gossip", ""])
+    def test_desk_must_be_known(self, desk):
+        # An empty string (unlike None/absent) never reaches fill_news_desk's
+        # default -- it must still fail the gate here, not get silently
+        # promoted to news.
         bad = edition(sections=[{
-            "kind": "section", "title": "x", "body": "y", "desk": "gossip",
+            "kind": "section", "title": "x", "body": "y", "desk": desk,
         }])
         assert "desk" in render.validate(bad)
 

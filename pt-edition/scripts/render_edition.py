@@ -441,7 +441,7 @@ def fill_news_desk(edition):
     `desk == "news"`, no defaulting) can't silently archive less than
     desk_of() just rendered."""
     for section in edition.get("sections") or []:
-        if isinstance(section, dict) and section.get("topic_id") and not section.get("desk"):
+        if isinstance(section, dict) and section.get("topic_id") and section.get("desk") is None:
             section["desk"] = "news"
 
 
