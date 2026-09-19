@@ -27,6 +27,19 @@ class TestSettle:
             lm.settle({"status": status, "handle": "h"}, lambda _h: {}, sleep=lambda _n: None)
 
 
+class TestDecodeBody:
+    @pytest.mark.parametrize("raw", [b"", b'{"jsonrpc": "2.0", "id": 1}'])
+    def test_a_reply_with_no_result_or_error_is_refused(self, raw):
+        with pytest.raises(LatchError, match="no result"):
+            lm.decode_mcp_body("application/json", raw)
+
+    def test_a_normal_reply_is_returned(self):
+        body = b'{"jsonrpc":"2.0","id":1,"result":{"path":"/Users/jj/a"}}'
+        assert lm.decode_mcp_body("application/json", body) == {
+            "jsonrpc": "2.0", "id": 1, "result": {"path": "/Users/jj/a"},
+        }
+
+
 class TestUnwrap:
     def test_a_tool_error_raises_with_its_text(self):
         result = {"isError": True, "content": [

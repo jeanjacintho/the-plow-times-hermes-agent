@@ -37,9 +37,10 @@ def decode_mcp_body(content_type, raw):
             if "result" in obj or "error" in obj:
                 return obj
         raise LatchError("empty latch stream")
-    if not text.strip():
-        return {}
-    return json.loads(text)
+    obj = json.loads(text) if text.strip() else {}
+    if "result" not in obj and "error" not in obj:
+        raise LatchError("latch returned no result")
+    return obj
 
 
 def unwrap_tool_result(result):
