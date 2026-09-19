@@ -293,12 +293,10 @@ what these calls just returned, so no earlier run's copy can ever be read as tod
    `.md` name except `README.md` and `salyer-*`: Patrick Salyer's files are the image's,
    which pt-priority reads itself, so a Mac copy is a stale seed. None, or no folder, is
    fine.
-4. iMessage, through Latch's reader: `mcp__plow__plow_read_skill` with `name` = `plow-messages`,
-   run as its page says. `search --after` this time yesterday for the last day, then 14 days
-   with the people in today's events (pt-priority: an event's attendees and anyone its title
-   names) by `--handle`, a name through the `contacts` skill first. Bodies come back decoded;
-   never read `chat.db` yourself. A deny or an error is one blocked source: note it, do not
-   retry, go on.
+4. iMessage: `mcp__plow__plow_read_skill` with `name` = `imessage`, and read exactly as it says;
+   it names the reader this Mac's Latch ships. The last day, then 14 days with the people in
+   today's events (pt-priority: an event's attendees and anyone its title names). A deny or an
+   error is one blocked source: note it, do not retry, go on.
 5. Mail threads, only when the mail desk (§3) read Gmail this run. Find the latest thread with
    the people in today's events in one search, each by address or else by name,
    `["plow-gog","gmail","search","newer_than:14d {from:<a> to:<a> from:<b> to:<b>}","--max","10","--json","--fields","id,date,from,subject"]`,
