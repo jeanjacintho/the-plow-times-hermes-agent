@@ -304,7 +304,8 @@ disk except the company facts pt-priority records.
    then add rows from the mail desk's search it is likely to act on. Read at most 4 threads whole,
    `["plow-gog","gmail","thread","get","<the row's id>","--sanitize-content","--account","<the row's account>","--json"]`,
    as the Mac's `google-workspace` skill documents it (`mcp__plow__plow_read_skill` `name=google-workspace`).
-   `gmail get` returns only the first message. A deny or an error: go on without them.
+   A row's `from` started the thread, not who wrote last, and `gmail get` returns only the first
+   message. A deny or an error: go on without them.
 6. Load `pt-priority` and follow it. It writes `run/desk-priority/notes.json`.
 
 Never mark a desk in topics.py.

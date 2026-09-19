@@ -72,10 +72,10 @@ a field. A count is a count of the items you saw.
    they sent and iMessages with `is_from_me`, never the calendar or inbound mail and
    messages. A fact the advice needs that the record lacks (revenue, customers) is an
    estimate: a range from the evidence, printed with its basis ("$2–5K MRR, est. from 8
-   paying teams"), never "unclear", and recorded marked `est.` until a stated fact replaces
-   it. When this run's bootstrap finished, add `- bootstrapped: <today>`. Then
-   `write_file` the whole list back to `pt/company.md`, every line you did not replace copied
-   as it was. A read that failed other than "does not exist" means no write this run.
+   paying teams"), never "unclear"; record it by these same rules, marked `est.`, until a
+   stated fact replaces it. When this run's bootstrap finished, add `- bootstrapped: <today>`.
+   Then `write_file` the whole list back to `pt/company.md`, every line you did not replace
+   copied as it was. A read that failed other than "does not exist" means no write this run.
 3. **Stage.** Place the owner's company in one of the advisor's stages, using the stage
    map's descriptions and signals against the company record. Start from the most recent
    `desk.stage_label` in history and keep it unless the record plainly contradicts it; when
