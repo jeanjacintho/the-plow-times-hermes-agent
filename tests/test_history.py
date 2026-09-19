@@ -1,52 +1,43 @@
-import json
+"""history.py: what the advisor's desk printed lately, read back from the wiki."""
+from __future__ import annotations
+
+from datetime import date
 
 import pytest
 
 from conftest import load_module
+from wiki import EDITIONS, Wiki, join_page
 
-hist = load_module("history", "pt-priority/scripts/history.py")
-
-DESK = {"headline": "Book 3 customer calls by Friday", "stage_label": "Discovery"}
-
-
-@pytest.fixture(autouse=True)
-def pt_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("PT_HOME", str(tmp_path))
-    return tmp_path
+history = load_module("history", "pt-priority/scripts/history.py")
+TODAY = date(2026, 9, 19)
 
 
-def test_record_upserts_one_entry_per_day_and_prunes_old_ones():
-    hist.record("2026-08-01", DESK)
-    hist.record("2026-09-16", {"headline": "A"})
-    hist.record("2026-09-16", DESK)
-    assert hist.load() == [{"date": "2026-09-16", "desk": DESK}]
+def day_page(mac, day, card=None):
+    path = mac.home / "Plow" / "wiki" / EDITIONS / f"{day}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    meta = {"type": "Edition", "date": day, **({"priority": card} if card else {})}
+    path.write_text(join_page(meta, f"# The Founder Times, {day}\n"))
 
 
-@pytest.mark.parametrize("content", [
-    "{broken", '{"a": 1}', '[{"date": "2026-09-15"}]',
-    '[{"date": "2026-09-15", "priority": "old shape", "status": "open"}]',
-])
-def test_unreadable_history_is_set_aside(pt_home, content):
-    (pt_home / "history.json").write_text(content)
-    assert hist.load() == []
-    assert (pt_home / "history.json.corrupt").read_text() == content
-    hist.record("2026-09-16", DESK)
-    assert hist.load() == [{"date": "2026-09-16", "desk": DESK}]
+class TestRecent:
+    def test_the_last_weeks_cards_oldest_first_without_the_empty_days(self, mac):
+        day_page(mac, "2026-09-12", {"headline": "too old"})
+        day_page(mac, "2026-09-13", {"headline": "Call Raj"})
+        day_page(mac, "2026-09-15")  # an edition without the desk
+        day_page(mac, "2026-09-19", {"headline": "Close the pilot"})
+        assert history.recent(Wiki(mac.call_tool), TODAY) == [
+            {"date": "2026-09-13", "desk": {"headline": "Call Raj"}},
+            {"date": "2026-09-19", "desk": {"headline": "Close the pilot"}},
+        ]
+
+    def test_no_pages_is_no_history(self, mac):
+        assert history.recent(Wiki(mac.call_tool), TODAY) == []
 
 
-PRINTED = {"desk": "priority", "headline": DESK["headline"], "body": "b",
-           "priority": {"stage_label": "Discovery"}}
-NEWS = {"desk": "news", "headline": "h", "body": "b"}
-
-
-@pytest.mark.parametrize("sections, out, history", [
-    ([PRINTED, NEWS], "RECORDED", [{"date": "2026-09-16", "desk": DESK}]),
-    # The desk was skipped: stale run/desk-priority notes must not be recorded.
-    ([NEWS], "SKIPPED: this edition carried no priority desk", []),
-])
-def test_cli_records_only_what_the_edition_printed(tmp_path, capsys, sections, out, history):
-    edition = tmp_path / "edition.json"
-    edition.write_text(json.dumps({"date": "2026-09-16", "sections": sections}))
-    hist.main(["record", "--date", "2026-09-16", "--edition-json", str(edition)])
-    assert capsys.readouterr().out.strip() == out
-    assert hist.load() == history
+class TestCli:
+    def test_an_unreachable_mac_is_an_error(self, mac, monkeypatch):
+        mac.asleep = True
+        monkeypatch.setattr(history, "connect", lambda: Wiki(mac.call_tool))
+        with pytest.raises(SystemExit) as exc:
+            history.main(["recent"])
+        assert str(exc.value).startswith("error: history unavailable — Mac unreachable")
