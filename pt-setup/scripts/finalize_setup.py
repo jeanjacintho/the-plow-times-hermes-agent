@@ -62,7 +62,7 @@ def build(draft, owner_tz, container_tz):
             # Kept so a later edit can reason in the owner's own clock
             # rather than re-deriving it from the container's.
             "local_hour": draft["local_hour"],
-            "lead_minutes": 0,
+            "lead_minutes": 60,
         },
         "printer": {
             "configured": bool(printer.get("configured")),

@@ -75,7 +75,7 @@ does not, and every run fails on the import.
   and the matching `.../run_lock.py release --name NAME`. Prints one word
   (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
 - `references/config.example.json` — the config contract `pt_config_gate.py`
-  enforces (including the optional `delivery.lead_minutes`, default 0, and
+  enforces (including the optional `delivery.lead_minutes`, default 60, and
   optional `mail.configured`, default off)
 - `references/latch-delivery.md` — how the printed edition reaches the owner's
   printer over Latch (`print_edition.py` is the handoff; this file is the

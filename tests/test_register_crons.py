@@ -287,11 +287,11 @@ class TestDailySchedule:
     def test_plain_lead(self):
         assert crons.daily_schedule("07:00", 45) == "15 6 * * *"
 
-    def test_default_lead_is_zero(self):
+    def test_default_lead_is_an_hour(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "07:00", {})
-        assert jobs[0]["schedule"] == "0 7 * * *"
-        assert crons.DEFAULT_LEAD_MINUTES == 0
+        assert jobs[0]["schedule"] == "0 6 * * *"
+        assert crons.DEFAULT_LEAD_MINUTES == 60
 
     def test_zero_lead_is_the_hour(self):
         assert crons.daily_schedule("07:00", 0) == "0 7 * * *"

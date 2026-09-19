@@ -119,7 +119,7 @@ _PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
 _LOCK_RE = re.compile(
     r"^(?:daily\d*|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
 )
-DEFAULT_LEAD_MINUTES = 0
+DEFAULT_LEAD_MINUTES = 60
 
 SUBSCRIPTION_PROMPT = (
     "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
@@ -358,7 +358,7 @@ def load_extra_hours(config_path=CONFIG_FILE):
 
 
 def load_lead_minutes(config_path=CONFIG_FILE):
-    """delivery.lead_minutes from pt/config.json, defaulting to 0.
+    """delivery.lead_minutes from pt/config.json, defaulting to 60.
 
     The key is optional on purpose (the gate only validates it when present):
     an install written before the personalized paper existed has no

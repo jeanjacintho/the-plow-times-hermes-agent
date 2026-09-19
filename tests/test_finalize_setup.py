@@ -53,7 +53,7 @@ class TestWritesAValidConfig:
         assert written["owner"]["timezone"] == "America/Sao_Paulo"
         assert written["printer"] == {"configured": True, "name": "virtual_printer_online"}
         assert written["mail"]["configured"] is True
-        assert written["delivery"]["lead_minutes"] == 0
+        assert written["delivery"]["lead_minutes"] == 60
         assert "CONFIG:written" in out
 
     def test_keeps_the_hour_the_owner_named(self, tmp_path):
