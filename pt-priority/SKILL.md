@@ -78,11 +78,11 @@ today; otherwise it writes the stub before pt-edition runs, so the gap card prin
       *actionability* (the owner can act today) and *voice*; a missing page scores 0. The candidate
       wins only with grounding 5 and a strictly higher total. You then `write_file` the kept page
       to `pt/advisor.md` yourself, with the scorer's per-dimension scores for it under As of.
-   5. **Card.** A kept page with a headline and grounding 5 gives today's card, which needs
-      `headline`, `first_step` and a `why`; otherwise the card is the stub. Check it first, as a
-      one-section edition in `/tmp`, fixing each field this names and re-checking once:
+   5. **Card.** A kept page with a headline and grounding 5 gives today's card (with `headline`,
+      `first_step` and a `why`), else the stub. Check it as a one-section edition in `/tmp`:
       `/var/lib/hermes/skills/pt-edition/scripts/render_edition.py <it> --chat /tmp/card-check.txt`
-      Only then write it to `run/desk-priority/notes.json`.
+      Fix each named field in the page's Priority (`pt/advisor.md`), re-derive the card, check once
+      more; still failing, Priority keeps no headline and the stub ships. Only then write the card.
 
 A failed asker or researcher: go on with what came back. A failed writer or scorer: the struck
 page stays and Card still runs. While `/var/lib/hermes/pt/company.md` exists, the writer carries
@@ -95,6 +95,5 @@ added: Priority's stage as `stage_label` and its dated Company fact as `stage_wh
 `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a bank quote's `quote`, post
 `url` and post title as `source_label`; Today's events as `today` (`time`, `null` all day; `title`;
 `note`); that entry's headline and what became of it (As of) as `yesterday`; Company's count of
-this week's customer conversations as `week`. Omit what the page lacks. A field the page gate
-refuses is fixed and re-rendered once; refused again, write the stub and leave the priority section
-out of `edition.json`; the rest of the paper ships.
+this week's customer conversations as `week`. Omit what the page lacks. If the page gate refuses it
+at print, write the stub and omit the priority section from `edition.json`.
