@@ -73,9 +73,10 @@ does not, and every run fails on the import.
   `/var/lib/hermes/skills/pt-priority/scripts/company.py show` prints one fact per line or
   `EMPTY`; `.../company.py set --request <path>` records the fact in that JSON file
   (`{"key", "value", "source", "as_of"}`, written with `write_file`, never on the command
-  line), key one of `product`, `revenue`, `paying_customers`, `referenceable_customers`,
-  `team_size`, `raise`, `stage`, prints `SET`, `UNCHANGED` (same value) or `REFUSED`
-  (older evidence, or another value on the same date).
+  line; `as_of` an ISO-8601 time with offset), key one of `product`, `revenue`,
+  `paying_customers`, `referenceable_customers`, `team_size`, `raise`, `stage`, prints
+  `SET`, `UNCHANGED` (same value) or `REFUSED` (older evidence, or another value at the
+  same instant).
   A corrupt record exits 1 with `CORRUPT: …` and is left for a human.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.

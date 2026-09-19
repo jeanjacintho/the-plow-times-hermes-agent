@@ -51,8 +51,9 @@ a company fact or a stage change.
    `revenue` (MRR or ARR), `paying_customers`, `referenceable_customers`, `team_size`,
    `raise` (round, target, pipeline) and `stage` that the owner's side states and the
    record lacks or holds older, `write_file` `/var/lib/hermes/pt/run/company-set-desk.json` with
-   `{"key": "<key>", "value": "<value>", "source": "<where you read it>", "as_of": "YYYY-MM-DD"}`,
-   `as_of` the date the evidence carries, not today's, then run
+   `{"key": "<key>", "value": "<value>", "source": "<where you read it>", "as_of": "YYYY-MM-DDTHH:MM±HH:MM"}`,
+   `as_of` the evidence's own time — the mail's or message's date, the calendar event's
+   time — never now, then run
    `/var/lib/hermes/skills/pt-priority/scripts/company.py set --request /var/lib/hermes/pt/run/company-set-desk.json`.
    A value never goes on the command line. The owner's side is their files under
    `~/Plow`, mail and messages they sent, their calendar, and what they told you; an

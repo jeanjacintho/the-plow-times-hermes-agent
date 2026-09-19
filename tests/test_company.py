@@ -8,31 +8,44 @@ from conftest import load_module
 
 company = load_module("company", "pt-priority/scripts/company.py")
 
-STORED = json.dumps({"facts": {"revenue": {"value": "$4K MRR", "source": "owner, 2026-09-01",
-                                           "as_of": "2026-09-01"}}})
-SHOWN = "revenue: $4K MRR (as of 2026-09-01; source: owner, 2026-09-01)"
+PAPER = "2026-09-01T07:12-07:00"
+
+
+def record(as_of):
+    return json.dumps({"facts": {"revenue": {"value": "$4K MRR", "source": "owner", "as_of": as_of}}})
 
 
 def revenue(value, as_of):
     return {"key": "revenue", "value": value, "source": "mail sent by the owner", "as_of": as_of}
 
 
-REFUSED = "REFUSED: revenue is already recorded as of 2026-09-01"
+def shown(value, as_of):
+    return f"revenue: {value} (as of {as_of}; source: mail sent by the owner)"
+
+
+STORED = record(PAPER)
+SHOWN = f"revenue: $4K MRR (as of {PAPER}; source: owner)"
+REFUSED = f"REFUSED: revenue is already recorded as of {PAPER}"
 
 
 # fact None runs `show`; otherwise the fact is written to a request file and `set` reads it.
 @pytest.mark.parametrize("stored, fact, printed, shown", [
     (None, None, "EMPTY", "EMPTY"),
-    (STORED, revenue("$5K MRR", "2026-09-10"), "SET: revenue",
-     "revenue: $5K MRR (as of 2026-09-10; source: mail sent by the owner)"),
+    # A correction later the same day as the paper wins.
+    (STORED, revenue("$5K MRR", "2026-09-01T09:30-07:00"), "SET: revenue",
+     shown("$5K MRR", "2026-09-01T09:30-07:00")),
     # Newer evidence of the same value advances as_of, so an older conflict cannot regress it.
-    (STORED, revenue("$4K MRR", "2026-09-10"), "SET: revenue",
-     "revenue: $4K MRR (as of 2026-09-10; source: mail sent by the owner)"),
-    (STORED, revenue("$4K MRR", "2026-09-01"), "UNCHANGED: revenue", SHOWN),
-    (STORED, revenue("$9K MRR", "2026-09-01"), REFUSED, SHOWN),
-    (STORED, revenue("$1K MRR", "2026-08-01"), REFUSED, SHOWN),
+    (STORED, revenue("$4K MRR", "2026-09-10T09:00-07:00"), "SET: revenue",
+     shown("$4K MRR", "2026-09-10T09:00-07:00")),
+    (STORED, revenue("$4K MRR", PAPER), "UNCHANGED: revenue", SHOWN),
+    # The same instant in another offset is equal, not newer: times compare parsed, not as text.
+    (STORED, revenue("$9K MRR", "2026-09-01T14:12+00:00"), REFUSED, SHOWN),
+    (STORED, revenue("$1K MRR", "2026-08-01T07:00-07:00"), REFUSED, SHOWN),
+    # A date-only as_of from an older record is local midnight.
+    (record("2026-09-01"), revenue("$5K MRR", "2026-09-02T09:00-07:00"), "SET: revenue",
+     shown("$5K MRR", "2026-09-02T09:00-07:00")),
     # A record is never replaced: a corrupt file fails by name, and a set leaves it for a human.
-    ("{broken", revenue("$5K MRR", "2026-09-10"), "CORRUPT: ", "CORRUPT: "),
+    ("{broken", revenue("$5K MRR", "2026-09-10T09:00-07:00"), "CORRUPT: ", "CORRUPT: "),
     ('{"facts": {"revenue": "$4K"}}', None, "CORRUPT: ", "CORRUPT: "),
 ])
 def test_company_record(tmp_path, monkeypatch, capsys, stored, fact, printed, shown):
@@ -61,7 +74,7 @@ def test_concurrent_sets_all_persist(tmp_path):
     procs = []
     for key in company.KEYS:
         request = tmp_path / f"{key}.json"
-        request.write_text(json.dumps({"key": key, "value": key, "source": "owner", "as_of": "2026-09-10"}))
+        request.write_text(json.dumps({"key": key, "value": key, "source": "owner", "as_of": PAPER}))
         procs.append(subprocess.Popen([company.__file__, "set", "--request", str(request)],
                                       env={**os.environ, "PT_HOME": str(tmp_path)}))
     assert [p.wait() for p in procs] == [0] * len(procs)
