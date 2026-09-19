@@ -54,8 +54,10 @@ scorer: the struck page from step 2 is kept, and step 5 still runs. A run in whi
 reached step 2 writes no card.
 
 ## How many passes
-Every paper makes at least one pass. The daily run repeats passes while the last one kept a
-candidate and the next would finish within the run's time budget.
+One writer: only the canonical daily run makes passes, and it's the only thing that writes the
+page and the card. It repeats passes while the last one kept a candidate and the next would
+finish within the run's time budget. Every other paper (a focused paper, an extra reprint, a
+live copy in chat) prints today's card, or the gap card, and never writes.
 
 ## The card
 The card is a projection of the Priority section into the renderer's existing fields
