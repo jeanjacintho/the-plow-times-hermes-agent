@@ -23,7 +23,9 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 - **Standing desks** you can keep every day: the advisor's desk (your stage,
   one focus with the people and a draft, and what not to do, read from your
   mail, messages and calendar; there is no template to fill in, and you steer
-  it by texting corrections), weather, calendar, mail.
+  it by texting corrections), weather, calendar, mail. The advisor's desk thinks
+  for about 40 minutes per pass, so set `delivery.lead_minutes` (up to 179) to
+  have the paper arrive by the delivery hour.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.
 - **One day’s assignment** (“put the iPhone price in tomorrow’s paper”).
 - **A one-off** you want once, on a short budget, without it becoming a standing section.
