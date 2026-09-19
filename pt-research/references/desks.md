@@ -298,7 +298,8 @@ what these calls just returned, so no earlier run's copy can ever be read as tod
    today's events (pt-priority: an event's attendees and anyone its title names). A deny or an
    error is one blocked source: note it, do not retry, go on.
 5. Mail threads, only when the mail desk (§3) read Gmail this run. Find the latest thread with
-   the people in today's events in one search, each by address or else by name,
+   the people in today's events in one search, by address only: an attendee's email, or what
+   the `contacts` skill returns for a name in a title, never the title's own text,
    `["plow-gog","gmail","search","newer_than:14d {from:<a> to:<a> from:<b> to:<b>}","--max","10","--json","--fields","id,date,from,subject"]`,
    then add rows from the mail desk's search it is likely to act on. Read at most 4 threads whole,
    `["plow-gog","gmail","thread","get","<the row's id>","--sanitize-content","--account","<the row's account>","--json"]`,
