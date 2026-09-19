@@ -10,10 +10,9 @@ context_file_max_chars into an existing one at boot (03-pt-context-cap).
 from __future__ import annotations
 
 import os
-import re
 import sys
 
-CAP = re.compile(r"^context_file_max_chars:.*$", re.M)
+import yaml
 
 
 def _progress_token(value):
@@ -45,20 +44,18 @@ def overlay_display(seed: dict, ours: dict) -> dict:
 
 
 def carry_cap(home_path, seed_path):
-    """Set the home's top-level cap line to the seed's, keeping every other byte."""
+    """Set the home's top-level cap to the seed's; plow-init re-dumps this file every boot anyway."""
     with open(seed_path) as handle:
-        cap = CAP.search(handle.read())
-    if cap is None:
-        raise SystemExit(f"refusing: {seed_path} has no context_file_max_chars")
+        cap = yaml.safe_load(handle)["context_file_max_chars"]
     with open(home_path) as handle:
-        home = handle.read()
-    new, found = CAP.subn(lambda _: cap.group(0), home)
-    new = new if found else home.rstrip("\n") + "\n" + cap.group(0) + "\n"
-    if new != home:  # a sibling, then a rename, as plow-init writes it
-        with open(home_path + ".tmp", "w") as handle:
-            os.fchmod(handle.fileno(), 0o640)
-            handle.write(new)
-        os.replace(home_path + ".tmp", home_path)
+        home = yaml.safe_load(handle) or {}
+    if home.get("context_file_max_chars") == cap:
+        return
+    home["context_file_max_chars"] = cap
+    with open(home_path + ".tmp", "w") as handle:  # a sibling, then a rename, as plow-init writes it
+        os.fchmod(handle.fileno(), 0o640)
+        yaml.safe_dump(home, handle, sort_keys=False)
+    os.replace(home_path + ".tmp", home_path)
 
 
 def main(argv=None):
@@ -68,8 +65,6 @@ def main(argv=None):
     if len(argv) != 2:
         raise SystemExit("usage: merge_pt_seed_config.py <seed.yaml> <runtime.yaml> | --home <home.yaml> <seed.yaml>")
     seed_path, ours_path = argv
-    import yaml
-
     with open(seed_path) as handle:
         seed = yaml.safe_load(handle) or {}
     with open(ours_path) as handle:
