@@ -3,7 +3,7 @@ type: Schema
 root: projects/theplowtimes
 required: [type, title, description, category, tags, sources, created, updated]
 fields:
-  type: {enum: [Project, AdvisorPage, Advisor, Edition]}
+  type: {enum: [Project, Synthesis, Advisor, Edition]}
   paper: {type: link}
   date: {type: date}
 tables:
