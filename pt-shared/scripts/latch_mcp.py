@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """latch_mcp.py -- one MCP session with the owner's Mac through Latch's relay.
 
 The print leg and the wiki both reach the Mac through this client, so a relay
@@ -126,7 +125,7 @@ class LatchClient:
         except urllib.error.HTTPError as exc:
             raise LatchError(f"latch HTTP {exc.code} {exc.reason}")
         except urllib.error.URLError as exc:
-            raise LatchError("Mac unreachable; next scheduled run retries")
+            raise LatchError("Mac unreachable")
         return decode_mcp_body(ctype, raw)
 
     def _initialize(self):
