@@ -31,8 +31,9 @@ def edition(tmp_path, headline="Close the Acme pilot", card=True, news=True):
     sections = [
         {"kind": "section", "desk": "weather", "title": "Weather", "headline": "Rain",
          "body": "Rain in Sao Paulo.", "sources": ["https://weather.example"]},
-        {"kind": "section", "desk": "mail", "title": "Letters", "headline": "Three messages",
-         "body": "Ana Costa — partnership proposal.", "sources": ["Gmail"]},
+        {"kind": "section", "desk": "mail", "topic_id": "t_1234", "title": "Letters",
+         "headline": "Three messages", "body": "Ana Costa — partnership proposal.",
+         "sources": ["Gmail"]},
     ]
     if card:
         sections.append({"kind": "section", "desk": "priority", "headline": headline, "priority": CARD})
@@ -72,20 +73,6 @@ class TestRecord:
         rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
         assert "Rain in Sao Paulo" not in day(mac) and "Ana Costa" not in day(mac)
         assert "Dentist" not in day(mac)
-
-    def test_a_mail_section_claiming_a_topic_id_is_not_recorded_as_news(self, mac, tmp_path):
-        sections = [
-            {"kind": "section", "desk": "mail", "topic_id": "t_1234", "title": "Letters",
-             "headline": "Three messages", "body": "Ana Costa — partnership proposal.",
-             "sources": ["Gmail"]},
-            {"kind": "section", "desk": "priority", "headline": "Close the Acme pilot", "priority": CARD},
-        ]
-        run_dir = tmp_path / "run" / "daily-2026-09-19"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        path = run_dir / "edition.json"
-        path.write_text(json.dumps({"date": "2026-09-19", "location": "Sao Paulo", "sections": sections}))
-        rec.record(Wiki(mac.call_tool), path, "cht_1", MORNING)
-        assert "Ana Costa" not in day(mac)
 
     def test_a_later_edition_appends_and_its_card_is_the_days(self, mac, tmp_path):
         w = Wiki(mac.call_tool)

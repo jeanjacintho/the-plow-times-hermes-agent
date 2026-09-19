@@ -1,7 +1,8 @@
 """history.py: what the advisor's desk printed lately, read back from the wiki."""
 from __future__ import annotations
 
-from datetime import date
+import json
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -32,6 +33,25 @@ class TestRecent:
 
     def test_no_pages_is_no_history(self, mac):
         assert history.recent(Wiki(mac.call_tool), TODAY) == []
+
+
+class TestOwnerToday:
+    def test_the_owners_zone_can_land_a_day_off_the_containers(self, tmp_path, monkeypatch):
+        # 23:30 UTC: the container (UTC) is still on the 19th; the owner in
+        # Kiritimati (UTC+14) is already on the 20th.
+        instant = datetime(2026, 9, 19, 23, 30, tzinfo=timezone.utc)
+
+        class FixedDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return instant.astimezone(tz) if tz else instant
+
+        monkeypatch.setattr(history, "datetime", FixedDatetime)
+        monkeypatch.setenv("PT_HOME", str(tmp_path))
+        (tmp_path / "config.json").write_text(
+            json.dumps({"owner": {"timezone": "Pacific/Kiritimati"}}))
+        assert instant.date() == date(2026, 9, 19)  # the container's own day
+        assert history.owner_today() == date(2026, 9, 20)
 
 
 class TestCli:

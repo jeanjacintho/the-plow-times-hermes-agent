@@ -70,7 +70,8 @@ def record(wiki, edition_json, chat, now):
     edition = json.loads(raw)
     sections = edition.get("sections") or []
     printed = next((s for s in sections if isinstance(s.get("priority"), dict)), None)
-    news = [s for s in sections if s.get("topic_id") and s.get("desk") in ("news", None)]
+    standing = ("weather", "calendar", "mail", "sports")
+    news = [s for s in sections if s.get("topic_id") and s.get("desk") not in standing]
     if printed is None and not news:
         return "SKIPPED: no advisor's card and no section of the owner's"
     rel = f"{EDITIONS}/{edition['date']}.md"

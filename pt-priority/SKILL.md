@@ -67,8 +67,9 @@ Q&A and the card, unless its prompt calls it a live copy. It reads the Q&A at th
 Ask; `wiki_setup.py --desk` has just ensured it exists, so a Q&A that is "not read" means this pass
 writes nothing — not the page, the Q&A or the card — and the stub stands. It also runs
 `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once, before Ask, and hands its JSON
-to the children that need it; an `error:` (or a failed run) means no history, so `yesterday` is
-omitted. It first writes the stub `{"desk": "priority",
+to the children that need it; an `error:` (or a failed run) is "not read", never "none found", so
+this pass too writes only the stub and stops, rather than continuing with `yesterday` silently
+missing. It first writes the stub `{"desk": "priority",
 "status": "unavailable"}` to the card (replaced only by a pass reaching Card), then passes once,
 and again while the last pass kept a candidate and the next would end at least 30 minutes before
 `delivery.hour` and within 90 minutes of its start. Every other paper (a live copy, `paper-*`,

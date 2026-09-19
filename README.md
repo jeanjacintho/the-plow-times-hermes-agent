@@ -16,7 +16,7 @@ You do not fill a profile. The first message is the paper: what time it should a
 
 Research runs on **your** browser, through [Latch](https://howto.plow.co/latch). Every claim in the edition carries a source. If a page cannot be read, the paper says so — it does not invent the paragraph.
 
-What it learns and prints goes into your wiki at `~/Plow/wiki` (Latch's Obsidian-style wiki): a page for every day's paper with its sources (never your mail, calendar or weather), your goals, and the advisor's notes on your company. Open it in Obsidian; edit anything.
+What it learns and prints goes into your wiki at `~/Plow/wiki` (Latch's Obsidian-style wiki): a page for each paper that carried the advisor's card or one of your own sections, with its sources (never your mail, calendar or weather), your goals, and the advisor's notes on your company. Open it in Obsidian; edit anything.
 
 It reports. It does not act on what it finds: no purchases, no bookings, no logins, no downloads.
 
