@@ -37,10 +37,11 @@ The ten checks:
   4. printer.name must be a non-blank string when configured is true: `lp -d`
      needs a destination. When configured is false, name may be null or
      absent.
-  5. delivery.lead_minutes, when present, is an integer 0-179: it is how many
-     minutes before delivery.hour the daily paper's run starts, and a bool
-     (True is an int in Python), a string, or a value >= 180 would compute a
-     fire time on a different day than the one the schedule promises. Absent
+  5. delivery.lead_minutes, when present, is an integer 0-179 and no more
+     than delivery.hour's minutes since midnight: it is how many minutes
+     before delivery.hour the daily paper's run starts, and a bool (True is
+     an int in Python), a string, or a longer lead would start the run on the
+     day before the one the schedule promises. Absent
      is valid -- readers default it to 0, so an install written before the
      key existed does not start failing this gate.
   6. delivery.extra_hours, when present, is a list of "HH:MM" strings: one
@@ -164,6 +165,9 @@ def gate(config):
         # a number of minutes. Refused explicitly, not silently accepted.
         if isinstance(lead, bool) or not isinstance(lead, int) or not (0 <= lead <= 179):
             failures.append("delivery.lead_minutes is not an integer 0-179")
+        elif _DELIVERY_HOUR_RE.fullmatch(str(hour)) and lead > int(hour[:2]) * 60 + int(hour[3:]):
+            failures.append(
+                "delivery.lead_minutes would start the run before midnight of its delivery day")
 
     # 6. delivery.extra_hours, when present, is a list of real "HH:MM"
     #    strings -- one more full-paper delivery time the same day (e.g. a
