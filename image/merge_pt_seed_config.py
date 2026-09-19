@@ -3,9 +3,9 @@
 
 plow-init recopies the seed over the home config every boot.
 runtime/config.yaml copied into /var/lib/hermes is shadowed by the
-agent-home volume, so display quiet-chat and context_file_max_chars
-have to live on the seed or a recreate restores Hermes defaults (loud
-plow_chat, 20 000-char SOUL truncation).
+agent-home volume, so display quiet-chat, context_file_max_chars, and
+the Sonnet 5 default have to live on the seed or a recreate restores
+the base (loud plow_chat, 20 000-char SOUL truncation, glm-5.2).
 """
 from __future__ import annotations
 
@@ -40,6 +40,23 @@ def overlay_display(seed: dict, ours: dict) -> dict:
     return seed
 
 
+def overlay_model(seed: dict, ours: dict) -> dict:
+    """Fleet seed default is glm-5.2; the paper stays on Sonnet 5."""
+    seed_model = dict(seed.get("model") or {})
+    ours_model = dict(ours.get("model") or {})
+    seed["model"] = {**seed_model, **ours_model}
+    seed_provs = dict(seed.get("providers") or {})
+    ours_provs = dict(ours.get("providers") or {})
+    seed_plow = dict(seed_provs.get("plow") or {})
+    ours_plow = dict(ours_provs.get("plow") or {})
+    seed_models = dict(seed_plow.get("models") or {})
+    ours_models = dict(ours_plow.get("models") or {})
+    merged_plow = {**seed_plow, **ours_plow}
+    merged_plow["models"] = {**seed_models, **ours_models}
+    seed["providers"] = {**seed_provs, **ours_provs, "plow": merged_plow}
+    return seed
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2:
@@ -52,9 +69,13 @@ def main(argv=None):
     with open(ours_path) as handle:
         ours = yaml.safe_load(handle) or {}
     overlay_display(seed, ours)
+    overlay_model(seed, ours)
     seed["context_file_max_chars"] = ours["context_file_max_chars"]
     disp = seed.get("display") or {}
     pc = (disp.get("platforms") or {}).get("plow_chat") or {}
+    default = (seed.get("model") or {}).get("default")
+    if default != "anthropic/claude-sonnet-5":
+        raise SystemExit("refusing: seed model.default is not anthropic/claude-sonnet-5")
     if disp.get("interim_assistant_messages") is not False:
         raise SystemExit("refusing: seed display.interim_assistant_messages is not false")
     if _progress_token(disp.get("tool_progress")) != "off":

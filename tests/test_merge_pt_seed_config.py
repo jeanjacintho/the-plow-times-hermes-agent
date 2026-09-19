@@ -74,3 +74,34 @@ def test_yaml11_bare_off_becomes_the_string_hermes_reads():
     assert disp["live_status"] == "off"
     assert pc["tool_progress"] == "off"
     assert pc["live_status"] == "off"
+
+
+def test_overlay_model_replaces_fleet_glm_default_with_sonnet():
+    # Base ef00193 pins z-ai/glm-5.2 on plow-seed; plow-init recopies that
+    # onto home every boot. The newspaper stays on Sonnet 5 by stamping
+    # runtime/config.yaml's model onto the seed -- not by compose env.
+    seed = {
+        "model": {"default": "z-ai/glm-5.2", "provider": "plow"},
+        "providers": {
+            "plow": {
+                "models": {
+                    "z-ai/glm-5.2": {},
+                    "anthropic/claude-sonnet-5": {},
+                }
+            }
+        },
+    }
+    ours = {
+        "model": {"default": "anthropic/claude-sonnet-5", "provider": "plow"},
+        "providers": {
+            "plow": {
+                "models": {"anthropic/claude-sonnet-5": {}},
+            }
+        },
+    }
+    out = merge.overlay_model(seed, ours)
+    assert out["model"]["default"] == "anthropic/claude-sonnet-5"
+    assert out["model"]["provider"] == "plow"
+    models = out["providers"]["plow"]["models"]
+    assert "anthropic/claude-sonnet-5" in models
+    assert out["model"]["default"] != "z-ai/glm-5.2"
