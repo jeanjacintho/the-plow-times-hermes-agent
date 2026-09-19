@@ -9,8 +9,9 @@ description: The advisor's desk — passes (lenses ask, researchers answer from 
 thinking rather than gathering. Markdown, under about two printed pages, six sections in order:
 
 1. **As of**: the last pass's time and scores, today's pass count, what became of the last card.
-2. **Company**: facts, each with its basis and date. A fact the advice needs that nothing states is
-   a labeled estimate with its basis ("MRR est. $2–5K: 8 paying teams"), never "unclear".
+2. **Company**: facts, each with its basis and date, among them a count of this week's customer
+   conversations. A fact the advice needs that nothing states is a labeled estimate with its basis
+   ("MRR est. $2–5K: 8 paying teams"), never "unclear".
 3. **People and open loops**: only loops with an open action today, on something the focus or
    today's events touch: who has the ball, what is open, and the item it rests on. A settled loop
    leaves at the next pass. This is not a roster of correspondents.
@@ -85,8 +86,8 @@ kept a candidate and the next would end at least 30 minutes before `delivery.hou
 added: Priority's stage as `stage_label` and its dated Company fact as `stage_why`; `headline`,
 `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a bank quote's `quote`, post
 `url` and post title as `source_label`; Today's events as `today` (`time`, `null` all day; `title`;
-`note`); that entry's headline and what became of it (As of) as `yesterday`; the count of the
-owner's customer conversations in 7 days, from Company, as `week`. Omit what the page lacks. Remove
-it by `write_file` of `{"desk": "priority", "status": "unavailable"}`: pt-edition prints its gap
-card. A field the page gate refuses is fixed and re-rendered once; refused again, remove today's
-card and leave the priority section out of `edition.json`; the rest of the paper ships.
+`note`); that entry's headline and what became of it (As of) as `yesterday`; Company's count of
+this week's customer conversations as `week`. Omit what the page lacks. Remove it by `write_file`
+of `{"desk": "priority", "status": "unavailable"}`: pt-edition prints its gap card. A field the
+page gate refuses is fixed and re-rendered once; refused again, remove today's card and leave the
+priority section out of `edition.json`; the rest of the paper ships.
