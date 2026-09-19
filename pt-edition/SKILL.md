@@ -111,9 +111,10 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **`could_not_source` is per section, not global** — it belongs to the block
   it qualifies. Unsourced claims are named, not hidden.
 - **Every desk but priority prints `sources` and `could_not_source`**, in
-  the reader's words ("your calendar", never a file or a desk). On the
+  the reader's words ("your calendar", never a file or a path). On the
   priority desk those lines were the paper's own plumbing ("Sources:
-  priority desk"), so the renderer drops them there.
+  priority desk"), so the renderer drops them there. A weather `forecast`
+  grid prints no sources line in the HTML/PDF; the chat edition still does.
 - **`desk` is the newspaper department, and each one is its own page
   slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
   `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
@@ -358,12 +359,11 @@ transcript after it is the wall of text they did not ask for.
 
 The renderer validates `edition.json` structurally before emitting anything
 (the same discipline `pt_config_gate.py` holds for the config): a bad shape
-exits non-zero with the failing field named. Page rules then refuse the same
-way: a standing desk's own words (not an event title, sender or subject) name
-no file or path and no pipeline word (`desk`, `notes`, `prioritization`,
-`pipeline`, `budget`); the priority card never names the reader in the third
-person ("the founder", "the CEO", "the owner", "o fundador" and the like)
-outside `draft`; its headline is one action (no
-second sentence, ` then ` or ` + `) in at most 120 characters; and a `why` with
-`url` or `quote` matches the advisor bank. A run that cannot render says so
+exits non-zero with the failing field named. Page rules then refuse the
+priority card the same way: its own words (not `who`, `draft`, an event title
+or a quote) name no file or path and never the reader in the third person
+("the founder", "the CEO", "the owner", "o fundador" and the like); its
+headline is one action (no second sentence, ` then ` or ` + `) in at most 120
+characters; and a `why` with `url` or `quote` matches the advisor bank. Other
+desks get the structural gate only. A run that cannot render says so
 and waits for the next cycle — it does not ship a half page.
