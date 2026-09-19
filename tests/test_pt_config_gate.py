@@ -213,19 +213,9 @@ class TestInvariants:
         )
         assert out == "priority.configured is not a boolean"
 
-    def test_priority_file_required_when_configured(self, tmp_path):
-        out, _ = run_gate(
-            {**VALID, "priority": {"configured": True, "file": "  "}},
-            tmp_path,
-        )
-        assert out == "priority.file is blank while priority.configured is true"
-
-    def test_priority_file_must_be_under_home_or_plow(self, tmp_path):
-        out, _ = run_gate(
-            {**VALID, "priority": {"configured": True, "file": "prioritization.md"}},
-            tmp_path,
-        )
-        assert out == "priority.file is not an absolute or ~/Plow path"
+    def test_a_configured_desk_needs_no_path(self, tmp_path):
+        out, _ = run_gate({**VALID, "priority": {"configured": True}}, tmp_path)
+        assert out == ""
 
     def test_placeholder_anywhere(self, tmp_path):
         out, _ = run_gate(
