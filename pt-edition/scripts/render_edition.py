@@ -1053,7 +1053,7 @@ def html_section(section, drop_cap=False):
     # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
     # no caption) -- the title bar, headline, body prose and sources line
     # are all dropped for weather when it's carrying a grid, so the box
-    # is just the days, nothing else. Calendar/mail/sports keep their
+    # is just the days and any gap. Calendar/mail/sports keep their
     # title, headline and sources either way (unlike weather, nobody
     # asked for those gone) but drop the body PROSE specifically once a
     # schedule, messages or games list is present -- otherwise the box
@@ -1111,8 +1111,8 @@ def html_section(section, drop_cap=False):
     else:
         blocks.append("  <p>(nothing to report this time)</p>")
     # The priority desk's sources were our own plumbing ("Sources: priority desk").
-    if not skip_caption and desk != "priority":
-        sources = dedupe(section.get("sources", []))
+    if desk != "priority":
+        sources = [] if skip_caption else dedupe(section.get("sources", []))
         if sources:
             links = ", ".join(source_markup(url) for url in sources)
             blocks.append(f'  <p class="sources">Sources: {links}</p>')

@@ -592,12 +592,14 @@ class TestHtml:
         data = edition(sections=[{
             "kind": "section", "title": "Weather", "desk": "weather", "body": "rain",
             "forecast": [{"day": "Tue", "date": "17/05", "icon": "rain", "high": 17, "low": 6}],
-            "sources": [],
+            "sources": ["https://example.com/weather"], "could_not_source": ["the rain chance"],
         }])
         page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{WEATHER}}")
         assert 'class="wx-grid"' in page
         assert 'class="wx-icon"' in page
         assert "<img" not in page
+        # The grid needs no sources line, but its gap still reaches the reader.
+        assert "Sources:" not in page and "Couldn't source: the rain chance" in page
 
     def test_calendar_schedule_draws_kind_icons(self):
         data = edition(sections=[{
