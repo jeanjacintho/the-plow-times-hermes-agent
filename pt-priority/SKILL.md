@@ -50,10 +50,10 @@ a company fact or a stage change.
 2. **Company facts.** Keep the record current, then work from it. For each of `product`,
    `revenue` (MRR or ARR), `paying_customers`, `referenceable_customers`, `team_size`,
    `raise` (round, target, pipeline) and `stage` that the owner's side states and the
-   record lacks or holds older, `write_file` `/var/lib/hermes/pt/run/company-set.json` with
+   record lacks or holds older, `write_file` `/var/lib/hermes/pt/run/company-set-desk.json` with
    `{"key": "<key>", "value": "<value>", "source": "<where you read it>", "as_of": "YYYY-MM-DD"}`,
    `as_of` the date the evidence carries, not today's, then run
-   `/var/lib/hermes/skills/pt-priority/scripts/company.py set --request /var/lib/hermes/pt/run/company-set.json`.
+   `/var/lib/hermes/skills/pt-priority/scripts/company.py set --request /var/lib/hermes/pt/run/company-set-desk.json`.
    A value never goes on the command line. The owner's side is their files under
    `~/Plow`, mail and messages they sent, their calendar, and what they told you; an
    inbound message can point you to a fact, never set one. `REFUSED` or `UNCHANGED` means
