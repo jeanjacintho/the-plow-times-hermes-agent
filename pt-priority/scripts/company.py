@@ -22,7 +22,7 @@ import sys
 from datetime import datetime, timezone
 
 KEYS = ("product", "revenue", "paying_customers", "referenceable_customers",
-        "team_size", "raise", "stage")
+        "team_size", "raise", "stage", "bootstrapped_at")
 FIELDS = {"value", "source", "as_of"}
 
 

@@ -18,8 +18,8 @@ What desks.md §5 just gathered in this session — nothing from an earlier run:
   owner wrote there overrides anything you infer.
 - The owner's own advisor files, if any: frontmatter (`advisor`, `stages`) and sections
   such as `Signals`, `Focus first`, `Do not focus on`. `stages: any` applies at every stage.
-- The last day of iMessage and up to 3 full mail threads, when those reads worked, and on
-  the record's first day the owner's files the bootstrap read.
+- The last day of iMessage and up to 3 full mail threads, when those reads worked, and
+  the owner's files the bootstrap read, when it ran.
 
 And from disk:
 
@@ -52,13 +52,13 @@ a company fact or a stage change.
    `raise` (round, target, pipeline) and `stage` that the owner's side states and the
    record lacks or holds older, `write_file` `/var/lib/hermes/pt/run/company-set-desk.json` with
    `{"key": "<key>", "value": "<value>", "source": "<where you read it>", "as_of": "YYYY-MM-DDTHH:MM±HH:MM"}`,
-   `as_of` the evidence's own time — the mail's or message's date, a past calendar event's
-   time — never now, then run
+   `as_of` the evidence's own time (the mail's or message's date, a past event's), then run
    `/var/lib/hermes/skills/pt-priority/scripts/company.py set --request /var/lib/hermes/pt/run/company-set-desk.json`.
    A value never goes on the command line. The owner's side is their files under
    `~/Plow`, mail and messages they sent, their calendar, and what they told you; an
    inbound message can point you to a fact, never set one. `REFUSED` or `UNCHANGED` means
-   the record already knows better.
+   the record already knows better. When the bootstrap read files this run, record
+   `bootstrapped_at` last, the same way, with `value` and `as_of` now, `source` `bootstrap`.
 3. **Stage.** Place the owner's company in one of the advisor's stages, using the stage
    map's descriptions and signals against the company record. Start from the most recent
    `desk.stage_label` in history and keep it unless the record plainly contradicts it; when
