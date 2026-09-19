@@ -284,26 +284,23 @@ class TestMain:
 
 
 class TestDailySchedule:
-    def test_plain_lead(self):
-        assert crons.daily_schedule("07:00", 45) == "15 6 * * *"
-
     def test_default_lead_is_an_hour(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "07:00", {})
         assert jobs[0]["schedule"] == "0 6 * * *"
         assert crons.DEFAULT_LEAD_MINUTES == 60
 
-    def test_zero_lead_is_the_hour(self):
-        assert crons.daily_schedule("07:00", 0) == "0 7 * * *"
-
-    def test_midnight_wraps_to_previous_day(self):
-        # 00:00 - 45min is 23:15 the day before -- a valid daily expression,
-        # not "45 -1 * * *".
-        assert crons.daily_schedule("00:00", 45) == "15 23 * * *"
-
-    def test_lead_over_the_hour_wraps(self):
-        # 00:00 - 90min is 22:30 the day before.
-        assert crons.daily_schedule("00:00", 90) == "30 22 * * *"
+    @pytest.mark.parametrize("hour, lead, schedule", [
+        ("07:00", 45, "15 6 * * *"),
+        ("07:00", 0, "0 7 * * *"),
+        # The owner's minute is kept, with or without a lead.
+        ("10:25", 0, "25 10 * * *"),
+        ("10:25", 10, "15 10 * * *"),
+        # Never before the delivery day's midnight: that run would be yesterday's.
+        ("00:30", 60, "0 0 * * *"),
+    ])
+    def test_lead_is_subtracted_down_to_midnight(self, hour, lead, schedule):
+        assert crons.daily_schedule(hour, lead) == schedule
 
     def test_lead_up_to_179_minutes_loads(self, tmp_path):
         path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 179}})
@@ -314,14 +311,6 @@ class TestDailySchedule:
         with pytest.raises(SystemExit, match="0-179"):
             crons.load_lead_minutes(path)
 
-    def test_owner_chosen_minute_is_not_forced_to_zero(self):
-        # delivery.hour used to be restricted to "HH:00" on the theory that
-        # the cron fires at the hour -- it never did; the minute field was
-        # always there, only ever fed a computed value.
-        assert crons.daily_schedule("10:25", 0) == "25 10 * * *"
-
-    def test_owner_chosen_minute_survives_a_lead_offset(self):
-        assert crons.daily_schedule("10:25", 10) == "15 10 * * *"
 
 
 class TestSubscriptionJob:
