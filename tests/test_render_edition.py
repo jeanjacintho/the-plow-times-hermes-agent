@@ -301,6 +301,10 @@ class TestValidate:
         ("not_today", [" "], "priority.not_today is not a list of non-blank strings"),
         ("who", "Raj", "priority.who is not a list of non-blank strings"),
         ("who", ["a", "b", "c", "d"], "priority.who has more than 3 items"),
+        ("questions", ["a", "b", "c", "d"], "priority.questions has more than 3 items"),
+        ("questions", [" "], "priority.questions is not a list of non-blank strings"),
+        ("questions", ["Q4 — Is prioritization.md current?"],
+         "priority.questions[0] prints a file path or name ('prioritization.md')"),
         ("today", EVENT, "priority.today is not a list"),
         ("today", [EVENT] * 5, "priority.today has more than 4 items"),
         ("today", ["10:00 call"], "priority.today[0] is not an object"),
@@ -351,10 +355,12 @@ class TestValidate:
             who=["Raj — replied to the launch post", "Priya — trial user since Sep 9"],
             draft='Hey Raj, 20 minutes this week? "Tue" works.',
             not_today=["Hire a sales team"],
+            questions=["Q2 — Do you keep a page with weekly numbers?"],
         )
         assert render.validate(data) == ""
         html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         order = [
+            "<h3>QUESTIONS FOR YOU", "Q2 — Do you keep a page with weekly numbers?",
             "<h3>YESTERDAY</h3>", "1 booked (Dana &lt;Acme&gt;)",
             "STAGE · Discovery", "No revenue yet &amp; you still sell alone",
             "<h3>TODAY</h3>", "10:00", "Customer call: Dana", "Go in with: what they use today",
