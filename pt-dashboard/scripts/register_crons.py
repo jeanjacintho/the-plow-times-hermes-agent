@@ -16,8 +16,8 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          computed as                setup can register
                          delivery.hour -
                          lead_minutes (owner
-                         zone, not before
-                         midnight)
+                         zone, wraparound
+                         exact)
   pt-daily-edition-<n>   same, extra_hours         reprint of the MAIN paper
                          (n ≥ 2)                    (unscoped sections), not
                                                     a different roster
@@ -119,7 +119,7 @@ _PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
 _LOCK_RE = re.compile(
     r"^(?:daily\d*|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
 )
-DEFAULT_LEAD_MINUTES = 60
+DEFAULT_LEAD_MINUTES = 0
 
 SUBSCRIPTION_PROMPT = (
     "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
@@ -358,7 +358,7 @@ def load_extra_hours(config_path=CONFIG_FILE):
 
 
 def load_lead_minutes(config_path=CONFIG_FILE):
-    """delivery.lead_minutes from pt/config.json, defaulting to 60.
+    """delivery.lead_minutes from pt/config.json, defaulting to 0.
 
     The key is optional on purpose (the gate only validates it when present):
     an install written before the personalized paper existed has no
@@ -390,15 +390,18 @@ def _hour_minute(delivery_hour):
 
 
 def daily_schedule(delivery_hour, lead_minutes):
-    """The daily paper's cron expression, never before its delivery day's midnight.
+    """The daily paper's cron expression, wraparound exact.
 
-    delivery.hour is any real "HH:MM" (the gate's contract). The lead is
-    subtracted in minutes from the OWNER's chosen minute, not just the hour,
-    and stops at midnight: a run started the evening before would be the
-    previous day's run, so 00:30 - 60 min fires at "0 0 * * *".
+    delivery.hour is any real "HH:MM" (the gate's contract). Subtracting the
+    lead is done in minutes from the OWNER's chosen minute, not just the
+    hour, and taken modulo a day, so 00:00 - 45 min is the PREVIOUS day's
+    23:15 and yields "15 23 * * *" -- not "45 -1 * * *", which is not a cron
+    expression, and not a schedule that fires a day late. A daily job fires
+    at that local minute every day, which is exactly one edition per day at
+    the promised moment.
     """
     hour, minute = _hour_minute(delivery_hour)
-    total = max(hour * 60 + minute - lead_minutes, 0)
+    total = (hour * 60 + minute - lead_minutes) % (24 * 60)
     return f"{total % 60} {total // 60} * * *"
 
 
