@@ -24,6 +24,7 @@ Prints `RECORDED <page>` or `SKIPPED: <why>`. A failure exits non-zero with
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import datetime
@@ -63,21 +64,23 @@ def _section(section, notes):
 
 def record(wiki, edition_json, chat, now):
     run_dir = Path(edition_json).parent
-    edition = json.loads(Path(edition_json).read_text(encoding="utf-8"))
+    raw = Path(edition_json).read_bytes()
+    edition = json.loads(raw)
     sections = edition.get("sections") or []
     printed = next((s for s in sections if s.get("desk") == "priority"), None)
     news = [s for s in sections if s.get("topic_id")]
     if printed is None and not news:
         return "SKIPPED: no advisor's card and no section of the owner's"
     rel = f"{EDITIONS}/{edition['date']}.md"
-    mark = MARK.format(run_dir.name)
+    mark = MARK.format(hashlib.sha256(raw).hexdigest()[:12])
     ensure(wiki, chat)
     existing = wiki.read(rel)
     if existing is not None and mark in existing:
         return f"SKIPPED: {rel} already has this edition"
 
     lines, urls = [f"## {now:%H:%M} edition", mark, ""], []
-    card = {**printed["priority"], "headline": printed["headline"]} if printed else None
+    card = ({k: v for k, v in printed["priority"].items() if k != "today"}
+             | {"headline": printed["headline"]}) if printed else None
     if card:
         lines += _card(card)
         urls += [why["url"] for why in card.get("why") or [] if why.get("url")]

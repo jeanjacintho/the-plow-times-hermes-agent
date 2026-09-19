@@ -339,13 +339,7 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Record the edition in the owner's wiki**, only after the chat leg is out, so the
-   wiki (and tomorrow's advisor's desk, which reads its history there) only ever holds
-   what the owner received:
-   `/var/lib/hermes/skills/pt-edition/scripts/record_edition.py /var/lib/hermes/pt/run/<id>/edition.json`
-   It prints `RECORDED …` or `SKIPPED: …`. An `error:` line is reported and the
-   delivery still stands: go on to step 4, never retry and never re-post.
-4. **Mark every topic the edition carried** from its `topic_id`:
+3. **Mark every topic the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
    edition is how a silent gap looks like a working paper. A section then
@@ -357,6 +351,14 @@ transcript after it is the wall of text they did not ask for.
      crash the delivery over a valid cancellation.
    - **Never mark a standing desk.** Weather, calendar, mail and sports
      have no topic id on purpose.
+4. **Record the edition in the owner's wiki**, only after the marks are set, so the
+   wiki (and tomorrow's advisor's desk, which reads its history there) only ever holds
+   what the owner received:
+   `/var/lib/hermes/skills/pt-edition/scripts/record_edition.py /var/lib/hermes/pt/run/<id>/edition.json`
+   Whatever it prints — `RECORDED …`, `SKIPPED: …`, an `error:` line, or a
+   traceback — the delivery and the marks already stand: never retry this
+   step, never re-post, and nothing about it goes to the owner. The turn's
+   final response stays `NO_REPLY` either way.
 
 ## Repo note — the edition gate
 

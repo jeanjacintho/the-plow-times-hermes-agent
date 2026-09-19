@@ -17,7 +17,8 @@ CARD = {"stage_label": "Discovery ($0–1M ARR)", "stage_why": "$4K MRR as of Se
         "first_step": "Send Raj the pilot terms", "who": ["Raj — replied to the launch post"],
         "draft": "Raj, here are the terms.", "not_today": ["Hiring a VP Sales"],
         "why": [{"text": "A pilot is the proof", "quote": "Proof beats promises.",
-                 "source_label": "The Blueprint", "url": "https://example.com/blueprint"}]}
+                 "source_label": "The Blueprint", "url": "https://example.com/blueprint"}],
+        "today": [{"time": "10:00", "title": "Dentist", "note": "private"}]}
 
 
 def edition(tmp_path, run="daily-2026-09-19", headline="Close the Acme pilot", card=True, news=True):
@@ -40,7 +41,7 @@ def edition(tmp_path, run="daily-2026-09-19", headline="Close the Acme pilot", c
             "notes": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx", "quote": "…"}],
             "could_not_source": ["the central bank's comment"]}))
     run_dir = tmp_path / "run" / run
-    run_dir.mkdir(parents=True)
+    run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / "edition.json"
     path.write_text(json.dumps({"date": "2026-09-19", "location": "Sao Paulo", "sections": sections}))
     return path
@@ -64,12 +65,12 @@ class TestRecord:
     def test_the_owners_own_accounts_stay_off_the_wiki(self, mac, tmp_path):
         rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
         assert "Rain in Sao Paulo" not in day(mac) and "Ana Costa" not in day(mac)
+        assert "Dentist" not in day(mac)
 
     def test_a_later_edition_appends_and_its_card_is_the_days(self, mac, tmp_path):
         w = Wiki(mac.call_tool)
         rec.record(w, edition(tmp_path), "cht_1", MORNING)
-        rec.record(w, edition(tmp_path, run="daily-2026-09-19-2", headline="Book the Acme demo"),
-                   "cht_1", AFTERNOON)
+        rec.record(w, edition(tmp_path, headline="Book the Acme demo"), "cht_1", AFTERNOON)
         meta, body = split_page(day(mac))
         assert "## 06:04 edition" in body and "## 14:00 edition" in body
         assert meta["priority"]["headline"] == "Book the Acme demo"
