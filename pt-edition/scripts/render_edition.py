@@ -88,6 +88,24 @@ SCHEDULE_STRIP_MAX = 6
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
+# The advisor bank: short verbatim quotes, each with its post's url and title.
+BANK = pathlib.Path(__file__).resolve().parents[2] / "pt-setup/assets/advisors/salyer-bank.json"
+QUOTE_MAX_WORDS = 25
+HEADLINE_MAX = 120
+# The bank verifier's normalization: curly quotes and runs of whitespace.
+CURLY_QUOTES = str.maketrans("‘’‚‛′“”„‟″", "'''''\"\"\"\"\"")
+# Page rules, priority card only: no file or path, never the reader in the third person.
+FILE_RE = re.compile(r"\S+\.(?:md|json|csv|py|txt)\b|~/|/var/lib|\brun/")
+SELF_RE = re.compile(
+    r"\b(?:the (?:founder|ceo|owner)|a founder should|o (?:fundador|ceo|dono)|a (?:fundadora|dona))\b",
+    re.I,
+)
+# A second sentence starts with a capital ("Oct. 15", "Acme Corp. by" never
+# split) and never follows an initial, "p.m." or a title ("Dr. Lee").
+TWO_ACTIONS_RE = re.compile(
+    r"(?<!\b\w)(?<!\b(?:Dr|Mr|Ms|Sr|Jr|St))(?<!\b(?:Dra|Mrs|Sra))[.!?]\s+[A-ZÀ-Þ]"
+    r"|;\s+\S|(?i: then )| \+ "
+)
 
 # calendar.month_abbr is locale-independent C locale by default; pinned here
 # so the masthead's date cannot drift with the container's locale.
@@ -111,7 +129,7 @@ def blank(value):
 
 
 def validate(edition):
-    """The structural gate for edition.json; returns "; "-joined failures.
+    """The gate for edition.json, shape then page_rules; returns "; "-joined failures.
 
     Empty means pass. Never raises for a content problem -- a bad shape is a
     named failure, so the run can say which section is wrong instead of
@@ -277,6 +295,9 @@ def validate(edition):
                             failures.append(f"{iwhere}.text is blank")
                         if blank(item.get("source_label")):
                             failures.append(f"{iwhere}.source_label is blank")
+                        for key in ("quote", "url"):
+                            if item.get(key) is not None and blank(item[key]):
+                                failures.append(f"{iwhere}.{key} is blank")
                 step = priority.get("first_step")
                 if blank(step):
                     failures.append(f"{where}.priority.first_step is blank")
@@ -324,7 +345,79 @@ def validate(edition):
                 credit = image.get("credit")
                 if credit is not None and not isinstance(credit, str):
                     failures.append(f"{where}.image.credit is not a string")
-    return "; ".join(failures)
+    return "; ".join(failures or page_rules(sections))
+
+
+def _normalized(text):
+    return re.sub(r"\s+", " ", text.translate(CURLY_QUOTES)).strip()
+
+
+def _own_words(section):
+    """(field, text) the priority card writes in its own words.
+
+    Other people's words stay out, so a real event title or contact never
+    fails the page: `who`, `draft`, `today[].title`, and a `why`'s quote
+    and source_label.
+    """
+    for key in ("title", "headline", "body"):
+        if section.get(key):
+            yield key, section[key]
+    priority = section.get("priority") or {}
+    for key in ("yesterday", "stage_label", "stage_why", "week", "first_step"):
+        if priority.get(key):
+            yield f"priority.{key}", priority[key]
+    for i, text in enumerate(priority.get("not_today") or []):
+        yield f"priority.not_today[{i}]", text
+    for i, event in enumerate(priority.get("today") or []):
+        yield f"priority.today[{i}].note", event["note"]
+    for i, item in enumerate(priority.get("why", [])):
+        yield f"priority.why[{i}].text", item["text"]
+
+
+def _why_rules(where, why):
+    """A `why` citing the bank quotes it verbatim, under the post's own title."""
+    cited = [(i, item) for i, item in enumerate(why) if item.get("quote") or item.get("url")]
+    posts = json.loads(BANK.read_text(encoding="utf-8")) if cited else []
+    for i, item in cited:
+        iwhere = f"{where}.priority.why[{i}]"
+        post = next((post for post in posts if post["url"] == item.get("url")), {})
+        if not post:
+            yield f"{iwhere}.url is not in the advisor bank"
+        elif item["source_label"].strip() != post["title"]:
+            yield f"{iwhere}.source_label is not the bank title for its url"
+        quote = item.get("quote")
+        if quote is None:
+            continue
+        if len(quote.split()) > QUOTE_MAX_WORDS:
+            yield f"{iwhere}.quote is over {QUOTE_MAX_WORDS} words"
+        if not any(_normalized(quote) in _normalized(e["quote"]) for e in post.get("entries", [])):
+            yield f"{iwhere}.quote is not verbatim from the bank entry at its url"
+
+
+def page_rules(sections):
+    """What the priority card may print; each failure names the field.
+
+    It names no file or path and talks to the reader, never about "the
+    founder"; its headline is one action; a `why` with `quote` or `url`
+    cites the bank. The leak was only ever on this desk.
+    """
+    failures = []
+    for index, section in enumerate(sections):
+        if desk_of(section) != "priority":
+            continue
+        where = f"sections[{index}]"
+        for field, text in _own_words(section):
+            if match := FILE_RE.search(text):
+                failures.append(f"{where}.{field} prints a file path or name ({match.group(0)!r})")
+            if match := SELF_RE.search(text):
+                failures.append(f"{where}.{field} calls the reader {match.group(0)!r}")
+        headline = (section.get("headline") or "").strip()
+        if len(headline) > HEADLINE_MAX:
+            failures.append(f"{where}.headline is over {HEADLINE_MAX} chars")
+        if TWO_ACTIONS_RE.search(headline):
+            failures.append(f"{where}.headline carries more than one action")
+        failures.extend(_why_rules(where, (section.get("priority") or {}).get("why", [])))
+    return failures
 
 
 def dedupe(values):
@@ -372,7 +465,6 @@ def _unavailable_priority_section(language):
         "headline": copy["headline"],
         "body": copy["body"],
         "sources": [],
-        "could_not_source": ["today's priority"],
     }
 
 
@@ -441,9 +533,9 @@ def body_paragraphs(body):
     return [part.strip() for part in text.split("\n\n") if part.strip()]
 
 
-def source_markup(url):
-    """http(s) sources are links; Latch/Calendar labels stay plain text."""
-    escaped = html.escape(url)
+def source_markup(url, label=None):
+    """http(s) sources are links (text: `label`, else the url); other labels stay plain."""
+    escaped = html.escape(label or url)
     if url.startswith(("http://", "https://")):
         return f'<a href="{html.escape(url, quote=True)}">{escaped}</a>'
     return escaped
@@ -465,12 +557,12 @@ def chat_section(section):
             lines.append(f"  {item['time'].strip()} {item['title'].strip()}")
     else:
         body = section.get("body", "").strip()
-        lines.append(f"  {body}" if body else "  (nothing usable in the budget this time)")
+        lines.append(f"  {body}" if body else "  (nothing to report this time)")
     sources = dedupe(section.get("sources", []))
-    if sources:
-        lines.append("  Sources: " + ", ".join(sources))
     could_not = section.get("could_not_source", [])
-    if could_not:
+    if desk != "priority" and sources:
+        lines.append("  Sources: " + ", ".join(sources))
+    if desk != "priority" and could_not:
         lines.append("  Couldn't source: " + "; ".join(could_not))
     return "\n".join(lines)
 
@@ -487,7 +579,7 @@ def render_chat(edition, name):
             lines.append(chat_section(section))
     else:
         lines.append("")
-        lines.append("Nothing usable in the budget this time.")
+        lines.append("Nothing to report this time.")
     return "\n".join(lines) + "\n"
 
 
@@ -766,11 +858,12 @@ def priority_lead(priority):
 def priority_block(priority):
     """Below the focus: first step, sourced why, who, the draft, what not to do."""
     blocks = [f'<p class="priority-step">{_esc(priority["first_step"])}</p>']
-    items = "".join(
-        f'<li>{_esc(item["text"])} <span class="src">— {_esc(item["source_label"])}</span></li>'
-        for item in priority["why"]
-    )
-    blocks.append(f'<ul class="priority-list">{items}</ul>')
+    items = []
+    for item in priority["why"]:
+        quote = f" “{_esc(item['quote'])}”" if item.get("quote") else ""
+        label = source_markup(item.get("url") or "", item["source_label"].strip())
+        items.append(f'<li>{_esc(item["text"])}{quote} <span class="src">— {label}</span></li>')
+    blocks.append(f'<ul class="priority-list">{"".join(items)}</ul>')
     if priority.get("who"):
         blocks.append(_inline("WHO", priority["who"]))
     if priority.get("draft"):
@@ -949,7 +1042,7 @@ def html_section(section, drop_cap=False):
     # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
     # no caption) -- the title bar, headline, body prose and sources line
     # are all dropped for weather when it's carrying a grid, so the box
-    # is just the days, nothing else. Calendar/mail/sports keep their
+    # is just the days and any gap. Calendar/mail/sports keep their
     # title, headline and sources either way (unlike weather, nobody
     # asked for those gone) but drop the body PROSE specifically once a
     # schedule, messages or games list is present -- otherwise the box
@@ -1005,9 +1098,10 @@ def html_section(section, drop_cap=False):
             else:
                 blocks.append(f"  <p>{html.escape(para)}</p>")
     else:
-        blocks.append("  <p>(nothing usable in the budget this time)</p>")
-    if not skip_caption:
-        sources = dedupe(section.get("sources", []))
+        blocks.append("  <p>(nothing to report this time)</p>")
+    # The priority desk's sources were our own plumbing ("Sources: priority desk").
+    if desk != "priority":
+        sources = [] if skip_caption else dedupe(section.get("sources", []))
         if sources:
             links = ", ".join(source_markup(url) for url in sources)
             blocks.append(f'  <p class="sources">Sources: {links}</p>')
@@ -1105,7 +1199,7 @@ def render_html(edition, name, template_text):
         lead_html = ""
         rest = []
     else:
-        lead_html = '<article class="section"><p>Nothing usable in the budget this time.</p></article>'
+        lead_html = '<article class="section"><p>Nothing to report this time.</p></article>'
         rest = []
 
     # The news well is a vertical stack of stories that MAY split across

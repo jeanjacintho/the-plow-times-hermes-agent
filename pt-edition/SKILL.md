@@ -110,18 +110,28 @@ HTML.** Hand-write `edition.json` under the run directory:
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block
   it qualifies. Unsourced claims are named, not hidden.
+- **Every desk but priority prints `sources` and `could_not_source`**, in
+  the reader's words ("your calendar", never a file or a path). On the
+  priority desk those lines were the paper's own plumbing ("Sources:
+  priority desk"), so the renderer drops them there. A weather `forecast`
+  grid prints no sources line in the HTML/PDF; the chat edition still does.
 - **`desk` is the newspaper department, and each one is its own page
   slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
   `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
   `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
-  sources shape in every slot.
+  sources shape in every slot; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
   already talks to the reader; do not turn it into a memo about "the
   founder". When present it
   replaces the prose body on the printed page (`skip_body`); `headline` is
-  the day's priority and `body` is the first step in prose for the chat
-  edition. Shape: `why` (1–3 objects with `text` and `source_label`),
+  the day's priority, one action in at most 120 characters, and `body` is
+  the first step in prose for the chat edition. Shape: `why` (1–3 objects
+  with `text` and `source_label`, and optionally `url` and `quote`: `url` is a
+  post in `pt-setup/assets/advisors/salyer-bank.json` (one `{url, title,
+  date, entries}` record per post), `source_label` is its exact `title`,
+  and `quote` is verbatim from one of its `entries`, at most 25 words; the
+  card prints it in quotation marks with the title linked),
   `first_step`, optional `not_today` (at most two strings), and optional
   `stage_label`, `stage_why`, `yesterday`, `week`, `draft` (non-blank
   strings), `who` (at most three strings) and `today` (at most four
@@ -192,7 +202,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   text. One event, one sender, one line each.
 - The daily paper always includes weather and calendar from
   `run/desk-*/notes.json`. If calendar notes list `could_not_source` and
-  no events, the headline is that the desk could not read the agenda —
+  no events, the headline says the paper could not read the agenda —
   never "no events today" / "Nenhum evento hoje" / "the calendar is free"
   (measured live: two real appointments, empty `events.json` after a
   failed gather). **Priority is the same when `pt/config.json` has
@@ -226,7 +236,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   desks ignore it; the renderer already puts them on the rail.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
-  sentence ("nothing usable in the budget this time"), and what was tried.
+  sentence ("nothing to report this time"), and what was tried.
   A thin weather or calendar desk is still printed; it is a department of
   the paper, not optional filler.
 
@@ -271,8 +281,9 @@ transcript after it is the wall of text they did not ask for.
      argument`) means YOUR command was wrong, not that the PDF is
      impossible. Fix the command and re-run it. This is **not** the
      weasyprint fallback and must never be treated as one.
-   - **A malformed `edition.json`** is refused by name. Fix the JSON and
-     re-run; never hand-assemble a page to route around the gate.
+   - **A malformed `edition.json`** is refused by name, and so is a page
+     rule (below). Edit only the named field, never the rest of the copy,
+     and re-run; never hand-assemble a page to route around the gate.
    - **Only** when the renderer's stderr says *weasyprint is not installed*
      is the PDF genuinely impossible — that costs the PDF file alone; take
      the text fallback in step 2 and do not write the edition by hand.
@@ -348,5 +359,11 @@ transcript after it is the wall of text they did not ask for.
 
 The renderer validates `edition.json` structurally before emitting anything
 (the same discipline `pt_config_gate.py` holds for the config): a bad shape
-exits non-zero with the failing field named. A run that cannot render says so
+exits non-zero with the failing field named. Page rules then refuse the
+priority card the same way: its own words (not `who`, `draft`, an event title
+or a quote) name no file or path and never the reader in the third person
+("the founder", "the CEO", "the owner", "o fundador" and the like); its
+headline is one action (no second sentence, ` then ` or ` + `) in at most 120
+characters; and a `why` with `url` or `quote` matches the advisor bank. Other
+desks get the structural gate only. A run that cannot render says so
 and waits for the next cycle — it does not ship a half page.
