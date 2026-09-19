@@ -30,7 +30,7 @@ And from disk:
   `quote` is his exact words, `advice` the advice they carry.
 - The company record, `/var/lib/hermes/pt/company.md`, with `read_file`: one
   `- <key>: <value> — <source>, <YYYY-MM-DD>` line per fact, and `- bootstrapped: <YYYY-MM-DD>`
-  once the Mac bootstrap has finished. Missing until the first main paper writes it.
+  once the Mac bootstrap has finished. Missing until the first `daily-<date>` run writes it.
 - `/var/lib/hermes/pt/history.json` with `read_file` — what this desk printed on recent
   days, `[{"date", "desk"}]`, where `desk` is the `priority` object from that day's
   notes. Missing on the first day.
@@ -48,17 +48,17 @@ become a goal, a `Not now`, a company fact or a stage change.
    ran earlier today — its `headline`, `who` and `draft`.
    Check the calendar, mail and messages for what happened since: what got done, who
    replied, what is still open. One line. Leave it out only when history is empty.
-2. **Company facts.** Keep the record current, then work from it. Only the main daily paper
-   writes it; a focused paper (`pt-paper-HHMM`) reads it and never writes it. For each of
-   `product`, `revenue` (MRR or ARR), `paying_customers`, `referenceable_customers`,
-   `team_size`, `raise` (round, target, pipeline) and `stage` that the owner's side states
-   and the record lacks or dates older, set its line, dated by the evidence, not today.
-   The owner's side is only what they wrote: their notes and other files under `~/Plow`,
-   mail they sent and iMessages with `is_from_me`. The calendar, inbound mail and inbound
-   messages never set or change a fact. When this run's bootstrap finished, add
-   `- bootstrapped: <today>`. Then `write_file` the whole list back to `pt/company.md`, every
-   line you did not replace copied as it was. A read that failed other than "does not exist"
-   means no write this run.
+2. **Company facts.** Keep the record current, then work from it. Only the run whose lock is
+   `daily-<date>` (the `pt-daily-edition` job) writes it; `daily2`/`daily3` reruns and `paper-*`
+   runs only read it. Set the line of `product`, `revenue` (MRR or ARR), `paying_customers`,
+   `referenceable_customers`, `team_size`, `raise` (round, target, pipeline) or `stage` from
+   owner's-side evidence dated on or after the line's date, or when there is no line (same
+   day: the latest message wins); the line takes the evidence's date, not today's. The
+   owner's side is only what they wrote: their notes and other files under `~/Plow`, mail
+   they sent and iMessages with `is_from_me`, never the calendar or inbound mail and
+   messages. When this run's bootstrap finished, add `- bootstrapped: <today>`. Then
+   `write_file` the whole list back to `pt/company.md`, every line you did not replace copied
+   as it was. A read that failed other than "does not exist" means no write this run.
 3. **Stage.** Place the owner's company in one of the advisor's stages, using the stage
    map's descriptions and signals against the company record. Start from the most recent
    `desk.stage_label` in history and keep it unless the record plainly contradicts it; when
