@@ -117,7 +117,7 @@ _EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
 # sections at 12:30 share one job and a dropped hour is sweepable by name.
 _PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
 _LOCK_RE = re.compile(
-    r"^(?:daily\d*|live|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
+    r"^(?:daily\d*|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
 )
 DEFAULT_LEAD_MINUTES = 0
 
@@ -131,12 +131,11 @@ SUBSCRIPTION_PROMPT = (
 )
 
 
-def daily_prompt(lock_name):
+def daily_prompt(lock_name, live=False):
     """The daily paper's run prompt, parametrized by its lock name.
 
-    lock_name is "daily" for the canonical slot, "live" for an on-demand copy
-    (never the run that writes pt-priority's page), and "daily2"/"daily3"/...
-    for an extra delivery time (delivery.extra_hours) -- each slot re-researches
+    lock_name is "daily" for the canonical slot and "daily2"/"daily3"/... for
+    an extra delivery time (delivery.extra_hours) -- each slot re-researches
     and re-delivers the same paper independently, so each needs its own lock
     or a second slot firing minutes after the first would read the first
     slot's lock as "held" and silently skip the whole edition. It works in
@@ -152,6 +151,9 @@ def daily_prompt(lock_name):
     measured live 2026-09-17 Latch saw no `lp`; measured live 2026-09-18
     the PDF posted and print_edition.py was never invoked. It is inside
     post_to_chat.py now.
+
+    live marks the on-demand copy: it shares the daily lock, so it never races
+    the scheduled run, but it never writes pt-priority's page.
     """
     return (
         f"Run the daily edition now, in one session. First run "
@@ -185,7 +187,8 @@ def daily_prompt(lock_name):
         f"with /var/lib/hermes/skills/pt-shared/scripts/run_lock.py release "
         f"--name the same {lock_name}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
-    )
+    ) + (" This is a live copy: print today's advisor card as it stands, or the gap "
+         "card, and make no advisor pass." if live else "")
 
 
 def paper_prompt(lock_name, hour):
@@ -693,7 +696,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     # hermes binary, no config and no topic store, and must stay answerable
     # on a machine where registration itself would refuse.
     if args.show_daily_recipe:
-        print(daily_prompt("live"))
+        print(daily_prompt("daily", live=True))
         return 0
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):

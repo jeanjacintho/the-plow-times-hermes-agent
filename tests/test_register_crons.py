@@ -744,11 +744,13 @@ class TestShowDailyRecipe:
     copy can never drift from what the cron actually runs.
     """
 
-    def test_flag_prints_the_cron_recipe_under_the_live_lock(self, capsys):
+    def test_flag_prints_the_cron_recipe_marked_live(self, capsys):
         rc = crons.main(["--show-daily-recipe"])
         assert rc == 0
         printed = capsys.readouterr().out.strip()
-        assert printed == crons.daily_prompt("live").strip()
+        assert printed.startswith(crons.daily_prompt("daily").strip())
+        assert printed.endswith("This is a live copy: print today's advisor card as it stands, "
+                                "or the gap card, and make no advisor pass.")
 
     def test_recipe_covers_the_sections_the_one_off_path_skipped(self, capsys):
         crons.main(["--show-daily-recipe"])
