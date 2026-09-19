@@ -79,10 +79,10 @@ today; otherwise it writes the stub before pt-edition runs, so the gap card prin
       wins only with grounding 5 and a strictly higher total. You then `write_file` the kept page
       to `pt/advisor.md` yourself, with the scorer's per-dimension scores for it under As of.
    5. **Card.** A kept page with a headline and grounding 5 gives today's card (with `headline`,
-      `first_step` and a `why`), else the stub. Check it as a one-section edition in `/tmp`:
+      `first_step` and a `why`), else the stub. Check it first, as a one-section edition in `/tmp`:
       `/var/lib/hermes/skills/pt-edition/scripts/render_edition.py <it> --chat /tmp/card-check.txt`
-      Fix each named field in the page's Priority (`pt/advisor.md`), re-derive the card, check once
-      more; still failing, Priority keeps no headline and the stub ships. Only then write the card.
+      Fix each named field in the page section it derives from (Priority, Company, Today or As of),
+      re-derive the card and re-check once; still failing, Priority keeps no headline, stub ships.
 
 A failed asker or researcher: go on with what came back. A failed writer or scorer: the struck
 page stays and Card still runs. While `/var/lib/hermes/pt/company.md` exists, the writer carries
