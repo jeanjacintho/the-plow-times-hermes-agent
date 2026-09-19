@@ -28,8 +28,8 @@ providers:
 
 # Boot recomposes SOUL.md from plow-seed; the newspaper file has to be
 # that seed or the generic Plow-assistant persona wins every start.
-# Hermes truncates that file at 20 000 unless this key is on the seed
-# (merge_pt_seed_config.py), not only here.
+# Hermes truncates it at 20 000 unless this key reaches the home config:
+# the image stamps it on the seed and 03-pt-context-cap on an existing home.
 context_file_max_chars: 40000
 
 mcp_servers:
