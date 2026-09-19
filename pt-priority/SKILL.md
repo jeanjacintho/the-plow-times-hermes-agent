@@ -89,10 +89,10 @@ the stub.
 3. **Judge**, strictly in this order:
    1. **Falsify.** Re-open the items behind the current headline and every claim the answers touch,
       the Q&A's included, and mark what they disprove.
-   2. **Strike and save.** Strike every line with no item and every disproved line; `write_file`
-      the struck page to `pt/advisor.md` itself before the writer runs. Fold the answers into the
-      Q&A (Lens B's new questions to Open, found answers to Answered with items, disproved ones
-      back to Open, re-ranked, cut to 20) and write it back whole. Any later failure keeps both.
+   2. **Strike and save.** Fold the answers into the Q&A (Lens B's new questions to Open, found
+      answers to Answered with items, disproved ones back to Open, re-ranked, cut to 20) and write
+      it back whole; then strike every line with no item and every disproved line and `write_file`
+      the struck page to `pt/advisor.md` itself before the writer runs. Any later failure keeps both.
    3. **Rewrite.** A writer child drafts a candidate page from the struck page, the Q&A and the
       surviving answers: same strike rule, estimates for what is missing.
    4. **Score.** A separate scorer child, blind to which is which, scores both 1–5 on *grounding*
@@ -111,8 +111,8 @@ the stub.
 A failed asker or researcher: go on with what came back. A failed writer or scorer: the struck
 page stays and Card still runs. Until they are gone, Strike and save carries any Company or Open
 questions section on the page and `/var/lib/hermes/pt/company.md` into the Q&A (questions to Open,
-facts naming a basis to Answered), drops the sections and, if the file is there, runs
-`mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
+facts naming a basis to Answered); only once that write succeeds does it drop the sections and, if
+the file is there, run `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
 
 **The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
 "ok", "priority": {…}}` mapped from the kept page, the Q&A and the latest `pt/history.json` entry,

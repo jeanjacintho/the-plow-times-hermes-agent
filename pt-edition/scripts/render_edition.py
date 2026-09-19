@@ -839,7 +839,7 @@ def priority_lead(priority):
     """Above the focus: the open questions, yesterday's follow-up, the stage and its reason, today, the week."""
     blocks = []
     if priority.get("questions"):
-        blocks.append(_inline("QUESTIONS FOR YOU · TEXT ME “Q2: …”", priority["questions"]))
+        blocks.append(_inline("QUESTIONS · “Q2: …”", priority["questions"]))
     if priority.get("yesterday"):
         blocks.append(_note("YESTERDAY", priority["yesterday"]))
     if priority.get("stage_label"):

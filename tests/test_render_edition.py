@@ -360,7 +360,7 @@ class TestValidate:
         assert render.validate(data) == ""
         html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         order = [
-            "<h3>QUESTIONS FOR YOU", "Q2 — Do you keep a page with weekly numbers?",
+            "<h3>QUESTIONS · “Q2: …”", "Q2 — Do you keep a page with weekly numbers?",
             "<h3>YESTERDAY</h3>", "1 booked (Dana &lt;Acme&gt;)",
             "STAGE · Discovery", "No revenue yet &amp; you still sell alone",
             "<h3>TODAY</h3>", "10:00", "Customer call: Dana", "Go in with: what they use today",
