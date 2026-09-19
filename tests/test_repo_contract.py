@@ -698,6 +698,7 @@ class TestSkills:
         assert "imessage" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
+        assert "**An event is its people.**" in skill
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "history.py record" in edition
@@ -723,6 +724,7 @@ class TestSkills:
         assert "assets/calendar.applescript" in desks
         assert "Nenhum evento hoje" in desks
         assert "failed or returned no event today" in desks
+        assert '"attendees": []}' in desks
         assert "tell application \"Calendar\" to launch" in script
         assert "time string of start date of item 1" not in script
         assert "every event of item 1 of every calendar" not in script
