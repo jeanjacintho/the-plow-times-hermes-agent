@@ -43,6 +43,15 @@ class TestEnsure:
         assert '[roots."projects/str"]\nwriter = "str"' in toml.read_text()
         assert theirs.read_text() == "---\ntitle: Raj\n---\n"
 
+    def test_the_root_already_declared_in_another_spelling_is_left_alone(self, mac):
+        mac.wiki("init", "~/Plow/wiki")
+        toml = wiki_dir(mac) / "wiki.toml"
+        toml.write_text(toml.read_text() + f"\n[roots.'{ROOT}']\nwriter = \"theplowtimes\"\n")
+        before = toml.read_bytes()
+        ws.ensure(Wiki(mac.call_tool), "cht_1")
+        assert toml.read_bytes() == before
+        assert mac.wiki("validate")["exit_code"] == 0
+
     def test_without_the_desk_no_owner_page_appears(self, mac):
         ws.ensure(Wiki(mac.call_tool), "cht_1")
         assert not (wiki_dir(mac) / GOALS).exists()

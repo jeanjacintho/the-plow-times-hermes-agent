@@ -12,8 +12,9 @@ each daily pass (--desk), and record_edition.py before it writes.
   - with --desk: entities/owner/goals.md and projects/theplowtimes/qa.md, when
     absent. An install from before the wiki carries the body of
     ~/Plow/prioritization.md over once (the old file stays; it is the owner's).
-  - projects/theplowtimes declared in wiki.toml, appended last so a run that
-    failed halfway runs again; no other line of the file is touched.
+  - projects/theplowtimes declared in wiki.toml, when its parsed roots lack it
+    (whatever spelling declares them), appended last so a run that failed
+    halfway runs again; no other line of the file is touched.
 
 Prints WIKI:ready or `WIKI:set up <what>`. Any failure exits non-zero with
 `error: wiki not ready — <why>`.
@@ -23,6 +24,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import sys
+import tomllib
 from pathlib import Path
 
 from bearer_http import require
@@ -60,7 +62,7 @@ def ensure(wiki, chat, desk=False):
     if desk:
         did += _seed(wiki, GOALS, "goals.md", chat, lambda: wiki.read_path(LEGACY_NOTES))
         did += _seed(wiki, QA, "qa.md", chat)
-    if f'[roots."{ROOT}"]' not in toml:
+    if ROOT not in tomllib.loads(toml).get("roots", {}):
         wiki.write("wiki.toml", f'{toml.rstrip()}\n\n[roots."{ROOT}"]\nwriter = "{WRITER}"\n')
         did.append(f"{ROOT} in wiki.toml")
     return did
