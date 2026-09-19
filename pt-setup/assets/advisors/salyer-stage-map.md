@@ -2,16 +2,16 @@
 advisor: Patrick Salyer (Mayfield)
 stages: any
 domain: b2b-saas-enterprise
-source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software, https://www.forbes.com/sites/patricksalyer/2019/12/04/how-a-crisis-can-turn-a-ceo-into-a-leader/, https://patricksalyer.substack.com/p/the-saaspocalypse-ceo-survival-guide, https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series
+source: https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software, https://www.forbes.com/sites/patricksalyer/2019/12/04/how-a-crisis-can-turn-a-ceo-into-a-leader/, https://patricksalyer.substack.com/p/the-saaspocalypse-ceo-survival-guide, https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series, https://patricksalyer.substack.com/p/introducing-patrick-salyers-substack, https://www.forbes.com/sites/patricksalyer/2021/05/04/api-stack-the-billion-dollar-opportunities-redefining-infrastructure-services--platforms/, https://www.forbes.com/sites/patricksalyer/2019/08/27/how-to-be-successful-with-distributed-teams/, https://www.mayfield.com/digital-identity-drives-gigyas-dna-of-success/, https://www.forbes.com/sites/patricksalyer/2019/06/19/the-secret-behind-slacks-runaway-success/, https://patricksalyer.substack.com/p/finding-product-go-to-market-fit, https://patricksalyer.substack.com/p/is-your-startup-built-to-ipo-understanding, https://patricksalyer.substack.com/p/startup-defensibility-report-card
 ---
 # Stage map — where the company is today
 
-Read this each morning with the owner's Company state, then place the company in one
+Read this each morning with the company record (`pt/company.md`), then place the company in one
 stage. A crisis replaces the stage; a raise adds to it.
 
 ## About the advisor
-- Partner at Mayfield since January 2019; before that, CEO of Gigya (customer identity) and later GM of SAP Customer Data Cloud.
-- He took Gigya to a ~$100M ARR run rate, 700+ customers and 300+ employees, through three pivots, to a $350M SAP acquisition in 2017.
+- A Mayfield partner; before that, CEO of Gigya (customer identity) for a decade.
+- He took Gigya to a $100M ARR run rate, over 700 customers and 300 people, through three pivots, to an acquisition by SAP in 2017.
 
 ## Stages
 His framework, "The 3 Phases of Enterprise Software Sales Maturity," plus two cross-stage files:
@@ -27,7 +27,7 @@ His framework, "The 3 Phases of Enterprise Software Sales Maturity," plus two cr
 - Scale: $10M+ ARR; multiple ramped reps; org design, capacity planning and forecasting in place; the goal is replication toward $100M.
 
 ## Pivot override
-- An acute shock puts the company in Pivot regardless of ARR: a security incident or outage, a market re-rating of its category, or a model-threatening shift like agentic AI.
+- An acute shock puts the company in Pivot regardless of ARR: a security incident, a market re-rating of its category, or a model-threatening shift like agentic AI.
 - Missed milestones that block the next round on prior terms count as a shock too.
 
 ## Fundraising modifier
@@ -35,12 +35,14 @@ His framework, "The 3 Phases of Enterprise Software Sales Maturity," plus two cr
 - Fundraising maps ARR to round expectations: today a competitive Series A needs about $3–5M ARR.
 
 ## Domain caveat
-- His record is enterprise/B2B SaaS: founder-led, insight-and-teaching selling and category creation, to mid-market and Fortune 500 buyers.
+- His record is mostly enterprise/B2B SaaS: founder-led, insight-and-teaching selling and category creation, to mid-market and Fortune 500 buyers.
+- It also covers product-led and self-serve go-to-market, so use it for a self-serve company: the end user is the buyer, gets value quickly and pays little; the product is a great source of leads but never the entire funnel, and a sales force becomes essential as you scale; self-serve tiers carry their own ACV and rep benchmarks.
+- His warning for self-serve: "Self-serve tools for everyone are fragile." A considered purchase in a specific vertical is harder to displace.
 - His benchmarks (referenceable customers, rep OTE multiples, quota attainment) are B2B-sales benchmarks.
-- For a consumer, PLG/self-serve or bottoms-up developer business, say that his published record does not directly cover it, rather than forcing his numbers onto it.
-- His record is also thin on hiring and comp frameworks, international expansion and board management; say so rather than inventing his position.
+- For a consumer or bottoms-up developer business, say that his published record does not directly cover it, rather than forcing his numbers onto it.
+- His record is thin on international expansion and board management; say so rather than inventing his position.
 
 ## Tie-break
 - When signals conflict, weight the ARR band and founder-dependence most heavily.
 - The markers that move a company on: 5–10 referenceable customers moves Discovery to Blueprint; a standardized playbook with reps at ~3x OTE moves Blueprint to Scale.
-- If Company state carries no concrete signal, say the stage is unclear rather than guessing.
+- If the company record carries no concrete signal, say the stage is unclear rather than guessing.
