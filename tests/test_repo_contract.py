@@ -684,21 +684,32 @@ class TestSkills:
     def test_setup_asks_about_the_priority_file(self):
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert "NEXT_QUESTION=priority" in text
-        assert "never overwrite an existing file" in text.lower()
         assert "trying to make true" in text
         assert not (ROOT / "pt-setup" / "assets" / "prioritization.template.md").exists()
         section = text.split("## NEXT_QUESTION=priority", 1)[1].split("\n## ", 1)[0]
-        assert "if it is absent" in section.lower()
+        assert "stays as it was" in section.lower()
         assert "leave it alone" not in section.lower()
+
+    def test_no_skill_points_at_the_pre_wiki_homes(self):
+        # The goals, the desk's Q&A and the owner's advisors moved into ~/Plow/wiki.
+        # A skill still naming the old homes reads a file nothing writes any more.
+        # pt/advisor.md is not stale: the desk's day page is still the container's.
+        stale = ("~/Plow/prioritization.md", "priority.file", "~/Plow/advisors")
+        for skill in ROOT.glob("pt-*/**/*.md"):
+            if "assets/advisors" in str(skill):
+                continue
+            text = skill.read_text(encoding="utf-8")
+            for old in stale:
+                assert old not in text, f"{skill.relative_to(ROOT)} still names {old}"
 
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
-        assert "## 5. Priority" in desks
+        assert "## Priority — first" in desks
         assert "run/desk-calendar/events.json" in desks
-        assert "imessage" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
-        assert "**An event is its people.**" in skill
+        assert "`name` = `imessage`" in skill
+        assert "**An event is its people,**" in skill
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "history.py record" in edition

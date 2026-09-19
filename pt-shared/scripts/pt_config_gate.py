@@ -37,9 +37,9 @@ The ten checks:
   4. printer.name must be a non-blank string when configured is true: `lp -d`
      needs a destination. When configured is false, name may be null or
      absent.
-  5. delivery.lead_minutes, when present, is an integer 0-59: it is how many
+  5. delivery.lead_minutes, when present, is an integer 0-179: it is how many
      minutes before delivery.hour the daily paper's run starts, and a bool
-     (True is an int in Python), a string, or a value >= 60 would compute a
+     (True is an int in Python), a string, or a value >= 180 would compute a
      fire time on a different day than the one the schedule promises. Absent
      is valid -- readers default it to 0, so an install written before the
      key existed does not start failing this gate.
@@ -61,10 +61,8 @@ The ten checks:
      mail through Latch (Gmail via plow-gog first, Mail.app if that fails);
      false is an explicit no.
   9. no string value anywhere may be a leftover [UPPER_SNAKE] placeholder.
-  10. priority, when present, has a boolean `configured`; if true, `file`
-     is a non-blank string starting with `~/Plow/` or `/Users/`. Absent
-     priority is valid and means the desk is off -- the paper never
-     invents a prioritization file.
+  10. priority, when present, has a boolean `configured`. Absent priority
+     is valid and means the desk is off.
 
 The owner's name, location, or any other personal fact is deliberately not
 among the checks, and not in the schema: location is fetched each run via
@@ -155,15 +153,15 @@ def gate(config):
         if not _nonblank(name):
             failures.append("printer.name is blank while printer.configured is true")
 
-    # 5. delivery.lead_minutes, when present, is an int 0-59. Absent stays
+    # 5. delivery.lead_minutes, when present, is an int 0-179. Absent stays
     #    valid: the daily-paper readers apply the 0-minute default, so an
     #    install written before this key existed keeps passing the gate.
     lead = _index(_index(config, "delivery"), "lead_minutes")
     if lead is not None:
         # bool is a subclass of int -- True is 1, False is 0, and neither is
         # a number of minutes. Refused explicitly, not silently accepted.
-        if isinstance(lead, bool) or not isinstance(lead, int) or not (0 <= lead <= 59):
-            failures.append("delivery.lead_minutes is not an integer 0-59")
+        if isinstance(lead, bool) or not isinstance(lead, int) or not (0 <= lead <= 179):
+            failures.append("delivery.lead_minutes is not an integer 0-179")
 
     # 6. delivery.extra_hours, when present, is a list of real "HH:MM"
     #    strings -- one more full-paper delivery time the same day (e.g. a
@@ -194,21 +192,11 @@ def gate(config):
         if not isinstance(mail_configured, bool):
             failures.append("mail.configured is not a boolean")
 
-    # 10. priority, when present, is a boolean switch with a readable path
-    #     behind it. Absent means the desk is off -- the paper never invents a
-    #     prioritization file. The path may be "~/Plow/..." (Latch expands it
-    #     for plow_read_file) or an absolute /Users path.
+    # 10. priority, when present, is a boolean switch. Absent means the desk is
+    #     off. Its pages live at fixed paths in the owner's wiki (wiki.py).
     priority = _index(config, "priority")
-    if priority is not None:
-        configured_priority = _index(priority, "configured")
-        if not isinstance(configured_priority, bool):
-            failures.append("priority.configured is not a boolean")
-        elif configured_priority:
-            path = _index(priority, "file")
-            if not _nonblank(path):
-                failures.append("priority.file is blank while priority.configured is true")
-            elif not (path.startswith("~/Plow/") or path.startswith("/Users/")):
-                failures.append("priority.file is not an absolute or ~/Plow path")
+    if priority is not None and not isinstance(_index(priority, "configured"), bool):
+        failures.append("priority.configured is not a boolean")
 
     # 9. no leftover [UPPER_SNAKE] placeholder anywhere.
     if any(_PLACEHOLDER_RE.match(s) for s in _all_strings(config)):

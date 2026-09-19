@@ -121,8 +121,8 @@ Two rules make a batch survivable in one session:
   Keep a running total: when the batch budget is spent, stop starting new
   topics and write down what each one got. The edition ships with what was
   found — a section that got nothing says so — it never runs over to finish.
-  Desks take a thin slice (they are local Latch reads plus one weather
-  search), then news sections share the rest.
+  Desks take a thin slice (local Latch reads plus one weather search; the
+  advisor's passes keep pt-priority's own clock), then news sections share the rest.
 
 Notes go to each topic's own `run/<topic_id>/notes.json`, flushed as you go,
 so a session that dies halfway keeps every topic it finished. Desk notes
