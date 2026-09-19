@@ -16,8 +16,8 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          computed as                setup can register
                          delivery.hour -
                          lead_minutes (owner
-                         zone, wraparound
-                         exact)
+                         zone, never before
+                         midnight)
   pt-daily-edition-<n>   same, extra_hours         reprint of the MAIN paper
                          (n ≥ 2)                    (unscoped sections), not
                                                     a different roster
@@ -390,18 +390,20 @@ def _hour_minute(delivery_hour):
 
 
 def daily_schedule(delivery_hour, lead_minutes):
-    """The daily paper's cron expression, wraparound exact.
+    """The daily paper's cron expression, on its delivery day.
 
-    delivery.hour is any real "HH:MM" (the gate's contract). Subtracting the
-    lead is done in minutes from the OWNER's chosen minute, not just the
-    hour, and taken modulo a day, so 00:00 - 45 min is the PREVIOUS day's
-    23:15 and yields "15 23 * * *" -- not "45 -1 * * *", which is not a cron
-    expression, and not a schedule that fires a day late. A daily job fires
-    at that local minute every day, which is exactly one edition per day at
-    the promised moment.
+    delivery.hour is any real "HH:MM" (the gate's contract). The lead is
+    subtracted in minutes from the OWNER's chosen minute, not just the hour.
+    A lead reaching back past midnight is refused: that run would fire the
+    evening before and be the previous day's paper. Every job's schedule
+    comes through here, so this is the one place that refuses it.
     """
     hour, minute = _hour_minute(delivery_hour)
-    total = (hour * 60 + minute - lead_minutes) % (24 * 60)
+    total = hour * 60 + minute - lead_minutes
+    if total < 0:
+        raise SystemExit(
+            f"refusing to register: delivery.lead_minutes={lead_minutes} would start "
+            f"the {delivery_hour} run before midnight of its delivery day.")
     return f"{total % 60} {total // 60} * * *"
 
 

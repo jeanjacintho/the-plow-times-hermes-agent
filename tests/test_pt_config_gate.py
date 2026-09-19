@@ -112,17 +112,12 @@ class TestInvariants:
         out, _ = run_gate({**VALID, "delivery": {"hour": hour}}, tmp_path)
         assert out == ""
 
-    @pytest.mark.parametrize("hour, lead, error", [
-        ("07:00", 180, "is not an integer 0-179"),
-        ("07:00", -1, "is not an integer 0-179"),
-        ("07:00", 1000, "is not an integer 0-179"),
-        ("07:00", "45", "is not an integer 0-179"),
-        ("07:00", 4.5, "is not an integer 0-179"),
-        ("00:30", 31, "would start the run before midnight of its delivery day"),
-    ])
-    def test_malformed_lead_minutes(self, tmp_path, hour, lead, error):
-        out, _ = run_gate({**VALID, "delivery": {"hour": hour, "lead_minutes": lead}}, tmp_path)
-        assert f"delivery.lead_minutes {error}" in out
+    @pytest.mark.parametrize("lead", [180, -1, 1000, "45", 4.5])
+    def test_malformed_lead_minutes(self, tmp_path, lead):
+        out, _ = run_gate(
+            {**VALID, "delivery": {"hour": "07:00", "lead_minutes": lead}}, tmp_path
+        )
+        assert "delivery.lead_minutes is not an integer 0-179" in out
 
     def test_bool_lead_minutes_refused(self, tmp_path):
         # True is 1 in Python; a boolean is not a number of minutes.

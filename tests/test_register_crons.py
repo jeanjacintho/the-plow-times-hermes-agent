@@ -296,12 +296,15 @@ class TestDailySchedule:
         # The owner's minute is kept, with or without a lead.
         ("10:25", 0, "25 10 * * *"),
         ("10:25", 10, "15 10 * * *"),
-        # Midnight wraps to the day before: a valid daily expression, not "45 -1 * * *".
-        ("00:00", 45, "15 23 * * *"),
-        ("00:00", 90, "30 22 * * *"),
+        ("00:30", 30, "0 0 * * *"),
     ])
     def test_lead_is_subtracted_in_minutes(self, hour, lead, schedule):
         assert crons.daily_schedule(hour, lead) == schedule
+
+    def test_lead_past_midnight_refuses(self):
+        # That run would fire the evening before: the previous day's paper.
+        with pytest.raises(SystemExit, match="before midnight of its delivery day"):
+            crons.daily_schedule("00:30", 31)
 
     def test_lead_up_to_179_minutes_loads(self, tmp_path):
         path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 179}})
