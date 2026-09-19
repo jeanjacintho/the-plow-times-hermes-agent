@@ -49,6 +49,10 @@ does not, and every run fails on the import.
 - `scripts/bearer_http.py` — one bearer JSON call that never follows a redirect
   (a forwarded Authorization header is the credential walking to a host the API
   did not authenticate)
+- `scripts/latch_mcp.py` — the one MCP session with the owner's Mac (`connect`,
+  `LatchClient.call_tool`, `settle` for pending handles). A failure raises
+  `LatchError`; the caller names what did not happen. The print leg and the
+  wiki scripts both use it.
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
   body) to the owner's home channel, or the chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
