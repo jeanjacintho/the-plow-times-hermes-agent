@@ -47,8 +47,9 @@ the card, unless its prompt says it is a live copy. It first writes the stub `{"
 Card replaces it), then makes one pass, and another while the last kept a candidate and the next
 would end at least 30 minutes before `delivery.hour` (`pt/config.json`) and within 90 minutes of
 the run's start (the run lock goes stale at 120). Every other paper (`paper-*`, a `daily2`/`daily3`
-reprint, a live copy) makes no pass. It prints the card only when the page's As of date is today,
-and otherwise the gap card.
+reprint, a live copy) makes no pass and never writes the page or an ok card. It prints the card
+only when the page's As of date is today; otherwise it writes the stub before pt-edition runs, so
+the gap card prints.
 
 1. **Ask.** Two children in parallel read the page, the owner's notes, the time since As of, and
    the advisor files: every `salyer-*` in `/var/lib/hermes/skills/pt-setup/assets/advisors/` (never
