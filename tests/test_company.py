@@ -11,10 +11,6 @@ company = load_module("company", "pt-priority/scripts/company.py")
 PAPER = "2026-09-01T07:12-07:00"
 
 
-def record(as_of):
-    return json.dumps({"facts": {"revenue": {"value": "$4K MRR", "source": "owner", "as_of": as_of}}})
-
-
 def revenue(value, as_of):
     return {"key": "revenue", "value": value, "source": "mail sent by the owner", "as_of": as_of}
 
@@ -23,7 +19,7 @@ def shown(value, as_of):
     return f"revenue: {value} (as of {as_of}; source: mail sent by the owner)"
 
 
-STORED = record(PAPER)
+STORED = json.dumps({"facts": {"revenue": {"value": "$4K MRR", "source": "owner", "as_of": PAPER}}})
 SHOWN = f"revenue: $4K MRR (as of {PAPER}; source: owner)"
 REFUSED = f"REFUSED: revenue is already recorded as of {PAPER}"
 
@@ -41,8 +37,12 @@ REFUSED = f"REFUSED: revenue is already recorded as of {PAPER}"
     # The same instant in another offset is equal, not newer: times compare parsed, not as text.
     (STORED, revenue("$9K MRR", "2026-09-01T14:12+00:00"), REFUSED, SHOWN),
     (STORED, revenue("$1K MRR", "2026-08-01T07:00-07:00"), REFUSED, SHOWN),
+    # A time with no offset would be read in the container's zone, and a future one would
+    # freeze the record until it passes: both are refused before they are stored.
+    (STORED, revenue("$5K MRR", "2026-09-01T09:30"), "BAD REQUEST: ", SHOWN),
+    (STORED, revenue("$5K MRR", "2999-01-01T00:00+00:00"), "BAD REQUEST: ", SHOWN),
     # A date-only as_of from an older record is local midnight.
-    (record("2026-09-01"), revenue("$5K MRR", "2026-09-02T09:00-07:00"), "SET: revenue",
+    (STORED.replace(PAPER, "2026-09-01"), revenue("$5K MRR", "2026-09-02T09:00-07:00"), "SET: revenue",
      shown("$5K MRR", "2026-09-02T09:00-07:00")),
     # A record is never replaced: a corrupt file fails by name, and a set leaves it for a human.
     ("{broken", revenue("$5K MRR", "2026-09-10T09:00-07:00"), "CORRUPT: ", "CORRUPT: "),

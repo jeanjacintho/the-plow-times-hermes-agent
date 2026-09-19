@@ -69,15 +69,13 @@ does not, and every run fails on the import.
   `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --edition-json <run/<id>/edition.json>`
   Prints `RECORDED`, or `SKIPPED: …` when the edition carried no priority desk.
 - `pt-priority/scripts/company.py` — the paper's record of the owner's company
-  (`pt/company.json`), which places it in the advisor's stage. Called bare:
-  `/var/lib/hermes/skills/pt-priority/scripts/company.py show` prints one fact per line or
-  `EMPTY`; `.../company.py set --request <path>` records the fact in that JSON file
-  (`{"key", "value", "source", "as_of"}`, written with `write_file`, never on the command
-  line; `as_of` an ISO-8601 time with offset), key one of `product`, `revenue`,
-  `paying_customers`, `referenceable_customers`, `team_size`, `raise`, `stage`, prints
-  `SET`, `UNCHANGED` (same value) or `REFUSED` (older evidence, or another value at the
-  same instant).
-  A corrupt record exits 1 with `CORRUPT: …` and is left for a human.
+  (`pt/company.json`). Called bare: `/var/lib/hermes/skills/pt-priority/scripts/company.py show`
+  prints one fact per line or `EMPTY`; `.../company.py set --request <path>` records the
+  `{"key", "value", "source", "as_of"}` JSON `write_file` put there (never a value on the
+  command line; `as_of` a past ISO-8601 time with offset; key one of `product`, `revenue`,
+  `paying_customers`, `referenceable_customers`, `team_size`, `raise`, `stage`) and prints
+  `SET`, `UNCHANGED` or `REFUSED` (older, or another value at the same instant). Exit 1 is
+  `BAD REQUEST: …`, or `CORRUPT: …`: a corrupt record is left for a human.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:
