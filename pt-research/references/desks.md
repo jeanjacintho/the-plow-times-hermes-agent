@@ -168,7 +168,7 @@ at `00:00`, one that runs past midnight ends at `23:59`. Tomorrow's events befor
 `"tomorrow": true` and no clamping. Never invent an event; if no calendar could be read, write
 `{"date": "...", "events": []}` and say so in the prose notes.
 Each timed event needs a stable `id` the priority desk can cite (`calendar:<id>`). Carry
-Google's `attendees` list, `[]` when it has none or the event is Calendar.app's.
+Google's `attendees` list, `[]` when it has none, `null` for a Calendar.app-only event.
 
 Keep each event's start time and title distinct in the notes, not pre-joined, and note its
 kind only where the title or event type makes it evident ("Call: investor sync" is a
