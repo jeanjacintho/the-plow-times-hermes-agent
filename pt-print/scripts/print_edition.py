@@ -157,6 +157,7 @@ def ship(pdf_path, printer, date, call_tool):
             "goal": "Print today's Founder Times edition",
         },
     )
+    lp = finish_command(call_tool, lp, "lp")  # a running lp can still fail with BFD
     if is_bfd(lp):
         cmd = f"lp -d {shlex.quote(printer)} {shlex.quote(abs_pdf)}"
         lp = call_tool(
