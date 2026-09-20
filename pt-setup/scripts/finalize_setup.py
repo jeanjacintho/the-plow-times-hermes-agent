@@ -63,7 +63,7 @@ def build(draft, owner_tz, container_tz):
             # Kept so a later edit can reason in the owner's own clock
             # rather than re-deriving it from the container's.
             "local_hour": draft["local_hour"],
-            "lead_minutes": lead_minutes_for(draft["local_hour"], bool(priority.get("configured"))),
+            "lead_minutes": PRIORITY_LEAD_MINUTES if priority.get("configured") else 0,
         },
         "printer": {
             "configured": bool(printer.get("configured")),
@@ -76,22 +76,9 @@ def build(draft, owner_tz, container_tz):
     return config
 
 
+# The advisor pass takes ~40 minutes; cron starts that early. Stored nominal:
+# register_crons clamps it per slot against the owner's midnight.
 PRIORITY_LEAD_MINUTES = 40
-
-
-def lead_minutes_for(hour, priority_on):
-    """Start-clock offset for a scheduled paper.
-
-    The advisor pass is ~40 minutes. When that desk is on, cron starts that
-    early so the page can be ready by delivery.hour. Chat still waits for
-    that hour (--hold-until); this is not the send clock. `hour` is the
-    owner's own clock: the clamp keeps the run from starting before the
-    owner's midnight (registration refuses a start that would).
-    """
-    if not priority_on:
-        return 0
-    hh, mm = map(int, hour.split(":"))
-    return min(PRIORITY_LEAD_MINUTES, hh * 60 + mm)
 
 
 def main(argv=None):

@@ -56,7 +56,7 @@ class TestWritesAValidConfig:
         assert written["delivery"]["lead_minutes"] == 0
         assert "CONFIG:written" in out
 
-    @pytest.mark.parametrize(("hour", "lead"), [("07:00", 40), ("00:20", 20)])
+    @pytest.mark.parametrize(("hour", "lead"), [("07:00", 40), ("00:20", 40)])
     def test_priority_lead_minutes(self, tmp_path, hour, lead):
         # Advisor pass is ~40 minutes; cron starts that early, clamped to the
         # owner's midnight. Chat still waits for the hour (--hold-until).

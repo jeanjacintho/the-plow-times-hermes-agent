@@ -353,6 +353,19 @@ class TestExtraDailyHours:
         assert jobs[0]["schedule"] == "20 6 * * *"
         assert jobs[1]["schedule"] == "0 0 * * *"
 
+    def test_slot_clamps_to_owner_midnight_when_zones_differ(self):
+        # Owner UTC-3, container UTC: the owner's 00:20 is 03:20 on the
+        # container. The 40-minute lead must stop at owner midnight (03:00
+        # container), while the owner's 10:30 (13:30) keeps the full lead.
+        env = {"TZ": "UTC"}
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section", deliver_at="13:30")], "03:20", env, 40,
+            extra_hours=["13:30"], owner_tz="America/Sao_Paulo",
+        )
+        assert jobs[0]["schedule"] == "0 3 * * *"
+        assert jobs[1]["schedule"] == "50 12 * * *"
+        assert jobs[2]["schedule"] == "50 12 * * *"
+
     def test_extra_job_prompt_has_its_own_lock_and_the_pdf_leg(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],

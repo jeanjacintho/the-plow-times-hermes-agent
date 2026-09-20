@@ -87,7 +87,8 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 sys.path.insert(
     0,
@@ -284,6 +285,7 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
         raise SystemExit(
             f"refusing to register: {path} has a blank owner.timezone."
         )
+    return owner
 
 
 def registered_jobs(jobs_path=JOBS_FILE):
@@ -505,30 +507,49 @@ def subscription_job(topic, delivery_hour, env=None):
     }
 
 
-def _slot_lead(hour, lead_minutes):
-    """The main paper's lead, clamped so an earlier slot never crosses midnight."""
+def _slot_lead(hour, lead_minutes, owner_tz, container_tz):
+    """The nominal lead, clamped so this slot never starts before midnight.
+
+    Cron runs on the container's clock but the run's lock and paper are dated
+    in the owner's zone, so the slot is clamped against both midnights: an
+    owner-local 00:20 that is 03:20 on the container still starts at owner
+    midnight, and a 10:30 slot keeps the full lead. Without a zone pair, only
+    the container clock applies.
+    """
     h, m = _hour_minute(hour)
-    return min(lead_minutes, h * 60 + m)
+    room = h * 60 + m
+    if owner_tz and container_tz:
+        slot = datetime.now(ZoneInfo(container_tz)).replace(
+            hour=h, minute=m, second=0, microsecond=0)
+        local = slot.astimezone(ZoneInfo(owner_tz))
+        room = min(room, local.hour * 60 + local.minute)
+    return min(lead_minutes, room)
 
 
 def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
-                  extra_hours=()):
+                  extra_hours=(), owner_tz=None):
     """The jobs the topic store calls for, in spec order.
 
     The daily edition comes first (it is the main paper), then one job per
     extra delivery time (delivery.extra_hours -- the same MAIN roster,
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
-    job per subscription.
+    job per subscription. lead_minutes is the nominal lead; each slot clamps
+    it to its own owner-zone midnight.
     """
     jobs = []
+    container_tz = (env or {}).get("TZ")
+
+    def lead(hour):
+        return _slot_lead(hour, lead_minutes, owner_tz, container_tz)
+
     if has_paper(topics):
-        jobs.append(daily_job(delivery_hour, lead_minutes, env))
+        jobs.append(daily_job(delivery_hour, lead(delivery_hour), env))
         for n, hour in enumerate(extra_hours, start=2):
-            jobs.append(daily_job(hour, _slot_lead(hour, lead_minutes), env,
+            jobs.append(daily_job(hour, lead(hour), env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
         for hour in focused_paper_hours(topics, delivery_hour):
-            jobs.append(paper_job(hour, _slot_lead(hour, lead_minutes), env))
+            jobs.append(paper_job(hour, lead(hour), env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
         for t in topics
@@ -727,7 +748,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
 
-    require_timezone_agreement(config_path, env)
+    owner_tz = require_timezone_agreement(config_path, env)
     delivery_hour = load_delivery_hour(config_path)
     extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)
@@ -746,7 +767,8 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     paused = []
     pending = []
 
-    for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours):
+    for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours,
+                         owner_tz=owner_tz):
         if job["name"] in registered:
             if not registered[job["name"]]:
                 print(
