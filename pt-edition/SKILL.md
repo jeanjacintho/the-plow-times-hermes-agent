@@ -114,9 +114,9 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **`desk` is the newspaper department.** On the printed one-pager,
   weather occupies the masthead ear, priority occupies the founder-focus
   band, calendar occupies the sole right rail, and news occupies the main
-  well. The first news article leads at full width; articles two and three
-  sit side by side below it. Mail and sports remain in the chat edition but
-  do not consume print space. Every desk keeps the same title / headline /
+  well. The longest news body leads at full width; article order breaks ties
+  and otherwise preserves the pair below it. Mail and sports remain in the
+  chat edition but do not consume print space. Every desk keeps the same title / headline /
   body / sources shape; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** When present it
@@ -228,7 +228,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
 - **`layout` remains accepted for compatibility**, but the fixed one-page
-  template owns story placement from article order: lead first, pair second.
+  template makes the longest news body the lead; article order breaks ties
+  and otherwise preserves the remaining pair.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
   sentence ("nothing to report this time"), and what was tried.
