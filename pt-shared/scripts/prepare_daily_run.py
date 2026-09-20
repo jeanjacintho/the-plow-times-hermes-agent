@@ -35,10 +35,15 @@ def prepare(pt_home: Path, now: datetime | None = None) -> Path | None:
         return None
 
     stamp = (now or datetime.now().astimezone()).strftime("%Y%m%d-%H%M%S")
-    archive = pt_home / f"run.archive-{stamp}"
+    # Keep recoverable evidence outside the research tree.  The run agent is
+    # told to inspect /var/lib/hermes/pt, and exposing a fresh archive there
+    # invited it to copy yesterday's notes instead of doing today's work.
+    archive_root = pt_home.parent / f".{pt_home.name}-run-archives"
+    archive_root.mkdir(exist_ok=True)
+    archive = archive_root / f"run-{stamp}"
     suffix = 2
     while archive.exists():
-        archive = pt_home / f"run.archive-{stamp}-{suffix}"
+        archive = archive_root / f"run-{stamp}-{suffix}"
         suffix += 1
     archive.mkdir()
     for path in scratch:
@@ -48,8 +53,10 @@ def prepare(pt_home: Path, now: datetime | None = None) -> Path | None:
 
 def main() -> None:
     pt_home = Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt"))
-    archive = prepare(pt_home)
-    print(f"ARCHIVED {archive}" if archive else "READY")
+    prepare(pt_home)
+    # The caller needs only the clean-workspace result.  Do not advertise the
+    # recovery path to the model that is about to research today's paper.
+    print("READY")
 
 
 if __name__ == "__main__":

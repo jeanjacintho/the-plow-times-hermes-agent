@@ -20,7 +20,7 @@ def test_archives_only_prior_run_scratch_and_keeps_the_live_lock(tmp_path):
 
     archived = prepare.prepare(tmp_path, NOW)
 
-    assert archived == tmp_path / "run.archive-20260920-110710"
+    assert archived == tmp_path.parent / f".{tmp_path.name}-run-archives" / "run-20260920-110710"
     for name in ("desk-priority", "desk-weather", "t_4cac", "2026-09-20",
                  "chat-status.json", "seal-session.json"):
         assert (archived / name).exists()
@@ -40,6 +40,14 @@ def test_nothing_to_archive_is_a_noop(tmp_path):
 def test_same_second_uses_a_distinct_recoverable_archive(tmp_path):
     run = tmp_path / "run"
     (run / "desk-priority").mkdir(parents=True)
-    (tmp_path / "run.archive-20260920-110710").mkdir()
+    archive_root = tmp_path.parent / f".{tmp_path.name}-run-archives"
+    archive_root.mkdir()
+    (archive_root / "run-20260920-110710").mkdir()
     archived = prepare.prepare(tmp_path, NOW)
-    assert archived == tmp_path / "run.archive-20260920-110710-2"
+    assert archived == archive_root / "run-20260920-110710-2"
+
+
+def test_cli_does_not_reveal_the_archive_to_the_research_agent():
+    source = prepare.Path(prepare.__file__).read_text()
+    assert 'print("READY")' in source
+    assert "ARCHIVED" not in source
