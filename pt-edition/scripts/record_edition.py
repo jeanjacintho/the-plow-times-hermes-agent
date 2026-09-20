@@ -50,6 +50,17 @@ CARD_LINES = (("First step", "first_step"), ("Stage", "stage_label"), ("Why this
 
 def _card(card):
     lines = ["### The advisor's desk", "", f"**{card['headline']}**", ""]
+    if recommendations := card.get("recommendations"):
+        for rank, recommendation in enumerate(recommendations, 1):
+            lines += [f"### {rank}. {recommendation['headline']}", "", recommendation["body"], "",
+                      f"- First step: {recommendation['first_step']}"]
+            for evidence in recommendation["evidence"]:
+                location = f"; {evidence['url']}" if evidence.get("url") else ""
+                lines.append(f"- Evidence: {evidence['claim']} ({evidence['source']}{location})")
+            advisor = recommendation["advisor"]
+            lines += [f'- Advisor: "{advisor["quote"]}" — {advisor["name"]} ({advisor["url"]})', ""]
+        lines += [f"- Question: {question}" for question in card.get("questions") or []]
+        return lines + [""]
     lines += [f"- {label}: {card[key]}" for label, key in CARD_LINES if card.get(key)]
     lines += [f"- Who: {who}" for who in card.get("who") or []]
     lines += [f"- Not today: {item}" for item in card.get("not_today") or []]
@@ -57,6 +68,18 @@ def _card(card):
         quote = f' "{why["quote"]}"' if why.get("quote") else ""
         lines.append(f"- Why: {why['text']}{quote} ({why['source_label']})")
     return lines + [""]
+
+
+def _card_urls(card):
+    for recommendation in card.get("recommendations") or []:
+        for evidence in recommendation.get("evidence") or []:
+            if evidence.get("url"):
+                yield evidence["url"]
+        if (recommendation.get("advisor") or {}).get("url"):
+            yield recommendation["advisor"]["url"]
+    for why in card.get("why") or []:
+        if why.get("url"):
+            yield why["url"]
 
 
 def _section(section, notes):
@@ -98,7 +121,7 @@ def record(wiki, edition_json, chat, now):
                      | {"headline": printed["headline"]}) if printed else None
             if card:
                 lines += _card(card)
-                urls += [why["url"] for why in card.get("why") or [] if why.get("url")]
+                urls += list(_card_urls(card))
             for section in news:
                 path = run_dir.parent / section["topic_id"] / "notes.json"
                 notes = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -118,7 +141,8 @@ def record(wiki, edition_json, chat, now):
             meta["sources"] += [{"resource": u} for u in dict.fromkeys(urls) if u not in cited]
             meta["sources"] = meta["sources"] or [{"resource": f"plow-chat:{chat}"}]
             if card:
-                meta["description"] = card["headline"]
+                recommendations = card.get("recommendations") or []
+                meta["description"] = recommendations[0]["headline"] if recommendations else card["headline"]
                 meta["priority"] = card
             elif not meta.get("description"):
                 meta["description"] = news[0].get("headline") or news[0]["title"]
