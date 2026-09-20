@@ -607,11 +607,7 @@ def weather_ear_html(weather_sections):
     else on the page, so this is the one place the paper's weather shows
     up at all. Falls back to the plain tagline box when there's no
     forecast to draw from (a prose-only weather section, or none today)."""
-    fallback = (
-        '<span class="ear-box"><span class="ear-fill">'
-        "One edition<br>for one reader"
-        "</span></span>"
-    )
+    fallback = '<span class="ear-box">One edition<br>for one reader</span>'
     for section in weather_sections:
         forecast = section.get("forecast")
         if forecast:
@@ -620,13 +616,13 @@ def weather_ear_html(weather_sections):
             high = html.escape(str(today["high"]))
             low = html.escape(str(today["low"]))
             return (
-                '<span class="ear-box"><span class="ear-fill ear-weather">'
+                '<span class="ear-box ear-weather">'
                 f'<span class="wx-icon-wrap">{icon}</span>'
                 '<span class="ear-wx-temps">'
                 f'<span class="ear-wx-high">{high}&deg;</span>'
                 f'<span class="ear-wx-low">{low}&deg;</span>'
                 "</span>"
-                "</span></span>"
+                "</span>"
             )
     return fallback
 

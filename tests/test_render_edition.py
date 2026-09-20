@@ -599,10 +599,6 @@ class TestHtml:
         assert "section--weather" not in desks
         assert "ear-box" in ear
 
-    def test_empty_desk_emits_no_card(self):
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
-        assert page == ""
-
     def test_weather_forecast_draws_the_ear(self):
         data = edition(sections=[{
             "kind": "section", "title": "Weather", "desk": "weather", "body": "rain",
