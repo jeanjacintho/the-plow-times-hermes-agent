@@ -196,8 +196,8 @@ def validate(edition):
         if forecast is not None:
             if desk != "weather":
                 failures.append(f"{where}.forecast is only valid on the weather desk")
-            elif not isinstance(forecast, list) or not (1 <= len(forecast) <= 6):
-                failures.append(f"{where}.forecast is not a list of 1-6 days")
+            elif not isinstance(forecast, list) or len(forecast) != 1:
+                failures.append(f"{where}.forecast must contain today's forecast")
             else:
                 for day_index, day in enumerate(forecast):
                     dwhere = f"{where}.forecast[{day_index}]"
@@ -602,11 +602,11 @@ def weather_icon(key, size=28):
 
 
 def weather_ear_html(weather_sections):
-    """The masthead's right ear: today's icon and high/low only, in place
-    of the old static tagline -- the full multi-day strip lives nowhere
-    else on the page, so this is the one place the paper's weather shows
-    up at all. Falls back to the plain tagline box when there's no
-    forecast to draw from (a prose-only weather section, or none today)."""
+    """The masthead's right ear: today's icon and high/low when the
+    notes have a forecast. A weather desk that failed research (no
+    forecast, named in could_not_source) must not look like a complete
+    paper -- the ear prints that miss instead of the slogan. The slogan
+    is only for a day with no weather desk at all."""
     fallback = '<span class="ear-box">One edition<br>for one reader</span>'
     for section in weather_sections:
         forecast = section.get("forecast")
@@ -622,6 +622,15 @@ def weather_ear_html(weather_sections):
                 f'<span class="ear-wx-high">{high}&deg;</span>'
                 f'<span class="ear-wx-low">{low}&deg;</span>'
                 "</span>"
+                "</span>"
+            )
+    for section in weather_sections:
+        misses = [str(m).strip() for m in section.get("could_not_source", []) if str(m).strip()]
+        if misses:
+            return (
+                '<span class="ear-box">'
+                "Couldn't source<br>"
+                f"{html.escape(misses[0])}"
                 "</span>"
             )
     return fallback

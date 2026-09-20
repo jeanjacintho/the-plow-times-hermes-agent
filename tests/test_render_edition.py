@@ -148,6 +148,19 @@ class TestValidate:
         }])
         assert "forecast is only valid on the weather desk" in render.validate(bad)
 
+    def test_forecast_must_be_today_only(self):
+        day = {"day": "Tue", "date": "17/05", "icon": "sun", "high": 19, "low": 9}
+        empty = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+            "forecast": [],
+        }])
+        week = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+            "forecast": [day, {**day, "day": "Wed"}],
+        }])
+        assert "forecast must contain today's forecast" in render.validate(empty)
+        assert "forecast must contain today's forecast" in render.validate(week)
+
     def test_schedule_only_on_calendar(self):
         bad = edition(sections=[{
             "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
@@ -479,9 +492,13 @@ class TestChat:
         assert "special for this edition" in text
         assert ("Sources:" in text) is (desk != "priority")
         assert ("Couldn't source: the Pro model" in text) is (desk != "priority")
-        if desk in ("priority", "weather"):
+        if desk == "priority":
             assert "Sources:" not in page
             assert "Couldn't source" not in page
+        elif desk == "weather":
+            assert "Sources:" not in page
+            assert "Couldn't source<br>" in page
+            assert "the Pro model&#x27;s price" in page
         else:
             assert "Sources:" in page
             assert "Couldn't source: the Pro model" in page
@@ -615,6 +632,21 @@ class TestHtml:
         chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
         assert "Sources: https://example.com/weather" in chat
         assert "Couldn't source: the rain chance" in chat
+        assert "Couldn't source<br>" not in page
+
+    def test_weather_ear_prints_a_miss_when_research_failed(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather",
+            "body": "The city could not be placed.",
+            "could_not_source": ["today's high in São Paulo"],
+        }])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{WEATHER_EAR}}")
+        assert "ear-weather" not in page
+        assert "Couldn't source<br>" in page
+        assert "today&#x27;s high in São Paulo" in page
+        assert "One edition" not in page
+        chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Couldn't source: today's high in São Paulo" in chat
 
     def test_weather_icons_are_vendored_atlas_glyphs(self):
         # Forecast keys stay the paper's vocabulary; the drawings are
