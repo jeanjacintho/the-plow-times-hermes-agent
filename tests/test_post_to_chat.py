@@ -5,6 +5,8 @@ import json
 import types
 import subprocess
 import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -218,3 +220,38 @@ class TestFinalizersRunIndependently:
         )
         post.main()
         assert order == ["record"]
+
+
+class TestHoldUntil:
+    """Scheduled papers start early; chat must wait for delivery.hour.
+
+    Measured live: lead_minutes alone started research at hour−lead, then
+    post_to_chat sent the PDF the moment the recipe finished — not at the
+    hour the owner named. --hold-until is the send clock. If that hour has
+    already passed, send now; never sleep until tomorrow.
+    """
+
+    @pytest.mark.parametrize("tz, now, hour, expected", [
+        ("America/Sao_Paulo", datetime(2026, 9, 20, 6, 20), "07:00", 40 * 60),
+        # 2026-11-01 01:30 in New York is EDT and 02:00 is EST, so the wall
+        # clock spans 30 minutes but the hold is 2.5 real hours.
+        ("America/New_York", datetime(2026, 11, 1, 1, 30), "03:00", 2.5 * 3600),
+        ("UTC", datetime(2026, 9, 20, 7, 1), "07:00", 0),  # past: now, never tomorrow
+    ])
+    def test_seconds_until_hour(self, monkeypatch, tz, now, hour, expected):
+        monkeypatch.setenv("TZ", tz)
+        assert post.seconds_until_hhmm(hour, now=now.replace(tzinfo=ZoneInfo(tz))) == expected
+
+    @pytest.mark.parametrize("now, expected", [
+        (datetime(2026, 9, 20, 6, 59, 30), [30]),
+        (datetime(2026, 9, 20, 8, 0, 0), []),  # already due: no sleep
+    ])
+    def test_hold_sleeps_only_the_remaining_seconds(self, monkeypatch, now, expected):
+        monkeypatch.setenv("TZ", "UTC")
+        slept = []
+        post.hold_until("07:00", sleep=slept.append, now=now.replace(tzinfo=ZoneInfo("UTC")))
+        assert slept == expected
+
+    def test_bad_clock_is_refused(self):
+        with pytest.raises(SystemExit, match="hold-until"):
+            post.seconds_until_hhmm("7:00")

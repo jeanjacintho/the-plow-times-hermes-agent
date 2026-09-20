@@ -305,6 +305,11 @@ transcript after it is the wall of text they did not ask for.
 
        /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --filename The-Founder-Times-<date>.pdf
 
+   A **scheduled** paper's cron prompt adds `--hold-until HH:MM` (that job's
+   delivery hour). Honor it: the script sleeps until that clock in `TZ`, and
+   if the hour has already passed it posts immediately (never until tomorrow).
+   A **live copy** must omit `--hold-until`.
+
    Omit `--pdf` **only** when step 1 established that weasyprint is
    genuinely absent — never because your own command failed. In that one
    case the text leg is also a complete command, with no shell redirect:

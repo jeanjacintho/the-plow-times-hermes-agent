@@ -128,6 +128,29 @@ class TestDesiredJobs:
         assert all(j["deliver"] == crons.DELIVER_TARGET for j in jobs)
         assert path.name == "config.json"  # config untouched
 
+    def test_early_extra_slot_clamps_its_lead_instead_of_refusing(self):
+        # The main paper's 40-minute lead must not abort registration for a
+        # slot at 00:20: that slot starts at midnight, not the evening before.
+        jobs = crons.desired_jobs(
+            [topic("t_9f2a", kind="section", deliver_at="00:30")], "07:00",
+            {"PLOW_HOME_CHANNEL": "c"}, lead_minutes=40, extra_hours=["00:20"])
+        by_name = {j["name"]: j["schedule"] for j in jobs}
+        assert by_name[crons.DAILY_NAME] == "20 6 * * *"
+        assert by_name[f"{crons.DAILY_NAME}-2"] == "0 0 * * *"
+        assert by_name[crons.paper_job_name("00:30")] == "0 0 * * *"
+
+    def test_slot_clamps_to_owner_midnight_when_zones_differ(self):
+        # Owner UTC-3, container UTC: the owner's 00:20 is 03:20 on the
+        # container. The 40-minute lead stops at owner midnight (03:00
+        # container); the owner's 10:30 (13:30) keeps the full lead.
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section", deliver_at="13:30")], "03:20", {"TZ": "UTC"}, 40,
+            extra_hours=["13:30"], owner_tz="America/Sao_Paulo",
+        )
+        assert jobs[0]["schedule"] == "0 3 * * *"
+        assert jobs[1]["schedule"] == "50 12 * * *"
+        assert jobs[2]["schedule"] == "50 12 * * *"
+
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
             [topic("t_9f2a", status="cancelled")], "07:00", {})
@@ -345,6 +368,16 @@ class TestExtraDailyHours:
         assert jobs[1]["schedule"] == "45 9 * * *"
         assert jobs[1]["skill"] == "pt-research"
         assert jobs[1]["deliver"] == crons.DELIVER_TARGET
+
+    def test_the_cli_path_reads_the_container_zone_from_the_environment(self, monkeypatch):
+        # main() passes env=None; the zone must come from os.environ, as
+        # require_timezone_agreement() reads it, or the owner-midnight clamp
+        # silently does not run.
+        monkeypatch.setenv("TZ", "UTC")
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "03:20", None, 40, owner_tz="America/Sao_Paulo",
+        )
+        assert jobs[0]["schedule"] == "0 3 * * *"
 
     def test_extra_job_prompt_has_its_own_lock_and_the_pdf_leg(self):
         jobs = crons.desired_jobs(
@@ -748,7 +781,7 @@ class TestShowDailyRecipe:
         rc = crons.main(["--show-daily-recipe"])
         assert rc == 0
         printed = capsys.readouterr().out.strip()
-        assert printed.startswith(crons.daily_prompt("daily").strip())
+        assert printed.startswith(crons.daily_prompt("daily", live=True).strip()[:200])
         assert printed.endswith("This is a live copy: print today's advisor card as it stands, "
                                 "or the gap card, and make no advisor pass.")
 
@@ -792,6 +825,43 @@ class TestCliPassesItsArguments:
         # registration, dying on `import topics`.
         source = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
         assert "main(sys.argv[1:])" in source, "the CLI entry drops its arguments"
+
+
+class TestScheduledHold:
+    """Two clocks: cron starts at hour−lead; POST waits for the hour."""
+
+    def test_daily_job_holds_until_delivery_hour(self):
+        jobs = crons.desired_jobs([], "07:00", {})
+        prompt = jobs[0]["prompt"]
+        assert "--hold-until 07:00" in prompt
+        assert "--stale-minutes 240" in prompt
+
+    def test_live_copy_does_not_hold(self):
+        p = crons.daily_prompt("daily", live=True)
+        assert "--hold-until" not in p
+        assert "--stale-minutes 240 plus delivery.lead_minutes" in p
+
+    def test_every_acquirer_of_the_daily_lock_outlives_the_early_start(self):
+        # A scheduled run with a 40-minute lead holds the lock 40 minutes
+        # before its own work; a live copy must not call that stale.
+        jobs = crons.desired_jobs([topic("t_1", kind="section")], "07:00", {}, 40)
+        assert "--stale-minutes 280" in jobs[0]["prompt"]
+
+    def test_paper_job_holds_until_its_hour(self):
+        jobs = crons.desired_jobs(
+            [topic("t_sec", kind="section", deliver_at="12:00")],
+            "07:00", {},
+        )
+        paper = next(j for j in jobs if j["name"] == "pt-paper-1200")
+        assert "--hold-until 12:00" in paper["prompt"]
+        assert "--stale-minutes 240" in paper["prompt"]
+
+    def test_extra_slot_holds_until_its_hour(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],
+        )
+        assert "--hold-until 03:00" in jobs[0]["prompt"]
+        assert "--hold-until 10:30" in jobs[1]["prompt"]
 
 
 class TestPrintLegSurvivesIntoTheRunPrompts:
