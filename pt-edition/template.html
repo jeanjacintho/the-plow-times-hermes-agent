@@ -132,17 +132,20 @@
       body { font-family: Georgia, "Times New Roman", "Liberation Serif", serif; color: var(--ink); margin: 0; line-height: 1.4; font-size: 12px; background: var(--paper); padding: 6px 4px 8px; }
 
       /* -- Masthead: ears, the nameplate, the folio ----- */
-      .masthead-row { display: table; width: 100%; table-layout: fixed; }
-      .ear { display: table-cell; vertical-align: middle; width: 75px; }
-      .ear-left { text-align: left; }
-      .ear-right { text-align: right; }
-      .ear-box { display: inline-block; border: 1px solid var(--ink); box-sizing: border-box; max-width: 75px; padding: 5px 8px; font-family: Georgia, "Times New Roman", serif; font-size: 7.5px; font-style: italic; line-height: 1.35; color: var(--ink-soft); text-align: center; }
-      .ear-weather { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-style: normal; padding: 4px 6px; }
-      .ear-weather .wx-icon-wrap { color: var(--ink); line-height: 0; margin: 0; }
-      .ear-weather .ear-wx-temps { display: flex; flex-direction: column; align-items: flex-start; }
-      .ear-weather .ear-wx-high { font-weight: 800; font-size: 11px; color: var(--ink); line-height: 1.15; }
-      .ear-weather .ear-wx-low { font-size: 9px; color: var(--ink-soft); line-height: 1.15; }
-      .masthead-cell { display: table-cell; vertical-align: middle; text-align: center; }
+      /* Native <table> + rowspan so WeasyPrint sizes the ears to the
+         nameplate+credit, not to the slogan copy. display:table cells
+         and height:100% both painted a short box (measured). */
+      table.masthead-row { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; margin: 0 0 8px; }
+      .ear { width: 75px; border: 1px solid var(--ink); vertical-align: middle; text-align: center; padding: 4px 5px; }
+      .masthead-cell { vertical-align: bottom; text-align: center; padding: 0 12px; }
+      .masthead-credit-cell { vertical-align: top; text-align: center; padding: 0 12px; }
+      .ear-box { display: block; font-family: Georgia, "Times New Roman", serif; font-size: 7.5px; font-style: italic; line-height: 1.35; color: var(--ink-soft); text-align: center; }
+      .ear-fill { display: block; }
+      .ear-weather { font-style: normal; }
+      .ear-weather .wx-icon-wrap { color: var(--ink); line-height: 0; margin: 0; display: inline-block; vertical-align: middle; }
+      .ear-weather .ear-wx-temps { display: inline-block; vertical-align: middle; text-align: left; margin-left: 4px; }
+      .ear-weather .ear-wx-high { display: block; font-weight: 800; font-size: 11px; color: var(--ink); line-height: 1.15; }
+      .ear-weather .ear-wx-low { display: block; font-size: 9px; color: var(--ink-soft); line-height: 1.15; }
       .nameplate { /* Big Caslon first: a real macOS system font (no bundling, no
        network fetch), and measured a much closer match to a traditional
        broadsheet nameplate than the Didone stacks. It ships one weight
@@ -151,7 +154,7 @@
         font-family:
           "Big Caslon", Didot, "Bodoni MT", "Playfair Display",
           "Times New Roman", Georgia, serif; font-size: 48px; font-weight: 900; letter-spacing: 0.5px; margin: 0; line-height: 0.95; color: var(--ink); }
-      .nameplate-credit { margin: 6px 0 8px; font-family: Georgia, "Times New Roman", serif; font-size: 9px; font-style: italic; font-weight: 400; letter-spacing: 0.8px; color: var(--ink-soft); }
+      .nameplate-credit { margin: 6px 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 9px; font-style: italic; font-weight: 400; letter-spacing: 0.8px; color: var(--ink-soft); }
       .folio { display: table; width: 100%; table-layout: fixed; font-family: Georgia, "Times New Roman", serif; font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ink-soft); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); margin: 0 0 18px; }
       .folio span { display: table-cell; padding: 4px 2px; vertical-align: middle; }
       .folio .meta-left { text-align: left; }
@@ -363,16 +366,22 @@
         <span class="meta-right">Vol. 1 &mdash; No. 1</span>
       </div>
     </div>
-    <div class="masthead-row">
-      <div class="ear ear-left">
-        <span class="ear-box">Every claim<br />carries its source</span>
-      </div>
-      <div class="masthead-cell">
-        <h1 class="nameplate">{{MASTHEAD}}</h1>
-        <p class="nameplate-credit">inspired by Mayfield</p>
-      </div>
-      <div class="ear ear-right">{{WEATHER_EAR}}</div>
-    </div>
+    <table class="masthead-row">
+      <tr>
+        <td class="ear ear-left" rowspan="2">
+          <span class="ear-box"><span class="ear-fill">Every claim<br />carries its source</span></span>
+        </td>
+        <td class="masthead-cell">
+          <h1 class="nameplate">{{MASTHEAD}}</h1>
+        </td>
+        <td class="ear ear-right" rowspan="2">{{WEATHER_EAR}}</td>
+      </tr>
+      <tr>
+        <td class="masthead-credit-cell">
+          <p class="nameplate-credit">inspired by Mayfield</p>
+        </td>
+      </tr>
+    </table>
     <div class="folio">
       <span class="meta-left">Vol. 1 &mdash; No. 1</span>
       <span class="meta-center">{{LOCATION}}, {{DATE}}</span>
