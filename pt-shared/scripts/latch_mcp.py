@@ -87,6 +87,27 @@ def settle(parsed, get_result, sleep=time.sleep, max_wait=POLL_SECONDS):
     raise LatchError("latch timed out")
 
 
+def finish_command(call_tool, result, step, max_wait=POLL_SECONDS):
+    """A plow_run_command result that has exited: polls a still-running job's
+    handle through plow_get_output, then refuses anything without an exit_code.
+
+    A network-enabled job outlives Latch's wait_ms and keeps running, so a
+    'running' reply is not a failure yet. If the job never finishes inside
+    max_wait, the outcome is unknown and the error says so.
+    """
+    for _ in range(max_wait):
+        if not isinstance(result, dict) or "exit_code" in result:
+            break
+        handle = result.get("handle")
+        if result.get("status") != "running" or not handle:
+            break
+        time.sleep(1)
+        result = call_tool("plow_get_output", {"handle": handle})
+    if not isinstance(result, dict) or "exit_code" not in result:
+        raise LatchError(f"{step} outcome unknown: still running")
+    return result
+
+
 class LatchClient:
     """One stateless MCP call against the owner's Latch device.
 

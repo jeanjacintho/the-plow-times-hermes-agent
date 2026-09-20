@@ -244,7 +244,9 @@ def print_failure_line(result):
     if line is None:
         return None
     line = line.removeprefix("error: ")[:200]
-    return line if "next scheduled run retries" in line else line + "; next scheduled run retries"
+    if "outcome unknown" in line or "next scheduled run retries" in line:
+        return line  # unknown: a retry promise could mean a second copy
+    return line + "; next scheduled run retries"
 
 
 def compose_payload(text, attachment_uid=None):

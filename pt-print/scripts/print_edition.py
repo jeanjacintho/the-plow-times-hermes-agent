@@ -32,7 +32,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
-from latch_mcp import LatchError, connect
+from latch_mcp import LatchError, connect, finish_command
 
 PATH_RE = re.compile(
     r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.pdf(?:\.b64)?)"
@@ -118,24 +118,14 @@ def is_bfd(parsed):
     return "bad file descriptor" in blob.lower()
 
 
-def require_finished_ok(parsed, step):
-    """Refuse a Latch run that never reported exit_code 0.
-
-    When plow_run_command outlives Latch's wait_ms, the payload is
-    status:running with no exit_code. Treating that as success printed
-    'page printed' with no page (issue #35).
-    """
-    if not isinstance(parsed, dict) or "exit_code" not in parsed:
-        sys.exit(f"error: page not printed — {step} still running")
-    if parsed["exit_code"] not in (0, "0"):
+def require_exit_zero(call_tool, result, step):
+    """The finished run's exit_code must be 0; anything else is no page (issue #35)."""
+    result = finish_command(call_tool, result, step)
+    if result["exit_code"] not in (0, "0"):
         sys.exit(
-            f"error: page not printed — {step} {parsed['exit_code']}: "
-            f"{parsed.get('output', parsed)}"
+            f"error: page not printed — {step} {result['exit_code']}: "
+            f"{result.get('output', result)}"
         )
-
-
-def require_lp_ok(parsed):
-    require_finished_ok(parsed, "lp")
 
 
 def ship(pdf_path, printer, date, call_tool):
@@ -157,7 +147,7 @@ def ship(pdf_path, printer, date, call_tool):
             "goal": "Decode the edition PDF on the owner's Mac",
         },
     )
-    require_finished_ok(decoded, "base64")
+    require_exit_zero(call_tool, decoded, "base64")
     lp = call_tool(
         "plow_run_command",
         {
@@ -177,7 +167,7 @@ def ship(pdf_path, printer, date, call_tool):
                 "goal": "Print today's Founder Times edition (sandboxed lp failed)",
             },
         )
-    require_lp_ok(lp)
+    require_exit_zero(call_tool, lp, "lp")
 
 
 def main(argv=None):

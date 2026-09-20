@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import yaml
 
-from latch_mcp import LatchError
+from latch_mcp import LatchError, finish_command
 from latch_mcp import connect as latch_connect
 
 WIKI = "~/Plow/wiki"
@@ -65,9 +65,9 @@ class Wiki:
                   "goal": f"Keep The Founder Times' pages in your wiki (wiki {args[0]})"}
         if write:
             params["write_paths"] = [WIKI]
-        result = self._call("plow_run_command", params)
-        if not isinstance(result, dict) or "exit_code" not in result:
-            raise LatchError(f"wiki {args[0]} did not finish: {result}")
+        result = finish_command(
+            self._call, self._call("plow_run_command", params), f"wiki {args[0]}",
+        )
         return int(result["exit_code"]), str(result.get("output") or "")
 
     def check(self):

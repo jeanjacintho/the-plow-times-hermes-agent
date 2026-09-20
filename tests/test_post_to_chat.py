@@ -122,6 +122,8 @@ class TestMaybePrint:
          "page not printed — lp 1: no such printer; next scheduled run retries"),
         ("warning: something first\nerror: page not printed — latch denied",
          "page not printed — latch denied; next scheduled run retries"),
+        ("error: page not printed — lp outcome unknown: still running",
+         "page not printed — lp outcome unknown: still running"),
         ("error: page not printed — Mac unreachable",
          "page not printed — Mac unreachable; next scheduled run retries"),
     ])
