@@ -100,6 +100,8 @@ SELF_RE = re.compile(
     r"\b(?:the (?:founder|ceo|owner)|a founder should|o (?:fundador|ceo|dono)|a (?:fundadora|dona))\b",
     re.I,
 )
+# A printed question asks the reader, not about them: you/your/yours or você/seu/sua/teu/tua.
+READER_RE = re.compile(r"\b(?:you|your|yours|voc[eê]|seu|sua|teu|tua)\b", re.I)
 # A second sentence starts with a capital ("Oct. 15", "Acme Corp. by" never
 # split) and never follows an initial, "p.m." or a title ("Dr. Lee").
 TWO_ACTIONS_RE = re.compile(
@@ -377,6 +379,8 @@ def _own_words(section):
 
 def _why_rules(where, why):
     """A `why` citing the bank quotes it verbatim, under the post's own title."""
+    if not any(item.get("quote") for item in why):
+        yield f"{where}.priority.why has no item with a quote"
     cited = [(i, item) for i, item in enumerate(why) if item.get("quote") or item.get("url")]
     posts = json.loads(BANK.read_text(encoding="utf-8")) if cited else []
     for i, item in cited:
@@ -399,8 +403,8 @@ def page_rules(sections):
     """What the priority card may print; each failure names the field.
 
     It names no file or path and talks to the reader, never about "the
-    founder"; its headline is one action; a `why` with `quote` or `url`
-    cites the bank. The leak was only ever on this desk.
+    founder"; its headline is one action; a `why` quotes the bank at
+    least once; a question addresses the reader, never them.
     """
     failures = []
     for index, section in enumerate(sections):
@@ -412,12 +416,15 @@ def page_rules(sections):
                 failures.append(f"{where}.{field} prints a file path or name ({match.group(0)!r})")
             if match := SELF_RE.search(text):
                 failures.append(f"{where}.{field} calls the reader {match.group(0)!r}")
+            if field.startswith("priority.questions[") and not READER_RE.search(text):
+                failures.append(f"{where}.{field} asks about the reader instead of to them")
         headline = (section.get("headline") or "").strip()
         if len(headline) > HEADLINE_MAX:
             failures.append(f"{where}.headline is over {HEADLINE_MAX} chars")
         if TWO_ACTIONS_RE.search(headline):
             failures.append(f"{where}.headline carries more than one action")
-        failures.extend(_why_rules(where, (section.get("priority") or {}).get("why", [])))
+        if priority := section.get("priority"):
+            failures.extend(_why_rules(where, priority.get("why", [])))
     return failures
 
 

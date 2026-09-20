@@ -19,7 +19,7 @@ BANKED = {"text": "Three discovery calls this week", "source_label": "Talk To Cu
           "url": BANK_POST["url"], "quote": "Don’t build before you’ve talked to ten customers."}
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def synthetic_bank(tmp_path, monkeypatch):
     path = tmp_path / "bank.json"
     path.write_text(json.dumps([BANK_POST]), encoding="utf-8")
@@ -31,7 +31,7 @@ def edition_with_priority_and_weather():
         {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []},
         {"kind": "section", "title": "Your #1 priority today", "desk": "priority",
          "headline": "Close the seed extension", "body": "Send the deck",
-         "priority": {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"},
+         "priority": {"why": [BANKED], "first_step": "x"},
          "sources": []},
     ])
 
@@ -40,7 +40,7 @@ EVENT = {"time": "10:00", "title": "Customer call: Dana", "note": "Go in with: w
 
 
 def priority_edition(headline="Book 3 customer calls by Friday", sources=(), **fields):
-    p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x", **fields}
+    p = {"why": [BANKED], "first_step": "x", **fields}
     return edition(sections=[{"kind": "section", "title": "P", "desk": "priority",
                               "headline": headline, "body": "b", "priority": p,
                               "sources": list(sources)}])
@@ -305,6 +305,9 @@ class TestValidate:
         ("questions", [" "], "priority.questions is not a list of non-blank strings"),
         ("questions", ["Q4 — Is prioritization.md current?"],
          "priority.questions[0] prints a file path or name ('prioritization.md')"),
+        ("questions", ["Q3 — Has Sam asked anyone for a reference?"],
+         "priority.questions[0] asks about the reader instead of to them"),
+        ("questions", ["Q3 — Have you asked anyone for a reference?"], None),
         ("today", EVENT, "priority.today is not a list"),
         ("today", [EVENT] * 5, "priority.today has more than 4 items"),
         ("today", ["10:00 call"], "priority.today[0] is not an object"),
@@ -314,7 +317,7 @@ class TestValidate:
         # A why citing the advisor bank quotes it verbatim, under the post's title.
         ("why", [BANKED], None),
         ("why", [{**BANKED, "quote": "Don't build before\n you've  talked to ten customers."}], None),
-        ("why", [{**BANKED, "quote": None}], None),
+        ("why", [{**BANKED, "quote": None}], "priority.why has no item with a quote"),
         ("why", [{**BANKED, "quote": "Build before you talk to customers."}],
          "priority.why[0].quote is not verbatim from the bank entry at its url"),
         ("why", [{**BANKED, "quote": " ".join(["ten"] * 26)}], "priority.why[0].quote is over 25 words"),
@@ -342,7 +345,7 @@ class TestValidate:
         ("who", ["Dana — the CEO at Acme, sent notes"], None),
         ("draft", "Hi Dana, the founder of Acme here.", None),
     ])
-    def test_priority_field_rules(self, synthetic_bank, field, value, failure):
+    def test_priority_field_rules(self, field, value, failure):
         failures = render.validate(priority_edition(**{field: value}))
         assert (failure in failures) if failure else failures == ""
 
