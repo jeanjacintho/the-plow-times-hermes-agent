@@ -9,7 +9,8 @@ NOW = datetime(2026, 9, 20, 11, 7, 10, tzinfo=timezone.utc)
 
 def test_archives_only_prior_run_scratch_and_keeps_the_live_lock(tmp_path):
     run = tmp_path / "run"
-    for name in ("desk-priority", "desk-weather", "t_4cac", "2026-09-20"):
+    for name in ("desk-priority", "desk-weather", "t_4cac", "2026-09-20",
+                 "daily-2026-09-20", "daily2-2026-09-20"):
         path = run / name
         path.mkdir(parents=True, exist_ok=True)
         (path / "notes.json").write_text(name)
@@ -22,6 +23,7 @@ def test_archives_only_prior_run_scratch_and_keeps_the_live_lock(tmp_path):
 
     assert archived == tmp_path.parent / f".{tmp_path.name}-run-archives" / "run-20260920-110710"
     for name in ("desk-priority", "desk-weather", "t_4cac", "2026-09-20",
+                 "daily-2026-09-20", "daily2-2026-09-20",
                  "chat-status.json", "seal-session.json"):
         assert (archived / name).exists()
         assert not (run / name).exists()
