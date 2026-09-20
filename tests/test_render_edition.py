@@ -163,6 +163,19 @@ class TestValidate:
         }])
         assert "forecast is only valid on the weather desk" in render.validate(bad)
 
+    def test_forecast_must_be_today_only(self):
+        day = {"day": "Tue", "date": "17/05", "icon": "sun", "high": 19, "low": 9}
+        empty = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+            "forecast": [],
+        }])
+        week = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
+            "forecast": [day, {**day, "day": "Wed"}],
+        }])
+        assert "forecast must contain today's forecast" in render.validate(empty)
+        assert "forecast must contain today's forecast" in render.validate(week)
+
     def test_schedule_only_on_calendar(self):
         bad = edition(sections=[{
             "kind": "section", "title": "Weather", "desk": "weather", "body": "w",
@@ -224,7 +237,7 @@ class TestValidate:
             "kind": "section", "title": "Your #1 priority today", "desk": "priority",
             "headline": "Close the seed extension", "body": "Send the deck", "priority": p,
             "sources": [],
-        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
         assert "Close the seed extension" in html
         assert printed in html
         assert "Send the deck" in html
@@ -395,14 +408,15 @@ class TestValidate:
             {"kind": "section", "title": "News", "desk": "news", "body": "n", "sources": []},
             {"kind": "section", "title": "Weather", "desk": "weather", "body": "w", "sources": []},
             {"kind": "section", "title": "P", "desk": "priority", "body": "p", "sources": []},
-        ]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}{{WEATHER}}{{LEAD}}")
-        assert html.index("section--priority") < html.index("section--weather")
+        ]), render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}{{LEAD}}")
+        assert html.index("section--priority") < html.index("News")
+        assert "section--weather" not in html
 
     def test_priority_renders_exactly_once(self):
         html = render.render_html(
             edition_with_priority_and_weather(),
             render.DEFAULT_MASTHEAD,
-            "{{PRIORITY}}{{DESKS_INLINE}}{{SIDEBAR}}",
+            "{{PRIORITY_BLOCK}}{{DESKS_INLINE}}",
         )
         assert html.count('section--priority"') == 1
 
@@ -410,7 +424,7 @@ class TestValidate:
         html = render.render_html(
             edition_with_priority_and_weather(),
             render.DEFAULT_MASTHEAD,
-            "{{LEAD}}{{PRIORITY}}",
+            "{{LEAD}}{{PRIORITY_BLOCK}}",
         )
         assert "Nothing to report this time." not in html
         assert "Close the seed extension" in html
@@ -447,7 +461,6 @@ class TestMasthead:
         assert render.DEFAULT_MASTHEAD in page
         assert "inspired by Mayfield" in page
 
-
 class TestChat:
     def test_header_and_section(self):
         text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
@@ -466,12 +479,25 @@ class TestChat:
         }])
         text = render.render_chat(data, render.DEFAULT_MASTHEAD)
         page = render.render_html(data, render.DEFAULT_MASTHEAD,
-                                  "{{LEAD}}{{PRIORITY}}{{WEATHER}}{{CALENDAR}}{{MAIL}}{{SPORTS}}")
+                                  "{{LEAD}}{{PRIORITY_BLOCK}}{{WEATHER_EAR}}{{DESKS_INLINE}}")
         assert "special for this edition" in text
-        for out in (text, page):
-            assert ("Sources:" in out) is (desk != "priority")
-            assert ("Couldn't source: the Pro model" in out) is (desk != "priority")
-            assert "(nothing to report this time)" in out and "budget" not in out
+        assert ("Sources:" in text) is (desk != "priority")
+        assert ("Couldn't source: the Pro model" in text) is (desk != "priority")
+        if desk == "priority":
+            assert "Sources:" not in page
+            assert "Couldn't source" not in page
+        elif desk == "weather":
+            assert "Sources:" not in page
+            assert "Couldn't source<br>" in page
+            assert "the Pro model&#x27;s price" in page
+        else:
+            assert "Sources:" in page
+            assert "Couldn't source: the Pro model" in page
+        if desk == "weather":
+            assert "(nothing to report this time)" in text
+        else:
+            assert "(nothing to report this time)" in page
+        assert "budget" not in text and "budget" not in page
 
     def test_empty_budget_is_still_an_edition(self):
         text = render.render_chat(edition(sections=[]), render.DEFAULT_MASTHEAD)
@@ -528,45 +554,37 @@ class TestHtml:
         assert "<b>headline</b>" not in page
         assert "&lt;b&gt;headline&lt;/b&gt;" in page
 
-    TEMPLATE = "{{PAGE_CLASS}}|{{LEAD}}{{SECTIONS}}|{{WEATHER}}|{{CALENDAR}}|{{MAIL}}|{{SIDEBAR}}"
-
-    def split_slots(self, page):
-        return page.split("|", 5)
-
     def test_news_stays_in_the_news_slot(self):
         data = edition(sections=[
             {"kind": "section", "title": "News", "body": "y", "sources": []},
             {"kind": "section", "title": "Weather", "layout": "sidebar", "body": "z",
              "sources": []},
         ])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
-        page_class, main_html, weather, calendar, mail, desks = self.split_slots(page)
-        assert page_class == "page page--no-desks"
+        page = render.render_html(data, render.DEFAULT_MASTHEAD,
+                                  "{{LEAD}}{{SECTIONS}}|{{DESKS_INLINE}}")
+        main_html, desks = page.split("|", 1)
         assert "News" in main_html and "Weather" in main_html
-        assert weather == "" and calendar == "" and mail == ""
         assert desks == ""
 
-    def test_no_desks_collapses_the_rail(self):
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, self.TEMPLATE)
-        page_class, _main, weather, calendar, mail, desks = self.split_slots(page)
-        assert page_class == "page page--no-desks"
-        assert weather == calendar == mail == desks == ""
+    def test_no_desks_collapses_the_row(self):
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
+        assert page == ""
 
-    def test_weather_desk_has_its_own_slot(self):
+    def test_weather_desk_draws_the_masthead_ear(self):
         data = edition(sections=[
             {"kind": "section", "title": "Dollar", "desk": "news", "body": "up",
              "sources": []},
             {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain",
+             "forecast": [{"day": "Tue", "date": "17/05", "icon": "rain", "high": 17, "low": 6}],
              "sources": []},
         ])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
-        page_class, main_html, weather, calendar, mail, desks = self.split_slots(page)
-        assert page_class == "page"
+        page = render.render_html(data, render.DEFAULT_MASTHEAD,
+                                  "{{LEAD}}|{{WEATHER_EAR}}|{{DESKS_INLINE}}")
+        main_html, ear, desks = page.split("|", 2)
         assert "Dollar" in main_html and "Weather" not in main_html
-        assert "Weather" in weather and "section--weather" in weather
-        assert "Dollar" not in weather
-        assert calendar == "" and mail == ""
-        assert "Weather" in desks
+        assert "ear-weather" in ear and "wx-icon" in ear
+        assert "Dollar" not in ear
+        assert desks == ""
 
     def test_each_desk_is_a_separate_field(self):
         data = edition(sections=[
@@ -579,31 +597,63 @@ class TestHtml:
             {"kind": "section", "title": "Diary", "desk": "calendar", "body": "c",
              "sources": []},
         ])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
-        _cls, main_html, weather, calendar, mail, _desks = self.split_slots(page)
+        page = render.render_html(data, render.DEFAULT_MASTHEAD,
+                                  "{{LEAD}}|{{WEATHER_EAR}}|{{DESKS_INLINE}}")
+        main_html, ear, desks = page.split("|", 2)
         assert "News" in main_html
-        assert "Weather" in weather and "Diary" not in weather and "Mail" not in weather
-        assert "Diary" in calendar and "Weather" not in calendar
-        assert "Mail" in mail and "Diary" not in mail
-        assert "News" not in weather + calendar + mail
+        assert "Diary" in desks and "Mail" in desks
+        assert "News" not in desks
+        assert "section--calendar" in desks and "section--mail" in desks
+        assert "section--weather" not in desks
+        assert "ear-box" in ear
 
-    def test_empty_desk_emits_no_card(self):
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD,
-                                  "{{WEATHER}}|{{CALENDAR}}|{{MAIL}}")
-        assert page == "||"
-
-    def test_weather_forecast_draws_icons(self):
+    def test_weather_forecast_draws_the_ear(self):
         data = edition(sections=[{
             "kind": "section", "title": "Weather", "desk": "weather", "body": "rain",
             "forecast": [{"day": "Tue", "date": "17/05", "icon": "rain", "high": 17, "low": 6}],
             "sources": ["https://example.com/weather"], "could_not_source": ["the rain chance"],
         }])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{WEATHER}}")
-        assert 'class="wx-grid"' in page
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{WEATHER_EAR}}")
+        assert "ear-weather" in page
         assert 'class="wx-icon"' in page
+        assert "wx-grid" not in page
+        assert "17" in page and "6" in page
         assert "<img" not in page
-        # The grid needs no sources line, but its gap still reaches the reader.
-        assert "Sources:" not in page and "Couldn't source: the rain chance" in page
+        assert "Sources:" not in page
+        chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Sources: https://example.com/weather" in chat
+        assert "Couldn't source: the rain chance" in chat
+        assert "Couldn't source<br>" not in page
+
+    def test_weather_ear_prints_a_miss_when_research_failed(self):
+        data = edition(sections=[{
+            "kind": "section", "title": "Weather", "desk": "weather",
+            "body": "The city could not be placed.",
+            "could_not_source": ["today's high in São Paulo"],
+        }])
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{WEATHER_EAR}}")
+        assert "ear-weather" not in page
+        assert "Couldn't source<br>" in page
+        assert "today&#x27;s high in São Paulo" in page
+        assert "One edition" not in page
+        chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Couldn't source: today's high in São Paulo" in chat
+
+    def test_weather_icons_are_vendored_atlas_glyphs(self):
+        # Forecast keys stay the paper's vocabulary; the drawings are
+        # Atlas Icons weather glyphs (MIT), inlined, never fetched.
+        notice = (ROOT / "pt-edition" / "assets" / "weather" / "NOTICE").read_text()
+        assert "Atlas Icons" in notice
+        assert "MIT" in notice
+        for key in render.FORECAST_ICONS:
+            svg = render.weather_icon(key)
+            assert 'class="wx-icon"' in svg
+            assert 'viewBox="0 0 1024 1024"' in svg
+            assert 'fill="currentColor"' in svg
+            assert "<path" in svg
+            assert "https://" not in svg
+            assert 'circle cx="12"' not in svg
+            assert (ROOT / "pt-edition" / "assets" / "weather" / f"{key}.svg").is_file()
 
     def test_calendar_schedule_draws_kind_icons(self):
         data = edition(sections=[{
@@ -615,12 +665,16 @@ class TestHtml:
             ],
             "sources": ["Calendar.app"],
         }])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
         assert 'class="cal-list"' in page
         assert page.count('class="cal-icon"') == 2
+        assert 'class="cal-body"' in page
         assert "Product &lt;sync&gt;" in page
         assert "Product <sync>" not in page
         assert "<img" not in page
+        assert "Sources: Calendar.app" in page
+        chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Sources: Calendar.app" in chat
 
     def test_calendar_schedule_strip_caps_a_full_day(self):
         # Issue #7: a full Google day made the desks-row (break-inside:
@@ -637,7 +691,7 @@ class TestHtml:
             "schedule": items,
             "sources": ["Google Calendar"],
         }])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
         assert page.count('class="cal-item"') == render.SCHEDULE_STRIP_MAX
         assert "Meeting 0" in page
         assert "Meeting 5" in page
@@ -654,13 +708,17 @@ class TestHtml:
             "messages": [{"sender": "Ana <b>Costa</b>", "subject": "Hello <script>"}],
             "sources": ["Gmail"],
         }])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{MAIL}}")
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
         assert 'class="mail-list"' in page
         assert 'class="mail-icon"' in page
+        assert 'class="mail-body"' in page
         assert "Ana &lt;b&gt;Costa&lt;/b&gt;" in page
         assert "Hello &lt;script&gt;" in page
         assert "<script>" not in page
         assert "<img" not in page
+        assert "Sources: Gmail" in page
+        chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Sources: Gmail" in chat
 
     def test_desk_headers_carry_a_drawn_mark(self):
         data = edition(sections=[
@@ -671,11 +729,10 @@ class TestHtml:
             {"kind": "section", "title": "Letters", "desk": "mail", "body": "m",
              "sources": []},
         ])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, self.TEMPLATE)
-        _cls, _news, weather, calendar, mail, _desks = self.split_slots(page)
-        assert 'class="desk-icon"' in weather
-        assert 'class="desk-icon"' in calendar
-        assert 'class="desk-icon"' in mail
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
+        assert 'class="desk-icon"' in page
+        assert page.count('class="desk-icon"') == 2
+        assert 'stroke="#ffffff"' in page
 
     def test_chat_edition_has_no_icons(self):
         data = edition(sections=[{
@@ -719,7 +776,7 @@ class TestHtml:
             "body": "Today: dentist at 9.\n\nUpcoming: flight on Friday.",
             "sources": ["Calendar.app"],
         }])
-        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
+        page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
         assert "Today: dentist at 9." in page
         assert "Upcoming: flight on Friday." in page
         assert "<a href=" not in page

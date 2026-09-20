@@ -790,13 +790,11 @@ class TestSkills:
 
     def test_template_has_a_newspaper_front_page(self):
         # Measured live 2026-09-18: the page read as a newsletter, not a
-        # newspaper. The reference is a broadsheet front page: nameplate
-        # with a double rule, a folio line, the lead as a large headline,
-        # and news in columns.
+        # newspaper. The reference is a broadsheet front page: nameplate,
+        # a folio line, the lead as a large headline, and news in columns.
         template = (ROOT / "pt-edition" / "template.html").read_text()
         assert "nameplate" in template
         assert "inspired by Mayfield" in template
-        assert "rule-double" in template
         assert "folio" in template
         assert "dropcap" in template
         assert "border-image" not in template  # no fake photo frames
