@@ -33,10 +33,9 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 - The page speaks to the reader as you / você in `owner.language`, never about them by name;
   “the founder” appears only when discussing the advisor's general framework, never as a label
   for the reader.
-- Discover bundled advisors by reading every `*.md` except `README.md` under
-  `/var/lib/hermes/skills/pt-setup/assets/advisors/`, then every owner advisor page at
-  `~/Plow/wiki/projects/theplowtimes/advisors/*.md`. Treat each by the
-  `advisor` name in its front matter. Application logic has no advisor- or industry-specific case.
+- Discover advisors by reading every `*.md` except `README.md` under
+  `/var/lib/hermes/skills/pt-setup/assets/advisors/`. Treat each by the `advisor` name in its
+  front matter. Application logic has no advisor- or industry-specific case.
 
 ## Orient
 

@@ -39,9 +39,9 @@
           ],
           "first_step": "Write the rye card and pin it on the board by 09:00.",
           "advisor": {
-            "name": "Mira Chen",
-            "quote": "Make the choice obvious before making the menu bigger.",
-            "url": "https://example.com/bakery-notes"
+            "name": "Patrick Salyer (Mayfield)",
+            "quote": "Forget the naming (seed / A / B).",
+            "url": "https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series"
           }
         },
         {
@@ -49,14 +49,14 @@
           "body": "The morning tray walk is useful only if tomorrow's baker can repeat what Mira notices today. Capture the few observable signs that distinguish a ready loaf from one that needs another minute, then use the same check before every market batch.",
           "evidence": [{"claim": "The first trays are reviewed with Mira", "source": "Synthetic calendar"}],
           "first_step": "Write the three checks beside the oven before the 09:15 walk.",
-          "advisor": {"name": "Mira Chen", "quote": "A process is real when the next baker can run it.", "url": "https://example.com/bakery-notes"}
+          "advisor": {"name": "Patrick Salyer (Mayfield)", "quote": "Forget the naming (seed / A / B).", "url": "https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series"}
         },
         {
           "headline": "Test the tasting flight before redesigning packaging",
           "body": "The flight answers a customer-choice question this weekend; new bags do not. Use the market to learn which pairing people understand and buy, then let that evidence shape the next presentation decision instead of polishing packaging first.",
           "evidence": [{"claim": "The tasting flight has active customer interest", "source": "Synthetic counter notes"}],
           "first_step": "Prepare one tasting card with two pairings and a single purchase question.",
-          "advisor": {"name": "Mira Chen", "quote": "Learn from the counter before polishing the wrapper.", "url": "https://example.com/bakery-notes"}
+          "advisor": {"name": "Patrick Salyer (Mayfield)", "quote": "Forget the naming (seed / A / B).", "url": "https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series"}
         }
       ],
       "questions": []
