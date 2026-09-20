@@ -33,7 +33,8 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 - The page speaks to the reader as you / você in `owner.language`; “the founder” appears only
   when discussing the advisor's general framework, never as a label for the reader.
 - Discover bundled advisors by reading every `*.md` except `README.md` under
-  `/var/lib/hermes/skills/pt-setup/assets/advisors/`, then owner advisor pages. Treat each by the
+  `/var/lib/hermes/skills/pt-setup/assets/advisors/`, then every owner advisor page at
+  `~/Plow/wiki/projects/theplowtimes/advisors/*.md`. Treat each by the
   `advisor` name in its front matter. Application logic has no advisor- or industry-specific case.
 
 ## Orient
@@ -90,7 +91,7 @@ retry only when time permits. Without a checkpoint, keep the honest unavailable 
 
 ### 4. Cull
 
-Every generation reaches Cull unless an incumbent critic failed. One culler sees the available targets,
+Every generation reaches Cull unless fewer than three fully criticized targets remain. One culler sees the available targets,
 their item-backed research, and all prosecutions. It selects and ranks exactly three grounded,
 distinct champions by decision impact, specificity, advisor fidelity, evidence, feasibility, and
 survival of criticism. Incumbency gives continuity, not immunity. A challenger wins only by
