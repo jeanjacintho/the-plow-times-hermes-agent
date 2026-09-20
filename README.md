@@ -27,11 +27,11 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
   mail, messages and calendar; there is no template to fill in, and you steer
   it by texting corrections), weather, calendar, mail. The advisor's desk thinks
   for about 40 minutes per pass, so a setup with that desk on writes
-  `delivery.lead_minutes` 40 (clamped so the run never starts before
-  midnight of its delivery day; registration refuses a larger offset).
+  `delivery.lead_minutes` 40 (registration clamps it per slot, so no run
+  starts before midnight of its delivery day in the owner's zone).
   Cron starts then; chat still waits for `delivery.hour`
   (`post_to_chat.py --hold-until`). A live copy posts as soon as it is
-  ready. You can still set `lead_minutes` by hand (up to 179).
+  ready. You can still set `lead_minutes` by hand.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.
 - **One day’s assignment** (“put the iPhone price in tomorrow’s paper”).
 - **A one-off** you want once, on a short budget, without it becoming a standing section.

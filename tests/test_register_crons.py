@@ -128,16 +128,28 @@ class TestDesiredJobs:
         assert all(j["deliver"] == crons.DELIVER_TARGET for j in jobs)
         assert path.name == "config.json"  # config untouched
 
-    def test_extra_and_focused_slots_start_at_their_own_hour(self):
-        # The lead is the main paper's: a slot at 00:20 must not inherit it
-        # (that would start the evening before, or abort registration).
+    def test_early_extra_slot_clamps_its_lead_instead_of_refusing(self):
+        # The main paper's 40-minute lead must not abort registration for a
+        # slot at 00:20: that slot starts at midnight, not the evening before.
         jobs = crons.desired_jobs(
             [topic("t_9f2a", kind="section", deliver_at="00:30")], "07:00",
             {"PLOW_HOME_CHANNEL": "c"}, lead_minutes=40, extra_hours=["00:20"])
         by_name = {j["name"]: j["schedule"] for j in jobs}
         assert by_name[crons.DAILY_NAME] == "20 6 * * *"
-        assert by_name[f"{crons.DAILY_NAME}-2"] == "20 0 * * *"
-        assert by_name[crons.paper_job_name("00:30")] == "30 0 * * *"
+        assert by_name[f"{crons.DAILY_NAME}-2"] == "0 0 * * *"
+        assert by_name[crons.paper_job_name("00:30")] == "0 0 * * *"
+
+    def test_slot_clamps_to_owner_midnight_when_zones_differ(self):
+        # Owner UTC-3, container UTC: the owner's 00:20 is 03:20 on the
+        # container. The 40-minute lead stops at owner midnight (03:00
+        # container); the owner's 10:30 (13:30) keeps the full lead.
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section", deliver_at="13:30")], "03:20", {"TZ": "UTC"}, 40,
+            extra_hours=["13:30"], owner_tz="America/Sao_Paulo",
+        )
+        assert jobs[0]["schedule"] == "0 3 * * *"
+        assert jobs[1]["schedule"] == "50 12 * * *"
+        assert jobs[2]["schedule"] == "50 12 * * *"
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
@@ -352,8 +364,8 @@ class TestExtraDailyHours:
         )
         names = [j["name"] for j in jobs]
         assert names == ["pt-daily-edition", "pt-daily-edition-2"]
-        # The extra slot starts at its own hour: the lead is the main paper's.
-        assert jobs[1]["schedule"] == "30 10 * * *"
+        # Each slot gets its own lead-time subtraction -- 10:30 minus 45m.
+        assert jobs[1]["schedule"] == "45 9 * * *"
         assert jobs[1]["skill"] == "pt-research"
         assert jobs[1]["deliver"] == crons.DELIVER_TARGET
 
@@ -759,7 +771,7 @@ class TestShowDailyRecipe:
         rc = crons.main(["--show-daily-recipe"])
         assert rc == 0
         printed = capsys.readouterr().out.strip()
-        assert printed.startswith(crons.daily_prompt("daily").strip())
+        assert printed.startswith(crons.daily_prompt("daily", live=True).strip()[:200])
         assert printed.endswith("This is a live copy: print today's advisor card as it stands, "
                                 "or the gap card, and make no advisor pass.")
 
@@ -817,7 +829,13 @@ class TestScheduledHold:
     def test_live_copy_does_not_hold(self):
         p = crons.daily_prompt("daily", live=True)
         assert "--hold-until" not in p
-        assert "--stale-minutes 120" in p
+        assert "--stale-minutes 240 plus delivery.lead_minutes" in p
+
+    def test_every_acquirer_of_the_daily_lock_outlives_the_early_start(self):
+        # A scheduled run with a 40-minute lead holds the lock 40 minutes
+        # before its own work; a live copy must not call that stale.
+        jobs = crons.desired_jobs([topic("t_1", kind="section")], "07:00", {}, 40)
+        assert "--stale-minutes 280" in jobs[0]["prompt"]
 
     def test_paper_job_holds_until_its_hour(self):
         jobs = crons.desired_jobs(
