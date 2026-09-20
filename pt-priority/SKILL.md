@@ -96,8 +96,9 @@ the card or the stub.
    - Files and pages: the notes page (`~/Plow/wiki/entities/owner/goals.md`), at most 20 wiki pages
      that `plow_run_command`
      `["/usr/bin/find","<home>/Plow/wiki","-maxdepth","4","-type","f","-name","*.md","-size","-50k","-not","-path","*/projects/theplowtimes/*"]`
-     lists, each by `plow_read_file`, and any file or page a Q&A answer names (a page in Latch's
-     browser). Nothing else under `~/Plow` but the advisor files.
+     lists, each by `plow_read_file`, and the standing sources Answered entries name, which the
+     owner named in turn (a page in Latch's browser); an address an entry merely cites as that
+     day's item is not one. Nothing else under `~/Plow` but the advisor files.
    - iMessage: `mcp__plow__plow_read_skill` with `name` = `imessage`, and read exactly as it says;
      it names the reader this Mac's Latch ships. Read the owner's own messages since As of too. A
      deny or an error is one blocked source: note it, do not retry, go on.
