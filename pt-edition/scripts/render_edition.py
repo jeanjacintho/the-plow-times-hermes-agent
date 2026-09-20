@@ -599,6 +599,17 @@ def render_chat(edition, name):
     return "\n".join(lines) + "\n"
 
 
+def render_companion(edition):
+    """Chat-only desks omitted from the fixed one-page print layout."""
+    sections = [
+        section for _index, section in ordered_sections(edition["sections"])
+        if desk_of(section) in ("mail", "sports")
+    ]
+    if not sections:
+        return ""
+    return "\n\n".join(chat_section(section) for section in sections) + "\n"
+
+
 # Forecast drawings: Atlas Icons weather glyphs (MIT), vendored beside
 # this skill so the "no external assets" rule in template.html holds.
 # FORECAST_ICONS is the only allowed set of filenames.
@@ -1123,30 +1134,32 @@ def render_html(edition, name, template_text):
     weather_ear = weather_ear_html(weather)
 
     location = html.escape((edition.get("location") or "").strip() or "One copy")
-    return (
-        template_text
-        .replace("{{MASTHEAD}}", html.escape(name))
-        .replace("{{DATE}}", html.escape(pretty_date(edition["date"])))
-        .replace("{{LOCATION}}", location)
-        .replace("{{LEAD}}", lead_html)
-        .replace("{{PRIORITY}}", priority_html)
-        .replace("{{PRIORITY_BLOCK}}", priority_block_html)
-        .replace("{{WEATHER_EAR}}", weather_ear)
-        .replace("{{DESKS_INLINE}}", desks_inline_html)
-        .replace("{{NEWS_PAIR}}", news_pair_html)
-        .replace("{{CALENDAR_RAIL}}", calendar_html)
-        .replace("{{SECTIONS}}", news_pair_html)
-        .replace("{{WEATHER}}", weather_html)
-        .replace("{{CALENDAR}}", calendar_html)
-        .replace("{{MAIL}}", mail_html)
-        .replace("{{SPORTS}}", sports_html)
-        .replace("{{SIDEBAR}}", desks_html)
-        .replace("{{SUDOKU}}", "")
-    )
+    slots = {
+        "{{MASTHEAD}}": html.escape(name),
+        "{{DATE}}": html.escape(pretty_date(edition["date"])),
+        "{{LOCATION}}": location,
+        "{{LEAD}}": lead_html,
+        "{{PRIORITY}}": priority_html,
+        "{{PRIORITY_BLOCK}}": priority_block_html,
+        "{{WEATHER_EAR}}": weather_ear,
+        "{{DESKS_INLINE}}": desks_inline_html,
+        "{{NEWS_PAIR}}": news_pair_html,
+        "{{CALENDAR_RAIL}}": calendar_html,
+        "{{SECTIONS}}": news_pair_html,
+        "{{WEATHER}}": weather_html,
+        "{{CALENDAR}}": calendar_html,
+        "{{MAIL}}": mail_html,
+        "{{SPORTS}}": sports_html,
+        "{{SIDEBAR}}": desks_html,
+        "{{SUDOKU}}": "",
+    }
+    slot_re = re.compile("|".join(re.escape(slot) for slot in slots))
+    return slot_re.sub(lambda match: slots[match.group(0)], template_text)
 
 
 def write_pdf(html_text, path):
     """The PDF leg. weasyprint is optional; its absence is a named failure."""
+    pathlib.Path(path).unlink(missing_ok=True)
     try:
         from weasyprint import HTML  # noqa: PLC0415 -- optional dependency
     except ImportError:
@@ -1167,6 +1180,8 @@ def main(argv=None):
     parser.add_argument("--chat", default=None, help="write the chat text here")
     parser.add_argument("--html", default=None, help="write the printable HTML here")
     parser.add_argument("--pdf", default=None, help="write a PDF here (needs weasyprint)")
+    parser.add_argument("--companion", default=None,
+                        help="write chat-only mail/sports desks here when present")
     parser.add_argument("--config", default=CONFIG_DEFAULT,
                         help="pt/config.json; used to force the priority desk on")
     args = parser.parse_args(argv)
@@ -1191,6 +1206,13 @@ def main(argv=None):
         pathlib.Path(args.chat).write_text(chat_text)
     else:
         sys.stdout.write(chat_text)
+
+    if args.companion:
+        companion_path = pathlib.Path(args.companion)
+        companion_path.unlink(missing_ok=True)
+        companion = render_companion(edition)
+        if companion:
+            companion_path.write_text(companion)
 
     if args.html or args.pdf:
         try:

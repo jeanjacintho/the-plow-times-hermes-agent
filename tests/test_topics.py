@@ -143,19 +143,16 @@ class TestResolve:
 
 class TestBrokenStore:
     def test_garbage_refuses_to_read_as_empty(self, pt_home):
-        pt_home.mkdir(parents=True, exist_ok=True)
         (pt_home / "topics.json").write_text("garbage")
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
 
     def test_wrong_shape_refuses(self, pt_home):
-        pt_home.mkdir(parents=True, exist_ok=True)
         (pt_home / "topics.json").write_text(json.dumps({"topics": "nope"}))
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
 
     def test_idless_topic_refuses(self, pt_home):
-        pt_home.mkdir(parents=True, exist_ok=True)
         (pt_home / "topics.json").write_text(json.dumps({"topics": [{"nope": 1}]}))
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
@@ -225,10 +222,6 @@ class TestSections:
         assert len(read_store(pt_home)) == 6
 
     def test_explicit_daily_hour_shares_the_main_roster(self, pt_home):
-        pt_home.mkdir(parents=True, exist_ok=True)
-        (pt_home / "config.json").write_text(json.dumps({
-            "delivery": {"hour": "07:00"},
-        }))
         for text in ("AI", "Formula 1"):
             topics.main(["add", "--text", text, "--kind", "section",
                          "--depth", "quick"])
@@ -311,10 +304,6 @@ class TestAssignments:
 
 class TestCheckPaper:
     def test_names_every_item_in_legacy_overfill(self, pt_home):
-        pt_home.mkdir(parents=True, exist_ok=True)
-        (pt_home / "config.json").write_text(json.dumps({
-            "delivery": {"hour": "07:00"},
-        }))
         legacy = [
             {"id": f"t_000{i}", "text": text, "kind": "section",
              "status": "pending", "deliver_at": None}
@@ -329,10 +318,6 @@ class TestCheckPaper:
         assert all(item["text"] in message for item in legacy)
 
     def test_new_main_hour_is_checked_before_it_merges_rosters(self, pt_home):
-        pt_home.mkdir(parents=True, exist_ok=True)
-        (pt_home / "config.json").write_text(json.dumps({
-            "delivery": {"hour": "07:00"},
-        }))
         for text in ("AI", "markets"):
             topics.main(["add", "--text", text, "--kind", "section",
                          "--depth", "quick"])

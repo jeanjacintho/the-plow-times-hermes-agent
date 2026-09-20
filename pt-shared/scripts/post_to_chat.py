@@ -16,12 +16,12 @@ attachment_uids), needs no live adapter and is not subject to that race --
 it is a plain HTTP call that either succeeds or exits loudly, same as the
 text-only POST below always was.
 
-The text is read on STDIN only -- never argv -- and only when there is no
-PDF. With ``--pdf`` the message is the attachment alone (empty body), the
-same envelope plow-chat-platform uses for photo-only sends. An edition is
-the newspaper file; piping the chat transcript in as a caption is how the
-owner got the PDF *and* a wall of text. Omit ``--pdf`` to post text only
-(the fallback when weasyprint could not write the file).
+Text is read from ``--text-file`` when provided, otherwise from STDIN only
+when there is no PDF. With ``--pdf``, ``--text-file`` is reserved for the
+small mail/sports companion omitted from the printed page; without it the
+message is attachment-only. The full chat transcript is never a caption.
+Omit ``--pdf`` to post text only (the fallback when weasyprint could not
+write the file).
 
 The endpoint and credential come
 from the process environment alone (PLOW_API_BASE, PLOW_HOME_CHANNEL,
@@ -31,7 +31,7 @@ base its own bearer is sent to. Any of the three unset or blank is refused
 BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
-attachment_uids) and sends no caption. After a successful POST, three
+attachment_uids) and optionally sends the companion as its body. After a successful POST, three
 finalizers run independently and best-effort: seal (and reopen today's
 sections), print via print_edition.py when configured, and record via
 record_edition.py (`--pdf` and `--text-file` both) on the sibling
@@ -248,14 +248,14 @@ def print_failure_line(result):
 
 
 def compose_payload(text, attachment_uid=None):
-    """One chat message: PDF-only when attached, otherwise the chat edition.
+    """One chat message: PDF plus optional companion, or the chat edition.
 
     plow-chat-platform posts ``{"body": "", "attachment_uids": [...]}`` for
-    attachment-only sends; an empty body with a PDF is the newspaper, not a
-    missing caption.
+    attachment-only sends; an empty body with a PDF remains valid when there
+    are no chat-only desks.
     """
     if attachment_uid:
-        return {"body": "", "attachment_uids": [attachment_uid]}
+        return {"body": text, "attachment_uids": [attachment_uid]}
     if not text:
         sys.exit("error: no edition text on stdin")
     return {"body": text}
@@ -292,9 +292,8 @@ def main():
     )
     parser.add_argument(
         "--text-file", default=None,
-        help="read the chat edition from this file instead of stdin (no shell "
-             "redirect needed); refused together with --pdf, which posts an "
-             "empty body",
+        help="read the chat edition, or a PDF's chat-only desk companion, "
+             "from this file instead of stdin (no shell redirect needed)",
     )
     parser.add_argument(
         "--filename", default=None,
@@ -306,10 +305,13 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.text_file and args.pdf:
-        sys.exit("error: --pdf posts an empty body; --text-file cannot be combined with it")
     base, uid, token = resolve_chat()
-    text = read_text_file(args.text_file) if args.text_file else read_message()
+    if args.text_file:
+        text = read_text_file(args.text_file)
+    elif args.pdf:
+        text = ""
+    else:
+        text = read_message()
     if not args.pdf and not text:
         sys.exit("error: no edition text on stdin")
 
@@ -317,7 +319,8 @@ def main():
         attach_note = f" + attach {args.pdf}" if args.pdf else ""
         if args.pdf:
             attach_note += f" as {attachment_filename(args.pdf, args.filename)}"
-        kind = "pdf-only" if args.pdf else f"{len(text)} chars"
+        kind = (f"pdf + {len(text)} chars" if args.pdf and text else "pdf-only") \
+            if args.pdf else f"{len(text)} chars"
         print(
             f"dry-run: would POST {kind} to {base}/v1/chats/{uid}/messages"
             f'{attach_note}'
@@ -334,7 +337,8 @@ def main():
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
     print(_best_effort(after_posted, (), "chat session not sealed"))
     if args.pdf:
-        print(f"chat edition posted (pdf only) {args.pdf}")
+        suffix = " + companion" if text else " only"
+        print(f"chat edition posted (pdf{suffix}) {args.pdf}")
         printed = _best_effort(maybe_print, (args.pdf,), "page not printed")
         print(printed)
         line = print_failure_line(printed)

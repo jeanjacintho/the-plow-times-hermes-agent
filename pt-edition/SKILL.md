@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into the PDF, post the PDF only via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render the one-page PDF plus any chat-only desk companion, post them via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -262,13 +262,15 @@ transcript after it is the wall of text they did not ask for.
    complete command, printer or not; **copy it and change only the
    paths.** Do not add flags that are not here:
 
-       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf
+       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf --companion run/<id>/edition.companion.txt
 
    The printed page is this same PDF. `--chat PATH` is optional and takes
    a path when used; the chat transcript is not posted, so you normally
    leave it out entirely.
 
-   **Then check that `run/<id>/edition.pdf` actually exists before step 2.**
+   **Continue only when the renderer exits zero and
+   `run/<id>/edition.pdf` exists.** The renderer removes an old target before
+   trying, so a refusal can never leave yesterday's PDF looking successful.
    If it does not, read the renderer's own stderr and act on which failure
    it was:
 
@@ -289,13 +291,14 @@ transcript after it is the wall of text they did not ask for.
    text. The owner had asked for a copy of the paper and got a wall of
    text, on a machine where weasyprint 62.3 was installed and working.
 2. **Send the PDF yourself, by running `post_to_chat.py --pdf`, instead of
-   returning the transcript as your final response.** The owner asked for
-   the newspaper file, not the file plus the chat dump. `post_to_chat.py`
-   with `--pdf` posts an empty body and the attachment — the same envelope
-   plow-chat-platform uses for photo-only sends. Do not pipe
-   `edition.chat.txt` into it:
+   returning the transcript as your final response.** If the renderer wrote
+   `edition.companion.txt`, it contains only the mail/sports desks omitted
+   from print; include it with `--text-file`. This is not the full chat dump:
 
-       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --filename The-Founder-Times-<date>.pdf
+       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --text-file run/<id>/edition.companion.txt --filename The-Founder-Times-<date>.pdf
+
+   When no companion file exists, omit only `--text-file`; the PDF posts with
+   an empty body, the same envelope used for attachment-only sends.
 
    Omit `--pdf` **only** when step 1 established that weasyprint is
    genuinely absent — never because your own command failed. In that one
