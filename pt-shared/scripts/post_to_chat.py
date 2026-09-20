@@ -95,7 +95,7 @@ def seconds_until_hhmm(hhmm, now=None):
         now = now.astimezone(tz)
     hour, minute = map(int, hhmm.split(":"))
     target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    remaining = (target - now).total_seconds()
+    remaining = target.timestamp() - now.timestamp()
     return max(0.0, remaining)
 
 

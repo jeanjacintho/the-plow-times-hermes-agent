@@ -346,6 +346,13 @@ class TestExtraDailyHours:
         assert jobs[1]["skill"] == "pt-research"
         assert jobs[1]["deliver"] == crons.DELIVER_TARGET
 
+    def test_early_extra_slot_clamps_lead_instead_of_aborting(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "07:00", {}, 40, extra_hours=["00:20"],
+        )
+        assert jobs[0]["schedule"] == "20 6 * * *"
+        assert jobs[1]["schedule"] == "0 0 * * *"
+
     def test_extra_job_prompt_has_its_own_lock_and_the_pdf_leg(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],

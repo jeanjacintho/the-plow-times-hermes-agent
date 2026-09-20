@@ -505,6 +505,12 @@ def subscription_job(topic, delivery_hour, env=None):
     }
 
 
+def _slot_lead(hour, lead_minutes):
+    """The main paper's lead, clamped so an earlier slot never crosses midnight."""
+    h, m = _hour_minute(hour)
+    return min(lead_minutes, h * 60 + m)
+
+
 def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
                   extra_hours=()):
     """The jobs the topic store calls for, in spec order.
@@ -519,10 +525,10 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     if has_paper(topics):
         jobs.append(daily_job(delivery_hour, lead_minutes, env))
         for n, hour in enumerate(extra_hours, start=2):
-            jobs.append(daily_job(hour, lead_minutes, env,
+            jobs.append(daily_job(hour, _slot_lead(hour, lead_minutes), env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
         for hour in focused_paper_hours(topics, delivery_hour):
-            jobs.append(paper_job(hour, lead_minutes, env))
+            jobs.append(paper_job(hour, _slot_lead(hour, lead_minutes), env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
         for t in topics

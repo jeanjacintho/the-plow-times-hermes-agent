@@ -225,6 +225,12 @@ class TestHoldUntil:
         now = datetime(2026, 9, 20, 6, 20, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
         assert post.seconds_until_hhmm("07:00", now=now) == 40 * 60
 
+    def test_dst_transition_counts_elapsed_time(self, monkeypatch):
+        # US spring-forward 2026-03-08: 01:30 -> 03:00 is 30 real minutes.
+        monkeypatch.setenv("TZ", "America/New_York")
+        now = datetime(2026, 3, 8, 1, 30, 0, tzinfo=ZoneInfo("America/New_York"))
+        assert post.seconds_until_hhmm("03:00", now=now) == 30 * 60
+
     def test_past_hour_posts_now_not_tomorrow(self, monkeypatch):
         monkeypatch.setenv("TZ", "UTC")
         now = datetime(2026, 9, 20, 7, 1, 0, tzinfo=ZoneInfo("UTC"))
