@@ -315,6 +315,13 @@ transcript after it is the wall of text they did not ask for.
    posts one `page not printed — …` line to chat by itself and still leaves
    the chat edition delivered; your final response stays `NO_REPLY`.
 
+   **`post_to_chat.py` also records the edition in the owner's wiki itself**,
+   the same way it already prints: after either a successful `--pdf` or
+   `--text-file` POST, it runs `record_edition.py` on the sibling
+   `edition.json`, best-effort — whatever it prints, the delivery and the
+   marks below already stand, it is never retried, and nothing about it goes
+   to the owner. This is no longer a step you run.
+
    A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
    (you do not have to run that script yourself). When this turn ends, the
    gateway starts a **new plow_chat session**. Do not keep researching,
@@ -329,12 +336,7 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Record the priority desk** from the delivered edition, only after the
-   chat leg is out, so tomorrow's follow-up never refers to advice that was not
-   delivered. It records the priority section `edition.json` carried and skips
-   an edition without one:
-   `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date <DATE> --edition-json /var/lib/hermes/pt/run/<id>/edition.json`
-4. **Mark every topic the edition carried** from its `topic_id`:
+3. **Mark every topic the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
    edition is how a silent gap looks like a working paper. A section then

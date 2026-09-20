@@ -1,6 +1,6 @@
 ---
 name: pt-shared
-description: The helper library every pt-* skill imports — the pt-config gate, the bearer-HTTP helpers, the chat delivery POST and the Latch print reference. Not a task; nothing here is invoked on its own. Read the references when a skill's SKILL.md points at one.
+description: The helper library every pt-* skill imports — the pt-config gate, the bearer-HTTP helpers, the chat delivery POST, the owner's wiki and the Latch print reference. Not a task; nothing here is invoked on its own. Read the references when a skill's SKILL.md points at one.
 ---
 
 # pt-shared — the pt-* skills' shared helpers
@@ -55,7 +55,8 @@ does not, and every run fails on the import.
   names what did not happen. The print leg and the wiki scripts both use it.
 - `scripts/wiki.py` — the paper's pages in the owner's wiki (`~/Plow/wiki`, plow-wiki):
   the root `projects/theplowtimes` (writer `theplowtimes`), the shared
-  `entities/owner/goals.md`, and the OKF page format.
+  `entities/owner/goals.md`, the OKF page format, and `check()` = `wiki validate`
+  then `wiki index` through Latch's wiki plugin, failing only on the paper's own pages.
 - `scripts/wiki_setup.py` — make `~/Plow/wiki` ready for the paper. Bare:
   `wiki_setup.py` or `wiki_setup.py --desk`. Creates the wiki with `wiki init` when
   the Mac has none, writes the paper's schema and page when absent, declares
@@ -80,10 +81,16 @@ does not, and every run fails on the import.
   once); `chat_status.py --busy` during pt-setup Latch/Mac work (hang-on,
   then one "still on it", never a play-by-play; does not seal the
   session). Cron never calls it.
-- `pt-priority/scripts/history.py` — what the priority desk printed on recent
-  days, so the next morning can follow up. Called bare:
-  `/var/lib/hermes/skills/pt-priority/scripts/history.py record --date YYYY-MM-DD --edition-json <run/<id>/edition.json>`
-  Prints `RECORDED`, or `SKIPPED: …` when the edition carried no priority desk.
+- `scripts/owner_time.py` — the owner's own clock, not the container's:
+  `owner_now()` (an aware datetime) and `owner_today()`, from `owner.timezone`
+  in `pt/config.json`. Falls back to the container's clock only when the
+  config or the key is absent; a config that exists but can't be trusted (bad
+  JSON, an unreadable file, an unknown zone name) raises. Shared by
+  `history.py`'s window and `record_edition.py`'s heading below.
+- `pt-priority/scripts/history.py recent` — the cards the desk printed on the last 7 days, read
+  from the wiki's edition pages; prints `[{"date", "desk"}]`.
+- `pt-edition/scripts/record_edition.py <edition.json>` — the delivered edition onto the day's
+  page in the wiki, then `wiki validate` + `wiki index`.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:

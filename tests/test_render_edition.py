@@ -136,9 +136,13 @@ class TestValidate:
         }])
         assert "layout is not main|sidebar" in render.validate(bad)
 
-    def test_desk_must_be_known(self):
+    @pytest.mark.parametrize("desk", ["gossip", ""])
+    def test_desk_must_be_known(self, desk):
+        # An empty string (unlike None/absent) never reaches fill_news_desk's
+        # default -- it must still fail the gate here, not get silently
+        # promoted to news.
         bad = edition(sections=[{
-            "kind": "section", "title": "x", "body": "y", "desk": "gossip",
+            "kind": "section", "title": "x", "body": "y", "desk": desk,
         }])
         assert "desk" in render.validate(bad)
 
@@ -739,3 +743,16 @@ class TestEnsurePriorityDesk:
         html = html_path.read_text()
         assert "section--priority" in html
         assert "What to prioritize today" in html
+
+
+class TestFillNewsDesk:
+    def test_a_topic_id_section_gets_news_only_when_desk_is_missing_or_null(self):
+        data = edition(sections=[
+            {"kind": "section", "topic_id": "t_1", "title": "x", "body": "y", "sources": []},
+            {"kind": "section", "topic_id": "t_2", "desk": None, "title": "x", "body": "y", "sources": []},
+            {"kind": "section", "topic_id": "t_3", "desk": "weather", "title": "x", "body": "y", "sources": []},
+        ])
+        render.fill_news_desk(data)
+        assert data["sections"][0]["desk"] == "news"
+        assert data["sections"][1]["desk"] == "news"
+        assert data["sections"][2]["desk"] == "weather"

@@ -30,8 +30,9 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
   whoever wrote last has the ball.
 - Every factual claim names its item in the private advisor page or Q&A. Missing access is
   **unknown, never disproved**. Never turn an error into “none found.”
-- The page speaks to the reader as you / você in `owner.language`; “the founder” appears only
-  when discussing the advisor's general framework, never as a label for the reader.
+- The page speaks to the reader as you / você in `owner.language`, never about them by name;
+  “the founder” appears only when discussing the advisor's general framework, never as a label
+  for the reader.
 - Discover bundled advisors by reading every `*.md` except `README.md` under
   `/var/lib/hermes/skills/pt-setup/assets/advisors/`, then every owner advisor page at
   `~/Plow/wiki/projects/theplowtimes/advisors/*.md`. Treat each by the
@@ -39,10 +40,18 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 
 ## Orient
 
-Read all named advisor files, `qa.md`, `resources.md`, goals, today's desk evidence,
-`pt/advisor.md`, and `pt/history.json`. Yesterday's delivered recommendations are generation
-zero. On the first run, seed candidates from the named advisors' “Questions that change the
-advice.” Preserve the last fully criticized champion set as the rollback checkpoint.
+Read all named advisor files, `qa.md`, `resources.md`, goals, today's desk evidence, and
+`pt/advisor.md`. Run `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once and keep
+its compact JSON in the root context; do not reopen or dump the edition archive. The newest
+delivered recommendations are generation zero. With no history, seed candidates from the named
+advisors' “Questions that change the advice.” Preserve the last fully criticized champion set as
+the rollback checkpoint.
+
+Load this skill once during Orient. Then write the compact working state to
+`/var/lib/hermes/pt/run/desk-priority/tournament.json`: generation number; each champion's
+headline, decision, evidence locations, critic summary, and rank; the ranked Open question IDs;
+and the current checkpoint path. Update it after every Cull. If context is compacted, resume from
+that file and the checkpoint. **Never load this skill again in the same run.**
 
 Read tools from their installed documentation before using them. Mail uses the
 `google-workspace` skill; Messages uses `mcp__plow__plow_read_skill` with `name` = `imessage`;
@@ -97,6 +106,9 @@ distinct champions by decision impact, specificity, advisor fidelity, evidence, 
 survival of criticism. Incumbency gives continuity, not immunity. A challenger wins only by
 beating an incumbent on the decision the owner should make now.
 
+A critic's verdict is evidence, not an elimination vote. When at least three fully criticized
+targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
+
 The culler also ranks Open questions by decision impact, folds supported answers into Answered,
 and keeps no more than 20 entries. Missing sources remain Open. It consolidates sanitized resource
 discoveries, checkpoints `pt/advisor.md`, and derives the card.
@@ -115,11 +127,17 @@ deterministic quote-selection system. The card is:
 {"desk":"priority","status":"ok","priority":{"recommendations":[…],"questions":["Q<n> — …"]}}
 ```
 
-Write it to `/var/lib/hermes/pt/run/desk-priority/notes.json` only after this validation succeeds:
+Write the candidate to `/tmp/priority-notes.json` and copy its `priority` object into the priority
+section of `/tmp/card-edition.json`. Never write `notes.json` directly. Run the normal renderer
+gate:
 
 ```sh
 /var/lib/hermes/skills/pt-edition/scripts/render_edition.py /tmp/card-edition.json --chat /tmp/card-check.txt
 ```
+
+Only after that exits zero, atomically move `/tmp/priority-notes.json` to
+`/var/lib/hermes/pt/run/desk-priority/notes.json`, then update `tournament.json`. A failed gate
+leaves the previous checkpoint untouched and returns to Cull while time permits.
 
 ## Repeat and stop
 
