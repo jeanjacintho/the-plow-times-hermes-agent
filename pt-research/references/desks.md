@@ -158,6 +158,10 @@ list after a failed gather is not a free day: **never** print "no events
 today" / "the calendar is free" / "Nenhum evento hoje" unless a gather
 succeeded with a real empty list. Never invent a meeting.
 
+Delete any existing `run/desk-calendar/notes.json` and `events.json` before
+gathering, so a failed gather can never leave yesterday's agenda behind. Both
+files carry today's `date`; `render_edition.py` refuses one dated otherwise.
+
 Print a tight, sourced list the edition can turn into two paragraphs
 ("Today: …" / "Upcoming: …"). Notes at `run/desk-calendar/notes.json`.
 

@@ -226,6 +226,11 @@ HTML.** Hand-write `edition.json` under the run directory:
   compile a main-paper section into a noon paper, or the reverse. Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
+- **A desk's notes file must be dated for today's edition.** A desk that
+  fails to gather leaves the previous day's `run/desk-*/notes.json` /
+  `events.json` in place. `render_edition.py` refuses the edition when any
+  such file's `date` is not the edition's `date`; re-run that desk (or
+  drop the section as a logged miss) rather than reusing the old file.
 - **Pagination is the renderer's job.** News that does not fit one Letter
   sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
   Each boxed desk stays whole; if the rail itself overflows, the next desk
