@@ -80,6 +80,14 @@ class TestSettleAndParse:
     def test_lp_zero_passes(self):
         pe.require_lp_ok({"exit_code": 0, "output": "request id is HP-1"})
 
+    def test_missing_exit_code_is_still_running(self):
+        # Issue #35: Latch returns status:running and no exit_code when
+        # plow_run_command outlives wait_ms. Empty output used to pass.
+        with pytest.raises(SystemExit, match="still running"):
+            pe.require_lp_ok({"status": "running", "output": ""})
+        with pytest.raises(SystemExit, match="still running"):
+            pe.require_lp_ok({"output": ""})
+
 
 class TestShip:
     def test_writes_pdf_via_base64_then_lp_with_network_for_cups(self, tmp_path):
@@ -123,6 +131,34 @@ class TestShip:
             "/Users/jj/Plow/pt/edition-2026-09-17.pdf",
         ]
         assert lp_args["network"] is True
+
+    def test_lp_still_running_is_not_a_printed_page(self, tmp_path):
+        pdf = _edition(tmp_path)
+
+        def call_tool(name, arguments):
+            if name == "plow_write_file":
+                return {"path": "/Users/jj/Plow/pt/edition-2026-09-17.pdf.b64"}
+            if name == "plow_run_command":
+                if arguments["argv"][0] == "base64":
+                    return {"exit_code": 0, "output": ""}
+                return {"status": "running", "handle": "job-1"}
+            raise AssertionError(name)
+
+        with pytest.raises(SystemExit, match="lp still running"):
+            pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
+
+    def test_decode_still_running_is_not_a_printed_page(self, tmp_path):
+        pdf = _edition(tmp_path)
+
+        def call_tool(name, arguments):
+            if name == "plow_write_file":
+                return {"path": "/Users/jj/Plow/pt/edition-2026-09-17.pdf.b64"}
+            if name == "plow_run_command" and arguments["argv"][0] == "base64":
+                return {"status": "running", "handle": "job-1"}
+            raise AssertionError(name)
+
+        with pytest.raises(SystemExit, match="base64 still running"):
+            pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
 
     def test_lp_bad_file_descriptor_retries_via_applescript(self, tmp_path):
         pdf = _edition(tmp_path)

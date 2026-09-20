@@ -118,22 +118,24 @@ def is_bfd(parsed):
     return "bad file descriptor" in blob.lower()
 
 
+def require_finished_ok(parsed, step):
+    """Refuse a Latch run that never reported exit_code 0.
+
+    When plow_run_command outlives Latch's wait_ms, the payload is
+    status:running with no exit_code. Treating that as success printed
+    'page printed' with no page (issue #35).
+    """
+    if not isinstance(parsed, dict) or "exit_code" not in parsed:
+        sys.exit(f"error: page not printed — {step} still running")
+    if parsed["exit_code"] not in (0, "0"):
+        sys.exit(
+            f"error: page not printed — {step} {parsed['exit_code']}: "
+            f"{parsed.get('output', parsed)}"
+        )
+
+
 def require_lp_ok(parsed):
-    if isinstance(parsed, dict) and "exit_code" in parsed:
-        if parsed["exit_code"] not in (0, "0"):
-            sys.exit(
-                f"error: page not printed — lp {parsed['exit_code']}: "
-                f"{parsed.get('output', parsed)}"
-            )
-        return
-    output = ""
-    if isinstance(parsed, dict):
-        output = str(parsed.get("output") or parsed.get("raw") or "")
-    else:
-        output = str(parsed)
-    lowered = output.lower()
-    if "bad file descriptor" in lowered or lowered.startswith("lp:"):
-        sys.exit(f"error: page not printed — lp {output}")
+    require_finished_ok(parsed, "lp")
 
 
 def ship(pdf_path, printer, date, call_tool):
@@ -155,11 +157,7 @@ def ship(pdf_path, printer, date, call_tool):
             "goal": "Decode the edition PDF on the owner's Mac",
         },
     )
-    if isinstance(decoded, dict) and decoded.get("exit_code") not in (0, "0", None):
-        sys.exit(
-            f"error: page not printed — base64 {decoded.get('exit_code')}: "
-            f"{decoded.get('output', decoded)}"
-        )
+    require_finished_ok(decoded, "base64")
     lp = call_tool(
         "plow_run_command",
         {
