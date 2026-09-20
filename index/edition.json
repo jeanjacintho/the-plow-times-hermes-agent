@@ -9,9 +9,7 @@
       "desk": "weather",
       "body": "High clouds, a light breeze off the harbor.",
       "forecast": [
-        {"day": "Fri", "date": "18/09", "icon": "partly-cloudy", "high": 19, "low": 12},
-        {"day": "Sat", "date": "19/09", "icon": "sun", "high": 22, "low": 13},
-        {"day": "Sun", "date": "20/09", "icon": "rain", "high": 17, "low": 11}
+        {"day": "Fri", "date": "18/09", "icon": "partly-cloudy", "high": 19, "low": 12}
       ],
       "sources": ["https://example.com/weather/port-meridian"]
     },

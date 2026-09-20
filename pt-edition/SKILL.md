@@ -33,8 +33,7 @@ HTML.** Hand-write `edition.json` under the run directory:
       "headline": "Rain in the afternoon",
       "body": "3–6 sentences from desk-weather notes, city named.",
       "forecast": [
-        { "day": "Tue", "date": "17/05", "icon": "partly-cloudy", "high": 19, "low": 9 },
-        { "day": "Wed", "date": "18/05", "icon": "rain", "high": 17, "low": 6 }
+        { "day": "Tue", "date": "17/05", "icon": "partly-cloudy", "high": 19, "low": 9 }
       ],
       "sources": ["https://…"],
       "could_not_source": [] },
@@ -113,13 +112,17 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **Every desk but priority prints `sources` and `could_not_source`**, in
   the reader's words ("your calendar", never a file or a path). On the
   priority desk those lines were the paper's own plumbing ("Sources:
-  priority desk"), so the renderer drops them there. A weather `forecast`
-  grid prints no sources line in the HTML/PDF; the chat edition still does.
-- **`desk` is the newspaper department, and each one is its own page
-  slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
-  `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
-  `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
-  sources shape in every slot; the priority desk carries `sources: []`.
+  priority desk"), so the renderer drops them there. Weather on the
+  printed page is the masthead ear (icon and high/low, or the named miss
+  when research failed and there is no forecast); it has no sources
+  line. The chat edition still prints weather sources and gaps.
+- **`desk` is the newspaper department.** `"weather"` draws
+  `{{WEATHER_EAR}}` from today's `forecast` (or the named miss, or the
+  plain ear when there is no weather desk). `"calendar"`, `"mail"` and `"sports"`
+  share `{{DESKS_INLINE}}`. `"priority"` is `{{PRIORITY_BLOCK}}`.
+  `"news"` (the default) is `{{LEAD}}` then `{{SECTIONS}}`. Same
+  title / headline / body / sources shape in the JSON; the priority
+  desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
   already talks to the reader; do not turn it into a memo about "the
@@ -138,19 +141,17 @@ HTML.** Hand-write `edition.json` under the run directory:
   (at most three strings) and `today` (at most four `{"time", "title",
   "note"}`, where `time` is the printed start such as "10:00", or null
   for an all-day event).
-- **`forecast` is optional, weather-only, and drawn — not written.** 1-6
-  day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
-  "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
-  `rain`, `storm`, `snow` — the renderer draws a fixed monochrome icon
-  for each key, so anything else fails the gate), and `high`/`low`
-  (numbers, the units come from the template, not the JSON) — deliberately
-  temperatures and the icon only, nothing else; wind/humidity/precip
-  were tried and dropped so the strip stays readable at a glance. Only
-  include it when desk-weather's notes
-  actually name a day-by-day forecast (icon condition + high/low) for
-  more than just today; a same-day-only forecast has nothing to put in
-  a second or third cell, so leave `forecast` out and let the prose
-  `body` carry it alone, same as before this field existed.
+- **`forecast` is optional, weather-only, and drawn — not written.** Exactly
+  one day object: `day` (short label, e.g. "Tue"), `date` (e.g. "17/05"),
+  `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`, `rain`, `storm`,
+  `snow` — the renderer draws a fixed monochrome icon for each key, so
+  anything else fails the gate), and `high`/`low` (numbers, the units come
+  from the template, not the JSON) — deliberately temperatures and the
+  icon only, nothing else; wind/humidity/precip were tried and dropped so
+  the ear stays readable at a glance. That one day is `{{WEATHER_EAR}}`.
+  Extra days are not in the schema and do not reach chat. Leave `forecast`
+  out only when today's icon + high/low could not be sourced, and let
+  the prose `body` plus `could_not_source` carry the weather in chat.
 - **`schedule` (calendar-only), `messages` (mail-only) and `games`
   (sports-only) are the same idea as `forecast`, optional and drawn.**
   `schedule` is a non-empty list of `{ "time", "title", "icon" }`,

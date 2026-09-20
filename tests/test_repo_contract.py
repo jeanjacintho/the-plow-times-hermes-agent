@@ -786,16 +786,19 @@ class TestSkills:
         for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY_BLOCK",
                      "WEATHER_EAR", "DESKS_INLINE", "SECTIONS", "SUDOKU"):
             assert "{{" + slot + "}}" in template, f"template lost {{{{{slot}}}}}"
+        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
+        for dead in ("{{PAGE_CLASS}}", "{{PRIORITY}}", "{{WEATHER}}",
+                     "{{CALENDAR}}", "{{MAIL}}", "{{SPORTS}}", "{{SIDEBAR}}"):
+            assert dead not in template
+            assert f'.replace("{dead}"' not in renderer
 
     def test_template_has_a_newspaper_front_page(self):
         # Measured live 2026-09-18: the page read as a newsletter, not a
-        # newspaper. The reference is a broadsheet front page: nameplate
-        # with a double rule, a folio line, the lead as a large headline,
-        # and news in columns.
+        # newspaper. The reference is a broadsheet front page: nameplate,
+        # a folio line, the lead as a large headline, and news in columns.
         template = (ROOT / "pt-edition" / "template.html").read_text()
         assert "nameplate" in template
         assert "inspired by Mayfield" in template
-        assert "rule-double" in template
         assert "folio" in template
         assert "dropcap" in template
         assert "border-image" not in template  # no fake photo frames
@@ -810,6 +813,9 @@ class TestSkills:
         assert "desks-row" in template
         assert "break-inside: avoid" in template
         assert "news-well" in template
+        # Standing desks sit under the priority pack, not under the lead.
+        assert template.index("{{PRIORITY_BLOCK}}") < template.index("{{DESKS_INLINE}}")
+        assert template.index("{{DESKS_INLINE}}") < template.index("{{LEAD}}")
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).

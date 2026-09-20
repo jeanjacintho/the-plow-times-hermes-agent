@@ -72,10 +72,10 @@ PRIORITY_UNAVAILABLE = {
 # Controlled vocabulary for a sports desk game row -- what state the game
 # is in, drawn as a label/tag, never free text.
 GAME_STATUSES = ("scheduled", "live", "final")
-# Controlled vocabulary for the weather forecast strip -- an icon is drawn
-# from this fixed inline-SVG set (see WEATHER_ICONS), never fetched, so an
-# unrecognized key is a validation failure rather than a silently broken
-# picture or a remote image request.
+# Controlled vocabulary for the weather forecast strip -- an icon is
+# inlined from pt-edition/assets/weather (Atlas Icons, MIT), never
+# fetched, so an unrecognized key is a validation failure rather than
+# a silently broken picture or a remote image request.
 FORECAST_ICONS = ("sun", "partly-cloudy", "cloud", "rain", "storm", "snow")
 # Same idea for the calendar desk's schedule rows -- what kind of event this
 # is, drawn from CALENDAR_ICONS, never free text.
@@ -196,8 +196,8 @@ def validate(edition):
         if forecast is not None:
             if desk != "weather":
                 failures.append(f"{where}.forecast is only valid on the weather desk")
-            elif not isinstance(forecast, list) or not (1 <= len(forecast) <= 6):
-                failures.append(f"{where}.forecast is not a list of 1-6 days")
+            elif not isinstance(forecast, list) or len(forecast) != 1:
+                failures.append(f"{where}.forecast must contain today's forecast")
             else:
                 for day_index, day in enumerate(forecast):
                     dwhere = f"{where}.forecast[{day_index}]"
@@ -594,90 +594,29 @@ def render_chat(edition, name):
     return "\n".join(lines) + "\n"
 
 
-# Inline, monochrome (currentColor) weather-strip icons -- drawn, never
-# fetched, so the "no external assets" rule in template.html holds even
-# for pictures. Each is a small fixed-viewBox line drawing; FORECAST_ICONS
-# is the only allowed set of keys into this dict.
-WEATHER_ICONS = {
-    "sun": (
-        '<circle cx="12" cy="12" r="4.5"/>'
-        '<path d="M12 2v3M12 19v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1'
-        'M2 12h3M19 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>'
-    ),
-    "partly-cloudy": (
-        '<circle cx="9.5" cy="9.5" r="3.6"/>'
-        '<path d="M9.5 2.8v2.2M4.3 4.3l1.6 1.6M2.8 9.5H5M15 9.5h2.2M13.4 5.9l1.6-1.6"/>'
-        '<path d="M8 21h9.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8.6 12.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-    ),
-    "cloud": (
-        '<path d="M7 20h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.6 11.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-    ),
-    "rain": (
-        '<path d="M6.5 15h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 6.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M8 18.5l-1.2 3M12 18.5l-1.2 3M16 18.5l-1.2 3"/>'
-    ),
-    "storm": (
-        '<path d="M6.5 13.5h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 4.7'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M12.5 15.5l-2.7 4.3h2.6l-1.7 3.4"/>'
-    ),
-    "snow": (
-        '<path d="M6.5 15h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 6.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M8 18v3.5M6.5 19.2l3 2.1M9.5 19.2l-3 2.1'
-        'M16 18v3.5M14.5 19.2l3 2.1M17.5 19.2l-3 2.1"/>'
-    ),
-}
+# Forecast drawings: Atlas Icons weather glyphs (MIT), vendored beside
+# this skill so the "no external assets" rule in template.html holds.
+# FORECAST_ICONS is the only allowed set of filenames.
+WEATHER_ICON_DIR = pathlib.Path(__file__).resolve().parent.parent / "assets" / "weather"
 
 
 def weather_icon(key, size=28):
     """One inline SVG for a forecast day, `size` px square. `key` is
-    pre-validated against FORECAST_ICONS by validate(); this still falls
-    back to a plain cloud rather than trust an unchecked caller."""
-    body = WEATHER_ICONS.get(key, WEATHER_ICONS["cloud"])
-    return (
-        f'<svg class="wx-icon" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        'fill="none" stroke="currentColor" stroke-width="1.4" '
-        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-        f"{body}</svg>"
+    pre-validated against FORECAST_ICONS by validate()."""
+    text = (WEATHER_ICON_DIR / f"{key}.svg").read_text(encoding="utf-8")
+    return text.replace(
+        "<svg ",
+        f'<svg class="wx-icon" width="{size}" height="{size}" ',
+        1,
     )
 
 
-def forecast_grid(days):
-    """The weather desk's day-by-day strip: one cell per forecast day,
-    each a drawn icon plus day/date/high/low. Every string here came from
-    the day's own note, so it is escaped like any other section field.
-    Deliberately just temperatures -- wind/humidity/precip were tried and
-    dropped, the owner wanted the strip to stay to a glance, not a full
-    weather-station readout."""
-    cells = []
-    for day in days:
-        label = html.escape(day["day"].strip())
-        date_str = html.escape(day["date"].strip())
-        icon = weather_icon(day.get("icon"))
-        high = html.escape(str(day["high"]))
-        low = html.escape(str(day["low"]))
-        cells.append(
-            '<div class="wx-day">'
-            f'<span class="wx-day-name">{label}</span>'
-            f'<span class="wx-day-date">{date_str}</span>'
-            f'<span class="wx-icon-wrap">{icon}</span>'
-            f'<span class="wx-high">{high}&deg;</span>'
-            f'<span class="wx-low">{low}&deg;</span>'
-            "</div>"
-        )
-    return '<div class="wx-grid">' + "".join(cells) + "</div>"
-
-
 def weather_ear_html(weather_sections):
-    """The masthead's right ear: today's icon and high/low only, in place
-    of the old static tagline -- the full multi-day strip lives nowhere
-    else on the page, so this is the one place the paper's weather shows
-    up at all. Falls back to the plain tagline box when there's no
-    forecast to draw from (a prose-only weather section, or none today)."""
+    """The masthead's right ear: today's icon and high/low when the
+    notes have a forecast. A weather desk that failed research (no
+    forecast, named in could_not_source) must not look like a complete
+    paper -- the ear prints that miss instead of the slogan. The slogan
+    is only for a day with no weather desk at all."""
     fallback = '<span class="ear-box">One edition<br>for one reader</span>'
     for section in weather_sections:
         forecast = section.get("forecast")
@@ -693,6 +632,15 @@ def weather_ear_html(weather_sections):
                 f'<span class="ear-wx-high">{high}&deg;</span>'
                 f'<span class="ear-wx-low">{low}&deg;</span>'
                 "</span>"
+                "</span>"
+            )
+    for section in weather_sections:
+        misses = [str(m).strip() for m in section.get("could_not_source", []) if str(m).strip()]
+        if misses:
+            return (
+                '<span class="ear-box">'
+                "Couldn't source<br>"
+                f"{html.escape(misses[0])}"
                 "</span>"
             )
     return fallback
@@ -756,10 +704,10 @@ DESK_HEADER_ICONS = {
 }
 
 
-def _stroke_svg(css_class, body, size):
+def _stroke_svg(css_class, body, size, stroke="currentColor"):
     return (
         f'<svg class="{css_class}" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        'fill="none" stroke="currentColor" stroke-width="1.5" '
+        f'fill="none" stroke="{stroke}" stroke-width="1.5" '
         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         f"{body}</svg>"
     )
@@ -770,7 +718,9 @@ def desk_header_icon(desk):
     body = DESK_HEADER_ICONS.get(desk)
     if not body:
         return ""
-    return _stroke_svg("desk-icon", body, 13)
+    # Title bars are ink; WeasyPrint leaves currentColor as black, so the
+    # stroke has to be paper-white here or the mark vanishes into the bar.
+    return _stroke_svg("desk-icon", body, 13, stroke="#ffffff")
 
 
 def calendar_icon(key):
@@ -778,12 +728,7 @@ def calendar_icon(key):
     against SCHEDULE_ICONS by validate(); falls back to the generic note
     icon rather than trust an unchecked caller."""
     body = CALENDAR_ICONS.get(key, CALENDAR_ICONS["note"])
-    return (
-        '<svg class="cal-icon" viewBox="0 0 24 24" width="16" height="16" '
-        'fill="none" stroke="currentColor" stroke-width="1.5" '
-        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-        f"{body}</svg>"
-    )
+    return _stroke_svg("cal-icon", body, 16)
 
 
 def schedule_list(items):
@@ -802,8 +747,10 @@ def schedule_list(items):
         rows.append(
             '<div class="cal-item">'
             f'<span class="cal-icon-wrap">{icon}</span>'
+            '<span class="cal-body">'
             f'<span class="cal-time">{time_str}</span>'
             f'<span class="cal-title">{title}</span>'
+            "</span>"
             "</div>"
         )
     return '<div class="cal-list">' + "".join(rows) + "</div>"
@@ -825,8 +772,10 @@ def messages_list(items):
         rows.append(
             '<div class="mail-item">'
             f'<span class="mail-icon-wrap">{icon}</span>'
+            '<span class="mail-body">'
             f'<span class="mail-sender">{sender}</span>'
             f'<span class="mail-subject">{subject}</span>'
+            "</span>"
             "</div>"
         )
     return '<div class="mail-list">' + "".join(rows) + "</div>"
@@ -845,32 +794,46 @@ def _inline(heading, texts):
     return f'<h3>{heading}</h3><ul class="priority-inline">{items}</ul>'
 
 
+def _today_list(priority):
+    if not priority.get("today"):
+        return ""
+    items = []
+    for event in priority["today"]:
+        time = (
+            f'<span class="cal-time">{_esc(event["time"])}</span>'
+            if event.get("time") else ""
+        )
+        note = (
+            f'<span class="src">{_esc(event["note"])}</span>'
+            if event.get("note") else ""
+        )
+        items.append(
+            f'<div class="priority-event">{time}'
+            f'<span class="cal-title">{_esc(event["title"])}</span>{note}</div>'
+        )
+    return '<h3>TODAY</h3><div class="priority-today">' + "".join(items) + "</div>"
+
+
 def priority_lead(priority):
-    """Above the focus: the open questions, yesterday's follow-up, the stage and its reason, today, the week."""
+    """Above the pack: open questions and yesterday's follow-up — the kicker lives on the story."""
     blocks = []
     if priority.get("questions"):
         blocks.append(_inline("QUESTIONS · “Q2: …”", priority["questions"]))
     if priority.get("yesterday"):
         blocks.append(_note("YESTERDAY", priority["yesterday"]))
+    return "\n".join(blocks)
+
+
+def priority_block(priority, headline=""):
+    """Focus column: kicker, standfirst, headline, deck, why, who, draft."""
+    blocks = []
     if priority.get("stage_label"):
         blocks.append(f'<p class="priority-stage">STAGE · {_esc(priority["stage_label"])}</p>')
     if priority.get("stage_why"):
         blocks.append(f'<div class="priority-note">{_esc(priority["stage_why"])}</div>')
-    if priority.get("today"):
-        items = []
-        for event in priority["today"]:
-            time = f"<b>{_esc(event['time'])}</b> " if event.get("time") else ""
-            note = f'<span class="src">{_esc(event["note"])}</span>'
-            items.append(f"<li>{time}{_esc(event['title'])} {note}</li>")
-        blocks.append('<h3>TODAY</h3><ul class="priority-list">' + "".join(items) + "</ul>")
-    if priority.get("week"):
-        blocks.append(_note("THIS WEEK", priority["week"]))
-    return "\n".join(blocks)
-
-
-def priority_block(priority):
-    """Below the focus: first step, sourced why, who, the draft, what not to do."""
-    blocks = [f'<p class="priority-step">{_esc(priority["first_step"])}</p>']
+    if headline:
+        blocks.append(f'<p class="headline">{html.escape(headline.strip())}</p>')
+    blocks.append(f'<p class="priority-step">{_esc(priority["first_step"])}</p>')
     items = []
     for item in priority["why"]:
         quote = f" “{_esc(item['quote'])}”" if item.get("quote") else ""
@@ -881,9 +844,40 @@ def priority_block(priority):
         blocks.append(_inline("WHO", priority["who"]))
     if priority.get("draft"):
         blocks.append(_note("DRAFT", priority["draft"], "priority-note priority-draft"))
+    return "\n".join(blocks)
+
+
+def priority_rail(priority):
+    """Right column: the day's track — today, the week, what not to do."""
+    blocks = []
+    today = _today_list(priority)
+    if today:
+        blocks.append(today)
+    if priority.get("week"):
+        blocks.append(_note("THIS WEEK", priority["week"]))
     if priority.get("not_today"):
         blocks.append(_inline("NOT TODAY", priority["not_today"]))
     return "\n".join(blocks)
+
+
+def priority_pack(priority, headline=""):
+    """Front-page package: context, then focus | rail (a table for WeasyPrint)."""
+    lead = priority_lead(priority)
+    focus = priority_block(priority, headline)
+    rail = priority_rail(priority)
+    parts = []
+    if lead:
+        parts.append(f'<div class="priority-context">{lead}</div>')
+    if rail:
+        parts.append(
+            '<div class="priority-pack">'
+            f'<div class="priority-focus">{focus}</div>'
+            f'<div class="priority-rail">{rail}</div>'
+            "</div>"
+        )
+    else:
+        parts.append(f'<div class="priority-focus">{focus}</div>')
+    return "\n".join(parts)
 
 
 def games_list(games):
@@ -998,10 +992,10 @@ def html_section(section, drop_cap=False):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
     ``desk`` (optional, default ``news``) is the newspaper department.
-    Each standing desk is a slot of its own ({{WEATHER}}, {{CALENDAR}},
-    {{MAIL}}); the first news story fills {{LEAD}} and the rest fill
-    {{SECTIONS}}. Same story fields, same escaping; only the wrapping
-    class and the page slot differ.
+    Calendar, mail and sports fill {{DESKS_INLINE}}; weather draws
+    {{WEATHER_EAR}} (not this function); the first news story fills
+    {{LEAD}} and the rest fill {{SECTIONS}}. Same story fields, same
+    escaping; only the wrapping class and the page slot differ.
 
     A news story's ``tag`` prints as a kicker -- the small letterspaced
     section label above the headline, the way a broadsheet labels
@@ -1046,36 +1040,26 @@ def html_section(section, drop_cap=False):
         classes.append("section--sidebar")
     article_class = " ".join(classes)
     header_icon = desk_header_icon(desk)
-    forecast = section.get("forecast") if desk == "weather" else None
     schedule = section.get("schedule") if desk == "calendar" else None
     messages = section.get("messages") if desk == "mail" else None
     games = section.get("games") if desk == "sports" else None
     priority = section.get("priority") if desk == "priority" else None
-    structured = forecast or schedule or messages or games or priority
-    # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
-    # no caption) -- the title bar, headline, body prose and sources line
-    # are all dropped for weather when it's carrying a grid, so the box
-    # is just the days and any gap. Calendar/mail/sports keep their
-    # title, headline and sources either way (unlike weather, nobody
-    # asked for those gone) but drop the body PROSE specifically once a
-    # schedule, messages or games list is present -- otherwise the box
-    # shows the same event twice, once as a clean icon/score row and
-    # again as a redundant bullet restating it in a sentence. The
-    # plain-text chat edition is unaffected by any of this (see
-    # chat_section) -- every omission here is print/HTML-only; body
-    # stays required in the JSON because the chat edition has no icons
-    # to fall back on.
-    skip_caption = bool(forecast)
+    structured = schedule or messages or games or priority
+    # Calendar/mail/sports keep title and headline but drop the body
+    # PROSE once a list is present, or the box shows the same event
+    # twice. Print sources stay. Chat is unaffected (chat_section).
+    # Body stays required in the JSON because chat has no icons to
+    # fall back on. Weather never reaches this function -- the ear
+    # draws it.
     skip_body = bool(structured)
     blocks = [f'<article class="{article_class}">']
-    if not skip_caption:
-        if kicker_html:
-            blocks.append(kicker_html)
-        blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
-        if desk == "priority" and priority:
-            blocks.append(priority_lead(priority))
-        if headline:
-            blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
+    if kicker_html:
+        blocks.append(kicker_html)
+    blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
+    if desk == "priority" and priority:
+        blocks.append(priority_pack(priority, headline))
+    elif headline:
+        blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None
     if image:
         data_uri = fetch_grayscale_photo(image["url"].strip())
@@ -1088,16 +1072,12 @@ def html_section(section, drop_cap=False):
                 f'  <figure class="story-photo"><img src="{data_uri}" alt="">'
                 f"{credit_html}</figure>"
             )
-    if forecast:
-        blocks.append(forecast_grid(forecast))
     if schedule:
         blocks.append(schedule_list(schedule))
     if messages:
         blocks.append(messages_list(messages))
     if games:
         blocks.append(games_list(games))
-    if priority:
-        blocks.append(priority_block(priority))
     if skip_body:
         pass
     elif paras:
@@ -1114,7 +1094,7 @@ def html_section(section, drop_cap=False):
         blocks.append("  <p>(nothing to report this time)</p>")
     # The priority desk's sources were our own plumbing ("Sources: priority desk").
     if desk != "priority":
-        sources = [] if skip_caption else dedupe(section.get("sources", []))
+        sources = dedupe(section.get("sources", []))
         if sources:
             links = ", ".join(source_markup(url) for url in sources)
             blocks.append(f'  <p class="sources">Sources: {links}</p>')
@@ -1193,6 +1173,35 @@ def sudoku_section_html(edition_date):
     )
 
 
+def news_well(sections):
+    """Leftover news as two-column pairs that never split a cell.
+
+    CSS column-count left a blank second column in WeasyPrint 62.3
+    (measured). Two tall stacks in one table continue in the wrong
+    column when a cell paginates. One story per cell, two cells per
+    row, break-inside:avoid on the row: two columns, no cell
+    continuation. A lone leftover stays full width.
+    """
+    if not sections:
+        return ""
+    rows = []
+    i = 0
+    while i < len(sections):
+        left = html_section(sections[i])
+        if i + 1 >= len(sections):
+            rows.append(left)
+            break
+        right = html_section(sections[i + 1])
+        rows.append(
+            '<div class="news-cols">'
+            f'<div class="news-col">{left}</div>'
+            f'<div class="news-col">{right}</div>'
+            "</div>"
+        )
+        i += 2
+    return "".join(rows)
+
+
 def render_html(edition, name, template_text):
     ordered = [section for _index, section in ordered_sections(edition["sections"])]
     news = [s for s in ordered if is_news_section(s)]
@@ -1203,8 +1212,7 @@ def render_html(edition, name, template_text):
     priority = [s for s in ordered if desk_of(s) == "priority"]
 
     # The lead story renders separately from the rest of the news well so
-    # it can run alone, full width, in its own row above everything else
-    # (see the top comment for why the desks no longer sit beside it).
+    # it can run full width after the standing desks.
     if news:
         lead_html = html_section(news[0], drop_cap=True)
         rest = news[1:]
@@ -1215,16 +1223,7 @@ def render_html(edition, name, template_text):
         lead_html = '<article class="section"><p>Nothing to report this time.</p></article>'
         rest = []
 
-    # The news well is a vertical stack of stories that MAY split across
-    # pages. Measured live 2026-09-18: wrapping them in 3-cell tables with
-    # break-inside:avoid left a half-empty page 1 (the lead body jumped
-    # whole) and parked leftover news on page 2 while space remained
-    # above. WeasyPrint 62.3 still cannot split a table cell without
-    # painting the continuation one column to the right, so the well is
-    # not a table at all -- ordinary block flow fills leftover space and
-    # only starts a new page when the current one is full.
-    news_well_html = "".join(html_section(section) for section in rest)
-    weather_html = wrap_desk(join_articles(weather))
+    news_well_html = news_well(rest)
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
     sports_html = wrap_desk(join_articles(sports))
@@ -1238,20 +1237,13 @@ def render_html(edition, name, template_text):
     priority_block_html = (
         f'<div class="priority-wrap">{priority_html}</div>' if priority_html else ""
     )
-    # {{SIDEBAR}} is the desks column as a whole, for older templates that
-    # still have one rail slot instead of four. New template.html uses the
-    # named slots and leaves this empty of news.
-    desks_html = "\n".join(
-        part for part in (weather_html, calendar_html, mail_html, sports_html) if part
-    )
 
-    # Calendar, mail and sports run as a row of boxed departments below
-    # the lead -- the same black-label-bar box language as the priority
-    # card, three cells side by side like a front page's "inside today"
-    # teasers. Empty string when none of them ran today, so the template
-    # never prints a bare rule above nothing. Weather isn't here -- it
-    # lives in the masthead's ear. Priority has its own {{PRIORITY_BLOCK}}
-    # slot and must not also land here.
+    # Calendar, mail and sports run as a row of boxed departments under
+    # the priority pack, above the news lead. Empty string when none of
+    # them ran today, so the template never prints a bare rule above
+    # nothing. Weather isn't here -- it lives in the masthead's ear.
+    # Priority has its own {{PRIORITY_BLOCK}} slot and must not also
+    # land here.
     inline_parts = [part for part in (calendar_html, mail_html, sports_html) if part]
     desks_inline_html = ""
     if inline_parts:
@@ -1259,7 +1251,6 @@ def render_html(edition, name, template_text):
         desks_inline_html = f'<div class="desks-row">{cells}</div>'
     weather_ear = weather_ear_html(weather)
 
-    page_class = "page" if desks_html else "page page--no-desks"
     location = html.escape((edition.get("location") or "").strip() or "One copy")
     sudoku_html = sudoku_section_html(edition["date"])
 
@@ -1268,18 +1259,11 @@ def render_html(edition, name, template_text):
         .replace("{{MASTHEAD}}", html.escape(name))
         .replace("{{DATE}}", html.escape(pretty_date(edition["date"])))
         .replace("{{LOCATION}}", location)
-        .replace("{{PAGE_CLASS}}", page_class)
         .replace("{{LEAD}}", lead_html)
-        .replace("{{PRIORITY}}", priority_html)
         .replace("{{PRIORITY_BLOCK}}", priority_block_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
         .replace("{{SECTIONS}}", news_well_html)
-        .replace("{{WEATHER}}", weather_html)
-        .replace("{{CALENDAR}}", calendar_html)
-        .replace("{{MAIL}}", mail_html)
-        .replace("{{SPORTS}}", sports_html)
-        .replace("{{SIDEBAR}}", desks_html)
         .replace("{{SUDOKU}}", sudoku_html)
     )
 
