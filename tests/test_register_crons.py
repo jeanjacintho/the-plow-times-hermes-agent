@@ -771,6 +771,9 @@ class TestShowDailyRecipe:
         assert (
             "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py release"
         ) in printed
+        assert (
+            "/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py"
+        ) in printed
         assert "python3" not in printed
 
     def test_showing_the_recipe_touches_no_jobs_and_needs_no_container(self, tmp_path, capsys):

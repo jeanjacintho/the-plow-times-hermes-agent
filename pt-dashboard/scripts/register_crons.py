@@ -161,6 +161,8 @@ def daily_prompt(lock_name, live=False):
         f"--name {lock_name}-<today's date in the owner's "
         f"zone> --stale-minutes 120; if its output is 'held', another run owns "
         f"this slot -- say NO_REPLY and stop. Then "
+        f"/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py "
+        f"(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
         f"(delivered sections are yesterday's paper, not a skip). Then run pt-research: first "
         f"every standing desk pt-research/references/desks.md lists, in its order, "

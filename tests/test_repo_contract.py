@@ -793,7 +793,7 @@ class TestSkills:
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
                      "record_owner_language.py", "reconcile_pt_skills.py",
-                     "seal_chat_session.py"):
+                     "seal_chat_session.py", "prepare_daily_run.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_record_setup_is_executable_and_referenced(self):
