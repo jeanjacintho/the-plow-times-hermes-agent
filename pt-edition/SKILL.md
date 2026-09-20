@@ -113,13 +113,16 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **Every desk but priority prints `sources` and `could_not_source`**, in
   the reader's words ("your calendar", never a file or a path). On the
   priority desk those lines were the paper's own plumbing ("Sources:
-  priority desk"), so the renderer drops them there. A weather `forecast`
-  grid prints no sources line in the HTML/PDF; the chat edition still does.
-- **`desk` is the newspaper department, and each one is its own page
-  slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
-  `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
-  `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
-  sources shape in every slot; the priority desk carries `sources: []`.
+  priority desk"), so the renderer drops them there. Weather on the
+  printed page is the masthead ear (icon and high/low); it has no
+  sources line. The chat edition still prints weather sources.
+- **`desk` is the newspaper department.** `"weather"` draws
+  `{{WEATHER_EAR}}` from the first `forecast` day (or the plain ear
+  when there is no forecast). `"calendar"`, `"mail"` and `"sports"`
+  share `{{DESKS_INLINE}}`. `"priority"` is `{{PRIORITY_BLOCK}}`.
+  `"news"` (the default) is `{{LEAD}}` then `{{SECTIONS}}`. Same
+  title / headline / body / sources shape in the JSON; the priority
+  desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
   already talks to the reader; do not turn it into a memo about "the
@@ -145,12 +148,11 @@ HTML.** Hand-write `edition.json` under the run directory:
   for each key, so anything else fails the gate), and `high`/`low`
   (numbers, the units come from the template, not the JSON) — deliberately
   temperatures and the icon only, nothing else; wind/humidity/precip
-  were tried and dropped so the strip stays readable at a glance. Only
-  include it when desk-weather's notes
-  actually name a day-by-day forecast (icon condition + high/low) for
-  more than just today; a same-day-only forecast has nothing to put in
-  a second or third cell, so leave `forecast` out and let the prose
-  `body` carry it alone, same as before this field existed.
+  were tried and dropped so the ear stays readable at a glance. The
+  printed page draws only the first day in `{{WEATHER_EAR}}`; extra
+  days stay in the JSON for the chat edition. Leave `forecast` out
+  when the notes have no day-by-day icon + high/low, and let the
+  prose `body` carry the weather in chat.
 - **`schedule` (calendar-only), `messages` (mail-only) and `games`
   (sports-only) are the same idea as `forecast`, optional and drawn.**
   `schedule` is a non-empty list of `{ "time", "title", "icon" }`,

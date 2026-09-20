@@ -779,6 +779,11 @@ class TestSkills:
         for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY_BLOCK",
                      "WEATHER_EAR", "DESKS_INLINE", "SECTIONS", "SUDOKU"):
             assert "{{" + slot + "}}" in template, f"template lost {{{{{slot}}}}}"
+        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
+        for dead in ("{{PAGE_CLASS}}", "{{PRIORITY}}", "{{WEATHER}}",
+                     "{{CALENDAR}}", "{{MAIL}}", "{{SPORTS}}", "{{SIDEBAR}}"):
+            assert dead not in template
+            assert f'.replace("{dead}"' not in renderer
 
     def test_template_has_a_newspaper_front_page(self):
         # Measured live 2026-09-18: the page read as a newsletter, not a

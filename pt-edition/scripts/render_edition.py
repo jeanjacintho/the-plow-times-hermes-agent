@@ -601,32 +601,6 @@ def weather_icon(key, size=28):
     )
 
 
-def forecast_grid(days):
-    """The weather desk's day-by-day strip: one cell per forecast day,
-    each a drawn icon plus day/date/high/low. Every string here came from
-    the day's own note, so it is escaped like any other section field.
-    Deliberately just temperatures -- wind/humidity/precip were tried and
-    dropped, the owner wanted the strip to stay to a glance, not a full
-    weather-station readout."""
-    cells = []
-    for day in days:
-        label = html.escape(day["day"].strip())
-        date_str = html.escape(day["date"].strip())
-        icon = weather_icon(day.get("icon"))
-        high = html.escape(str(day["high"]))
-        low = html.escape(str(day["low"]))
-        cells.append(
-            '<div class="wx-day">'
-            f'<span class="wx-day-name">{label}</span>'
-            f'<span class="wx-day-date">{date_str}</span>'
-            f'<span class="wx-icon-wrap">{icon}</span>'
-            f'<span class="wx-high">{high}&deg;</span>'
-            f'<span class="wx-low">{low}&deg;</span>'
-            "</div>"
-        )
-    return '<div class="wx-grid">' + "".join(cells) + "</div>"
-
-
 def weather_ear_html(weather_sections):
     """The masthead's right ear: today's icon and high/low only, in place
     of the old static tagline -- the full multi-day strip lives nowhere
@@ -999,10 +973,10 @@ def html_section(section, drop_cap=False):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
     ``desk`` (optional, default ``news``) is the newspaper department.
-    Each standing desk is a slot of its own ({{WEATHER}}, {{CALENDAR}},
-    {{MAIL}}); the first news story fills {{LEAD}} and the rest fill
-    {{SECTIONS}}. Same story fields, same escaping; only the wrapping
-    class and the page slot differ.
+    Calendar, mail and sports fill {{DESKS_INLINE}}; weather draws
+    {{WEATHER_EAR}} (not this function); the first news story fills
+    {{LEAD}} and the rest fill {{SECTIONS}}. Same story fields, same
+    escaping; only the wrapping class and the page slot differ.
 
     A news story's ``tag`` prints as a kicker -- the small letterspaced
     section label above the headline, the way a broadsheet labels
@@ -1047,32 +1021,26 @@ def html_section(section, drop_cap=False):
         classes.append("section--sidebar")
     article_class = " ".join(classes)
     header_icon = desk_header_icon(desk)
-    forecast = section.get("forecast") if desk == "weather" else None
     schedule = section.get("schedule") if desk == "calendar" else None
     messages = section.get("messages") if desk == "mail" else None
     games = section.get("games") if desk == "sports" else None
     priority = section.get("priority") if desk == "priority" else None
-    structured = forecast or schedule or messages or games or priority
-    # A forecast grid is self-explanatory (a sun icon and 26 degrees
-    # needs no caption) -- title, headline, body and sources drop so
-    # the box is the days and any gap. Calendar/mail/sports keep title
-    # and headline but drop the body PROSE once a list is present, or
-    # the box shows the same event twice. Print sources stay (every
-    # claim carries a source). Chat is unaffected (chat_section). Body
-    # stays required in the JSON because chat has no icons to fall back
-    # on.
-    skip_caption = bool(forecast)
+    structured = schedule or messages or games or priority
+    # Calendar/mail/sports keep title and headline but drop the body
+    # PROSE once a list is present, or the box shows the same event
+    # twice. Print sources stay. Chat is unaffected (chat_section).
+    # Body stays required in the JSON because chat has no icons to
+    # fall back on. Weather never reaches this function -- the ear
+    # draws it.
     skip_body = bool(structured)
-    skip_print_sources = bool(forecast)
     blocks = [f'<article class="{article_class}">']
-    if not skip_caption:
-        if kicker_html:
-            blocks.append(kicker_html)
-        blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
-        if desk == "priority" and priority:
-            blocks.append(priority_pack(priority, headline))
-        elif headline:
-            blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
+    if kicker_html:
+        blocks.append(kicker_html)
+    blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
+    if desk == "priority" and priority:
+        blocks.append(priority_pack(priority, headline))
+    elif headline:
+        blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None
     if image:
         data_uri = fetch_grayscale_photo(image["url"].strip())
@@ -1085,8 +1053,6 @@ def html_section(section, drop_cap=False):
                 f'  <figure class="story-photo"><img src="{data_uri}" alt="">'
                 f"{credit_html}</figure>"
             )
-    if forecast:
-        blocks.append(forecast_grid(forecast))
     if schedule:
         blocks.append(schedule_list(schedule))
     if messages:
@@ -1109,7 +1075,7 @@ def html_section(section, drop_cap=False):
         blocks.append("  <p>(nothing to report this time)</p>")
     # The priority desk's sources were our own plumbing ("Sources: priority desk").
     if desk != "priority":
-        sources = [] if skip_print_sources else dedupe(section.get("sources", []))
+        sources = dedupe(section.get("sources", []))
         if sources:
             links = ", ".join(source_markup(url) for url in sources)
             blocks.append(f'  <p class="sources">Sources: {links}</p>')
@@ -1239,7 +1205,6 @@ def render_html(edition, name, template_text):
         rest = []
 
     news_well_html = news_well(rest)
-    weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
     sports_html = wrap_desk(join_articles(sports))
@@ -1253,16 +1218,9 @@ def render_html(edition, name, template_text):
     priority_block_html = (
         f'<div class="priority-wrap">{priority_html}</div>' if priority_html else ""
     )
-    # {{SIDEBAR}} is the desks column as a whole, for older templates that
-    # still have one rail slot instead of four. New template.html uses the
-    # named slots and leaves this empty of news.
-    desks_html = "\n".join(
-        part for part in (weather_html, calendar_html, mail_html, sports_html) if part
-    )
 
     # Calendar, mail and sports run as a row of boxed departments under
-    # the priority pack, above the news lead -- the same black-label-bar
-    # box language, three cells side by side. Empty string when none of
+    # the priority pack, above the news lead. Empty string when none of
     # them ran today, so the template never prints a bare rule above
     # nothing. Weather isn't here -- it lives in the masthead's ear.
     # Priority has its own {{PRIORITY_BLOCK}} slot and must not also
@@ -1274,7 +1232,6 @@ def render_html(edition, name, template_text):
         desks_inline_html = f'<div class="desks-row">{cells}</div>'
     weather_ear = weather_ear_html(weather)
 
-    page_class = "page" if desks_html else "page page--no-desks"
     location = html.escape((edition.get("location") or "").strip() or "One copy")
     sudoku_html = sudoku_section_html(edition["date"])
 
@@ -1283,18 +1240,11 @@ def render_html(edition, name, template_text):
         .replace("{{MASTHEAD}}", html.escape(name))
         .replace("{{DATE}}", html.escape(pretty_date(edition["date"])))
         .replace("{{LOCATION}}", location)
-        .replace("{{PAGE_CLASS}}", page_class)
         .replace("{{LEAD}}", lead_html)
-        .replace("{{PRIORITY}}", priority_html)
         .replace("{{PRIORITY_BLOCK}}", priority_block_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
         .replace("{{SECTIONS}}", news_well_html)
-        .replace("{{WEATHER}}", weather_html)
-        .replace("{{CALENDAR}}", calendar_html)
-        .replace("{{MAIL}}", mail_html)
-        .replace("{{SPORTS}}", sports_html)
-        .replace("{{SIDEBAR}}", desks_html)
         .replace("{{SUDOKU}}", sudoku_html)
     )
 
