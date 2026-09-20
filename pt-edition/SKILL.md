@@ -229,8 +229,10 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **A desk's notes file must be dated for today's edition.** A desk that
   fails to gather leaves the previous day's `run/desk-*/notes.json` /
   `events.json` in place. `render_edition.py` refuses the edition when any
-  such file's `date` is not the edition's `date`; re-run that desk (or
-  drop the section as a logged miss) rather than reusing the old file.
+  such file's `date` is not the edition's `date`; re-run that desk, or
+  delete its stale files and then drop the section as a logged miss — the
+  check reads the files, not the edition, so dropping the section alone
+  still refuses.
 - **Pagination is the renderer's job.** News that does not fit one Letter
   sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
   Each boxed desk stays whole; if the rail itself overflows, the next desk

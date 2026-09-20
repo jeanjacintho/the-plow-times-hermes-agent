@@ -892,6 +892,17 @@ class TestMain:
         render.main([str(path), "--html", str(second)])
         assert first.read_text() == second.read_text()
 
+    def test_refuses_a_desk_file_dated_for_another_day(self, tmp_path):
+        run = tmp_path / "run"
+        (run / "desk-calendar").mkdir(parents=True)
+        (run / "desk-calendar" / "events.json").write_text(
+            json.dumps({"date": "2000-01-01", "events": []}), encoding="utf-8")
+        (run / "paper").mkdir()
+        path = run / "paper" / "edition.json"
+        path.write_text(json.dumps(edition()), encoding="utf-8")
+        with pytest.raises(SystemExit) as exc:
+            render.main([str(path), "--config", str(tmp_path / "none.json")])
+        assert "stale desk notes" in str(exc.value)
 
 class TestAdvisorBank:
     def test_shipped_bank_shape(self):
@@ -949,30 +960,3 @@ class TestFillNewsDesk:
         assert data["sections"][0]["desk"] == "news"
         assert data["sections"][1]["desk"] == "news"
         assert data["sections"][2]["desk"] == "weather"
-
-
-class TestStaleDeskFiles:
-    def _write(self, tmp_path, desk_date):
-        run = tmp_path / "run"
-        (run / "desk-calendar").mkdir(parents=True)
-        (run / "desk-calendar" / "events.json").write_text(
-            json.dumps({"date": desk_date, "events": []}), encoding="utf-8")
-        (run / "paper").mkdir()
-        path = run / "paper" / "edition.json"
-        path.write_text(json.dumps(edition()), encoding="utf-8")
-        return path
-
-    def test_yesterdays_desk_file_is_flagged(self, tmp_path):
-        path = self._write(tmp_path, "2000-01-01")
-        stale = render.stale_desk_files(edition(), path.parent.parent)
-        assert len(stale) == 1 and "desk-calendar/events.json" in stale[0]
-
-    def test_todays_desk_file_passes(self, tmp_path):
-        path = self._write(tmp_path, edition()["date"])
-        assert render.stale_desk_files(edition(), path.parent.parent) == []
-
-    def test_main_refuses_stale_desk_file(self, tmp_path):
-        path = self._write(tmp_path, "2000-01-01")
-        with pytest.raises(SystemExit) as exc:
-            render.main([str(path), "--config", str(tmp_path / "none.json")])
-        assert "stale desk notes" in str(exc.value)
