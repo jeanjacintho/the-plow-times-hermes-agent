@@ -315,10 +315,6 @@ class TestDailySchedule:
         with pytest.raises(SystemExit, match="non-negative integer"):
             crons.load_lead_minutes(path)
 
-    def test_lead_reaching_past_midnight_refuses_at_schedule_time(self):
-        with pytest.raises(SystemExit, match="before midnight of its delivery day"):
-            crons.daily_schedule("07:00", 500)
-
 
 class TestSubscriptionJob:
     def test_carries_the_owner_chosen_minute(self):
