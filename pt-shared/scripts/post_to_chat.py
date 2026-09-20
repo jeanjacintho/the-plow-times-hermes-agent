@@ -111,7 +111,7 @@ def attachment_filename(pdf_path, override=None):
     return name
 
 
-def after_posted(stamp=None, pdf=None):
+def after_posted(stamp=None, posted_path=None):
     """The PDF is out; the next owner message must not re-read this turn.
 
     A dry-run never calls this. Marks the stamp delivered so the gateway
@@ -128,15 +128,18 @@ def after_posted(stamp=None, pdf=None):
         platform=prev.get("platform") or "",
         delivered=True,
     )
-    return f"sealed; {reopen_sections_after_paper(delivered_topic_ids(pdf))}"
+    return f"sealed; {reopen_sections_after_paper(delivered_topic_ids(posted_path))}"
 
 
-def delivered_topic_ids(pdf):
-    """The topic ids the just-posted edition.json carried; [] if unreadable."""
-    if not pdf:
+def delivered_topic_ids(posted_path):
+    """The topic ids the just-posted edition.json carried; [] if unreadable.
+
+    posted_path is the PDF or the text file: the edition.json is its sibling.
+    """
+    if not posted_path:
         return []
     try:
-        edition = json.loads((Path(pdf).resolve().parent / "edition.json").read_text(encoding="utf-8"))
+        edition = json.loads((Path(posted_path).resolve().parent / "edition.json").read_text(encoding="utf-8"))
         return sorted({s["topic_id"] for s in edition["sections"] if s.get("topic_id")})
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return []
@@ -346,7 +349,7 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    print(_best_effort(after_posted, (None, args.pdf), "chat session not sealed"))
+    print(_best_effort(after_posted, (None, args.pdf or args.text_file), "chat session not sealed"))
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
         printed = _best_effort(maybe_print, (args.pdf,), "page not printed")

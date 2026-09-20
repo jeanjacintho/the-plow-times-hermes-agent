@@ -61,6 +61,8 @@ Status transitions (design doc §3.3):
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import pathlib
@@ -87,6 +89,21 @@ def topics_path():
 
 def now_iso():
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+
+
+@contextlib.contextmanager
+def store_lock():
+    """Hold one lock across a whole load -> mutate -> replace.
+
+    Independently scheduled papers run these commands concurrently; without
+    it each loads the same snapshot and the later replace silently undoes the
+    earlier one's stamp, status, or an owner cancellation.
+    """
+    path = topics_path().with_suffix(".json.lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
 
 
 def load_topics():
@@ -380,6 +397,9 @@ def main(argv=None):
     p_reopen.set_defaults(func=cmd_reopen_sections)
 
     args = parser.parse_args(argv)
+    if args.command in ("add", "cancel", "mark", "reopen-sections"):
+        with store_lock():
+            return args.func(args)
     return args.func(args)
 
 

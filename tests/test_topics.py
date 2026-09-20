@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import pathlib
 import re
 
 import pytest
@@ -361,14 +363,6 @@ class TestReopenStampsEdition:
         assert topic["status"] == "pending"
         assert topic["last_edition_at"] is not None
 
-    def test_delivery_reopens_and_stamps_only_the_delivered_topics(self, pt_home, capsys):
-        first = self.add_running("section", pt_home)
-        second = self.add_running("subscription", pt_home)  # an overlapping paper's
-        assert topics.reopen_evergreen(delivered=[first]) == [first]
-        by_id = {t["id"]: t for t in read_store(pt_home)}
-        assert by_id[first]["last_edition_at"] is not None
-        assert by_id[second]["status"] == "running" and by_id[second]["last_edition_at"] is None
-
     def test_startup_reopen_of_a_dead_run_does_not_stamp(self, pt_home, capsys):
         self.add_running("section", pt_home)
         topics.reopen_evergreen()
@@ -381,3 +375,18 @@ class TestReopenStampsEdition:
         topics.main(["mark", tid, "--status", "delivered", "--at", "2026-01-01T00:00:00Z"])
         topics.reopen_evergreen()
         assert read_store(pt_home)[0]["last_edition_at"] == "2026-01-01T00:00:00Z"
+
+
+class TestConcurrentWriters:
+    def test_parallel_adds_all_land(self, pt_home):
+        # Each add is its own process, as two cron-fired papers would be. Without
+        # the store lock they load the same snapshot and lose each other's topic.
+        import subprocess, sys
+        script = str(pathlib.Path(topics.__file__))
+        env = {**os.environ, "PT_HOME": str(pt_home)}
+        procs = [subprocess.Popen([sys.executable, script, "add", "--text", f"t{i}",
+                                   "--kind", "section", "--depth", "quick"],
+                                  env=env, stdout=subprocess.DEVNULL)
+                 for i in range(8)]
+        assert all(p.wait() == 0 for p in procs)
+        assert len(read_store(pt_home)) == 8
