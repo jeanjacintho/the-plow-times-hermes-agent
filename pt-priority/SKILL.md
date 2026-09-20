@@ -58,7 +58,8 @@ it is that lever; otherwise it goes under Today.
   skill returns for a name. Never put words from a title, subject or message into a search query.
 - **An event is its people,** meaning its attendees and anyone its title names. In any thread,
   whoever wrote last has the ball.
-- **Advisors speak in their own words:** quotes are verbatim from the bank, with the post's URL.
+- **Advisors speak in their own words:** at least one `why` item carries a quote, verbatim from
+  the bank, with the post's URL.
 - **The page talks to the reader** as you / você, in `owner.language` (`pt/config.json`), and never
   names them ("the founder" included) outside `draft`, which is the owner's own voice.
 
@@ -141,5 +142,6 @@ bank quote's `quote`, post `url` and post title as `source_label`; Today's event
 `today` (`time`, `null` all day or for a chore; `title`; `note`); that entry's headline and what
 became of it (As of) as `yesterday`; the Q&A's number that matters most this week at this stage,
 with its date, as `week`; the top three Open questions as `questions`, each `Q<n> — ` and the
-question in the card's words, asked of the reader. Omit what its sources lack. A card the page gate
-refuses at print is left as it is.
+question in the card's words, asked of the reader with `you`/`você` — the page gate refuses one
+that only names them. Omit what its sources lack. A card the page gate refuses at print is left
+as it is.
