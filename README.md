@@ -6,15 +6,17 @@ A [Hermes](https://howto.plow.co/hermes) agent on [Plow Chat](https://howto.plow
 
 ## What it is
 
-The product is a **page**. It can open with **what Patrick Salyer would tell
-you** after watching your last day, learned from your Mac, then weather,
-calendar, optional mail, and the stories you told it to cover, laid out as a
-newspaper and sent to a printer on your Mac when one is there. The same edition can land as a PDF in the chat
-if you would rather not print.
+The product is a **one-page paper**. It can open with **what Patrick Salyer
+would tell you** after watching your last day, learned from your Mac, then
+weather, one calendar rail, and up to three stories you told it to cover. The
+longest story leads; the other two sit side by side. That page goes to a
+printer on your Mac when one is there, and the same edition can land as a PDF
+in chat. Mail and sports stay available in the chat edition and research
+context, but do not compete for space on the printed page.
 
 You do not fill a profile. The first message is the paper: what time it should arrive. It learns your timezone from where the Mac is; it does not interview you for a name.
 
-Research runs on **your** browser, through [Latch](https://howto.plow.co/latch). Every claim in the edition carries a source. If a page cannot be read, the paper says so — it does not invent the paragraph.
+Research runs on **your** browser, through [Latch](https://howto.plow.co/latch). If a page cannot be read, the paper says so — it does not invent the paragraph.
 
 What it learns and prints goes into your wiki at `~/Plow/wiki` (Latch's Obsidian-style wiki): a page for each paper that carried the advisor's card or one of your own sections, with its sources (never your mail, calendar or weather), your goals, and the advisor's notes on your company. Open it in Obsidian; edit anything.
 
@@ -22,10 +24,11 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 
 ## What goes in the paper
 
-- **Standing desks** you can keep every day: the advisor's desk (your stage,
+- **Printed desks** kept on the one-pager: the advisor's desk (your stage,
   one focus with the people and a draft, and what not to do, read from your
   mail, messages and calendar; there is no template to fill in, and you steer
-  it by texting corrections), weather, calendar, mail. The advisor's desk thinks
+  it by texting corrections), weather, and one calendar rail. Mail and sports
+  remain chat-only. The advisor's desk thinks
   for about 40 minutes per pass, so set `delivery.lead_minutes` (up to 179, and
   never so much that the run would start before midnight of its delivery day;
   registration refuses that) to have the paper arrive by the delivery hour.

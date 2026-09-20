@@ -350,7 +350,7 @@ class TestValidate:
         # No plumbing, and the card talks to the reader -- other people's words excepted.
         ("stage_why", "Your prioritization.md says discovery",
          "priority.stage_why prints a file path or name ('prioritization.md')"),
-        ("today", [{**EVENT, "note": "From ~/Plow/goals"}], "priority.today[0].note prints a file path"),
+        ("today", [{**EVENT, "note": "From ~/Plow/goals"}], None),
         ("week", "Investor pipeline: 3 calls booked", None),
         ("first_step", "The founder should call Dana", "priority.first_step calls the reader 'The founder'"),
         ("not_today", ["O fundador deve contratar"], "priority.not_today[0] calls the reader 'O fundador'"),
@@ -727,6 +727,10 @@ class TestHtml:
     def test_http_sources_still_link(self):
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{LEAD}}")
         assert 'href="https://example.com/weather"' in page
+
+    def test_legacy_sudoku_placeholder_is_consumed_without_a_puzzle(self):
+        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "X{{SUDOKU}}Y")
+        assert page == "XY"
 
     def test_pdf_refuses_more_than_one_rendered_page(self, tmp_path, monkeypatch):
         class FakeDocument:

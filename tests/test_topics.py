@@ -205,6 +205,36 @@ class TestSections:
             topics.main(["add", "--text", "clima", "--kind", "section",
                          "--depth", "quick", "--run-on", "2026-09-11"])
 
+    def test_fourth_section_on_same_paper_is_refused(self, pt_home):
+        for text in ("AI", "Formula 1", "markets"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["add", "--text", "startups", "--kind", "section",
+                         "--depth", "quick"])
+
+    def test_each_focused_paper_has_its_own_three_item_roster(self, pt_home):
+        for hour in ("12:30", "18:00"):
+            for index in range(3):
+                topics.main(["add", "--text", f"{hour} story {index}",
+                             "--kind", "section", "--depth", "quick",
+                             "--deliver-at", hour])
+        assert len(read_store(pt_home)) == 6
+
+    def test_explicit_daily_hour_shares_the_main_roster(self, pt_home):
+        pt_home.mkdir(parents=True)
+        (pt_home / "config.json").write_text(json.dumps({
+            "delivery": {"hour": "07:00"},
+        }))
+        for text in ("AI", "Formula 1"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        topics.main(["add", "--text", "markets", "--kind", "section",
+                     "--depth", "quick", "--deliver-at", "07:00"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["add", "--text", "startups", "--kind", "section",
+                         "--depth", "quick"])
+
 
 class TestAssignments:
     def add(self, pt_home, run_on="2026-09-11"):
@@ -250,6 +280,22 @@ class TestAssignments:
         topics.main(["cancel", topic["id"]])
         (stored,) = read_store(pt_home)
         assert stored["status"] == "cancelled"
+
+    def test_assignment_cannot_overfill_main_paper(self, pt_home):
+        for text in ("AI", "Formula 1", "markets"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            self.add(pt_home)
+
+    def test_main_section_cannot_overfill_day_with_assignment(self, pt_home):
+        self.add(pt_home)
+        for text in ("AI", "Formula 1"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["add", "--text", "markets", "--kind", "section",
+                         "--depth", "quick"])
 
 
 class TestSectionsDoNotDuplicate:

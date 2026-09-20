@@ -71,6 +71,7 @@ STATUSES = ("pending", "running", "delivered", "cancelled")
 ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DELIVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+MAX_NEWS_ITEMS = 3
 
 
 def home():
@@ -181,6 +182,66 @@ def checked_deliver_at(args):
     return raw
 
 
+def paper_slot(topic):
+    """Return the paper roster a section belongs to.
+
+    An explicitly timed section at the configured daily hour is part of the
+    main paper, just like an unscoped section. If config is absent or broken,
+    the writer still protects exact timed rosters; config validation owns the
+    separate refusal for malformed config.
+    """
+    deliver_at = topic.get("deliver_at")
+    try:
+        config = json.loads((home() / "config.json").read_text())
+        main_hour = config.get("delivery", {}).get("hour")
+    except (OSError, ValueError, AttributeError):
+        main_hour = None
+    return "main" if deliver_at is None or deliver_at == main_hour else deliver_at
+
+
+def refuse_overfilled_paper(topics, addition):
+    """Keep every printed paper within the renderer's three-story contract."""
+    if addition["kind"] not in ("section", "assignment"):
+        return
+
+    active_sections = [
+        topic for topic in topics
+        if topic.get("kind") == "section" and topic.get("status") != "cancelled"
+    ]
+    active_assignments = [
+        topic for topic in topics
+        if topic.get("kind") == "assignment"
+        and topic.get("status") in ("pending", "running")
+    ]
+
+    if addition["kind"] == "assignment":
+        carried = [topic for topic in active_sections if paper_slot(topic) == "main"]
+        carried += [
+            topic for topic in active_assignments
+            if topic.get("run_on") == addition.get("run_on")
+        ]
+        label = f"main paper on {addition['run_on']}"
+    else:
+        slot = paper_slot(addition)
+        carried = [topic for topic in active_sections if paper_slot(topic) == slot]
+        if slot == "main":
+            by_day = {}
+            for assignment in active_assignments:
+                by_day.setdefault(assignment.get("run_on"), []).append(assignment)
+            if by_day:
+                busiest = max(by_day.values(), key=len)
+                carried += busiest
+        label = "main paper" if slot == "main" else f"{slot} paper"
+
+    if len(carried) + 1 > MAX_NEWS_ITEMS:
+        names = ", ".join([*(topic.get("text", "") for topic in carried),
+                           addition["text"]])
+        sys.exit(
+            f"error: {label} would have more than {MAX_NEWS_ITEMS} news items: "
+            f"{names} -- drop one before adding another"
+        )
+
+
 def cmd_add(args):
     topics = load_topics()
     run_on = checked_run_on(args)
@@ -230,6 +291,7 @@ def cmd_add(args):
                               "text": existing.get("text"),
                               "status": existing.get("status")}))
             return 0
+    refuse_overfilled_paper(topics, topic)
     topics.append(topic)
     save_topics(topics)
     print(json.dumps({"added": topic["id"], "kind": topic["kind"],

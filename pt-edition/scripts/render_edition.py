@@ -373,8 +373,6 @@ def _own_words(section):
     for key in ("not_today", "questions"):
         for i, text in enumerate(priority.get(key) or []):
             yield f"priority.{key}[{i}]", text
-    for i, event in enumerate(priority.get("today") or []):
-        yield f"priority.today[{i}].note", event["note"]
     for i, item in enumerate(priority.get("why", [])):
         yield f"priority.why[{i}].text", item["text"]
 
@@ -1213,6 +1211,7 @@ def render_html(edition, name, template_text):
         .replace("{{MAIL}}", mail_html)
         .replace("{{SPORTS}}", sports_html)
         .replace("{{SIDEBAR}}", desks_html)
+        .replace("{{SUDOKU}}", "")
     )
 
 
