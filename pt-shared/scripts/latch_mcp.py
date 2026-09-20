@@ -100,14 +100,16 @@ def finish_command(call_tool, result, step):
     when Latch names one.
     """
     for _ in range(POLL_SECONDS):
-        if not isinstance(result, dict) or "exit_code" in result:
+        if not isinstance(result, dict):
             break
-        handle = result.get("handle")
-        if result.get("status") != "running" or not handle:
-            break
+        # A blocked or parked run names what the owner must do, whether it is
+        # still running or came back terminal (with or without an exit_code).
         action = (result.get("diagnosis") or {}).get("owner_action")
         if action:
             raise LatchError(f"{step} outcome unknown: {action}")
+        handle = result.get("handle")
+        if "exit_code" in result or result.get("status") != "running" or not handle:
+            break
         time.sleep(1)
         try:
             result = call_tool("plow_get_output", {"handle": handle})

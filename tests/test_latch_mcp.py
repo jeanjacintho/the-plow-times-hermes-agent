@@ -58,6 +58,15 @@ class TestUnwrap:
 
 
 class TestFinishCommand:
+    @pytest.mark.parametrize("polled", [
+        {"status": "blocked", "diagnosis": {"owner_action": "Click Allow"}},
+        {"status": "blocked", "exit_code": 1, "diagnosis": {"owner_action": "Click Allow"}},
+    ])
+    def test_a_terminal_blocked_poll_reports_its_owner_action(self, polled):
+        running = {"status": "running", "handle": "j"}
+        with pytest.raises(LatchError, match="lp outcome unknown: Click Allow"):
+            lm.finish_command(lambda *_: polled, running, "lp")
+
     def test_a_diagnosed_running_job_reports_its_owner_action(self):
         parked = {"status": "running", "handle": "j", "diagnosis": {"owner_action": "Click Allow"}}
         with pytest.raises(LatchError, match="lp outcome unknown: Click Allow"):
