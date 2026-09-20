@@ -398,10 +398,10 @@ def load_lead_minutes(config_path=CONFIG_FILE):
         ) from None
     except (OSError, ValueError, AttributeError, TypeError) as exc:
         raise SystemExit(f"refusing to register: malformed {path} ({exc!r}).") from exc
-    if isinstance(raw, bool) or not isinstance(raw, int) or not (0 <= raw <= 179):
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 0:
         raise SystemExit(
             f"refusing to register: {path} has delivery.lead_minutes={raw!r}; "
-            "it must be an integer 0-179 (minutes before delivery.hour)."
+            "it must be a non-negative integer (minutes before delivery.hour)."
         )
     return raw
 
@@ -410,16 +410,6 @@ def _hour_minute(delivery_hour):
     """Parse a gate-shaped "HH:MM" into (hour, minute) ints."""
     hour_part, minute_part = delivery_hour.split(":")
     return int(hour_part), int(minute_part)
-
-
-def _slot_lead(hour, lead_minutes):
-    """The lead an extra or focused slot can afford: never past its own midnight.
-
-    The setup-derived lead is sized to the main paper's hour; a slot earlier
-    than that would otherwise refuse the whole registration.
-    """
-    h, m = _hour_minute(hour)
-    return min(lead_minutes, h * 60 + m)
 
 
 def daily_schedule(delivery_hour, lead_minutes):
@@ -527,12 +517,15 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     """
     jobs = []
     if has_paper(topics):
+        # Only the main paper starts early. Extra and focused slots are stored
+        # as container hours with no owner-local clock to clamp the lead
+        # against midnight, so they start at their own hour (chat holds for it).
         jobs.append(daily_job(delivery_hour, lead_minutes, env))
         for n, hour in enumerate(extra_hours, start=2):
-            jobs.append(daily_job(hour, _slot_lead(hour, lead_minutes), env,
+            jobs.append(daily_job(hour, 0, env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
         for hour in focused_paper_hours(topics, delivery_hour):
-            jobs.append(paper_job(hour, _slot_lead(hour, lead_minutes), env))
+            jobs.append(paper_job(hour, 0, env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
         for t in topics

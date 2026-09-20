@@ -128,14 +128,16 @@ class TestDesiredJobs:
         assert all(j["deliver"] == crons.DELIVER_TARGET for j in jobs)
         assert path.name == "config.json"  # config untouched
 
-    def test_early_extra_slot_clamps_its_lead_instead_of_refusing(self):
-        # The main paper's 40-minute lead must not abort registration for a
-        # slot at 00:20: that slot starts at midnight, not the evening before.
+    def test_extra_and_focused_slots_start_at_their_own_hour(self):
+        # The lead is the main paper's: a slot at 00:20 must not inherit it
+        # (that would start the evening before, or abort registration).
         jobs = crons.desired_jobs(
-            [topic("t_9f2a")], "07:00", {"PLOW_HOME_CHANNEL": "c"},
-            lead_minutes=40, extra_hours=["00:20"])
-        extra = next(j for j in jobs if j["name"] == f"{crons.DAILY_NAME}-2")
-        assert extra["schedule"] == "0 0 * * *"
+            [topic("t_9f2a", kind="section", deliver_at="00:30")], "07:00",
+            {"PLOW_HOME_CHANNEL": "c"}, lead_minutes=40, extra_hours=["00:20"])
+        by_name = {j["name"]: j["schedule"] for j in jobs}
+        assert by_name[crons.DAILY_NAME] == "20 6 * * *"
+        assert by_name[f"{crons.DAILY_NAME}-2"] == "20 0 * * *"
+        assert by_name[crons.paper_job_name("00:30")] == "30 0 * * *"
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
@@ -315,13 +317,13 @@ class TestDailySchedule:
         with pytest.raises(SystemExit, match="before midnight of its delivery day"):
             crons.daily_schedule("00:30", 31)
 
-    def test_lead_up_to_179_minutes_loads(self, tmp_path):
-        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 179}})
-        assert crons.load_lead_minutes(path) == 179
+    def test_lead_past_179_minutes_loads(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "23:00", "lead_minutes": 200}})
+        assert crons.load_lead_minutes(path) == 200
 
-    def test_lead_of_180_minutes_refuses(self, tmp_path):
-        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 180}})
-        with pytest.raises(SystemExit, match="0-179"):
+    def test_negative_lead_refuses(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": -1}})
+        with pytest.raises(SystemExit, match="non-negative integer"):
             crons.load_lead_minutes(path)
 
 
@@ -350,8 +352,8 @@ class TestExtraDailyHours:
         )
         names = [j["name"] for j in jobs]
         assert names == ["pt-daily-edition", "pt-daily-edition-2"]
-        # Each slot gets its own lead-time subtraction -- 10:30 minus 45m.
-        assert jobs[1]["schedule"] == "45 9 * * *"
+        # The extra slot starts at its own hour: the lead is the main paper's.
+        assert jobs[1]["schedule"] == "30 10 * * *"
         assert jobs[1]["skill"] == "pt-research"
         assert jobs[1]["deliver"] == crons.DELIVER_TARGET
 

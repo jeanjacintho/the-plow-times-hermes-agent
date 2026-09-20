@@ -389,6 +389,33 @@ class TestValidate:
         assert "priority-pack" in html
         assert html.index("priority-focus") < html.index("priority-rail")
 
+    def test_priority_headings_follow_owner_language(self):
+        data = priority_edition(
+            yesterday="1 booked", stage_label="Discovery",
+            today=[EVENT], week="pipeline", who=["Raj"], draft="Hi Raj",
+            not_today=["Hire"], questions=["Você tem a meta desta semana?"],
+        )
+        html = render.render_html(
+            data, render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}",
+            language="Portuguese",
+        )
+        for english, portuguese in (
+            ("<h3>QUESTIONS · “Q2: …”", "<h3>PERGUNTAS</h3>"),
+            ("<h3>YESTERDAY</h3>", "<h3>ONTEM</h3>"),
+            ("STAGE ·", "ESTÁGIO ·"),
+            ("<h3>WHO</h3>", "<h3>QUEM</h3>"),
+            ("<h3>DRAFT</h3>", "<h3>RASCUNHO</h3>"),
+            ("<h3>TODAY</h3>", "<h3>HOJE</h3>"),
+            ("<h3>THIS WEEK</h3>", "<h3>ESTA SEMANA</h3>"),
+            ("<h3>NOT TODAY</h3>", "<h3>NÃO HOJE</h3>"),
+        ):
+            assert portuguese in html, portuguese
+            assert english not in html, english
+        english = render.render_html(
+            data, render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
+        assert "<h3>YESTERDAY</h3>" in english
+        assert "<h3>ONTEM</h3>" not in english
+
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
             {"kind": "section", "title": "News", "desk": "news", "body": "n", "sources": []},
