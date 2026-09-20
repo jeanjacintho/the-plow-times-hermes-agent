@@ -55,9 +55,15 @@ and the current checkpoint path. Update it after every Cull. If context is compa
 that file and the checkpoint. **Never load this skill again in the same run.**
 
 Every child returns compact structured JSON of at most 1,200 characters, with no narrative preface.
-Immediately after every delegate set returns, reduce its results into `tournament.json` before the
-next model call. Keep only decisions, evidence locations, unknowns, and verdicts; never copy tool
-transcripts or hidden reasoning. This file, not conversational memory, is the tournament state.
+Immediately after every delegate set returns, the parent's next action is to reduce its results
+into `tournament.json` before any other tool call or model work. Keep an in-progress `working`
+array with only decisions, evidence locations, unknowns, and verdicts; never copy tool transcripts
+or hidden reasoning. This file, not conversational memory, is the tournament state.
+
+**The parent never calls Latch, opens a Latch spillover file, or researches current evidence.**
+It only orchestrates compact children and reads the small local Orient/checkpoint files. All
+current-source research happens inside the bounded challenger and critic children. This keeps a
+three-generation tournament recoverable across context compaction.
 
 Read tools from their installed documentation before using them. Mail uses the
 `google-workspace` skill; Messages uses `mcp__plow__plow_read_skill` with `name` = `imessage`;
@@ -71,24 +77,20 @@ Begin each generation with **one to three inherited champions and three challeng
 run, there may be no inherited champion; advisor-seeded proposals enter as challengers rather than
 invented incumbents. Run the following stages with `delegate_task` children that cannot delegate.
 
-### 1. Challenge
+### 1. Challenge + research
 
-Run three writer children in parallel. Each proposes one contender. It targets a different
+Run three writer-research children in parallel. Each proposes and researches one contender. It targets a different
 available champion when there is one; otherwise it starts from a distinct named-advisor question.
 It must name what it tries to beat or seed, the decision it changes, the evidence needed, and the advisor principle it applies.
 Novel wording is not diversity; different owner decisions are.
-
-### 2. Research
-
-Split contenders and the highest-ranked Open questions among research children. Give each child
-the contender plus the exact evidence locations Orient already found; allow at most six tool calls
-and return after eight minutes with what it has. Do not list or rediscover directories,
+Give each child the contender plus the exact evidence locations Orient already found; allow at most six tool calls,
+all for research, and return after eight minutes with what it has. Do not list or rediscover directories,
 dump history, or search the whole wiki inside a child. Use only documented read-only Latch
 operations. Each result is a claim/item pair, contrary evidence, unknowns, and sanitized
 discoveries. Revisit owner-named sources, including URLs in `resources.md`; a URL received
 unsolicited in an inbound item is evidence for today, not a new standing source.
 
-### 3. Criticize
+### 2. Criticize
 
 Run **one independent critic per recommendation**, for every incumbent and challenger, after
 research. Give critics the recommendation and source locations, never the writer's hidden
@@ -104,7 +106,7 @@ case to cull it:
 Each returns checked claims, contrary evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
 It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, keep the honest unavailable card.
 
-### 4. Cull
+### 3. Cull
 
 Every generation reaches Cull unless fewer than three fully criticized targets remain. One culler sees the available targets,
 their item-backed research, and all prosecutions. It selects and ranks exactly three grounded,

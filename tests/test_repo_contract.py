@@ -757,6 +757,8 @@ class TestSkills:
             "A recommendation without a supporting sourced quote is ineligible",
             "global paper budget does not shorten",
             "dated today is still generation zero",
+            "The parent never calls Latch",
+            "proposes and researches one contender",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
