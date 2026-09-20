@@ -369,6 +369,16 @@ class TestExtraDailyHours:
         assert jobs[1]["skill"] == "pt-research"
         assert jobs[1]["deliver"] == crons.DELIVER_TARGET
 
+    def test_the_cli_path_reads_the_container_zone_from_the_environment(self, monkeypatch):
+        # main() passes env=None; the zone must come from os.environ, as
+        # require_timezone_agreement() reads it, or the owner-midnight clamp
+        # silently does not run.
+        monkeypatch.setenv("TZ", "UTC")
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "03:20", None, 40, owner_tz="America/Sao_Paulo",
+        )
+        assert jobs[0]["schedule"] == "0 3 * * *"
+
     def test_extra_job_prompt_has_its_own_lock_and_the_pdf_leg(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],

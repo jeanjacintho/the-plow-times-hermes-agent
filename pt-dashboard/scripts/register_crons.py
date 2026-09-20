@@ -540,7 +540,7 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     it to its own owner-zone midnight.
     """
     jobs = []
-    container_tz = (env or {}).get("TZ")
+    container_tz = (os.environ if env is None else env).get("TZ")
 
     def lead(hour):
         return _slot_lead(hour, lead_minutes, owner_tz, container_tz)
