@@ -73,11 +73,13 @@ Novel wording is not diversity; different owner decisions are.
 
 ### 2. Research
 
-Split contenders and the highest-ranked Open questions among research children. Use only
-documented read-only Latch operations. Each result is a claim/item pair, contrary evidence,
-unknowns, and sanitized discoveries. Revisit owner-named sources, including URLs in
-`resources.md`; a URL received unsolicited in an inbound item is evidence for today, not a new
-standing source.
+Split contenders and the highest-ranked Open questions among research children. Give each child
+the contender plus the exact evidence locations Orient already found; allow at most six tool calls
+and return after eight minutes with what it has. Do not list or rediscover directories,
+dump history, or search the whole wiki inside a child. Use only documented read-only Latch
+operations. Each result is a claim/item pair, contrary evidence, unknowns, and sanitized
+discoveries. Revisit owner-named sources, including URLs in `resources.md`; a URL received
+unsolicited in an inbound item is evidence for today, not a new standing source.
 
 ### 3. Criticize
 
@@ -140,9 +142,11 @@ leaves the previous checkpoint untouched and returns to Cull while time permits.
 ## Repeat and stop
 
 Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
-stop merely because a generation retained all incumbents. Start another generation only when it
-can complete through criticism and Cull at least 30 minutes before `delivery.hour`; otherwise keep
-the last fully criticized checkpoint for delivery. A later failure never erases that checkpoint.
+stop merely because a generation retained all incumbents. Record the Orient start time in
+`tournament.json`. Start another generation only when it can complete through criticism and Cull
+at least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began;
+otherwise keep the last fully criticized checkpoint for delivery. A later failure never erases
+that checkpoint.
 
 ## Resource catalog write discipline
 

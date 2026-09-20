@@ -747,6 +747,9 @@ class TestSkills:
             "Never say fewer is fine",
             "Never write `notes.json` directly",
             "An inherited champion without fresh criticism invalidates the generation",
+            "at most six tool calls",
+            "Do not list or rediscover directories",
+            "150 minutes after Orient began",
         ):
             assert clause in text
 
