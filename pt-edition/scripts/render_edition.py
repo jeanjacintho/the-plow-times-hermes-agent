@@ -716,10 +716,10 @@ DESK_HEADER_ICONS = {
 }
 
 
-def _stroke_svg(css_class, body, size):
+def _stroke_svg(css_class, body, size, stroke="currentColor"):
     return (
         f'<svg class="{css_class}" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        'fill="none" stroke="currentColor" stroke-width="1.5" '
+        f'fill="none" stroke="{stroke}" stroke-width="1.5" '
         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         f"{body}</svg>"
     )
@@ -730,7 +730,9 @@ def desk_header_icon(desk):
     body = DESK_HEADER_ICONS.get(desk)
     if not body:
         return ""
-    return _stroke_svg("desk-icon", body, 13)
+    # Title bars are ink; WeasyPrint leaves currentColor as black, so the
+    # stroke has to be paper-white here or the mark vanishes into the bar.
+    return _stroke_svg("desk-icon", body, 13, stroke="#ffffff")
 
 
 def calendar_icon(key):
@@ -759,11 +761,16 @@ def schedule_list(items):
         icon = calendar_icon(item.get("icon"))
         time_str = html.escape(item["time"].strip())
         title = html.escape(item["title"].strip())
+        note = (item.get("note") or "").strip()
+        note_html = f'<span class="cal-note">{html.escape(note)}</span>' if note else ""
         rows.append(
             '<div class="cal-item">'
             f'<span class="cal-icon-wrap">{icon}</span>'
+            '<span class="cal-body">'
             f'<span class="cal-time">{time_str}</span>'
             f'<span class="cal-title">{title}</span>'
+            f"{note_html}"
+            "</span>"
             "</div>"
         )
     return '<div class="cal-list">' + "".join(rows) + "</div>"
@@ -785,8 +792,10 @@ def messages_list(items):
         rows.append(
             '<div class="mail-item">'
             f'<span class="mail-icon-wrap">{icon}</span>'
+            '<span class="mail-body">'
             f'<span class="mail-sender">{sender}</span>'
             f'<span class="mail-subject">{subject}</span>'
+            "</span>"
             "</div>"
         )
     return '<div class="mail-list">' + "".join(rows) + "</div>"
@@ -805,30 +814,43 @@ def _inline(heading, texts):
     return f'<h3>{heading}</h3><ul class="priority-inline">{items}</ul>'
 
 
+def _today_list(priority):
+    if not priority.get("today"):
+        return ""
+    items = []
+    for event in priority["today"]:
+        time = (
+            f'<span class="cal-time">{_esc(event["time"])}</span>'
+            if event.get("time") else ""
+        )
+        note = (
+            f'<span class="src">{_esc(event["note"])}</span>'
+            if event.get("note") else ""
+        )
+        items.append(
+            f'<div class="priority-event">{time}'
+            f'<span class="cal-title">{_esc(event["title"])}</span>{note}</div>'
+        )
+    return '<h3>TODAY</h3><div class="priority-today">' + "".join(items) + "</div>"
+
+
 def priority_lead(priority):
-    """Above the focus: yesterday's follow-up, the stage and its reason, today, the week."""
-    blocks = []
+    """Above the pack: yesterday's follow-up only — the kicker lives on the story."""
     if priority.get("yesterday"):
-        blocks.append(_note("YESTERDAY", priority["yesterday"]))
+        return _note("YESTERDAY", priority["yesterday"])
+    return ""
+
+
+def priority_block(priority, headline=""):
+    """Focus column: kicker, standfirst, headline, deck, why, who, draft."""
+    blocks = []
     if priority.get("stage_label"):
         blocks.append(f'<p class="priority-stage">STAGE · {_esc(priority["stage_label"])}</p>')
     if priority.get("stage_why"):
         blocks.append(f'<div class="priority-note">{_esc(priority["stage_why"])}</div>')
-    if priority.get("today"):
-        items = []
-        for event in priority["today"]:
-            time = f"<b>{_esc(event['time'])}</b> " if event.get("time") else ""
-            note = f'<span class="src">{_esc(event["note"])}</span>'
-            items.append(f"<li>{time}{_esc(event['title'])} {note}</li>")
-        blocks.append('<h3>TODAY</h3><ul class="priority-list">' + "".join(items) + "</ul>")
-    if priority.get("week"):
-        blocks.append(_note("THIS WEEK", priority["week"]))
-    return "\n".join(blocks)
-
-
-def priority_block(priority):
-    """Below the focus: first step, sourced why, who, the draft, what not to do."""
-    blocks = [f'<p class="priority-step">{_esc(priority["first_step"])}</p>']
+    if headline:
+        blocks.append(f'<p class="headline">{html.escape(headline.strip())}</p>')
+    blocks.append(f'<p class="priority-step">{_esc(priority["first_step"])}</p>')
     items = []
     for item in priority["why"]:
         quote = f" “{_esc(item['quote'])}”" if item.get("quote") else ""
@@ -839,9 +861,40 @@ def priority_block(priority):
         blocks.append(_inline("WHO", priority["who"]))
     if priority.get("draft"):
         blocks.append(_note("DRAFT", priority["draft"], "priority-note priority-draft"))
+    return "\n".join(blocks)
+
+
+def priority_rail(priority):
+    """Right column: the day's track — today, the week, what not to do."""
+    blocks = []
+    today = _today_list(priority)
+    if today:
+        blocks.append(today)
+    if priority.get("week"):
+        blocks.append(_note("THIS WEEK", priority["week"]))
     if priority.get("not_today"):
         blocks.append(_inline("NOT TODAY", priority["not_today"]))
     return "\n".join(blocks)
+
+
+def priority_pack(priority, headline=""):
+    """Front-page package: context, then focus | rail (a table for WeasyPrint)."""
+    lead = priority_lead(priority)
+    focus = priority_block(priority, headline)
+    rail = priority_rail(priority)
+    parts = []
+    if lead:
+        parts.append(f'<div class="priority-context">{lead}</div>')
+    if rail:
+        parts.append(
+            '<div class="priority-pack">'
+            f'<div class="priority-focus">{focus}</div>'
+            f'<div class="priority-rail">{rail}</div>'
+            "</div>"
+        )
+    else:
+        parts.append(f'<div class="priority-focus">{focus}</div>')
+    return "\n".join(parts)
 
 
 def games_list(games):
@@ -1014,25 +1067,29 @@ def html_section(section, drop_cap=False):
     # no caption) -- the title bar, headline, body prose and sources line
     # are all dropped for weather when it's carrying a grid, so the box
     # is just the days and any gap. Calendar/mail/sports keep their
-    # title, headline and sources either way (unlike weather, nobody
-    # asked for those gone) but drop the body PROSE specifically once a
-    # schedule, messages or games list is present -- otherwise the box
-    # shows the same event twice, once as a clean icon/score row and
-    # again as a redundant bullet restating it in a sentence. The
+    # title and headline but drop the body PROSE once a schedule,
+    # messages or games list is present -- otherwise the box shows the
+    # same event twice. They also drop the print sources line (the strip
+    # is the evidence; "Sources: your calendar" was plumbing). The
     # plain-text chat edition is unaffected by any of this (see
     # chat_section) -- every omission here is print/HTML-only; body
     # stays required in the JSON because the chat edition has no icons
     # to fall back on.
     skip_caption = bool(forecast)
     skip_body = bool(structured)
+    # A forecast grid, schedule strip, mail list or scoreboard is the
+    # box itself -- a "Sources: your calendar" line under it is
+    # plumbing. Chat still prints sources (chat_section). Gaps
+    # (`could_not_source`) still reach the printed box.
+    skip_print_sources = bool(forecast or schedule or messages or games)
     blocks = [f'<article class="{article_class}">']
     if not skip_caption:
         if kicker_html:
             blocks.append(kicker_html)
         blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
         if desk == "priority" and priority:
-            blocks.append(priority_lead(priority))
-        if headline:
+            blocks.append(priority_pack(priority, headline))
+        elif headline:
             blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None
     if image:
@@ -1054,8 +1111,6 @@ def html_section(section, drop_cap=False):
         blocks.append(messages_list(messages))
     if games:
         blocks.append(games_list(games))
-    if priority:
-        blocks.append(priority_block(priority))
     if skip_body:
         pass
     elif paras:
@@ -1072,7 +1127,7 @@ def html_section(section, drop_cap=False):
         blocks.append("  <p>(nothing to report this time)</p>")
     # The priority desk's sources were our own plumbing ("Sources: priority desk").
     if desk != "priority":
-        sources = [] if skip_caption else dedupe(section.get("sources", []))
+        sources = [] if skip_print_sources else dedupe(section.get("sources", []))
         if sources:
             links = ", ".join(source_markup(url) for url in sources)
             blocks.append(f'  <p class="sources">Sources: {links}</p>')
@@ -1151,6 +1206,30 @@ def sudoku_section_html(edition_date):
     )
 
 
+def news_well(sections):
+    """Remaining news after the lead, as two columns.
+
+    CSS column-count left a blank second column in WeasyPrint 62.3
+    (measured). A 3-cell table with break-inside:avoid jumped whole
+    rows. Two table-cells, one stack each, no avoid -- the well may
+    still split poorly across pages (a cell continuation paints in the
+    wrong column), but a single leftover story stays one column so
+    page 1 does not grow an empty gutter.
+    """
+    if not sections:
+        return ""
+    if len(sections) == 1:
+        return html_section(sections[0])
+    left = "".join(html_section(section) for section in sections[0::2])
+    right = "".join(html_section(section) for section in sections[1::2])
+    return (
+        '<div class="news-cols">'
+        f'<div class="news-col">{left}</div>'
+        f'<div class="news-col">{right}</div>'
+        "</div>"
+    )
+
+
 def render_html(edition, name, template_text):
     ordered = [section for _index, section in ordered_sections(edition["sections"])]
     news = [s for s in ordered if is_news_section(s)]
@@ -1161,8 +1240,7 @@ def render_html(edition, name, template_text):
     priority = [s for s in ordered if desk_of(s) == "priority"]
 
     # The lead story renders separately from the rest of the news well so
-    # it can run alone, full width, in its own row above everything else
-    # (see the top comment for why the desks no longer sit beside it).
+    # it can run full width after the standing desks.
     if news:
         lead_html = html_section(news[0], drop_cap=True)
         rest = news[1:]
@@ -1173,15 +1251,7 @@ def render_html(edition, name, template_text):
         lead_html = '<article class="section"><p>Nothing to report this time.</p></article>'
         rest = []
 
-    # The news well is a vertical stack of stories that MAY split across
-    # pages. Measured live 2026-09-18: wrapping them in 3-cell tables with
-    # break-inside:avoid left a half-empty page 1 (the lead body jumped
-    # whole) and parked leftover news on page 2 while space remained
-    # above. WeasyPrint 62.3 still cannot split a table cell without
-    # painting the continuation one column to the right, so the well is
-    # not a table at all -- ordinary block flow fills leftover space and
-    # only starts a new page when the current one is full.
-    news_well_html = "".join(html_section(section) for section in rest)
+    news_well_html = news_well(rest)
     weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
@@ -1203,13 +1273,13 @@ def render_html(edition, name, template_text):
         part for part in (weather_html, calendar_html, mail_html, sports_html) if part
     )
 
-    # Calendar, mail and sports run as a row of boxed departments below
-    # the lead -- the same black-label-bar box language as the priority
-    # card, three cells side by side like a front page's "inside today"
-    # teasers. Empty string when none of them ran today, so the template
-    # never prints a bare rule above nothing. Weather isn't here -- it
-    # lives in the masthead's ear. Priority has its own {{PRIORITY_BLOCK}}
-    # slot and must not also land here.
+    # Calendar, mail and sports run as a row of boxed departments under
+    # the priority pack, above the news lead -- the same black-label-bar
+    # box language, three cells side by side. Empty string when none of
+    # them ran today, so the template never prints a bare rule above
+    # nothing. Weather isn't here -- it lives in the masthead's ear.
+    # Priority has its own {{PRIORITY_BLOCK}} slot and must not also
+    # land here.
     inline_parts = [part for part in (calendar_html, mail_html, sports_html) if part]
     desks_inline_html = ""
     if inline_parts:

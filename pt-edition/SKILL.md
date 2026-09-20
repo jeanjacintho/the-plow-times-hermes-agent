@@ -114,7 +114,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   the reader's words ("your calendar", never a file or a path). On the
   priority desk those lines were the paper's own plumbing ("Sources:
   priority desk"), so the renderer drops them there. A weather `forecast`
-  grid prints no sources line in the HTML/PDF; the chat edition still does.
+  grid prints no sources line in the HTML/PDF; a calendar `schedule`,
+  mail `messages` or sports `games` strip is the same. The chat edition
+  still does.
 - **`desk` is the newspaper department, and each one is its own page
   slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
   `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,

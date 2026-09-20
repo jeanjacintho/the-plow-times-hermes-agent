@@ -256,7 +256,7 @@ class TestValidate:
         assert "dropcap" in html
         assert "<p>" in html
 
-    def test_news_well_is_a_stack_not_an_unbreakable_row(self):
+    def test_news_well_runs_in_two_columns(self):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
@@ -264,11 +264,14 @@ class TestValidate:
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
                                   "{{SECTIONS}}")
-        # 1 lead + 6 in the well. Unbreakable 3-col tables jumped whole
-        # rows onto the next sheet; the well is now a stack that can
-        # fill leftover space.
-        assert '<div class="news-cols">' not in html
+        # 1 lead + 6 in the well, split left (1,3,5) / right (2,4,6).
+        # A 3-col table with break-inside:avoid used to jump whole rows.
+        assert '<div class="news-cols">' in html
+        assert html.count('class="news-col"') == 2
         assert html.count("<article") == 6
+        left, right = html.split('class="news-col"')[1:]
+        assert "Story 1" in left and "Story 2" not in left
+        assert "Story 2" in right and "Story 1" not in right
 
     def test_news_well_keeps_every_story(self):
         sections = [{
@@ -280,6 +283,7 @@ class TestValidate:
                                   "{{SECTIONS}}")
         assert html.count("<article") == 4
         assert "Story 1" in html and "Story 4" in html
+        assert '<div class="news-cols">' in html
 
     def test_desks_render_as_a_boxed_teaser_row(self):
         html = render.render_html(edition(sections=[
@@ -357,14 +361,17 @@ class TestValidate:
         order = [
             "<h3>YESTERDAY</h3>", "1 booked (Dana &lt;Acme&gt;)",
             "STAGE · Discovery", "No revenue yet &amp; you still sell alone",
+            "Book 3 customer calls by Friday", '<p class="priority-step">x</p>',
+            "<h3>WHO</h3>", "Raj — replied", "Priya — trial user",
+            "<h3>DRAFT</h3>", "Hey Raj, 20 minutes this week? &quot;Tue&quot;",
             "<h3>TODAY</h3>", "10:00", "Customer call: Dana", "Go in with: what they use today",
             "Write the memo", "<h3>THIS WEEK</h3>", "Customer conversations: 2.",
-            "Book 3 customer calls by Friday", '<p class="priority-step">x</p>', "<h3>WHO</h3>", "Raj — replied",
-            "Priya — trial user", "<h3>DRAFT</h3>", "Hey Raj, 20 minutes this week? &quot;Tue&quot;",
             "<h3>NOT TODAY</h3>", "Hire a sales team",
         ]
         positions = [html.index(text) for text in order]
         assert positions == sorted(positions)
+        assert "priority-pack" in html
+        assert html.index("priority-focus") < html.index("priority-rail")
 
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
@@ -433,6 +440,7 @@ class TestMasthead:
         )
         assert 'class="masthead-row"' in page
         assert 'class="running-folio"' in page
+        assert 'class="running-folio-line"' in page
         assert "position: running(running-folio)" in page
         assert "content: element(running-folio)" in page
         assert "@page :first" in page
@@ -440,9 +448,9 @@ class TestMasthead:
         # page counter live in extra top/bottom margin, not in that band.
         assert "margin-left: 12mm" in page and "margin-right: 12mm" in page
         assert "margin-top: 12mm" in page
-        assert "vertical-align: bottom" in page
         assert "vertical-align: top" in page
-        folio = page.split('class="running-folio"', 1)[1].split("</div>", 1)[0]
+        assert "padding: 0 2px 6mm" in page
+        folio = page.split('class="running-folio-line"', 1)[1].split("</div>", 1)[0]
         assert f'class="meta-left">{render.DEFAULT_MASTHEAD}</span>' in folio
         assert 'class="meta-center">Sao Paulo</span>' in folio
         assert "Vol. 1" in folio
@@ -635,9 +643,13 @@ class TestHtml:
         page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{CALENDAR}}")
         assert 'class="cal-list"' in page
         assert page.count('class="cal-icon"') == 2
+        assert 'class="cal-body"' in page
         assert "Product &lt;sync&gt;" in page
         assert "Product <sync>" not in page
         assert "<img" not in page
+        assert "Sources:" not in page
+        chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Sources: Calendar.app" in chat
 
     def test_calendar_schedule_strip_caps_a_full_day(self):
         # Issue #7: a full Google day made the desks-row (break-inside:
@@ -674,10 +686,14 @@ class TestHtml:
         page = render.render_html(data, render.DEFAULT_MASTHEAD, "{{MAIL}}")
         assert 'class="mail-list"' in page
         assert 'class="mail-icon"' in page
+        assert 'class="mail-body"' in page
         assert "Ana &lt;b&gt;Costa&lt;/b&gt;" in page
         assert "Hello &lt;script&gt;" in page
         assert "<script>" not in page
         assert "<img" not in page
+        assert "Sources:" not in page
+        chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
+        assert "Sources: Gmail" in chat
 
     def test_desk_headers_carry_a_drawn_mark(self):
         data = edition(sections=[
@@ -693,6 +709,11 @@ class TestHtml:
         assert 'class="desk-icon"' in weather
         assert 'class="desk-icon"' in calendar
         assert 'class="desk-icon"' in mail
+        # Dark title bars: WeasyPrint does not resolve stroke="currentColor"
+        # from the h2, so the mark has to be paper-white in the SVG itself.
+        assert 'stroke="#ffffff"' in weather
+        assert 'stroke="#ffffff"' in calendar
+        assert 'stroke="#ffffff"' in mail
 
     def test_chat_edition_has_no_icons(self):
         data = edition(sections=[{
