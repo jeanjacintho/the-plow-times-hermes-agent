@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 
 import pytest
 
@@ -115,6 +117,8 @@ class TestValidate:
         page = recommendation_edition([RECOMMENDATION, second, third], ["Q4 — What changed?"])
         assert render.validate(page) == ""
         output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        assert '<div class="priority-grid">' in output
+        assert output.count('<article class="priority-rec">') == 3
         assert output.index("Put retention at the center") < output.index("Interview &lt;three&gt; users")
         assert "Second &amp; final." in output
         assert "FIRST STEP" in output and "Patrick Salyer" in output
@@ -167,6 +171,15 @@ class TestValidate:
 
     def test_desk_optional(self):
         assert render.validate(edition()) == ""
+
+    def test_more_than_three_news_articles_is_refused(self):
+        stories = [{
+            "kind": "section", "title": f"Story {i}", "desk": "news",
+            "body": f"Body {i}.", "sources": [],
+        } for i in range(4)]
+        assert "edition has more than 3 news articles" in render.validate(
+            edition(sections=stories)
+        )
         assert render.validate(edition(sections=[{
             "kind": "section", "title": "x", "body": "y", "desk": "weather",
         }])) == ""
@@ -277,46 +290,44 @@ class TestValidate:
         assert "dropcap" in html
         assert "<p>" in html
 
-    def test_news_well_is_a_stack_not_an_unbreakable_row(self):
+    def test_three_news_articles_render_as_one_lead_above_a_pair(self):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
-        } for i in range(7)]
+        } for i in range(3)]
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
-                                  "{{SECTIONS}}")
-        # 1 lead + 6 in the well. Unbreakable 3-col tables jumped whole
-        # rows onto the next sheet; the well is now a stack that can
-        # fill leftover space.
-        assert '<div class="news-cols">' not in html
-        assert html.count("<article") == 6
+                                  "<main>{{LEAD}}</main>{{NEWS_PAIR}}")
+        lead, pair = html.split("</main>", 1)
+        assert "Story 0" in lead
+        assert "Story 1" not in lead and "Story 2" not in lead
+        assert '<div class="news-pair">' in pair
+        assert pair.count('<div class="news-pair-cell">') == 2
+        assert pair.count("Story 1") == 1 and pair.count("Story 2") == 1
 
-    def test_news_well_keeps_every_story(self):
-        sections = [{
-            "kind": "section", "title": f"Story {i}", "desk": "news",
-            "body": f"Body {i}.", "sources": [],
-        } for i in range(5)]
-        html = render.render_html(edition(sections=sections),
-                                  render.DEFAULT_MASTHEAD,
-                                  "{{SECTIONS}}")
-        assert html.count("<article") == 4
-        assert "Story 1" in html and "Story 4" in html
-
-    def test_desks_render_as_a_boxed_teaser_row(self):
+    def test_calendar_rail_is_the_only_printed_event_owner(self):
+        priority = {"recommendations": recommendations(), "questions": []}
         html = render.render_html(edition(sections=[
+            {"kind": "section", "title": "Focus", "desk": "priority",
+             "headline": "Prepare the call", "body": "Call the customer",
+             "priority": priority, "sources": []},
             {"kind": "section", "title": "Agenda", "desk": "calendar",
-             "body": "c", "sources": []},
-            {"kind": "section", "title": "Correio", "desk": "mail",
-             "body": "m", "sources": []},
-        ]), render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
-        assert '<div class="desks-row">' in html
-        assert html.count('<div class="desks-cell">') == 2
+             "headline": "One call", "body": "10:00 Customer call: Dana",
+             "schedule": [{"time": "10:00", "title": "Customer call: Dana",
+                            "icon": "call"}], "sources": ["Calendar.app"]},
+        ]), render.DEFAULT_MASTHEAD,
+            "{{PRIORITY_BLOCK}}<aside class=\"calendar-rail\">{{CALENDAR_RAIL}}</aside>")
+        assert html.count("Customer call: Dana") == 1
+        assert "<h3>TODAY</h3>" not in html
+        assert html.count('class="calendar-rail"') == 1
+        assert html.count("section--calendar") == 1
 
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
             {"kind": "section", "title": "News", "desk": "news", "body": "n", "sources": []},
             {"kind": "section", "title": "Weather", "desk": "weather", "body": "w", "sources": []},
-            {"kind": "section", "title": "P", "desk": "priority", "body": "p", "sources": []},
+            {"kind": "section", "title": "P", "desk": "priority", "body": "p",
+             "priority": {"recommendations": recommendations(), "questions": []}, "sources": []},
         ]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}{{WEATHER}}{{LEAD}}")
         assert html.index("section--priority") < html.index("section--weather")
 
@@ -335,7 +346,7 @@ class TestValidate:
             "{{LEAD}}{{PRIORITY}}",
         )
         assert "Nothing to report this time." not in html
-        assert "Close the seed extension" in html
+        assert "Put retention at the center" in html
         assert html.count("<article") >= 1
         assert "{{LEAD}}" not in html
       
@@ -661,25 +672,23 @@ class TestHtml:
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{LEAD}}")
         assert 'href="https://example.com/weather"' in page
 
-    def test_sudoku_is_a_table_not_authored_json(self):
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{SUDOKU}}")
-        assert '<table class="sk-grid">' in page
-        assert page.count("<tr>") == 9
-        assert "Sudoku" in page
-        assert "<div class=\"sk-grid\">" not in page
+    def test_pdf_refuses_more_than_one_rendered_page(self, tmp_path, monkeypatch):
+        class FakeDocument:
+            pages = [object(), object()]
 
-    def test_sudoku_omits_the_page_rather_than_crash_the_paper(self, monkeypatch):
-        def boom(*_args, **_kwargs):
-            raise RuntimeError("generator failed")
+            def write_pdf(self, _path):
+                raise AssertionError("multi-page document must not be written")
 
-        monkeypatch.setattr(render.sudoku, "generate_puzzle", boom)
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "X{{SUDOKU}}Y")
-        assert page == "XY"
+        class FakeHTML:
+            def __init__(self, *, string):
+                self.string = string
 
-    def test_chat_edition_has_no_sudoku_grid(self):
-        text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
-        assert "<table" not in text
-        assert "sk-grid" not in text
+            def render(self):
+                return FakeDocument()
+
+        monkeypatch.setitem(sys.modules, "weasyprint", types.SimpleNamespace(HTML=FakeHTML))
+        with pytest.raises(SystemExit, match="rendered 2 pages; expected exactly 1"):
+            render.write_pdf("<p>two pages</p>", tmp_path / "edition.pdf")
 
 
 class TestMain:
@@ -700,8 +709,7 @@ class TestMain:
         render.main([str(path), "--html", str(out)])
         html = out.read_text()
         assert "Weather in Sao Paulo" in html
-        assert '<table class="sk-grid">' in html
-        assert "Sudoku" in html
+        assert "Sudoku" not in html
 
     @pytest.mark.parametrize("data, named", [
         ({"date": "x", "sections": []}, "date is not a strict YYYY-MM-DD string"),

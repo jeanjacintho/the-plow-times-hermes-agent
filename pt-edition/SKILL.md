@@ -84,11 +84,6 @@ HTML.** Hand-write `edition.json` under the run directory:
 }
 ```
 
-- **Never write a Sudoku into `edition.json`.** The renderer always
-  generates and verifies one Easy or Medium puzzle from `scripts/sudoku.py`,
-  seeded on `date`, and fills `{{SUDOKU}}`. There is no JSON field for it;
-  a grid the model authored would be the one thing this page cannot afford
-  to get wrong.
 - **`topic_id` is mandatory per section** — the delivery step marks each
   topic from it. Without it, marking depends on session memory, which SOUL.md
   forbids. `run_on` is required for an assignment.
@@ -115,11 +110,13 @@ HTML.** Hand-write `edition.json` under the run directory:
   priority desk those lines were the paper's own plumbing ("Sources:
   priority desk"), so the renderer drops them there. A weather `forecast`
   grid prints no sources line in the HTML/PDF; the chat edition still does.
-- **`desk` is the newspaper department, and each one is its own page
-  slot** — not a mixed sidebar. `"weather"` → `{{WEATHER}}`, `"calendar"` →
-  `{{CALENDAR}}`, `"mail"` → `{{MAIL}}`, `"sports"` → `{{SPORTS}}`,
-  `"news"` (the default) → `{{SECTIONS}}`. Same title / headline / body /
-  sources shape in every slot; the priority desk carries `sources: []`.
+- **`desk` is the newspaper department.** On the printed one-pager,
+  weather occupies the masthead ear, priority occupies the founder-focus
+  band, calendar occupies the sole right rail, and news occupies the main
+  well. The first news article leads at full width; articles two and three
+  sit side by side below it. Mail and sports remain in the chat edition but
+  do not consume print space. Every desk keeps the same title / headline /
+  body / sources shape; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
   already talks to the reader. When present it replaces the section prose on print. Shape:
@@ -148,9 +145,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   pick the one that actually matches the event (a call is `call`, not
   `meeting`; a standing reminder like "dentist at 3pm" is `reminder`;
   anything that doesn't fit the other four is `note`, never guessed as
-  `meeting` to avoid picking). The printed strip shows at most six
-  events (issue #7: a taller calendar box jumped the whole desks row
-  to the next page); list every event in `schedule` anyway — that list
+  `meeting` to avoid picking). The printed calendar rail shows at most six
+  events; list every event in `schedule` anyway — that list
   is the calendar source of truth, and the chat edition serializes it
   in full. Extra rows are dropped only in print. `messages` is a non-empty list of
   `{ "sender", "subject" }` — no icon field, since every letter draws
@@ -215,17 +211,15 @@ HTML.** Hand-write `edition.json` under the run directory:
   compile a main-paper section into a noon paper, or the reverse. Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
-- **Pagination is the renderer's job.** News that does not fit one Letter
-  sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
-  Each boxed desk stays whole; if the rail itself overflows, the next desk
-  starts on the following page. The priority card may continue onto page 2.
-  Never hand-split copy across pages.
+- **The PDF is exactly one Letter sheet.** Include no more than three news
+  articles. The renderer keeps every included word and refuses the PDF by
+  name if WeasyPrint lays it out onto anything other than one page; it never
+  truncates or silently drops a fourth article. Never hand-split copy.
 - **`location` is this run's city** from the Latch location step, a string,
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
-- **`layout` is optional, `"main"` (the default) or `"sidebar"`.** Only news
-  blocks honor it — a news story the owner wanted as a boxed panel. Standing
-  desks ignore it; the renderer already puts them on the rail.
+- **`layout` remains accepted for compatibility**, but the fixed one-page
+  template owns story placement from article order: lead first, pair second.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
   sentence ("nothing to report this time"), and what was tried.

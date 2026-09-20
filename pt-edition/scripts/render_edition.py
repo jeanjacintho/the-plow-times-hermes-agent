@@ -41,8 +41,6 @@ import urllib.request
 from datetime import date
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import sudoku  # noqa: E402 -- sibling script beside this one
-
 DEFAULT_MASTHEAD = "THE FOUNDER TIMES"
 KINDS = ("section", "assignment")
 # Standing newspaper desks. weather and calendar always run; mail only when
@@ -367,6 +365,12 @@ def validate(edition):
                 credit = image.get("credit")
                 if credit is not None and not isinstance(credit, str):
                     failures.append(f"{where}.image.credit is not a string")
+    news_count = sum(
+        1 for section in sections
+        if isinstance(section, dict) and is_news_section(section)
+    )
+    if news_count > 3:
+        failures.append("edition has more than 3 news articles")
     return "; ".join(failures or page_rules(sections))
 
 
@@ -852,7 +856,7 @@ def _inline(heading, texts):
 
 def priority_block(priority):
     """Ranked recommendation essays, followed by questions for the owner."""
-    blocks = []
+    recommendations = []
     for rank, recommendation in enumerate(priority["recommendations"], 1):
         advisor = recommendation["advisor"]
         paragraphs = "".join(f"<p>{html.escape(p)}</p>" for p in body_paragraphs(recommendation["body"]))
@@ -861,7 +865,7 @@ def priority_block(priority):
             f'{source_markup(fact.get("url") or "", fact["source"].strip())}</span></li>'
             for fact in recommendation["evidence"]
         )
-        blocks.append(
+        recommendations.append(
             f'<article class="priority-rec"><p class="priority-rank">{rank}</p>'
             f'<h2>{_esc(recommendation["headline"])}</h2>{paragraphs}'
             f'<ol class="priority-evidence">{evidence}</ol>'
@@ -869,6 +873,7 @@ def priority_block(priority):
             f'<blockquote>“{_esc(advisor["quote"])}” <span class="src">— '
             f'<a href="{_esc(advisor["url"])}">{_esc(advisor["name"])}</a></span></blockquote></article>'
         )
+    blocks = [f'<div class="priority-grid">{"".join(recommendations)}</div>']
     if priority.get("questions"):
         blocks.append(_inline('QUESTIONS FOR YOU · TEXT “Q2: …”', priority["questions"]))
     return "\n".join(blocks)
@@ -955,10 +960,8 @@ def fetch_grayscale_photo(url):
     out of template.html from the start.
 
     Never raises: Pillow being absent, a timeout, a 404, a non-image
-    response, or a file too large all just mean no photo for that story
-    -- the same soft-fail the optional PDF leg and the Sudoku generator
-    already use, so one bad photo URL never takes down the rest of the
-    paper."""
+    response, or a file too large all just mean no photo for that story,
+    so one bad photo URL never takes down the rest of the paper."""
     try:
         from PIL import Image  # noqa: PLC0415 -- optional dependency
 
@@ -1060,7 +1063,7 @@ def html_section(section, drop_cap=False):
         if kicker_html:
             blocks.append(kicker_html)
         blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
-        if headline:
+        if headline and desk != "priority":
             blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None
     if image:
@@ -1112,73 +1115,6 @@ def html_section(section, drop_cap=False):
     return "\n".join(blocks)
 
 
-# One filled dot per difficulty step (easy = 1, medium = 2) instead of a
-# word -- "Fácil"/"Médio" or "Easy"/"Medium" would be Python-authored text
-# sitting outside the edition's own `owner.language`, the same problem the
-# solution line's caption had. A dot rating needs no translation.
-DIFFICULTY_DOTS = {"easy": 1, "medium": 2}
-MAX_DIFFICULTY_DOTS = 2
-
-
-def sudoku_section_html(edition_date):
-    """The paper's puzzle page: one Easy or Medium Sudoku, generated and
-    verified by sudoku.py -- never authored by the model, so there is no
-    such thing as a broken grid here. Seeded on the edition's own date so
-    re-rendering the same edition always reproduces the same puzzle.
-    A generator failure omits the puzzle rather than taking down the
-    rest of the paper. The solution prints in full underneath, just the
-    81 digits with no label -- a "Solução:"/"Solution:" caption would be
-    Python-authored text sitting outside the edition's own
-    `owner.language`, so the numbers run on their own instead of risking
-    a caption in the wrong language."""
-    try:
-        difficulty = sudoku.pick_difficulty(edition_date)
-        puzzle, solution, _givens = sudoku.generate_puzzle(
-            difficulty, seed=edition_date
-        )
-        sudoku.verify_puzzle(puzzle, solution)
-    except (RuntimeError, ValueError, TypeError):
-        return ""
-    filled = DIFFICULTY_DOTS[difficulty]
-    dots_html = (
-        "&#9679;" * filled + "&#9675;" * (MAX_DIFFICULTY_DOTS - filled)
-    )
-
-    rows_html = []
-    for r in range(9):
-        cells = []
-        for c in range(9):
-            value = puzzle[r][c]
-            text = str(value) if value in range(1, 10) else ""
-            classes = ["sk-cell"]
-            if text:
-                classes.append("sk-given")
-            if c % 3 == 0:
-                classes.append("sk-box-left")
-            if r % 3 == 0:
-                classes.append("sk-box-top")
-            cells.append(f'<td class="{" ".join(classes)}">{text}</td>')
-        rows_html.append("<tr>" + "".join(cells) + "</tr>")
-    grid_html = f'<table class="sk-grid">{"".join(rows_html)}</table>'
-
-    solution_rows = []
-    for r in range(9):
-        solution_rows.append(
-            "".join(str(v) if v in range(1, 10) else "?" for v in solution[r])
-        )
-    solution_html = (
-        '<p class="sk-solution">' + " · ".join(solution_rows) + "</p>"
-    )
-
-    return (
-        '<article class="section sudoku-section">'
-        f'<h2>Sudoku <span class="tag sk-difficulty">{dots_html}</span></h2>'
-        f"{grid_html}"
-        f"{solution_html}"
-        "</article>"
-    )
-
-
 def render_html(edition, name, template_text):
     ordered = [section for _index, section in ordered_sections(edition["sections"])]
     news = [s for s in ordered if is_news_section(s)]
@@ -1201,15 +1137,13 @@ def render_html(edition, name, template_text):
         lead_html = '<article class="section"><p>Nothing to report this time.</p></article>'
         rest = []
 
-    # The news well is a vertical stack of stories that MAY split across
-    # pages. Measured live 2026-09-18: wrapping them in 3-cell tables with
-    # break-inside:avoid left a half-empty page 1 (the lead body jumped
-    # whole) and parked leftover news on page 2 while space remained
-    # above. WeasyPrint 62.3 still cannot split a table cell without
-    # painting the continuation one column to the right, so the well is
-    # not a table at all -- ordinary block flow fills leftover space and
-    # only starts a new page when the current one is full.
-    news_well_html = "".join(html_section(section) for section in rest)
+    pair_cells = "".join(
+        f'<div class="news-pair-cell">{html_section(section)}</div>'
+        for section in rest
+    )
+    news_pair_html = (
+        f'<div class="news-pair">{pair_cells}</div>' if pair_cells else ""
+    )
     weather_html = wrap_desk(join_articles(weather))
     calendar_html = wrap_desk(join_articles(calendar))
     mail_html = wrap_desk(join_articles(mail))
@@ -1247,8 +1181,6 @@ def render_html(edition, name, template_text):
 
     page_class = "page" if desks_html else "page page--no-desks"
     location = html.escape((edition.get("location") or "").strip() or "One copy")
-    sudoku_html = sudoku_section_html(edition["date"])
-
     return (
         template_text
         .replace("{{MASTHEAD}}", html.escape(name))
@@ -1260,13 +1192,14 @@ def render_html(edition, name, template_text):
         .replace("{{PRIORITY_BLOCK}}", priority_block_html)
         .replace("{{WEATHER_EAR}}", weather_ear)
         .replace("{{DESKS_INLINE}}", desks_inline_html)
-        .replace("{{SECTIONS}}", news_well_html)
+        .replace("{{NEWS_PAIR}}", news_pair_html)
+        .replace("{{CALENDAR_RAIL}}", calendar_html)
+        .replace("{{SECTIONS}}", news_pair_html)
         .replace("{{WEATHER}}", weather_html)
         .replace("{{CALENDAR}}", calendar_html)
         .replace("{{MAIL}}", mail_html)
         .replace("{{SPORTS}}", sports_html)
         .replace("{{SIDEBAR}}", desks_html)
-        .replace("{{SUDOKU}}", sudoku_html)
     )
 
 
@@ -1279,7 +1212,11 @@ def write_pdf(html_text, path):
             "error: weasyprint is not installed; cannot write the PDF edition "
             "(the personalized-paper plan §5 has the Chrome-on-Mac fallback)."
         )
-    HTML(string=html_text).write_pdf(str(path))
+    document = HTML(string=html_text).render()
+    page_count = len(document.pages)
+    if page_count != 1:
+        sys.exit(f"error: rendered {page_count} pages; expected exactly 1")
+    document.write_pdf(str(path))
 
 
 def main(argv=None):

@@ -345,7 +345,7 @@ class TestSoul:
         # wrapped python3, which tripped Hermes' /approve gate in a loop.
         # SKILL.md-only scanning misses this: the lock lives in
         # register_crons.py's printed recipe, not in a SKILL.md example.
-        skip = {"bearer_http.py", "sudoku.py"}  # imported, never invoked bare
+        skip = {"bearer_http.py"}  # imported, never invoked bare
         missing = []
         for path in sorted(ROOT.glob("pt-*/scripts/*.py")):
             if path.name in skip:
@@ -818,8 +818,9 @@ class TestSkills:
         # the page. The renderer fills these; the template must keep them.
         template = (ROOT / "pt-edition" / "template.html").read_text()
         for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY_BLOCK",
-                     "WEATHER_EAR", "DESKS_INLINE", "SECTIONS", "SUDOKU"):
+                     "WEATHER_EAR", "NEWS_PAIR", "CALENDAR_RAIL"):
             assert "{{" + slot + "}}" in template, f"template lost {{{{{slot}}}}}"
+        assert "{{SUDOKU}}" not in template
 
     def test_template_has_a_newspaper_front_page(self):
         # Measured live 2026-09-18: the page read as a newsletter, not a
@@ -834,16 +835,20 @@ class TestSkills:
         assert "dropcap" in template
         assert "border-image" not in template  # no fake photo frames
         assert "masthead-row" in template
-        assert "ear-box" in template
+        assert "Every claim" not in template
         # The priority card's heading is model-written (owner.language),
         # not a hardcoded English/Portuguese string.
         assert "What should I prioritize today?" not in template
         assert "O que devo priorizar hoje?" not in template
         assert "PRIORITY_BLOCK" in template
         assert "kicker" in template
-        assert "desks-row" in template
+        assert "calendar-rail" in template
+        assert "news-pair" in template
         assert "break-inside: avoid" in template
-        assert "news-well" in template
+        # A long localized focus title must be a horizontal bar. Making it
+        # a narrow table cell stacked the English title into five lines and
+        # turned the card into a black vertical slab in the real PDF.
+        assert ".section--priority > h2 {\n    display: block;" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).
@@ -867,10 +872,10 @@ class TestSkills:
             "Blueprint",
         ):
             assert needle not in blob, needle
-        for name in ("edition-page-1.jpg", "edition-page-2.jpg", "edition-page-3.jpg"):
-            jpg = ROOT / "index" / name
-            assert jpg.is_file() and jpg.stat().st_size > 0, name
-        assert not (ROOT / "index" / "edition-page-4.jpg").exists()
+        jpg = ROOT / "index" / "edition-page-1.jpg"
+        assert jpg.is_file() and jpg.stat().st_size > 0
+        assert not (ROOT / "index" / "edition-page-2.jpg").exists()
+        assert not (ROOT / "index" / "edition-page-3.jpg").exists()
 
     def test_recorder_has_only_the_current_recommendation_schema(self):
         recorder = (ROOT / "pt-edition" / "scripts" / "record_edition.py").read_text()
