@@ -175,7 +175,7 @@ def run_print_edition(pdf_path, config_path):
     )
     blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
     if proc.returncode != 0:
-        if "page not printed" in blob:
+        if "page not printed" in blob or "page may not have printed" in blob:
             return blob
         return f"page not printed — {blob or proc.returncode}"
     return blob
@@ -244,7 +244,9 @@ def print_failure_line(result):
     if line is None:
         return None
     line = line.removeprefix("error: ")[:200]
-    return line if "next scheduled run retries" in line else line + "; next scheduled run retries"
+    if "outcome unknown" in line or "next scheduled run retries" in line:
+        return line  # unknown: a retry promise could mean a second copy
+    return line + "; next scheduled run retries"
 
 
 def compose_payload(text, attachment_uid=None):

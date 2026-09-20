@@ -31,7 +31,11 @@ over a local Unix socket, and Latch's sandbox only grants that with the flag
 `plow_run_applescript` (unsandboxed), which also wakes `cupsd`.
 
 **The print is not done until step 3 exited 0.** A CUPS job id in its output
-is the receipt. Any other exit — `lp: unable to print file`, `no such
+is the receipt. A missing `exit_code` (Latch still `running` after its wait)
+is not a failed step yet — the script polls the job handle with
+`plow_get_output` until it exits. If it never does, the script exits
+`page not printed — lp outcome unknown: still running` and the chat notice
+does not promise a retry. Any other exit — `lp: unable to print file`, `no such
 printer`, a deny on the Mac — is a failed step: the script exits non-zero;
 do not pretend the page printed.
 

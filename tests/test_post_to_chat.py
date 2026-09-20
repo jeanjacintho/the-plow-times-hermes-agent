@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import types
 import subprocess
 import sys
 
@@ -63,6 +64,14 @@ class TestComposePayload:
         assert status == "pending"
 
 
+class TestRunPrintEdition:
+    def test_unknown_outcome_line_is_kept_not_rewrapped_as_a_failure(self, monkeypatch):
+        line = "error: page may not have printed — lp outcome unknown: Click Allow; check the printer queue"
+        monkeypatch.setattr("subprocess.run", lambda *a, **k: types.SimpleNamespace(
+            returncode=1, stdout="", stderr=line))
+        assert post.run_print_edition("/x.pdf", "/c.json") == line
+
+
 class TestTextFileFlag:
     """`--text-file` exists so the text leg needs no shell redirect.
 
@@ -122,6 +131,8 @@ class TestMaybePrint:
          "page not printed — lp 1: no such printer; next scheduled run retries"),
         ("warning: something first\nerror: page not printed — latch denied",
          "page not printed — latch denied; next scheduled run retries"),
+        ("error: page not printed — lp outcome unknown: still running",
+         "page not printed — lp outcome unknown: still running"),
         ("error: page not printed — Mac unreachable",
          "page not printed — Mac unreachable; next scheduled run retries"),
     ])

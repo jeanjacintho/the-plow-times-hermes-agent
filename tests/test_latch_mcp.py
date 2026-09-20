@@ -15,16 +15,21 @@ class TestSettle:
             calls.append(handle)
             if len(calls) < 2:
                 return {"status": "pending", "handle": handle}
-            return {"status": "ready", "result": {"path": "/Users/jj/Plow/pt/x.b64"}}
+            return {"status": "ready", "result": {"path": "/Users/test-owner/Plow/pt/x.b64"}}
 
         out = lm.settle({"status": "pending", "handle": "h1"}, get_result, sleep=lambda _n: None)
-        assert out["path"] == "/Users/jj/Plow/pt/x.b64"
+        assert out["path"] == "/Users/test-owner/Plow/pt/x.b64"
         assert calls == ["h1", "h1"]
 
     @pytest.mark.parametrize("status", ["denied", "failed", "expired", "blocked"])
     def test_a_refused_call_raises_with_its_status(self, status):
         with pytest.raises(LatchError, match=f"latch {status}"):
             lm.settle({"status": status, "handle": "h"}, lambda _h: {}, sleep=lambda _n: None)
+
+    def test_a_blocked_call_carries_the_owner_action(self):
+        blocked = {"status": "blocked", "diagnosis": {"owner_action": "Click Allow"}}
+        with pytest.raises(LatchError, match="latch blocked: Click Allow"):
+            lm.settle(blocked, lambda _h: {}, sleep=lambda _n: None)
 
 
 class TestDecodeBody:
@@ -34,9 +39,9 @@ class TestDecodeBody:
             lm.decode_mcp_body("application/json", raw)
 
     def test_a_normal_reply_is_returned(self):
-        body = b'{"jsonrpc":"2.0","id":1,"result":{"path":"/Users/jj/a"}}'
+        body = b'{"jsonrpc":"2.0","id":1,"result":{"path":"/Users/test-owner/a"}}'
         assert lm.decode_mcp_body("application/json", body) == {
-            "jsonrpc": "2.0", "id": 1, "result": {"path": "/Users/jj/a"},
+            "jsonrpc": "2.0", "id": 1, "result": {"path": "/Users/test-owner/a"},
         }
 
 
@@ -48,5 +53,21 @@ class TestUnwrap:
             lm.unwrap_tool_result(result)
 
     def test_json_text_is_parsed(self):
-        result = {"content": [{"type": "text", "text": '{"path": "/Users/jj/a", "content": "x"}'}]}
-        assert lm.unwrap_tool_result(result) == {"path": "/Users/jj/a", "content": "x"}
+        result = {"content": [{"type": "text", "text": '{"path": "/Users/test-owner/a", "content": "x"}'}]}
+        assert lm.unwrap_tool_result(result) == {"path": "/Users/test-owner/a", "content": "x"}
+
+
+class TestFinishCommand:
+    @pytest.mark.parametrize("polled", [
+        {"status": "blocked", "diagnosis": {"owner_action": "Click Allow"}},
+        {"status": "blocked", "exit_code": 1, "diagnosis": {"owner_action": "Click Allow"}},
+    ])
+    def test_a_terminal_blocked_poll_reports_its_owner_action(self, polled):
+        running = {"status": "running", "handle": "j"}
+        with pytest.raises(LatchError, match="lp outcome unknown: Click Allow"):
+            lm.finish_command(lambda *_: polled, running, "lp")
+
+    def test_a_diagnosed_running_job_reports_its_owner_action(self):
+        parked = {"status": "running", "handle": "j", "diagnosis": {"owner_action": "Click Allow"}}
+        with pytest.raises(LatchError, match="lp outcome unknown: Click Allow"):
+            lm.finish_command(lambda *_: {}, parked, "lp")
