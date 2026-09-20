@@ -14,7 +14,10 @@ topics = load_module("topics", "pt-intake/scripts/topics.py")
 @pytest.fixture
 def pt_home(tmp_path, monkeypatch):
     monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
-    return tmp_path / "pt"
+    pt = tmp_path / "pt"
+    pt.mkdir()
+    (pt / "config.json").write_text(json.dumps({"delivery": {"hour": "07:00"}}))
+    return pt
 
 
 def read_store(pt_home):
@@ -140,19 +143,19 @@ class TestResolve:
 
 class TestBrokenStore:
     def test_garbage_refuses_to_read_as_empty(self, pt_home):
-        pt_home.mkdir(parents=True)
+        pt_home.mkdir(parents=True, exist_ok=True)
         (pt_home / "topics.json").write_text("garbage")
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
 
     def test_wrong_shape_refuses(self, pt_home):
-        pt_home.mkdir(parents=True)
+        pt_home.mkdir(parents=True, exist_ok=True)
         (pt_home / "topics.json").write_text(json.dumps({"topics": "nope"}))
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
 
     def test_idless_topic_refuses(self, pt_home):
-        pt_home.mkdir(parents=True)
+        pt_home.mkdir(parents=True, exist_ok=True)
         (pt_home / "topics.json").write_text(json.dumps({"topics": [{"nope": 1}]}))
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
@@ -222,7 +225,7 @@ class TestSections:
         assert len(read_store(pt_home)) == 6
 
     def test_explicit_daily_hour_shares_the_main_roster(self, pt_home):
-        pt_home.mkdir(parents=True)
+        pt_home.mkdir(parents=True, exist_ok=True)
         (pt_home / "config.json").write_text(json.dumps({
             "delivery": {"hour": "07:00"},
         }))
@@ -296,6 +299,49 @@ class TestAssignments:
         with pytest.raises(SystemExit, match="more than 3 news items"):
             topics.main(["add", "--text", "markets", "--kind", "section",
                          "--depth", "quick"])
+
+    def test_assignments_for_earlier_dates_count_when_later_one_is_added(self, pt_home):
+        topics.main(["add", "--text", "AI", "--kind", "section",
+                     "--depth", "quick"])
+        self.add(pt_home, run_on="2026-09-10")
+        self.add(pt_home, run_on="2026-09-11")
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            self.add(pt_home, run_on="2026-09-12")
+
+
+class TestCheckPaper:
+    def test_names_every_item_in_legacy_overfill(self, pt_home):
+        pt_home.mkdir(parents=True, exist_ok=True)
+        (pt_home / "config.json").write_text(json.dumps({
+            "delivery": {"hour": "07:00"},
+        }))
+        legacy = [
+            {"id": f"t_000{i}", "text": text, "kind": "section",
+             "status": "pending", "deliver_at": None}
+            for i, text in enumerate(("AI", "markets", "startups", "Formula 1"))
+        ]
+        (pt_home / "topics.json").write_text(json.dumps({"topics": legacy}))
+        with pytest.raises(SystemExit) as exc:
+            topics.main(["check-paper", "--deliver-at", "main",
+                         "--as-of", "2026-09-12"])
+        message = str(exc.value)
+        assert "more than 3 news items" in message
+        assert all(item["text"] in message for item in legacy)
+
+    def test_new_main_hour_is_checked_before_it_merges_rosters(self, pt_home):
+        pt_home.mkdir(parents=True, exist_ok=True)
+        (pt_home / "config.json").write_text(json.dumps({
+            "delivery": {"hour": "07:00"},
+        }))
+        for text in ("AI", "markets"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        for text in ("startups", "Formula 1"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick", "--deliver-at", "12:00"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["check-paper", "--deliver-at", "main",
+                         "--main-hour", "12:00"])
 
 
 class TestSectionsDoNotDuplicate:

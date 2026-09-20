@@ -111,7 +111,7 @@ These are ordinary turns, not classifications. Do them and end:
       topics.py add --text "<topic>" --kind section --depth quick --deliver-at HH:MM
 
   If `deliver_at` equals `delivery.hour`, omit `--deliver-at` — it rides
-  the main paper. Count news sections **per paper** (max 8 on that hour's
+  the main paper. Count news items **per paper** (max 3 on that hour's
   roster, standing desks do not count). Then run `register_crons.py` so
   `pt-paper-HHMM` exists now. Confirm in the owner's terms: "you'll get a
   sports paper at 12:00".

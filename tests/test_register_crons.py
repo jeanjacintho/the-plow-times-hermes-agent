@@ -829,9 +829,7 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         crons.paper_prompt("paper1", "12:00"),
     ])
     def test_paper_prompt_stops_before_research_on_legacy_overfill(self, prompt):
-        assert "topics.py list" in prompt
-        assert "more than three" in prompt
-        assert "name every news item" in prompt
+        assert "topics.py check-paper" in prompt
         assert "before research" in prompt
 
     def test_print_leg_is_best_effort_and_after_the_chat_edition(self):

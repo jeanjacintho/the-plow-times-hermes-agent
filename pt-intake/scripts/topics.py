@@ -21,6 +21,8 @@ Subcommands:
   cancel   <id>            any topic the owner says stop on
   mark     <id> --status {pending,running,delivered} [--at ISO8601]
   list     [--kind K]      prints the topics array as JSON
+  check-paper --deliver-at {main,HH:MM} [--as-of YYYY-MM-DD]
+                           validates one paper's three-item news roster
   reopen-sections          every section/subscription that is delivered or
                            running becomes pending (a paper about to run;
                            measured live, delivered sections were skipped
@@ -182,64 +184,82 @@ def checked_deliver_at(args):
     return raw
 
 
-def paper_slot(topic):
-    """Return the paper roster a section belongs to.
-
-    An explicitly timed section at the configured daily hour is part of the
-    main paper, just like an unscoped section. If config is absent or broken,
-    the writer still protects exact timed rosters; config validation owns the
-    separate refusal for malformed config.
-    """
+def paper_slot(topic, main_hour=None):
+    """Return the paper roster a section belongs to."""
     deliver_at = topic.get("deliver_at")
-    try:
+    if deliver_at is None:
+        return "main"
+    if main_hour is None:
         config = json.loads((home() / "config.json").read_text())
-        main_hour = config.get("delivery", {}).get("hour")
-    except (OSError, ValueError, AttributeError):
-        main_hour = None
-    return "main" if deliver_at is None or deliver_at == main_hour else deliver_at
+        main_hour = config["delivery"]["hour"]
+    return "main" if deliver_at == main_hour else deliver_at
+
+
+def paper_items(topics, slot, *, main_hour=None, as_of=None):
+    """Select the news roster for one paper; all callers share this rule."""
+    items = [
+        topic for topic in topics
+        if topic.get("kind") == "section"
+        and topic.get("status") != "cancelled"
+        and paper_slot(topic, main_hour) == slot
+    ]
+    if slot == "main":
+        items += [
+            topic for topic in topics
+            if topic.get("kind") == "assignment"
+            and topic.get("status") in ("pending", "running")
+            and (as_of is None or topic.get("run_on", "") <= as_of)
+        ]
+    return items
+
+
+def refuse_if_overfilled(items, label):
+    if len(items) <= MAX_NEWS_ITEMS:
+        return
+    names = ", ".join(topic.get("text", "") for topic in items)
+    sys.exit(
+        f"error: {label} has more than {MAX_NEWS_ITEMS} news items: {names} "
+        f"-- drop one before continuing"
+    )
 
 
 def refuse_overfilled_paper(topics, addition):
     """Keep every printed paper within the renderer's three-story contract."""
     if addition["kind"] not in ("section", "assignment"):
         return
-
-    active_sections = [
-        topic for topic in topics
-        if topic.get("kind") == "section" and topic.get("status") != "cancelled"
-    ]
-    active_assignments = [
-        topic for topic in topics
-        if topic.get("kind") == "assignment"
-        and topic.get("status") in ("pending", "running")
-    ]
-
+    candidates = [*topics, addition]
     if addition["kind"] == "assignment":
-        carried = [topic for topic in active_sections if paper_slot(topic) == "main"]
-        carried += [
-            topic for topic in active_assignments
-            if topic.get("run_on") == addition.get("run_on")
-        ]
+        carried = paper_items(candidates, "main", as_of=addition["run_on"])
         label = f"main paper on {addition['run_on']}"
     else:
         slot = paper_slot(addition)
-        carried = [topic for topic in active_sections if paper_slot(topic) == slot]
-        if slot == "main":
-            by_day = {}
-            for assignment in active_assignments:
-                by_day.setdefault(assignment.get("run_on"), []).append(assignment)
-            if by_day:
-                busiest = max(by_day.values(), key=len)
-                carried += busiest
+        carried = paper_items(candidates, slot)
         label = "main paper" if slot == "main" else f"{slot} paper"
+    refuse_if_overfilled(carried, label)
 
-    if len(carried) + 1 > MAX_NEWS_ITEMS:
-        names = ", ".join([*(topic.get("text", "") for topic in carried),
-                           addition["text"]])
-        sys.exit(
-            f"error: {label} would have more than {MAX_NEWS_ITEMS} news items: "
-            f"{names} -- drop one before adding another"
-        )
+
+def cmd_check_paper(args):
+    """Refuse a legacy or newly merged roster that cannot fit one page."""
+    if args.deliver_at != "main" and not DELIVER_AT_RE.fullmatch(args.deliver_at):
+        sys.exit(f"error: --deliver-at {args.deliver_at!r} is not main or HH:MM")
+    if args.main_hour is not None and not DELIVER_AT_RE.fullmatch(args.main_hour):
+        sys.exit(f"error: --main-hour {args.main_hour!r} is not HH:MM")
+    if args.as_of is not None:
+        if not RUN_ON_RE.fullmatch(args.as_of):
+            sys.exit(f"error: --as-of {args.as_of!r} is not YYYY-MM-DD")
+        try:
+            date.fromisoformat(args.as_of)
+        except ValueError:
+            sys.exit(f"error: --as-of {args.as_of!r} is not a real date")
+    items = paper_items(
+        load_topics(), args.deliver_at,
+        main_hour=args.main_hour, as_of=args.as_of,
+    )
+    label = "main paper" if args.deliver_at == "main" else f"{args.deliver_at} paper"
+    refuse_if_overfilled(items, label)
+    print(json.dumps({"paper": args.deliver_at, "news_items": len(items),
+                      "topics": [topic["text"] for topic in items]}))
+    return 0
 
 
 def cmd_add(args):
@@ -417,6 +437,17 @@ def main(argv=None):
     p_list = sub.add_parser("list", help="print topics as JSON")
     p_list.add_argument("--kind", choices=KINDS, default=None)
     p_list.set_defaults(func=cmd_list)
+
+    p_check = sub.add_parser(
+        "check-paper", help="refuse a paper roster with more than three news items",
+    )
+    p_check.add_argument("--deliver-at", required=True,
+                         help="main or the focused paper's HH:MM")
+    p_check.add_argument("--as-of", default=None,
+                         help="YYYY-MM-DD; include assignments due by this day")
+    p_check.add_argument("--main-hour", default=None,
+                         help="prospective HH:MM when validating a setting change")
+    p_check.set_defaults(func=cmd_check_paper)
 
     p_reopen = sub.add_parser(
         "reopen-sections",
