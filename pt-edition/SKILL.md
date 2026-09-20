@@ -123,7 +123,7 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
   already talks to the reader. When present it replaces the section prose on print. Shape:
-  `recommendations` is one to three ranked objects, each with non-blank `headline`, `body`,
+  `recommendations` is exactly three ranked objects, each with non-blank `headline`, `body`,
   `first_step`, `evidence` (one to three `{claim, source, url?}` items), and
   `advisor: {name, quote, url}`; `body` is at most 1,024 characters and every present `url`
   is HTTP(S). `questions` is zero to three non-blank strings. The advisor desk owns all semantic

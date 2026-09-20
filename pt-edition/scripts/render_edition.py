@@ -282,8 +282,8 @@ def validate(edition):
                 failures.append(f"{where}.priority is not an object")
             else:
                 recommendations = priority.get("recommendations")
-                if not isinstance(recommendations, list) or not (1 <= len(recommendations) <= 3):
-                    failures.append(f"{where}.priority.recommendations needs 1 to 3 items")
+                if not isinstance(recommendations, list) or len(recommendations) != 3:
+                    failures.append(f"{where}.priority.recommendations needs exactly 3 items")
                 else:
                     for i, item in enumerate(recommendations):
                         iwhere = f"{where}.priority.recommendations[{i}]"

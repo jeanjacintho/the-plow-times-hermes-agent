@@ -90,8 +90,8 @@ and the run starts another generation only if time permits.
 
 ### 4. Cull
 
-Every generation reaches Cull unless an incumbent critic failed. One culler sees the six targets,
-their item-backed research, and all prosecutions. It selects and ranks one to three grounded,
+Every generation reaches Cull unless an incumbent critic failed. One culler sees the available targets,
+their item-backed research, and all prosecutions. It selects and ranks exactly three grounded,
 distinct champions by decision impact, specificity, advisor fidelity, evidence, feasibility, and
 survival of criticism. Incumbency gives continuity, not immunity. A challenger wins only by
 beating an incumbent on the decision the owner should make now.
@@ -122,7 +122,7 @@ Write it to `/var/lib/hermes/pt/run/desk-priority/notes.json` only after this va
 
 ## Repeat and stop
 
-Every generation starts from the preceding generation's champions and tries to beat them. Do not
+Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
 stop merely because a generation retained all incumbents. Start another generation only when it
 can complete through criticism and Cull at least 30 minutes before `delivery.hour`; otherwise keep
 the last fully criticized checkpoint for delivery. A later failure never erases that checkpoint.

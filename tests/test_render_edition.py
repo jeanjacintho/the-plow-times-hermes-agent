@@ -17,12 +17,19 @@ RECOMMENDATION = {
     "first_step": "Draft the three-slide spine: retention, repeated use, and the runway milestone.",
     "advisor": {"name": "Patrick Salyer", "quote": "Forget the naming (seed / A / B).", "url": "https://example.com/advisor"},
 }
+
+
+def recommendations():
+    return [
+        {**RECOMMENDATION, "headline": f"{RECOMMENDATION['headline']} — {rank}"}
+        for rank in range(1, 4)
+    ]
 def edition_with_priority_and_weather():
     return edition(sections=[
         {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []},
         {"kind": "section", "title": "Your #1 priority today", "desk": "priority",
          "headline": "Close the seed extension", "body": "Send the deck",
-         "priority": {"recommendations": [RECOMMENDATION], "questions": []},
+         "priority": {"recommendations": recommendations(), "questions": []},
          "sources": []},
     ])
 
@@ -32,14 +39,15 @@ EVENT = {"time": "10:00", "title": "Customer call: Dana", "note": "Go in with: w
 
 def priority_edition(headline="Book 3 customer calls by Friday", sources=(), **fields):
     recommendation = {**RECOMMENDATION, "headline": headline}
-    p = {"recommendations": [recommendation], "questions": fields.pop("questions", []), **fields}
+    p = {"recommendations": [{**recommendation, "headline": f"{headline} — {rank}"} for rank in range(1, 4)],
+         "questions": fields.pop("questions", []), **fields}
     return edition(sections=[{"kind": "section", "title": "P", "desk": "priority",
                               "headline": headline, "body": "b", "priority": p,
                               "sources": list(sources)}])
 
 
 def recommendation_edition(recommendations=None, questions=None):
-    priority = {"recommendations": recommendations if recommendations is not None else [RECOMMENDATION],
+    priority = {"recommendations": recommendations if recommendations is not None else globals()["recommendations"](),
                 "questions": questions or []}
     return edition(sections=[{"kind": "section", "title": "Advisor", "desk": "priority",
                               "body": "Today's recommendations.", "priority": priority,
@@ -71,12 +79,13 @@ def write(tmp_path, data):
 
 class TestValidate:
     @pytest.mark.parametrize("recommendations,failure", [
-        ([], "priority.recommendations needs 1 to 3 items"),
-        ([RECOMMENDATION] * 4, "priority.recommendations needs 1 to 3 items"),
-        (["call customers"], "priority.recommendations[0] is not an object"),
-        ([{**RECOMMENDATION, "body": "x" * 1025}], "priority.recommendations[0].body is over 1024 characters"),
-        ([{**RECOMMENDATION, "evidence": []}], "priority.recommendations[0].evidence needs 1 to 3 items"),
-        ([{**RECOMMENDATION, "evidence": [{"claim": "x", "source": "y", "url": "file:///tmp/x"}]}],
+        ([], "priority.recommendations needs exactly 3 items"),
+        ([RECOMMENDATION], "priority.recommendations needs exactly 3 items"),
+        ([RECOMMENDATION] * 4, "priority.recommendations needs exactly 3 items"),
+        (["call customers"] * 3, "priority.recommendations[0] is not an object"),
+        ([{**RECOMMENDATION, "body": "x" * 1025}] * 3, "priority.recommendations[0].body is over 1024 characters"),
+        ([{**RECOMMENDATION, "evidence": []}] * 3, "priority.recommendations[0].evidence needs 1 to 3 items"),
+        ([{**RECOMMENDATION, "evidence": [{"claim": "x", "source": "y", "url": "file:///tmp/x"}]}] * 3,
          "priority.recommendations[0].evidence[0].url is not an http(s) URL"),
     ])
     def test_recommendation_rules(self, recommendations, failure):
@@ -84,7 +93,8 @@ class TestValidate:
 
     def test_ranked_recommendations_render_escaped_paper_prose(self):
         second = {**RECOMMENDATION, "headline": "Interview <three> users", "body": "First paragraph.\n\nSecond & final."}
-        page = recommendation_edition([RECOMMENDATION, second], ["Q4 — What changed?"])
+        third = {**RECOMMENDATION, "headline": "Ship the proof"}
+        page = recommendation_edition([RECOMMENDATION, second, third], ["Q4 — What changed?"])
         assert render.validate(page) == ""
         output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         assert output.index("Put retention at the center") < output.index("Interview &lt;three&gt; users")
@@ -309,7 +319,7 @@ class TestValidate:
       
 
     def test_chat_edition_keeps_the_priority_body(self):
-        p = {"recommendations": [RECOMMENDATION], "questions": []}
+        p = {"recommendations": recommendations(), "questions": []}
         text = render.render_chat(edition(sections=[{
             "kind": "section", "title": "P", "desk": "priority", "body": "Send the deck",
             "priority": p, "sources": [],
