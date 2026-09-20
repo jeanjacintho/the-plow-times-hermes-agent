@@ -526,13 +526,12 @@ def chat_section(section):
                 source = fact["source"].strip()
                 if fact.get("url"):
                     source += f" ({fact['url'].strip()})"
-                lines.append(f"     Evidence: {fact['claim'].strip()} — {source}")
-            lines.append(f"     First step: {recommendation['first_step'].strip()}")
+                lines.append(f"     • {fact['claim'].strip()} — {source}")
+            lines.append(f"     → {recommendation['first_step'].strip()}")
             advisor = recommendation["advisor"]
-            lines.append(f"     {advisor['name'].strip()}: “{advisor['quote'].strip()}” ({advisor['url'].strip()})")
+            lines.append(f"     “{advisor['quote'].strip()}” — {advisor['name'].strip()} ({advisor['url'].strip()})")
         if priority.get("questions"):
-            lines.append("  Questions for you:")
-            lines.extend(f"     {question.strip()}" for question in priority["questions"])
+            lines.extend(f"  ? {question.strip()}" for question in priority["questions"])
     elif schedule:
         for item in schedule:
             lines.append(f"  {item['time'].strip()} {item['title'].strip()}")

@@ -84,9 +84,9 @@ case to cull it:
 - duplicate of or subsumed by another contender.
 
 Each returns checked claims, contrary evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
-It may not repair or rewrite its target. A failed challenger critic
-excludes that challenger. A failed incumbent critic invalidates the generation: the prior fully criticized champion set stands,
-and the run starts another generation only if time permits.
+It may not repair or rewrite its target. A critic failure invalidates the generation whenever fewer
+than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands;
+retry only when time permits. Without a checkpoint, keep the honest unavailable card.
 
 ### 4. Cull
 

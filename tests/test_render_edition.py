@@ -19,9 +19,9 @@ RECOMMENDATION = {
 }
 
 
-def recommendations():
+def recommendations(headline=RECOMMENDATION["headline"]):
     return [
-        {**RECOMMENDATION, "headline": f"{RECOMMENDATION['headline']} — {rank}"}
+        {**RECOMMENDATION, "headline": f"{headline} — {rank}"}
         for rank in range(1, 4)
     ]
 def edition_with_priority_and_weather():
@@ -38,16 +38,15 @@ EVENT = {"time": "10:00", "title": "Customer call: Dana", "note": "Go in with: w
 
 
 def priority_edition(headline="Book 3 customer calls by Friday", sources=(), **fields):
-    recommendation = {**RECOMMENDATION, "headline": headline}
-    p = {"recommendations": [{**recommendation, "headline": f"{headline} — {rank}"} for rank in range(1, 4)],
+    p = {"recommendations": recommendations(headline),
          "questions": fields.pop("questions", []), **fields}
     return edition(sections=[{"kind": "section", "title": "P", "desk": "priority",
                               "headline": headline, "body": "b", "priority": p,
                               "sources": list(sources)}])
 
 
-def recommendation_edition(recommendations=None, questions=None):
-    priority = {"recommendations": recommendations if recommendations is not None else globals()["recommendations"](),
+def recommendation_edition(items=None, questions=None):
+    priority = {"recommendations": items if items is not None else recommendations(),
                 "questions": questions or []}
     return edition(sections=[{"kind": "section", "title": "Advisor", "desk": "priority",
                               "body": "Today's recommendations.", "priority": priority,
@@ -327,14 +326,15 @@ class TestValidate:
         assert "Send the deck" not in text
         for rank in range(1, 4):
             assert f"{rank}. Put retention" in text
-        assert "Evidence: Returning users repeat the same workflow — Weekly retention note" in text
-        assert "First step: Draft the three-slide spine" in text
-        assert "Patrick Salyer: “Forget the naming (seed / A / B).”" in text
+        assert "• Returning users repeat the same workflow — Weekly retention note" in text
+        assert "→ Draft the three-slide spine" in text
+        assert "“Forget the naming (seed / A / B).” — Patrick Salyer" in text
 
     def test_chat_priority_includes_ranked_questions(self):
         text = render.render_chat(recommendation_edition(questions=["Q4 — What changed?"]),
                                   render.DEFAULT_MASTHEAD)
-        assert "Questions for you:" in text and "Q4 — What changed?" in text
+        assert "? Q4 — What changed?" in text
+        assert "Evidence" not in text and "First step" not in text and "Questions for you" not in text
 
 
 class TestMasthead:
