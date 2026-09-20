@@ -52,6 +52,11 @@ headline, decision, evidence locations, critic summary, and rank; the ranked Ope
 and the current checkpoint path. Update it after every Cull. If context is compacted, resume from
 that file and the checkpoint. **Never load this skill again in the same run.**
 
+Every child returns compact structured JSON of at most 1,200 characters, with no narrative preface.
+Immediately after every delegate set returns, reduce its results into `tournament.json` before the
+next model call. Keep only decisions, evidence locations, unknowns, and verdicts; never copy tool
+transcripts or hidden reasoning. This file, not conversational memory, is the tournament state.
+
 Read tools from their installed documentation before using them. Mail uses the
 `google-workspace` skill; Messages uses `mcp__plow__plow_read_skill` with `name` = `imessage`;
 calendar uses the shared desk procedure; public and authenticated pages use the installed browser

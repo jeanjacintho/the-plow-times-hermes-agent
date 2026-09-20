@@ -750,6 +750,8 @@ class TestSkills:
             "at most six tool calls",
             "Do not list or rediscover directories",
             "150 minutes after Orient began",
+            "at most 1,200 characters",
+            "after every delegate set returns",
         ):
             assert clause in text
 
