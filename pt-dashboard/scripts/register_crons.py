@@ -412,6 +412,16 @@ def _hour_minute(delivery_hour):
     return int(hour_part), int(minute_part)
 
 
+def _slot_lead(hour, lead_minutes):
+    """The lead an extra or focused slot can afford: never past its own midnight.
+
+    The setup-derived lead is sized to the main paper's hour; a slot earlier
+    than that would otherwise refuse the whole registration.
+    """
+    h, m = _hour_minute(hour)
+    return min(lead_minutes, h * 60 + m)
+
+
 def daily_schedule(delivery_hour, lead_minutes):
     """The daily paper's cron expression, on its delivery day.
 
@@ -519,10 +529,10 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     if has_paper(topics):
         jobs.append(daily_job(delivery_hour, lead_minutes, env))
         for n, hour in enumerate(extra_hours, start=2):
-            jobs.append(daily_job(hour, lead_minutes, env,
+            jobs.append(daily_job(hour, _slot_lead(hour, lead_minutes), env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
         for hour in focused_paper_hours(topics, delivery_hour):
-            jobs.append(paper_job(hour, lead_minutes, env))
+            jobs.append(paper_job(hour, _slot_lead(hour, lead_minutes), env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
         for t in topics

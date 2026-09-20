@@ -225,6 +225,13 @@ class TestHoldUntil:
         now = datetime(2026, 9, 20, 6, 20, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
         assert post.seconds_until_hhmm("07:00", now=now) == 40 * 60
 
+    def test_hold_across_dst_counts_real_elapsed_time(self, monkeypatch):
+        # 2026-11-01 01:30 in New York is EDT; 02:00 is EST, so the wall
+        # clock spans 30 minutes but 90 real ones.
+        monkeypatch.setenv("TZ", "America/New_York")
+        now = datetime(2026, 11, 1, 1, 30, 0, tzinfo=ZoneInfo("America/New_York"))
+        assert post.seconds_until_hhmm("03:00", now=now) == 2.5 * 3600
+
     def test_past_hour_posts_now_not_tomorrow(self, monkeypatch):
         monkeypatch.setenv("TZ", "UTC")
         now = datetime(2026, 9, 20, 7, 1, 0, tzinfo=ZoneInfo("UTC"))

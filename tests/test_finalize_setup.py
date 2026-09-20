@@ -56,23 +56,14 @@ class TestWritesAValidConfig:
         assert written["delivery"]["lead_minutes"] == 0
         assert "CONFIG:written" in out
 
-    def test_priority_on_starts_forty_minutes_early(self, tmp_path):
-        # Advisor pass is ~40 minutes; start the cron that early so the page
-        # can be ready by the hour the owner named. Chat still waits for
-        # that hour -- lead is the start clock, not the send clock.
-        draft = dict(COMPLETE, priority={"configured": True})
-        config = seed(tmp_path, draft)
+    @pytest.mark.parametrize(("hour", "lead"), [("07:00", 40), ("00:20", 20)])
+    def test_priority_lead_minutes(self, tmp_path, hour, lead):
+        # Advisor pass is ~40 minutes; start the cron that early, clamped to
+        # the owner's midnight. Chat still waits for the hour: lead is the
+        # start clock, not the send clock.
+        config = seed(tmp_path, dict(COMPLETE, local_hour=hour, priority={"configured": True}))
         finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
-        written = json.loads(config.read_text())
-        assert written["delivery"]["lead_minutes"] == 40
-
-    def test_lead_never_starts_before_midnight(self, tmp_path):
-        draft = dict(COMPLETE, local_hour="00:20", priority={"configured": True})
-        config = seed(tmp_path, draft)
-        finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
-        written = json.loads(config.read_text())
-        assert written["delivery"]["hour"] == "00:20"
-        assert written["delivery"]["lead_minutes"] == 20
+        assert json.loads(config.read_text())["delivery"]["lead_minutes"] == lead
 
     def test_keeps_the_hour_the_owner_named(self, tmp_path):
         config = seed(tmp_path)

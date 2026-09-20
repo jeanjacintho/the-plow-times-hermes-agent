@@ -128,6 +128,15 @@ class TestDesiredJobs:
         assert all(j["deliver"] == crons.DELIVER_TARGET for j in jobs)
         assert path.name == "config.json"  # config untouched
 
+    def test_early_extra_slot_clamps_its_lead_instead_of_refusing(self):
+        # The main paper's 40-minute lead must not abort registration for a
+        # slot at 00:20: that slot starts at midnight, not the evening before.
+        jobs = crons.desired_jobs(
+            [topic("t_9f2a")], "07:00", {"PLOW_HOME_CHANNEL": "c"},
+            lead_minutes=40, extra_hours=["00:20"])
+        extra = next(j for j in jobs if j["name"] == f"{crons.DAILY_NAME}-2")
+        assert extra["schedule"] == "0 0 * * *"
+
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
             [topic("t_9f2a", status="cancelled")], "07:00", {})
