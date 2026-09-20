@@ -712,6 +712,9 @@ class TestSkills:
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## Priority — first" in desks
+        assert "Complete this desk before opening the shared browser" in desks
+        assert "create `tournament.json` before any later-desk work" in desks
+        assert "never proof that today's desk is complete" in desks
         assert "run/desk-calendar/events.json" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
         assert "run/desk-priority/notes.json" in skill
@@ -1027,6 +1030,8 @@ class TestDeployment:
         # enough; the answer is both, and a probe that proves both.
         assert "--python /opt/hermes/.venv/bin/python3" in text
         assert "--python /usr/bin/python3" in text
+        assert text.count('"PyYAML==') == 2
+        assert "import yaml" in text
         # The probe must exercise the plain shell AND the login shell: each
         # one alone has already shipped a broken PDF leg.
         assert "bash -lc" in text, "the build probe does not test a login shell"

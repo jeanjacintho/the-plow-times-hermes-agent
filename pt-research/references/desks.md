@@ -21,6 +21,10 @@ then load `pt-priority` and follow it. `pt-priority` alone writes
 `run/desk-priority/notes.json`, stub included, so an `error:` line means go on to the next desk
 and leave that file as today's passes left it. It reads the owner's sources itself and spends no
 web budget.
+Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
+or news. Immediately after loading `pt-priority`, Orient and create `tournament.json` before any later-desk work.
+After compaction, that file is the progress marker: resume it and its checkpoint.
+An older `notes.json` without today's tournament state is generation-zero input, never proof that today's desk is complete.
 **Skipping this desk is a bug, not a shortcut**: `render_edition.py`'s gap card for a
 missing `run/desk-priority/notes.json` is the backstop, not the plan.
 
