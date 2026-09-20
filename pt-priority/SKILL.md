@@ -156,6 +156,10 @@ leaves the previous checkpoint untouched and returns to Cull while time permits.
 Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
 stop merely because a generation retained all incumbents. Record the Orient start time in
 `tournament.json`. Complete at least three generations when 90 minutes remain before the cutoff.
+Increment `generation` only after that generation's Challenge, Research, Criticize, Cull, and
+candidate gate all completed; changing the number is not a substitute for running those stages.
+Keep `champions` in the culler's printed rank order and make their headlines exactly match the
+three recommendations in `notes.json`. The final renderer checks all three conditions.
 After that, start another generation only when it can complete through criticism and Cull
 at least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began;
 otherwise keep the last fully criticized checkpoint for delivery. A later failure never erases

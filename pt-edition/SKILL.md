@@ -253,11 +253,16 @@ transcript after it is the wall of text they did not ask for.
    complete command, printer or not; **copy it and change only the
    paths.** Do not add flags that are not here:
 
-       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf
+       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --tournament /var/lib/hermes/pt/run/desk-priority/tournament.json --pdf run/<id>/edition.pdf
 
    The printed page is this same PDF. `--chat PATH` is optional and takes
    a path when used; the chat transcript is not posted, so you normally
    leave it out entirely.
+
+   `--tournament` is the delivery gate, not an optional decoration. It refuses fewer than three
+   completed generations, an unfinished checkpoint, or champions whose ranked headlines do not
+   match the three printed recommendations. Return to the priority tournament and run the missing
+   generation; never edit its generation number merely to satisfy the gate.
 
    **Then check that `run/<id>/edition.pdf` actually exists before step 2.**
    If it does not, read the renderer's own stderr and act on which failure

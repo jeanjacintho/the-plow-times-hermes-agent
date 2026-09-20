@@ -379,6 +379,50 @@ def validate(edition):
     return "; ".join(failures or page_rules(sections))
 
 
+def validate_tournament(edition, tournament):
+    """Refuse a priority card that is not a real third-generation checkpoint."""
+    if not isinstance(tournament, dict):
+        return "tournament.json is not a JSON object"
+
+    generation = tournament.get("generation")
+    failures = []
+    if not isinstance(generation, int) or isinstance(generation, bool) or generation < 3:
+        failures.append("tournament needs at least 3 completed generations")
+    expected_stage = (
+        f"generation_{generation}_complete_gate_passed_notes_written"
+        if isinstance(generation, int) and not isinstance(generation, bool)
+        else None
+    )
+    if tournament.get("stage") != expected_stage:
+        failures.append("tournament is not at its completed gated checkpoint")
+
+    card_headlines = []
+    if isinstance(edition, dict):
+        for section in edition.get("sections", []):
+            if not isinstance(section, dict) or section.get("desk") != "priority":
+                continue
+            priority = section.get("priority")
+            if isinstance(priority, dict) and isinstance(priority.get("recommendations"), list):
+                card_headlines = [
+                    item.get("headline") for item in priority["recommendations"]
+                    if isinstance(item, dict)
+                ]
+            break
+
+    champions = tournament.get("champions")
+    champion_headlines = []
+    if isinstance(champions, list):
+        ranked = sorted(
+            (item for item in champions if isinstance(item, dict)),
+            key=lambda item: item.get("rank") if isinstance(item.get("rank"), int) else 10**9,
+        )
+        champion_headlines = [item.get("headline") for item in ranked]
+    if len(card_headlines) != 3 or champion_headlines != card_headlines:
+        failures.append("tournament champions do not match the ranked recommendations")
+
+    return "; ".join(failures)
+
+
 def _own_words(section):
     """(field, text) the priority card writes in its own words.
 
@@ -1232,6 +1276,8 @@ def main(argv=None):
     parser.add_argument("--pdf", default=None, help="write a PDF here (needs weasyprint)")
     parser.add_argument("--config", default=CONFIG_DEFAULT,
                         help="pt/config.json; used to force the priority desk on")
+    parser.add_argument("--tournament", default=None,
+                        help="require a completed priority tournament from this JSON path")
     args = parser.parse_args(argv)
 
     try:
@@ -1246,6 +1292,11 @@ def main(argv=None):
     failures = validate(edition)
     if failures:
         sys.exit(f"error: invalid edition.json: {failures}")
+    if args.tournament:
+        tournament = _load_json_file(args.tournament)
+        failures = validate_tournament(edition, tournament)
+        if failures:
+            sys.exit(f"error: invalid tournament.json: {failures}")
 
     name = masthead()
     chat_text = render_chat(edition, name)

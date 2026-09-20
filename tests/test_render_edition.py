@@ -97,6 +97,18 @@ def write(tmp_path, data):
     return path
 
 
+def tournament(generation=3, items=None, stage=None):
+    items = items if items is not None else recommendations()
+    return {
+        "generation": generation,
+        "stage": stage or f"generation_{generation}_complete_gate_passed_notes_written",
+        "champions": [
+            {"headline": item["headline"], "rank": rank}
+            for rank, item in enumerate(items, 1)
+        ],
+    }
+
+
 class TestValidate:
     @pytest.mark.parametrize("recommendations,failure", [
         ([], "priority.recommendations needs exactly 3 items"),
@@ -136,6 +148,24 @@ class TestValidate:
                       for item in recommendations()]
         assert "priority.recommendations reuse an advisor quote" in render.validate(
             recommendation_edition(duplicated))
+
+    def test_complete_tournament_requires_three_generations(self):
+        failure = render.validate_tournament(
+            recommendation_edition(), tournament(generation=1)
+        )
+        assert "tournament needs at least 3 completed generations" in failure
+
+    def test_complete_tournament_requires_ranked_champions_to_match_card(self):
+        reversed_items = list(reversed(recommendations()))
+        failure = render.validate_tournament(
+            recommendation_edition(), tournament(items=reversed_items)
+        )
+        assert "tournament champions do not match the ranked recommendations" in failure
+
+    def test_complete_tournament_accepts_matching_third_checkpoint(self):
+        assert render.validate_tournament(
+            recommendation_edition(), tournament()
+        ) == ""
 
     def test_valid_is_silent(self):
         assert render.validate(edition()) == ""
@@ -723,6 +753,13 @@ class TestMain:
         html = out.read_text()
         assert "Weather in Sao Paulo" in html
         assert "Sudoku" not in html
+
+    def test_tournament_flag_blocks_an_early_priority_checkpoint(self, tmp_path):
+        path = write(tmp_path, recommendation_edition())
+        tournament_path = tmp_path / "tournament.json"
+        tournament_path.write_text(json.dumps(tournament(generation=1)))
+        with pytest.raises(SystemExit, match="at least 3 completed generations"):
+            render.main([str(path), "--tournament", str(tournament_path)])
 
     @pytest.mark.parametrize("data, named", [
         ({"date": "x", "sections": []}, "date is not a strict YYYY-MM-DD string"),
