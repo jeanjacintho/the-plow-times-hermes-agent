@@ -348,8 +348,7 @@ class TestReopenSections:
 
 class TestReopenStampsEdition:
     def add_running(self, kind, pt_home):
-        extra = ["--run-on", "2026-09-21"] if kind == "assignment" else []
-        topics.main(["add", "--text", "x", "--kind", kind, "--depth", "deep", *extra])
+        topics.main(["add", "--text", "x", "--kind", kind, "--depth", "deep"])
         tid = read_store(pt_home)[-1]["id"]
         topics.main(["mark", tid, "--status", "running"])
         return tid
@@ -357,10 +356,18 @@ class TestReopenStampsEdition:
     @pytest.mark.parametrize("kind", ["section", "subscription"])
     def test_evergreen_delivery_stamps_last_edition(self, kind, pt_home, capsys):
         tid = self.add_running(kind, pt_home)
-        assert topics.reopen_evergreen(stamp=True) == [tid]
+        assert topics.reopen_evergreen(delivered=[tid]) == [tid]
         (topic,) = read_store(pt_home)
         assert topic["status"] == "pending"
         assert topic["last_edition_at"] is not None
+
+    def test_delivery_reopens_and_stamps_only_the_delivered_topics(self, pt_home, capsys):
+        first = self.add_running("section", pt_home)
+        second = self.add_running("subscription", pt_home)  # an overlapping paper's
+        assert topics.reopen_evergreen(delivered=[first]) == [first]
+        by_id = {t["id"]: t for t in read_store(pt_home)}
+        assert by_id[first]["last_edition_at"] is not None
+        assert by_id[second]["status"] == "running" and by_id[second]["last_edition_at"] is None
 
     def test_startup_reopen_of_a_dead_run_does_not_stamp(self, pt_home, capsys):
         self.add_running("section", pt_home)
@@ -374,9 +381,3 @@ class TestReopenStampsEdition:
         topics.main(["mark", tid, "--status", "delivered", "--at", "2026-01-01T00:00:00Z"])
         topics.reopen_evergreen()
         assert read_store(pt_home)[0]["last_edition_at"] == "2026-01-01T00:00:00Z"
-
-    def test_assignment_stays_delivered(self, pt_home, capsys):
-        tid = self.add_running("assignment", pt_home)
-        topics.main(["mark", tid, "--status", "delivered"])
-        assert topics.reopen_evergreen() == []
-        assert read_store(pt_home)[0]["status"] == "delivered"

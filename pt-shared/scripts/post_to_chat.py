@@ -42,6 +42,7 @@ never sends.
 from __future__ import annotations
 
 import argparse
+import json
 import mimetypes
 import os
 import sys
@@ -110,7 +111,7 @@ def attachment_filename(pdf_path, override=None):
     return name
 
 
-def after_posted(stamp=None):
+def after_posted(stamp=None, pdf=None):
     """The PDF is out; the next owner message must not re-read this turn.
 
     A dry-run never calls this. Marks the stamp delivered so the gateway
@@ -127,13 +128,26 @@ def after_posted(stamp=None):
         platform=prev.get("platform") or "",
         delivered=True,
     )
-    return f"sealed; {reopen_sections_after_paper()}"
+    return f"sealed; {reopen_sections_after_paper(delivered_topic_ids(pdf))}"
 
 
-def reopen_sections_after_paper():
-    """Sections must be pending for the next paper. The model often marks
-    delivered and stops; the next on-demand copy then ships desks only.
+def delivered_topic_ids(pdf):
+    """The topic ids the just-posted edition.json carried; [] if unreadable."""
+    if not pdf:
+        return []
+    try:
+        edition = json.loads((Path(pdf).resolve().parent / "edition.json").read_text(encoding="utf-8"))
+        return sorted({s["topic_id"] for s in edition["sections"] if s.get("topic_id")})
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return []
+
+
+def reopen_sections_after_paper(ids):
+    """The topics this paper carried go back to pending, stamped delivered.
+    Scoped to them: another paper's running topics are not this one's.
     """
+    if not ids:
+        return "REOPEN:none"
     intake = Path("/var/lib/hermes/skills/pt-intake/scripts/topics.py")
     if not intake.is_file():
         intake = Path(__file__).resolve().parent.parent.parent / "pt-intake" / "scripts" / "topics.py"
@@ -142,7 +156,7 @@ def reopen_sections_after_paper():
     import subprocess
 
     proc = subprocess.run(
-        [sys.executable, str(intake), "reopen-sections", "--stamp"],
+        [sys.executable, str(intake), "reopen-sections", "--delivered", *ids],
         capture_output=True,
         text=True,
     )
@@ -332,7 +346,7 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    print(_best_effort(after_posted, (), "chat session not sealed"))
+    print(_best_effort(after_posted, (None, args.pdf), "chat session not sealed"))
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
         printed = _best_effort(maybe_print, (args.pdf,), "page not printed")

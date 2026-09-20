@@ -21,12 +21,14 @@ Subcommands:
   cancel   <id>            any topic the owner says stop on
   mark     <id> --status {pending,running,delivered} [--at ISO8601]
   list     [--kind K]      prints the topics array as JSON
-  reopen-sections [--stamp] every section/subscription that is delivered or
+  reopen-sections [--delivered ID ...]
+                           every section/subscription that is delivered or
                            running becomes pending (a paper about to run;
                            measured live, delivered sections were skipped
-                           and the next edition had desks only). --stamp,
-                           passed only once the chat POST succeeded, also
-                           stamps last_edition_at on the ones still running
+                           and the next edition had desks only). With
+                           --delivered, passed only once the chat POST
+                           succeeded, only those topics are reopened and
+                           stamped last_edition_at; nothing else is touched
 
 `--run-on` is the date a `section`/`assignment` belongs to the paper:
 required for `assignment` (the one day its result appears) and refused for
@@ -299,15 +301,17 @@ EVERGREEN = ("section", "subscription")
 REOPEN_FROM = ("delivered", "running")
 
 
-def reopen_evergreen(topic_list=None, stamp=False):
+def reopen_evergreen(topic_list=None, delivered=None):
     """Put evergreen topics back on the next paper's research list.
 
     One-offs and assignments stay delivered. Cancelled stays cancelled.
-    stamp=True is the moment a section ships (post_to_chat, after the POST
-    succeeded), the one writer of last_edition_at for these kinds. A run that
-    died leaves a topic running, and the next run's startup reopen must not
-    record that as a delivery, so it does not stamp. A topic already marked
-    delivered keeps the stamp that mark wrote.
+    delivered=[ids] is the moment those topics' edition shipped (post_to_chat,
+    after the POST succeeded): only they are reopened and stamped, the one
+    writer of last_edition_at for these kinds, so an overlapping paper's
+    running topics are left alone. Without it (startup recovery) every such
+    topic is reopened and none is stamped: a run that died leaves a topic
+    running, and that is not a delivery. A topic already marked delivered
+    keeps the stamp that mark wrote.
     """
     owned = topic_list is None
     topics = load_topics() if owned else topic_list
@@ -317,7 +321,9 @@ def reopen_evergreen(topic_list=None, stamp=False):
             continue
         if topic.get("status") not in REOPEN_FROM:
             continue
-        if stamp and topic["status"] == "running":
+        if delivered is not None and topic["id"] not in delivered:
+            continue
+        if delivered is not None and topic["status"] == "running":
             topic["last_edition_at"] = now_iso()
         topic["status"] = "pending"
         topic["scheduled_for"] = None
@@ -328,7 +334,7 @@ def reopen_evergreen(topic_list=None, stamp=False):
 
 
 def cmd_reopen_sections(args):
-    reopened = reopen_evergreen(stamp=args.stamp)
+    reopened = reopen_evergreen(delivered=args.delivered)
     print(json.dumps({"reopened": reopened}))
     return 0
 
@@ -369,8 +375,8 @@ def main(argv=None):
         "reopen-sections",
         help="pending every delivered/running section and subscription",
     )
-    p_reopen.add_argument("--stamp", action="store_true",
-                          help="also stamp last_edition_at (a paper just delivered)")
+    p_reopen.add_argument("--delivered", nargs="+", metavar="ID", default=None,
+                          help="reopen and stamp only these topics (a paper just delivered)")
     p_reopen.set_defaults(func=cmd_reopen_sections)
 
     args = parser.parse_args(argv)

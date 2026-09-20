@@ -56,11 +56,16 @@ class TestComposePayload:
         intake = load_module("topics_reopen", "pt-intake/scripts/topics.py")
         intake.main(["add", "--text", "AI", "--kind", "section", "--depth", "quick"])
         tid = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["id"]
+        intake.main(["add", "--text", "F1", "--kind", "section", "--depth", "quick"])
+        other = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][1]["id"]
         intake.main(["mark", tid, "--status", "running"])
-        intake.main(["mark", tid, "--status", "delivered"])
-        post.after_posted(tmp_path / "seal.json")
-        status = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["status"]
-        assert status == "pending"
+        intake.main(["mark", other, "--status", "running"])  # another paper's, still researching
+        edition = tmp_path / "edition.json"
+        edition.write_text(json.dumps({"sections": [{"topic_id": tid}]}), encoding="utf-8")
+        post.after_posted(tmp_path / "seal.json", str(tmp_path / "edition.pdf"))
+        by_id = {t["id"]: t for t in json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"]}
+        assert by_id[tid]["status"] == "pending" and by_id[tid]["last_edition_at"]
+        assert by_id[other]["status"] == "running" and by_id[other]["last_edition_at"] is None
 
 
 class TestTextFileFlag:
@@ -154,11 +159,11 @@ class TestMaybeRecord:
         assert out == f"edition not recorded — timed out after {post.RECORD_TIMEOUT}s"
 
 
-def _seal_ok():
+def _seal_ok(*_):
     return "sealed"
 
 
-def _seal_fails():
+def _seal_fails(*_):
     raise RuntimeError("disk full")
 
 
@@ -173,7 +178,7 @@ class TestFinalizersRunIndependently:
         monkeypatch.setattr(post, "read_message", lambda: "")
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
         monkeypatch.setattr(post, "post_json", lambda *a, **k: None)
-        monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda: "sealed"))
+        monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda *_: "sealed"))
         if "maybe_print" in overrides:
             monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
         if "maybe_record" in overrides:
