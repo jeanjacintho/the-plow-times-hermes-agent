@@ -306,13 +306,13 @@ class TestDailySchedule:
         with pytest.raises(SystemExit, match="before midnight of its delivery day"):
             crons.daily_schedule("00:30", 31)
 
-    def test_lead_up_to_179_minutes_loads(self, tmp_path):
-        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 179}})
-        assert crons.load_lead_minutes(path) == 179
+    def test_lead_past_179_minutes_loads(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "23:00", "lead_minutes": 200}})
+        assert crons.load_lead_minutes(path) == 200
 
-    def test_lead_of_180_minutes_refuses(self, tmp_path):
-        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": 180}})
-        with pytest.raises(SystemExit, match="0-179"):
+    def test_negative_lead_refuses(self, tmp_path):
+        path = write_config(tmp_path, {**CONFIG, "delivery": {"hour": "07:00", "lead_minutes": -1}})
+        with pytest.raises(SystemExit, match="non-negative integer"):
             crons.load_lead_minutes(path)
 
 

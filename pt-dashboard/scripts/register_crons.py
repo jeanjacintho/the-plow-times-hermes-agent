@@ -379,10 +379,10 @@ def load_lead_minutes(config_path=CONFIG_FILE):
         ) from None
     except (OSError, ValueError, AttributeError, TypeError) as exc:
         raise SystemExit(f"refusing to register: malformed {path} ({exc!r}).") from exc
-    if isinstance(raw, bool) or not isinstance(raw, int) or not (0 <= raw <= 179):
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 0:
         raise SystemExit(
             f"refusing to register: {path} has delivery.lead_minutes={raw!r}; "
-            "it must be an integer 0-179 (minutes before delivery.hour)."
+            "it must be a non-negative integer (minutes before delivery.hour)."
         )
     return raw
 
