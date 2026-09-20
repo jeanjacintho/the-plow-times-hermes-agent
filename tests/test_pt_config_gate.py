@@ -53,8 +53,8 @@ class TestPass:
         out, _ = run_gate(VALID, tmp_path)
         assert out == ""
 
-    @pytest.mark.parametrize("lead", [0, 45, 179])
-    def test_lead_minutes_in_range(self, tmp_path, lead):
+    @pytest.mark.parametrize("lead", [0, 45, 179, 180, 1000])
+    def test_lead_minutes_accepted(self, tmp_path, lead):
         out, _ = run_gate(
             {**VALID, "delivery": {"hour": "07:00", "lead_minutes": lead}}, tmp_path
         )
@@ -112,19 +112,19 @@ class TestInvariants:
         out, _ = run_gate({**VALID, "delivery": {"hour": hour}}, tmp_path)
         assert out == ""
 
-    @pytest.mark.parametrize("lead", [180, -1, 1000, "45", 4.5])
+    @pytest.mark.parametrize("lead", [-1, "45", 4.5])
     def test_malformed_lead_minutes(self, tmp_path, lead):
         out, _ = run_gate(
             {**VALID, "delivery": {"hour": "07:00", "lead_minutes": lead}}, tmp_path
         )
-        assert "delivery.lead_minutes is not an integer 0-179" in out
+        assert "delivery.lead_minutes is not a non-negative integer" in out
 
     def test_bool_lead_minutes_refused(self, tmp_path):
         # True is 1 in Python; a boolean is not a number of minutes.
         out, _ = run_gate(
             {**VALID, "delivery": {"hour": "07:00", "lead_minutes": True}}, tmp_path
         )
-        assert "delivery.lead_minutes is not an integer 0-179" in out
+        assert "delivery.lead_minutes is not a non-negative integer" in out
 
     def test_string_false_is_not_a_boolean(self, tmp_path):
         out, _ = run_gate(
