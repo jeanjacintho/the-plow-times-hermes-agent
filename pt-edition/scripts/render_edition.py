@@ -592,14 +592,8 @@ WEATHER_ICON_DIR = pathlib.Path(__file__).resolve().parent.parent / "assets" / "
 
 def weather_icon(key, size=28):
     """One inline SVG for a forecast day, `size` px square. `key` is
-    pre-validated against FORECAST_ICONS by validate(); this still falls
-    back to a plain cloud rather than trust an unchecked caller."""
-    name = key if key in FORECAST_ICONS else "cloud"
-    path = WEATHER_ICON_DIR / f"{name}.svg"
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        text = (WEATHER_ICON_DIR / "cloud.svg").read_text(encoding="utf-8")
+    pre-validated against FORECAST_ICONS by validate()."""
+    text = (WEATHER_ICON_DIR / f"{key}.svg").read_text(encoding="utf-8")
     return text.replace(
         "<svg ",
         f'<svg class="wx-icon" width="{size}" height="{size}" ',
@@ -741,12 +735,7 @@ def calendar_icon(key):
     against SCHEDULE_ICONS by validate(); falls back to the generic note
     icon rather than trust an unchecked caller."""
     body = CALENDAR_ICONS.get(key, CALENDAR_ICONS["note"])
-    return (
-        '<svg class="cal-icon" viewBox="0 0 24 24" width="16" height="16" '
-        'fill="none" stroke="currentColor" stroke-width="1.5" '
-        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-        f"{body}</svg>"
-    )
+    return _stroke_svg("cal-icon", body, 16)
 
 
 def schedule_list(items):
@@ -762,15 +751,12 @@ def schedule_list(items):
         icon = calendar_icon(item.get("icon"))
         time_str = html.escape(item["time"].strip())
         title = html.escape(item["title"].strip())
-        note = (item.get("note") or "").strip()
-        note_html = f'<span class="cal-note">{html.escape(note)}</span>' if note else ""
         rows.append(
             '<div class="cal-item">'
             f'<span class="cal-icon-wrap">{icon}</span>'
             '<span class="cal-body">'
             f'<span class="cal-time">{time_str}</span>'
             f'<span class="cal-title">{title}</span>'
-            f"{note_html}"
             "</span>"
             "</div>"
         )

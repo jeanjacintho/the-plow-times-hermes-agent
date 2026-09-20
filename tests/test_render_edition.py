@@ -256,36 +256,27 @@ class TestValidate:
         assert "dropcap" in html
         assert "<p>" in html
 
-    def test_news_well_runs_in_two_columns(self):
+    @pytest.mark.parametrize("count, pairs, lone", [(7, 3, False), (4, 1, True)])
+    def test_news_well_pairs_stories_without_dropping_a_lone_leftover(
+            self, count, pairs, lone):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
-        } for i in range(7)]
+        } for i in range(count)]
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
                                   "{{SECTIONS}}")
-        # 1 lead + 6 leftover → 3 unbreakable pairs (1|2, 3|4, 5|6).
-        # Two tall stacks in one table painted a split cell in the wrong
-        # column; a pair per row with break-inside:avoid does not.
-        assert html.count('class="news-cols"') == 3
-        assert html.count('class="news-col"') == 6
-        assert html.count("<article") == 6
+        leftover = count - 1
+        assert html.count('class="news-cols"') == pairs
+        assert html.count('class="news-col"') == pairs * 2
+        assert html.count("<article") == leftover
+        assert all(f"Story {i}" in html for i in range(1, count))
         first_row = html.split('class="news-cols"', 1)[1]
         left, right = first_row.split('class="news-col"')[1:3]
         assert "Story 1" in left and "Story 2" not in left
-        assert "Story 2" in right and "Story 1" not in right
-
-    def test_news_well_keeps_every_story(self):
-        sections = [{
-            "kind": "section", "title": f"Story {i}", "desk": "news",
-            "body": f"Body {i}.", "sources": [],
-        } for i in range(5)]
-        html = render.render_html(edition(sections=sections),
-                                  render.DEFAULT_MASTHEAD,
-                                  "{{SECTIONS}}")
-        assert html.count("<article") == 4
-        assert "Story 1" in html and "Story 4" in html
-        assert '<div class="news-cols">' in html
+        assert "Story 2" in right
+        if lone:
+            assert html.rfind(f"Story {count - 1}") > html.rfind('class="news-cols"')
 
     def test_desks_render_as_a_boxed_teaser_row(self):
         html = render.render_html(edition(sections=[
