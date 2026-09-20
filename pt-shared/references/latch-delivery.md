@@ -32,8 +32,8 @@ over a local Unix socket, and Latch's sandbox only grants that with the flag
 
 **The print is not done until step 3 exited 0.** A CUPS job id in its output
 is the receipt. A missing `exit_code` (Latch still `running` after its wait)
-is the same as a failed step — the script exits `page not printed — lp still
-running`. Any other exit — `lp: unable to print file`, `no such
+is polled through `plow_get_output`; a job that never reports one exits `page may
+not have printed — lp outcome unknown` (no retry promised, since it may still print). Any other exit — `lp: unable to print file`, `no such
 printer`, a deny on the Mac — is a failed step: the script exits non-zero;
 do not pretend the page printed.
 

@@ -87,6 +87,23 @@ def settle(parsed, get_result, sleep=time.sleep, max_wait=POLL_SECONDS):
     raise LatchError("latch timed out")
 
 
+def require_command_result(parsed, call_tool=None, tries=POLL_SECONDS):
+    """A plow_run_command result that reported an exit_code: (exit_code, output).
+
+    A run that outlives its wait comes back status:running with a job handle
+    and no exit_code. With call_tool, that job is polled through
+    plow_get_output; whatever never reports an exit_code raises LatchError.
+    """
+    while (call_tool and tries > 0 and isinstance(parsed, dict)
+           and "exit_code" not in parsed and parsed.get("handle")):
+        time.sleep(1)
+        tries -= 1
+        parsed = call_tool("plow_get_output", {"handle": parsed["handle"]})
+    if not isinstance(parsed, dict) or "exit_code" not in parsed:
+        raise LatchError(f"did not finish: {parsed}")
+    return int(parsed["exit_code"]), str(parsed.get("output") or "")
+
+
 class LatchClient:
     """One stateless MCP call against the owner's Latch device.
 

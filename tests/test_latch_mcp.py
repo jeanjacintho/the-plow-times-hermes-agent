@@ -15,10 +15,10 @@ class TestSettle:
             calls.append(handle)
             if len(calls) < 2:
                 return {"status": "pending", "handle": handle}
-            return {"status": "ready", "result": {"path": "/Users/jj/Plow/pt/x.b64"}}
+            return {"status": "ready", "result": {"path": "/Users/test-owner/Plow/pt/x.b64"}}
 
         out = lm.settle({"status": "pending", "handle": "h1"}, get_result, sleep=lambda _n: None)
-        assert out["path"] == "/Users/jj/Plow/pt/x.b64"
+        assert out["path"] == "/Users/test-owner/Plow/pt/x.b64"
         assert calls == ["h1", "h1"]
 
     @pytest.mark.parametrize("status", ["denied", "failed", "expired", "blocked"])
@@ -34,9 +34,9 @@ class TestDecodeBody:
             lm.decode_mcp_body("application/json", raw)
 
     def test_a_normal_reply_is_returned(self):
-        body = b'{"jsonrpc":"2.0","id":1,"result":{"path":"/Users/jj/a"}}'
+        body = b'{"jsonrpc":"2.0","id":1,"result":{"path":"/Users/test-owner/a"}}'
         assert lm.decode_mcp_body("application/json", body) == {
-            "jsonrpc": "2.0", "id": 1, "result": {"path": "/Users/jj/a"},
+            "jsonrpc": "2.0", "id": 1, "result": {"path": "/Users/test-owner/a"},
         }
 
 
@@ -48,5 +48,5 @@ class TestUnwrap:
             lm.unwrap_tool_result(result)
 
     def test_json_text_is_parsed(self):
-        result = {"content": [{"type": "text", "text": '{"path": "/Users/jj/a", "content": "x"}'}]}
-        assert lm.unwrap_tool_result(result) == {"path": "/Users/jj/a", "content": "x"}
+        result = {"content": [{"type": "text", "text": '{"path": "/Users/test-owner/a", "content": "x"}'}]}
+        assert lm.unwrap_tool_result(result) == {"path": "/Users/test-owner/a", "content": "x"}

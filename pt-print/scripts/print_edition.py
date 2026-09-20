@@ -32,7 +32,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
-from latch_mcp import LatchError, connect
+from latch_mcp import LatchError, connect, require_command_result
 
 PATH_RE = re.compile(
     r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.pdf(?:\.b64)?)"
@@ -118,24 +118,23 @@ def is_bfd(parsed):
     return "bad file descriptor" in blob.lower()
 
 
-def require_finished_ok(parsed, step):
+def require_finished_ok(parsed, step, call_tool=None):
     """Refuse a Latch run that never reported exit_code 0.
 
-    When plow_run_command outlives Latch's wait_ms, the payload is
-    status:running with no exit_code. Treating that as success printed
-    'page printed' with no page (issue #35).
+    A run that outlives Latch's wait_ms is polled to its exit; one that never
+    reports it prints 'outcome unknown' rather than 'page printed' (issue #35)
+    or a failure the job may still contradict.
     """
-    if not isinstance(parsed, dict) or "exit_code" not in parsed:
-        sys.exit(f"error: page not printed — {step} still running")
-    if parsed["exit_code"] not in (0, "0"):
-        sys.exit(
-            f"error: page not printed — {step} {parsed['exit_code']}: "
-            f"{parsed.get('output', parsed)}"
-        )
+    try:
+        code, output = require_command_result(parsed, call_tool)
+    except LatchError:
+        sys.exit(f"error: page may not have printed — {step} outcome unknown; check the printer queue")
+    if code:
+        sys.exit(f"error: page not printed — {step} {code}: {output or parsed}")
 
 
-def require_lp_ok(parsed):
-    require_finished_ok(parsed, "lp")
+def require_lp_ok(parsed, call_tool=None):
+    require_finished_ok(parsed, "lp", call_tool)
 
 
 def ship(pdf_path, printer, date, call_tool):
@@ -157,7 +156,7 @@ def ship(pdf_path, printer, date, call_tool):
             "goal": "Decode the edition PDF on the owner's Mac",
         },
     )
-    require_finished_ok(decoded, "base64")
+    require_finished_ok(decoded, "base64", call_tool)
     lp = call_tool(
         "plow_run_command",
         {
@@ -177,7 +176,7 @@ def ship(pdf_path, printer, date, call_tool):
                 "goal": "Print today's Founder Times edition (sandboxed lp failed)",
             },
         )
-    require_lp_ok(lp)
+    require_lp_ok(lp, call_tool)
 
 
 def main(argv=None):
