@@ -723,7 +723,7 @@ class TestSkills:
     def test_priority_evolution_contract(self):
         text = (ROOT / "pt-priority" / "SKILL.md").read_text()
         for clause in (
-            "three current champions and three challengers",
+            "one to three inherited champions and three challengers",
             "one independent critic per recommendation",
             "A critic is a prosecutor, never a reviser",
             "unknown, never disproved",

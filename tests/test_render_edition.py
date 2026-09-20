@@ -11,6 +11,9 @@ render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
 RECOMMENDATION = {
     "headline": "Put retention at the center of Monday's investor conversation",
     "body": "Lead with the segment that returns, what those users repeatedly ask the product to do, and the milestone this round buys.",
+    "evidence": [
+        {"claim": "Returning users repeat the same workflow", "source": "Weekly retention note", "url": "https://example.com/retention"},
+    ],
     "first_step": "Draft the three-slide spine: retention, repeated use, and the runway milestone.",
     "advisor": {"name": "Patrick Salyer", "quote": "Forget the naming (seed / A / B).", "url": "https://example.com/advisor"},
 }
@@ -72,6 +75,9 @@ class TestValidate:
         ([RECOMMENDATION] * 4, "priority.recommendations needs 1 to 3 items"),
         (["call customers"], "priority.recommendations[0] is not an object"),
         ([{**RECOMMENDATION, "body": "x" * 1025}], "priority.recommendations[0].body is over 1024 characters"),
+        ([{**RECOMMENDATION, "evidence": []}], "priority.recommendations[0].evidence needs 1 to 3 items"),
+        ([{**RECOMMENDATION, "evidence": [{"claim": "x", "source": "y", "url": "file:///tmp/x"}]}],
+         "priority.recommendations[0].evidence[0].url is not an http(s) URL"),
     ])
     def test_recommendation_rules(self, recommendations, failure):
         assert failure in render.validate(recommendation_edition(recommendations))
@@ -84,6 +90,8 @@ class TestValidate:
         assert output.index("Put retention at the center") < output.index("Interview &lt;three&gt; users")
         assert "Second &amp; final." in output
         assert "FIRST STEP" in output and "Patrick Salyer" in output
+        assert "Returning users repeat the same workflow" in output
+        assert 'href="https://example.com/retention"' in output
     def test_valid_is_silent(self):
         assert render.validate(edition()) == ""
 

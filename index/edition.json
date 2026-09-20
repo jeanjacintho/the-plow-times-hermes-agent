@@ -27,6 +27,16 @@
         {
           "headline": "Finish the Friday loaf list before the market opens",
           "body": "Saturday's market still has no clear card for the rye, while the tasting flight is already drawing questions at the counter. Make the offer legible before adding another product: a customer who understands the loaf can choose it, describe it, and come back for it.",
+          "evidence": [
+            {
+              "claim": "The rye still lacks a market card",
+              "source": "Synthetic opening notes"
+            },
+            {
+              "claim": "Customers asked for the tasting flight in writing",
+              "source": "Synthetic counter notes"
+            }
+          ],
           "first_step": "Write the rye card and pin it on the board by 09:00.",
           "advisor": {
             "name": "Mira Chen",

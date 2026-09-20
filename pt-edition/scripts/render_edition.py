@@ -295,6 +295,21 @@ def validate(edition):
                                 failures.append(f"{iwhere}.{key} is blank")
                         if isinstance(item.get("body"), str) and len(item["body"]) > 1024:
                             failures.append(f"{iwhere}.body is over 1024 characters")
+                        evidence = item.get("evidence")
+                        if not isinstance(evidence, list) or not (1 <= len(evidence) <= 3):
+                            failures.append(f"{iwhere}.evidence needs 1 to 3 items")
+                        else:
+                            for j, fact in enumerate(evidence):
+                                ewhere = f"{iwhere}.evidence[{j}]"
+                                if not isinstance(fact, dict):
+                                    failures.append(f"{ewhere} is not an object")
+                                    continue
+                                for key in ("claim", "source"):
+                                    if blank(fact.get(key)):
+                                        failures.append(f"{ewhere}.{key} is blank")
+                                url = fact.get("url")
+                                if url is not None and not (isinstance(url, str) and url.strip().startswith(("http://", "https://"))):
+                                    failures.append(f"{ewhere}.url is not an http(s) URL")
                         advisor = item.get("advisor")
                         if not isinstance(advisor, dict):
                             failures.append(f"{iwhere}.advisor is not an object")
@@ -798,9 +813,15 @@ def priority_block(priority):
     for rank, recommendation in enumerate(priority["recommendations"], 1):
         advisor = recommendation["advisor"]
         paragraphs = "".join(f"<p>{html.escape(p)}</p>" for p in body_paragraphs(recommendation["body"]))
+        evidence = "".join(
+            f'<li>{_esc(fact["claim"])} <span class="src">— '
+            f'{source_markup(fact.get("url") or "", fact["source"].strip())}</span></li>'
+            for fact in recommendation["evidence"]
+        )
         blocks.append(
             f'<article class="priority-rec"><p class="priority-rank">{rank}</p>'
             f'<h2>{_esc(recommendation["headline"])}</h2>{paragraphs}'
+            f'<ol class="priority-evidence">{evidence}</ol>'
             f'<p class="priority-step"><strong>FIRST STEP</strong> {_esc(recommendation["first_step"])}</p>'
             f'<blockquote>“{_esc(advisor["quote"])}” <span class="src">— '
             f'<a href="{_esc(advisor["url"])}">{_esc(advisor["name"])}</a></span></blockquote></article>'

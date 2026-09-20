@@ -124,7 +124,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   `run/desk-priority/notes.json` without rewriting.** The printed card
   already talks to the reader. When present it replaces the section prose on print. Shape:
   `recommendations` is one to three ranked objects, each with non-blank `headline`, `body`,
-  `first_step`, and `advisor: {name, quote, url}`; `body` is at most 1,024 characters and `url`
+  `first_step`, `evidence` (one to three `{claim, source, url?}` items), and
+  `advisor: {name, quote, url}`; `body` is at most 1,024 characters and every present `url`
   is HTTP(S). `questions` is zero to three non-blank strings. The advisor desk owns all semantic
   judgment; the renderer enforces only shape, length, URL form, escaping, and layout.
 - **`forecast` is optional, weather-only, and drawn — not written.** 1-6

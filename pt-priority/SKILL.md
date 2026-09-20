@@ -51,9 +51,9 @@ history.
 
 ## Run generations
 
-Begin each generation with **three current champions and three challengers**. If generation zero
-has fewer than three grounded incumbents, fill only its empty slots with distinct advisor-seeded
-contenders. Run the following stages with `delegate_task` children that cannot delegate.
+Begin each generation with **one to three inherited champions and three challengers**. On the first
+run, there may be no inherited champion; advisor-seeded proposals enter as challengers rather than
+invented incumbents. Run the following stages with `delegate_task` children that cannot delegate.
 
 ### 1. Challenge
 
@@ -100,10 +100,10 @@ The culler also ranks Open questions by decision impact, folds supported answers
 and keeps no more than 20 entries. Missing sources remain Open. It consolidates sanitized resource
 discoveries, checkpoints `pt/advisor.md`, and derives the card.
 
-Each recommendation is:
+Each recommendation is (evidence carries the printed basis for company-specific premises):
 
 ```json
-{"headline":"…","body":"…","first_step":"…","advisor":{"name":"…","quote":"…","url":"https://…"}}
+{"headline":"…","body":"…","evidence":[{"claim":"…","source":"…","url":"https://…"}],"first_step":"…","advisor":{"name":"…","quote":"…","url":"https://…"}}
 ```
 
 The body reads like a short paper: argument, current evidence, and why this action wins. It is at most 1,024 characters.
