@@ -301,6 +301,9 @@ def reopen_evergreen(topic_list=None):
     """Put evergreen topics back on the next paper's research list.
 
     One-offs and assignments stay delivered. Cancelled stays cancelled.
+    This is the moment a section ships, so it is also the one writer of
+    last_edition_at for these kinds; a topic already marked delivered
+    keeps the stamp that mark wrote.
     """
     owned = topic_list is None
     topics = load_topics() if owned else topic_list
@@ -310,6 +313,8 @@ def reopen_evergreen(topic_list=None):
             continue
         if topic.get("status") not in REOPEN_FROM:
             continue
+        if topic["status"] == "running":
+            topic["last_edition_at"] = now_iso()
         topic["status"] = "pending"
         topic["scheduled_for"] = None
         reopened.append(topic["id"])

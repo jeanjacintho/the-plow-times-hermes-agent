@@ -344,3 +344,36 @@ class TestReopenSections:
         by_id = {t["id"]: t for t in read_store(pt_home)}
         assert by_id[read_store(pt_home)[0]["id"]]["status"] == "pending"
         assert by_id[stop]["status"] == "cancelled"
+
+
+class TestReopenStampsEdition:
+    def add_running(self, kind, pt_home):
+        extra = ["--run-on", "2026-09-21"] if kind == "assignment" else []
+        topics.main(["add", "--text", "x", "--kind", kind, "--depth", "deep", *extra])
+        tid = read_store(pt_home)[-1]["id"]
+        topics.main(["mark", tid, "--status", "running"])
+        return tid
+
+    def test_section_delivery_stamps_last_edition(self, pt_home, capsys):
+        self.add_running("section", pt_home)
+        assert topics.reopen_evergreen() == [read_store(pt_home)[0]["id"]]
+        (topic,) = read_store(pt_home)
+        assert topic["status"] == "pending"
+        assert topic["last_edition_at"] is not None
+
+    def test_subscription_delivery_stamps_last_edition(self, pt_home, capsys):
+        self.add_running("subscription", pt_home)
+        topics.reopen_evergreen()
+        assert read_store(pt_home)[0]["last_edition_at"] is not None
+
+    def test_already_delivered_keeps_its_stamp(self, pt_home, capsys):
+        tid = self.add_running("section", pt_home)
+        topics.main(["mark", tid, "--status", "delivered", "--at", "2026-01-01T00:00:00Z"])
+        topics.reopen_evergreen()
+        assert read_store(pt_home)[0]["last_edition_at"] == "2026-01-01T00:00:00Z"
+
+    def test_assignment_stays_delivered(self, pt_home, capsys):
+        tid = self.add_running("assignment", pt_home)
+        topics.main(["mark", tid, "--status", "delivered"])
+        assert topics.reopen_evergreen() == []
+        assert read_store(pt_home)[0]["status"] == "delivered"
