@@ -21,6 +21,9 @@ then load `pt-priority` and follow it. `pt-priority` alone writes
 `run/desk-priority/notes.json`, stub included, so an `error:` line means go on to the next desk
 and leave that file as today's passes left it. It reads the owner's sources itself and spends no
 web budget.
+Priority has a reserved 150-minute window (ending earlier when the delivery cutoff requires it),
+and the global batch budget starts after priority completes. Never stop its tournament early to
+save time for weather, calendar, mail, sports, or news; those desks use the time that remains.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
 or news. Immediately after loading `pt-priority`, Orient and create `tournament.json` before any later-desk work.
 After compaction, that file is the progress marker: resume it and its checkpoint.

@@ -112,6 +112,8 @@ beating an incumbent on the decision the owner should make now.
 
 A critic's verdict is evidence, not an elimination vote. When at least three fully criticized
 targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
+A recommendation without a supporting sourced quote is ineligible, not a slot to pad: its quoted
+words must support the recommendation's actual proposition, not merely come from the same advisor.
 
 The culler also ranks Open questions by decision impact, folds supported answers into Answered,
 and keeps no more than 20 entries. Missing sources remain Open. It consolidates sanitized resource
@@ -155,7 +157,8 @@ stop merely because a generation retained all incumbents. Record the Orient star
 After that, start another generation only when it can complete through criticism and Cull
 at least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began;
 otherwise keep the last fully criticized checkpoint for delivery. A later failure never erases
-that checkpoint.
+that checkpoint. The global paper budget does not shorten this reserved advisor window; later
+desks use the time that remains.
 
 ## Resource catalog write discipline
 

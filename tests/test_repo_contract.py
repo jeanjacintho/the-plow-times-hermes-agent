@@ -754,8 +754,13 @@ class TestSkills:
             "after every delegate set returns",
             "Complete at least three generations",
             "/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json",
+            "A recommendation without a supporting sourced quote is ineligible",
+            "global paper budget does not shorten",
         ):
             assert clause in text
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        assert "reserved 150-minute window" in desks
+        assert "global batch budget starts after priority" in desks
 
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"
