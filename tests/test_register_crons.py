@@ -794,6 +794,37 @@ class TestCliPassesItsArguments:
         assert "main(sys.argv[1:])" in source, "the CLI entry drops its arguments"
 
 
+class TestScheduledHold:
+    """Two clocks: cron starts at hour−lead; POST waits for the hour."""
+
+    def test_daily_job_holds_until_delivery_hour(self):
+        jobs = crons.desired_jobs([], "07:00", {})
+        prompt = jobs[0]["prompt"]
+        assert "--hold-until 07:00" in prompt
+        assert "--stale-minutes 240" in prompt
+
+    def test_live_copy_does_not_hold(self):
+        p = crons.daily_prompt("daily", live=True)
+        assert "--hold-until" not in p
+        assert "--stale-minutes 120" in p
+
+    def test_paper_job_holds_until_its_hour(self):
+        jobs = crons.desired_jobs(
+            [topic("t_sec", kind="section", deliver_at="12:00")],
+            "07:00", {},
+        )
+        paper = next(j for j in jobs if j["name"] == "pt-paper-1200")
+        assert "--hold-until 12:00" in paper["prompt"]
+        assert "--stale-minutes 240" in paper["prompt"]
+
+    def test_extra_slot_holds_until_its_hour(self):
+        jobs = crons.desired_jobs(
+            [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],
+        )
+        assert "--hold-until 03:00" in jobs[0]["prompt"]
+        assert "--hold-until 10:30" in jobs[1]["prompt"]
+
+
 class TestPrintLegSurvivesIntoTheRunPrompts:
     """Paper must still happen even when the model skips pt-print.
 

@@ -120,6 +120,10 @@ _LOCK_RE = re.compile(
     r"^(?:daily\d*|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
 )
 DEFAULT_LEAD_MINUTES = 0
+# A held POST can sit until delivery.hour after a 179-minute start; 120
+# would look like a dead lock and let the next run steal the slot.
+STALE_MINUTES_LIVE = 120
+STALE_MINUTES_HOLD = 240
 
 SUBSCRIPTION_PROMPT = (
     "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
@@ -131,7 +135,7 @@ SUBSCRIPTION_PROMPT = (
 )
 
 
-def daily_prompt(lock_name, live=False):
+def daily_prompt(lock_name, live=False, hold_until=None):
     """The daily paper's run prompt, parametrized by its lock name.
 
     lock_name is "daily" for the canonical slot and "daily2"/"daily3"/... for
@@ -154,12 +158,22 @@ def daily_prompt(lock_name, live=False):
 
     live marks the on-demand copy: it shares the daily lock, so it never races
     the scheduled run, but it never writes pt-priority's page.
+
+    hold_until is the send clock (delivery.hour / extra hour). Cron may start
+    earlier via lead_minutes; POST must still wait. A live copy never holds.
     """
+    holding = bool(hold_until) and not live
+    stale = STALE_MINUTES_HOLD if holding else STALE_MINUTES_LIVE
+    hold = (
+        f" with --hold-until {hold_until} so chat waits for that clock "
+        f"(if that hour has already passed, post immediately; never wait until tomorrow)"
+        if holding else ""
+    )
     return (
         f"Run the daily edition now, in one session. First run "
         f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
         f"--name {lock_name}-<today's date in the owner's "
-        f"zone> --stale-minutes 120; if its output is 'held', another run owns "
+        f"zone> --stale-minutes {stale}; if its output is 'held', another run owns "
         f"this slot -- say NO_REPLY and stop. Then "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
         f"(delivered sections are yesterday's paper, not a skip). Then run pt-research: first "
@@ -175,7 +189,7 @@ def daily_prompt(lock_name, live=False):
         f"Then run pt-edition for the batch -- it compiles edition.json from "
         f"those notes (each run/desk-* notes file as its own desk, then news), "
         f"renders it (--pdf, then "
-        f"post_to_chat.py --pdf only per pt-edition/SKILL.md step 2 -- do not skip the "
+        f"post_to_chat.py --pdf only per pt-edition/SKILL.md step 2{hold} -- do not skip the "
         f"PDF leg just because this is a rerun; do not pipe the chat text). "
         f"post_to_chat.py already runs print_edition.py when printer.configured "
         f"is true (best-effort: a print failure costs only the page, never the "
@@ -193,11 +207,15 @@ def daily_prompt(lock_name, live=False):
 
 def paper_prompt(lock_name, hour):
     """Run prompt for a focused paper at ``hour`` (a section deliver_at)."""
+    hold = (
+        f" with --hold-until {hour} so chat waits for that clock "
+        f"(if that hour has already passed, post immediately; never wait until tomorrow)"
+    )
     return (
         f"Run the {hour} paper now, in one session. First run "
         f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
         f"--name {lock_name}-<today's date in the owner's "
-        f"zone> --stale-minutes 120; if its output is 'held', another run owns "
+        f"zone> --stale-minutes {STALE_MINUTES_HOLD}; if its output is 'held', another run owns "
         f"this slot -- say NO_REPLY and stop. Then "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
         f"(delivered sections are yesterday's paper, not a skip). Then run pt-research: first "
@@ -210,7 +228,7 @@ def paper_prompt(lock_name, hour):
         f"never retry a host after NS_ERROR_UNKNOWN_HOST or 'Paused for'. "
         f"Then run pt-edition for that batch -- desks plus those "
         f"news notes, renders it (--pdf, then post_to_chat.py --pdf only per "
-        f"pt-edition/SKILL.md step 2 -- do not pipe the chat text). "
+        f"pt-edition/SKILL.md step 2{hold} -- do not pipe the chat text). "
         f"post_to_chat.py already runs print_edition.py when printer.configured "
         f"is true (best-effort: a print failure costs only the page, never the "
         f"chat edition, and never re-runs research). Do not invoke pt-print "
@@ -221,6 +239,7 @@ def paper_prompt(lock_name, hour):
         f"--name the same {lock_name}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
+
 
 DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
 
@@ -426,7 +445,7 @@ def daily_job(delivery_hour, lead_minutes, env=None, *, name=DAILY_NAME, lock_na
     return {
         "name": name,
         "schedule": daily_schedule(delivery_hour, lead_minutes),
-        "prompt": daily_prompt(lock_name),
+        "prompt": daily_prompt(lock_name, hold_until=delivery_hour),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }

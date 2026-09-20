@@ -31,7 +31,9 @@ base its own bearer is sent to. Any of the three unset or blank is refused
 BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
-attachment_uids) and sends no caption. After a successful POST, three
+attachment_uids) and sends no caption. `--hold-until HH:MM` waits until
+that clock in TZ before posting; if it has already passed, posts now.
+After a successful POST, three
 finalizers run independently and best-effort: seal (and reopen today's
 sections), print via print_edition.py when configured, and record via
 record_edition.py (`--pdf` and `--text-file` both) on the sibling
@@ -44,8 +46,12 @@ from __future__ import annotations
 import argparse
 import mimetypes
 import os
+import re
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from bearer_http import post_json, post_json_read, put_bytes, require
 
@@ -63,6 +69,41 @@ RECORD_SCRIPT = (
     / "scripts"
     / "record_edition.py"
 )
+
+
+HOLD_UNTIL_RE = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
+
+
+def _hold_zone():
+    name = os.environ.get("TZ") or "UTC"
+    return ZoneInfo(name)
+
+
+def seconds_until_hhmm(hhmm, now=None):
+    """Seconds from now until today's HH:MM in TZ; 0 if that clock has passed.
+
+    Never wraps to tomorrow: a late paper posts immediately rather than
+    sitting until the next day's hour.
+    """
+    if not isinstance(hhmm, str) or not HOLD_UNTIL_RE.fullmatch(hhmm):
+        sys.exit(f"error: --hold-until is not HH:MM: {hhmm!r}")
+    tz = _hold_zone()
+    now = now or datetime.now(tz)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=tz)
+    else:
+        now = now.astimezone(tz)
+    hour, minute = map(int, hhmm.split(":"))
+    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    remaining = (target - now).total_seconds()
+    return max(0.0, remaining)
+
+
+def hold_until(hhmm, sleep=time.sleep, now=None):
+    """Block until HH:MM today, or return immediately if that hour is past."""
+    remaining = seconds_until_hhmm(hhmm, now=now)
+    if remaining > 0:
+        sleep(remaining)
 
 
 def resolve_chat():
@@ -304,6 +345,11 @@ def main():
     parser.add_argument(
         "--dry-run", action="store_true", help="print the request instead of sending it"
     )
+    parser.add_argument(
+        "--hold-until", default=None, metavar="HH:MM",
+        help="wait until this clock in TZ before posting; if it has already "
+             "passed, post immediately (scheduled papers only)",
+    )
     args = parser.parse_args()
 
     if args.text_file and args.pdf:
@@ -323,6 +369,9 @@ def main():
             f'{attach_note}'
         )
         return
+
+    if args.hold_until:
+        hold_until(args.hold_until)
 
     attachment_uid = None
     if args.pdf:

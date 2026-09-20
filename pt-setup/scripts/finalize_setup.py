@@ -55,6 +55,7 @@ def build(draft, owner_tz, container_tz):
     owner = {"timezone": owner_tz}
     if isinstance(language, str) and language.strip():
         owner["language"] = language.strip()
+    priority = draft.get("priority") or {}
     config = {
         "owner": owner,
         "delivery": {
@@ -62,7 +63,7 @@ def build(draft, owner_tz, container_tz):
             # Kept so a later edit can reason in the owner's own clock
             # rather than re-deriving it from the container's.
             "local_hour": draft["local_hour"],
-            "lead_minutes": 0,
+            "lead_minutes": lead_minutes_for(hour, bool(priority.get("configured"))),
         },
         "printer": {
             "configured": bool(printer.get("configured")),
@@ -70,10 +71,27 @@ def build(draft, owner_tz, container_tz):
         },
         "mail": {"configured": bool((draft.get("mail") or {}).get("configured"))},
     }
-    priority = draft.get("priority") or {}
     if isinstance(priority.get("configured"), bool):
         config["priority"] = {"configured": bool(priority.get("configured"))}
     return config
+
+
+PRIORITY_LEAD_MINUTES = 40
+
+
+def lead_minutes_for(hour, priority_on):
+    """Start-clock offset for a scheduled paper.
+
+    The advisor pass is ~40 minutes. When that desk is on, cron starts that
+    early so the page can be ready by delivery.hour. Chat still waits for
+    that hour (--hold-until); this is not the send clock. Clamped so the
+    run never starts before midnight of the delivery day (registration
+    refuses a start that would).
+    """
+    if not priority_on:
+        return 0
+    hh, mm = map(int, hour.split(":"))
+    return min(PRIORITY_LEAD_MINUTES, hh * 60 + mm)
 
 
 def main(argv=None):
