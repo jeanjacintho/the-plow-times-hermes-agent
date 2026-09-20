@@ -17,10 +17,10 @@ Every Latch call is the same two tools the print path uses:
 ## Priority — first, when configured
 
 Before every desk below: run `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk`,
-then load `pt-priority` and follow it. An `error:` line means the desk cannot keep its page
-today: on the daily run, write `{"desk": "priority", "status": "unavailable"}` to
-`run/desk-priority/notes.json`; on any other paper, write nothing. Either way go on. It reads
-the owner's sources itself and spends no web budget.
+then load `pt-priority` and follow it. `pt-priority` alone writes
+`run/desk-priority/notes.json`, stub included, so an `error:` line means go on to the next desk
+and leave that file as today's passes left it. It reads the owner's sources itself and spends no
+web budget.
 **Skipping this desk is a bug, not a shortcut**: `render_edition.py`'s gap card for a
 missing `run/desk-priority/notes.json` is the backstop, not the plan.
 
