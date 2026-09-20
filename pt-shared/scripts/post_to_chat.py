@@ -31,10 +31,13 @@ base its own bearer is sent to. Any of the three unset or blank is refused
 BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
-attachment_uids) and sends no caption. After a successful `--pdf` POST it
-stamps the session seal and runs print_edition.py when the printer is
-configured (best-effort; a print failure does not undo the chat).
-`--dry-run` prints the redacted envelope and never sends.
+attachment_uids) and sends no caption. After a successful POST, three
+finalizers run independently and best-effort: seal (and reopen today's
+sections), print via print_edition.py when configured, and record via
+record_edition.py (`--pdf` and `--text-file` both) on the sibling
+`edition.json` -- one's failure never skips or undoes another, and nothing
+about the record reaches chat. `--dry-run` prints the redacted envelope and
+never sends.
 """
 from __future__ import annotations
 
@@ -53,6 +56,12 @@ PRINT_SCRIPT = (
     / "pt-print"
     / "scripts"
     / "print_edition.py"
+)
+RECORD_SCRIPT = (
+    Path(__file__).resolve().parent.parent.parent
+    / "pt-edition"
+    / "scripts"
+    / "record_edition.py"
 )
 
 
@@ -118,7 +127,7 @@ def after_posted(stamp=None):
         platform=prev.get("platform") or "",
         delivered=True,
     )
-    reopen_sections_after_paper()
+    return f"sealed; {reopen_sections_after_paper()}"
 
 
 def reopen_sections_after_paper():
@@ -143,6 +152,19 @@ def reopen_sections_after_paper():
     return blob or "REOPEN:none"
 
 
+def _best_effort(run, args, failure):
+    """One finalizer, run to completion, never raised: SystemExit or any other
+    exception becomes a failure string, exactly like the runner's own.
+    """
+    try:
+        out = run(*args)
+    except SystemExit as exc:
+        out = str(exc) if exc.args else failure
+    except Exception as exc:
+        out = f"{failure} — {exc}"
+    return (out or "").strip() or f"{failure} — empty result"
+
+
 def run_print_edition(pdf_path, config_path):
     import subprocess
 
@@ -160,7 +182,7 @@ def run_print_edition(pdf_path, config_path):
 
 
 def maybe_print(pdf_path, config_path=None, runner=None):
-    """Ship the page after the chat PDF. Best-effort: never undoes the POST.
+    """Ship the page after the chat PDF. Plain: main() makes this best-effort.
 
     Measured live 2026-09-18: the model posted the PDF, had edition.html
     and printer.configured true, and never ran print_edition.py. Later the
@@ -172,14 +194,45 @@ def maybe_print(pdf_path, config_path=None, runner=None):
     if not pdf_path:
         return "skipped: no pdf"
     run = runner or run_print_edition
+    return run(str(Path(pdf_path).resolve()), config_path)
+
+
+RECORD_TIMEOUT = 300
+
+
+def run_record_edition(edition_json):
+    import subprocess
+
     try:
-        out = run(str(Path(pdf_path).resolve()), config_path)
-    except SystemExit as exc:
-        out = str(exc) if exc.args else "page not printed"
-    except Exception as exc:
-        out = f"page not printed — {exc}"
-    text = (out or "").strip()
-    return text or "page not printed — empty print result"
+        proc = subprocess.run(
+            [sys.executable, str(RECORD_SCRIPT), edition_json],
+            capture_output=True,
+            text=True,
+            timeout=RECORD_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return f"edition not recorded — timed out after {RECORD_TIMEOUT}s"
+    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        if "edition not recorded" in blob:
+            return blob
+        return f"edition not recorded — {blob or proc.returncode}"
+    return blob
+
+
+def maybe_record(posted_path, runner=None):
+    """Put the edition into the owner's wiki after the chat leg is out.
+
+    Plain, exactly like maybe_print: main() makes this best-effort. Runs
+    for both the --pdf and the --text-file legs (edition.json is a sibling
+    of whichever file was actually posted); a bare stdin post has no file
+    to derive that sibling from, so it is skipped.
+    """
+    if not posted_path:
+        return "skipped: no posted file"
+    edition_json = Path(posted_path).resolve().parent / "edition.json"
+    run = runner or run_record_edition
+    return run(str(edition_json))
 
 
 def print_failure_line(result):
@@ -279,10 +332,10 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    after_posted()
+    print(_best_effort(after_posted, (), "chat session not sealed"))
     if args.pdf:
         print(f"chat edition posted (pdf only) {args.pdf}")
-        printed = maybe_print(args.pdf)
+        printed = _best_effort(maybe_print, (args.pdf,), "page not printed")
         print(printed)
         line = print_failure_line(printed)
         if line:
@@ -292,6 +345,7 @@ def main():
                 print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     else:
         print(f"chat edition posted ({len(text)} chars)")
+    print(_best_effort(maybe_record, (args.pdf or args.text_file,), "edition not recorded"))
 
 
 if __name__ == "__main__":

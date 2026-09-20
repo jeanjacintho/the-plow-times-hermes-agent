@@ -435,6 +435,16 @@ def desk_of(section):
     return desk if desk in DESKS else "news"
 
 
+def fill_news_desk(edition):
+    """A `topic_id` section is always news (pt-edition/SKILL.md); fill a
+    dropped `desk` once, here, so record_edition.py's stricter check (only
+    `desk == "news"`, no defaulting) can't silently archive less than
+    desk_of() just rendered."""
+    for section in edition.get("sections") or []:
+        if isinstance(section, dict) and section.get("topic_id") and section.get("desk") is None:
+            section["desk"] = "news"
+
+
 def _is_portuguese(language):
     s = (language or "").lower().replace("_", "-")
     return "portug" in s or s in {"pt", "pt-br"}
@@ -1301,6 +1311,8 @@ def main(argv=None):
     except (OSError, ValueError) as exc:
         sys.exit(f"error: could not read {args.edition}: {exc!r}")
 
+    if isinstance(edition, dict):
+        fill_news_desk(edition)
     edition, _ = ensure_priority_desk(edition, _load_json_file(args.config))
 
     failures = validate(edition)

@@ -694,8 +694,15 @@ class TestSkills:
         # The goals, the desk's Q&A and the owner's advisors moved into ~/Plow/wiki.
         # A skill still naming the old homes reads a file nothing writes any more.
         # pt/advisor.md is not stale: the desk's day page is still the container's.
-        stale = ("~/Plow/prioritization.md", "priority.file", "~/Plow/advisors")
-        for skill in ROOT.glob("pt-*/**/*.md"):
+        stale = (
+            "~/Plow/prioritization.md",
+            "priority.file",
+            "~/Plow/advisors",
+            "history.json",
+            "history.py record",
+        )
+        skills = list(ROOT.glob("pt-*/**/*.md")) + [ROOT / "runtime" / "SOUL.md"]
+        for skill in skills:
             if "assets/advisors" in str(skill):
                 continue
             text = skill.read_text(encoding="utf-8")
@@ -712,7 +719,7 @@ class TestSkills:
         assert "**An event is its people,**" in skill
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
-        assert "history.py record" in edition
+        assert "record_edition.py" in edition
         assert "Skipping this desk is a bug" in desks
         assert "the founder" in skill
         assert "you / você" in skill

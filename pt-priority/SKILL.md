@@ -70,13 +70,15 @@ child gets this file to read first, the time now and its step, and answers in an
 **One writer.** Only the daily run (run lock `daily-<date>`) makes passes and writes the page, the
 Q&A and the card, unless its prompt calls it a live copy. It reads the Q&A at the start, before
 Ask; `wiki_setup.py --desk` has just ensured it exists, so a Q&A that is "not read" means this pass
-writes nothing — not the page, the Q&A or the card — and the stub stands. It first writes the stub
-`{"desk": "priority", "status": "unavailable"}` to the card (replaced only by a pass reaching
-Card), then passes once, and again while the day page has no headline or the last pass kept a
-candidate, and the next would end at least 30 minutes before `delivery.hour` and within 90 minutes
-of its start. Every other paper (a
-live copy, `paper-*`, `daily2`/`daily3`) makes no pass and writes nothing: not the page, the Q&A,
-the card or the stub.
+writes nothing — not the page, the Q&A or the card — and the stub stands. It also runs
+`/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once, before Ask, and hands its JSON
+to the children that need it; an `error:` (or a failed run) is "not read", never "none found", so
+this pass too writes only the stub and stops, rather than continuing with `yesterday` silently
+missing. It first writes the stub `{"desk": "priority", "status": "unavailable"}` to the card
+(replaced only by a pass reaching Card), then passes once, and again while the day page has no
+headline or the last pass kept a candidate, and the next would end at least 30 minutes before
+`delivery.hour` and within 90 minutes of its start. Every other paper (a live copy, `paper-*`,
+`daily2`/`daily3`) makes no pass and writes nothing: not the page, the Q&A, the card or the stub.
 
 1. **Ask.** Two children in parallel read both pages, the owner's notes, the time since As of, and
    the advisor files: every `salyer-*` in `/var/lib/hermes/skills/pt-setup/assets/advisors/` (never
@@ -134,7 +136,7 @@ facts naming a basis to Answered); only once that write succeeds does it drop th
 the file is there, run `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
 
 **The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
-"ok", "priority": {…}}` mapped from the kept page, the Q&A and the latest `pt/history.json` entry,
+"ok", "priority": {…}}` mapped from the kept page, the Q&A and the latest history entry,
 nothing added: Priority's stage as `stage_label` and the dated Q&A answer it rests on as
 `stage_why`; `headline`, `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a
 bank quote's `quote`, post `url` and post title as `source_label`; Today's events and chores as
