@@ -33,7 +33,7 @@ class TestNextQuestion:
     def test_priority_is_asked_after_printer(self):
         draft = {"local_hour": "07:30", "printer": {"configured": False}}
         assert record.next_question(draft) == "priority"
-        draft["priority"] = {"configured": True, "file": "~/Plow/prioritization.md"}
+        draft["priority"] = {"configured": True}
         assert record.next_question(draft) == "mail"
 
     def test_hour_printer_priority_asks_mail(self):
@@ -54,7 +54,7 @@ class TestNextQuestion:
         draft = {
             "local_hour": "07:00",
             "printer": {"configured": True, "name": "HP LaserJet 4"},
-            "priority": {"configured": True, "file": "~/Plow/prioritization.md"},
+            "priority": {"configured": True},
             "mail": {"configured": True},
             "news_asked": True,
         }

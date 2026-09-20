@@ -7,12 +7,12 @@ Needs Latch on the Mac. Until a human run, **NEEDS HUMAN RUN**.
 | # | Action | Expected |
 | --- | --- | --- |
 | 1 | New setup (`docker compose down -v`, "oi") | Questions in order: hour, printer, **priority** (the goal question), mail, sections. Slow Latch/file steps post ⏳ hang-on (`chat_status.py --busy`), never a play-by-play |
-| 2 | Answer the goal question | Creates `~/Plow/prioritization.md` with the answer under `## Goals` (or adds it to the existing file); seeds `~/Plow/advisors/` if missing |
-| 3 | Check `pt/config.json` | `priority.configured: true`, `priority.file` |
+| 2 | Answer the goal question | Creates `~/Plow/wiki/entities/owner/goals.md` with the answer under `## Goals` (creating `~/Plow/wiki` if absent); `projects/theplowtimes` is declared in `wiki.toml` |
+| 3 | Check `pt/config.json` | `priority.configured: true` (no file) |
 | 4 | Force the edition (`hermes cron run pt-daily-edition`) | The page opens with `STAGE · …` and its reason, `TODAY` events with notes, a focus, `WHO` with real names, a `DRAFT`, `NOT TODAY`; copy talks to you, never "the founder should" |
 | 5 | Run again the next day | A `YESTERDAY` line checks the previous focus against what happened |
 | 5b | Read `pt/history.json` after the paper is delivered | Today's desk is recorded; nothing is recorded for a paper that failed to deliver |
 | 6 | Text "stop telling me to hire" | A dated line lands under `## Not now`; the next paper does not advise hiring |
 | 7 | Deny the iMessage read on the Mac and run | Paper still ships; the desk works from calendar and mail |
-| 8 | Rename the file on the Mac and run again | Page ships without the owner's goals; the rest of the paper is normal |
+| 8 | Rename the file on the Mac and run again | `wiki_setup.py --desk` re-seeds `goals.md` — empty, or carried over from `~/Plow/prioritization.md` if that file still exists; the rest of the paper is normal |
 | 9 | Close Latch and run | Desk marks `unavailable`; the paper is still delivered |

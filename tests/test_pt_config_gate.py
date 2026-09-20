@@ -53,7 +53,7 @@ class TestPass:
         out, _ = run_gate(VALID, tmp_path)
         assert out == ""
 
-    @pytest.mark.parametrize("lead", [0, 45, 59])
+    @pytest.mark.parametrize("lead", [0, 45, 179])
     def test_lead_minutes_in_range(self, tmp_path, lead):
         out, _ = run_gate(
             {**VALID, "delivery": {"hour": "07:00", "lead_minutes": lead}}, tmp_path
@@ -112,19 +112,19 @@ class TestInvariants:
         out, _ = run_gate({**VALID, "delivery": {"hour": hour}}, tmp_path)
         assert out == ""
 
-    @pytest.mark.parametrize("lead", [60, -1, 100, "45", 4.5])
+    @pytest.mark.parametrize("lead", [180, -1, 1000, "45", 4.5])
     def test_malformed_lead_minutes(self, tmp_path, lead):
         out, _ = run_gate(
             {**VALID, "delivery": {"hour": "07:00", "lead_minutes": lead}}, tmp_path
         )
-        assert "delivery.lead_minutes is not an integer 0-59" in out
+        assert "delivery.lead_minutes is not an integer 0-179" in out
 
     def test_bool_lead_minutes_refused(self, tmp_path):
         # True is 1 in Python; a boolean is not a number of minutes.
         out, _ = run_gate(
             {**VALID, "delivery": {"hour": "07:00", "lead_minutes": True}}, tmp_path
         )
-        assert "delivery.lead_minutes is not an integer 0-59" in out
+        assert "delivery.lead_minutes is not an integer 0-179" in out
 
     def test_string_false_is_not_a_boolean(self, tmp_path):
         out, _ = run_gate(
@@ -213,19 +213,9 @@ class TestInvariants:
         )
         assert out == "priority.configured is not a boolean"
 
-    def test_priority_file_required_when_configured(self, tmp_path):
-        out, _ = run_gate(
-            {**VALID, "priority": {"configured": True, "file": "  "}},
-            tmp_path,
-        )
-        assert out == "priority.file is blank while priority.configured is true"
-
-    def test_priority_file_must_be_under_home_or_plow(self, tmp_path):
-        out, _ = run_gate(
-            {**VALID, "priority": {"configured": True, "file": "prioritization.md"}},
-            tmp_path,
-        )
-        assert out == "priority.file is not an absolute or ~/Plow path"
+    def test_a_configured_desk_needs_no_path(self, tmp_path):
+        out, _ = run_gate({**VALID, "priority": {"configured": True}}, tmp_path)
+        assert out == ""
 
     def test_placeholder_anywhere(self, tmp_path):
         out, _ = run_gate(

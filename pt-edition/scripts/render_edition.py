@@ -304,7 +304,7 @@ def validate(edition):
                 for key in ("stage_label", "stage_why", "yesterday", "week", "draft"):
                     if priority.get(key) is not None and blank(priority[key]):
                         failures.append(f"{where}.priority.{key} is blank")
-                for key, cap in (("not_today", 2), ("who", 3)):
+                for key, cap in (("not_today", 2), ("who", 3), ("questions", 3)):
                     items = priority.get(key)
                     if items is None:
                         continue
@@ -366,8 +366,9 @@ def _own_words(section):
     for key in ("yesterday", "stage_label", "stage_why", "week", "first_step"):
         if priority.get(key):
             yield f"priority.{key}", priority[key]
-    for i, text in enumerate(priority.get("not_today") or []):
-        yield f"priority.not_today[{i}]", text
+    for key in ("not_today", "questions"):
+        for i, text in enumerate(priority.get(key) or []):
+            yield f"priority.{key}[{i}]", text
     for i, event in enumerate(priority.get("today") or []):
         yield f"priority.today[{i}].note", event["note"]
     for i, item in enumerate(priority.get("why", [])):
@@ -835,10 +836,13 @@ def _today_list(priority):
 
 
 def priority_lead(priority):
-    """Above the pack: yesterday's follow-up only — the kicker lives on the story."""
+    """Above the pack: open questions and yesterday's follow-up — the kicker lives on the story."""
+    blocks = []
+    if priority.get("questions"):
+        blocks.append(_inline("QUESTIONS · “Q2: …”", priority["questions"]))
     if priority.get("yesterday"):
-        return _note("YESTERDAY", priority["yesterday"])
-    return ""
+        blocks.append(_note("YESTERDAY", priority["yesterday"]))
+    return "\n".join(blocks)
 
 
 def priority_block(priority, headline=""):
