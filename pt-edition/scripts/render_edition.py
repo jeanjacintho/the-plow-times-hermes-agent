@@ -67,6 +67,28 @@ PRIORITY_UNAVAILABLE = {
         ),
     },
 }
+PRIORITY_LABELS = {
+    "en": {
+        "yesterday": "YESTERDAY",
+        "stage": "STAGE",
+        "today": "TODAY",
+        "week": "THIS WEEK",
+        "who": "WHO",
+        "draft": "DRAFT",
+        "not_today": "NOT TODAY",
+        "questions": "QUESTIONS · “Q2: …”",
+    },
+    "pt": {
+        "yesterday": "ONTEM",
+        "stage": "ESTÁGIO",
+        "today": "HOJE",
+        "week": "ESTA SEMANA",
+        "who": "QUEM",
+        "draft": "RASCUNHO",
+        "not_today": "NÃO HOJE",
+        "questions": "PERGUNTAS",
+    },
+}
 # Controlled vocabulary for a sports desk game row -- what state the game
 # is in, drawn as a label/tag, never free text.
 GAME_STATUSES = ("scheduled", "live", "final")
@@ -455,6 +477,10 @@ def _is_portuguese(language):
     return "portug" in s or s in {"pt", "pt-br"}
 
 
+def _priority_labels(language):
+    return PRIORITY_LABELS["pt"] if _is_portuguese(language) else PRIORITY_LABELS["en"]
+
+
 def _owner_language(config):
     if not isinstance(config, dict):
         return ""
@@ -529,8 +555,8 @@ def is_news_section(section):
     return desk_of(section) == "news"
 
 
-def join_articles(sections):
-    return "\n".join(html_section(s) for s in sections)
+def join_articles(sections, language=""):
+    return "\n".join(html_section(s, language=language) for s in sections)
 
 
 def wrap_desk(html):
@@ -810,28 +836,32 @@ def _inline(heading, texts):
     return f'<h3>{heading}</h3><ul class="priority-inline">{items}</ul>'
 
 
-def priority_lead(priority):
+def priority_lead(priority, language=""):
     """Above the focus: questions, follow-up, stage, and the week's number.
 
     Calendar events have one printed owner: the calendar rail. ``today``
     remains accepted source data but is deliberately absent here.
     """
+    labels = _priority_labels(language)
     blocks = []
     if priority.get("questions"):
-        blocks.append(_inline("QUESTIONS · “Q2: …”", priority["questions"]))
+        blocks.append(_inline(labels["questions"], priority["questions"]))
     if priority.get("yesterday"):
-        blocks.append(_note("YESTERDAY", priority["yesterday"]))
+        blocks.append(_note(labels["yesterday"], priority["yesterday"]))
     if priority.get("stage_label"):
-        blocks.append(f'<p class="priority-stage">STAGE · {_esc(priority["stage_label"])}</p>')
+        blocks.append(
+            f'<p class="priority-stage">{labels["stage"]} · {_esc(priority["stage_label"])}</p>'
+        )
     if priority.get("stage_why"):
         blocks.append(f'<div class="priority-note">{_esc(priority["stage_why"])}</div>')
     if priority.get("week"):
-        blocks.append(_note("THIS WEEK", priority["week"]))
+        blocks.append(_note(labels["week"], priority["week"]))
     return "\n".join(blocks)
 
 
-def priority_block(priority):
+def priority_block(priority, language=""):
     """Below the focus: first step, sourced why, who, the draft, what not to do."""
+    labels = _priority_labels(language)
     blocks = [f'<p class="priority-step">{_esc(priority["first_step"])}</p>']
     items = []
     for item in priority["why"]:
@@ -840,11 +870,11 @@ def priority_block(priority):
         items.append(f'<li>{_esc(item["text"])}{quote} <span class="src">— {label}</span></li>')
     blocks.append(f'<ul class="priority-list">{"".join(items)}</ul>')
     if priority.get("who"):
-        blocks.append(_inline("WHO", priority["who"]))
+        blocks.append(_inline(labels["who"], priority["who"]))
     if priority.get("draft"):
-        blocks.append(_note("DRAFT", priority["draft"], "priority-note priority-draft"))
+        blocks.append(_note(labels["draft"], priority["draft"], "priority-note priority-draft"))
     if priority.get("not_today"):
-        blocks.append(_inline("NOT TODAY", priority["not_today"]))
+        blocks.append(_inline(labels["not_today"], priority["not_today"]))
     return "\n".join(blocks)
 
 
@@ -954,7 +984,7 @@ def fetch_grayscale_photo(url):
         return None
 
 
-def html_section(section, drop_cap=False):
+def html_section(section, drop_cap=False, language=""):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
     ``desk`` (optional, default ``news``) is the newspaper department.
@@ -1023,7 +1053,7 @@ def html_section(section, drop_cap=False):
         blocks.append(kicker_html)
     blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
     if desk == "priority" and priority:
-        blocks.append(priority_lead(priority))
+        blocks.append(priority_lead(priority, language))
     if headline:
         blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None
@@ -1045,7 +1075,7 @@ def html_section(section, drop_cap=False):
     if games:
         blocks.append(games_list(games))
     if priority:
-        blocks.append(priority_block(priority))
+        blocks.append(priority_block(priority, language))
     if skip_body:
         pass
     elif paras:
@@ -1074,7 +1104,7 @@ def html_section(section, drop_cap=False):
     return "\n".join(blocks)
 
 
-def render_html(edition, name, template_text):
+def render_html(edition, name, template_text, language=""):
     ordered = [section for _index, section in ordered_sections(edition["sections"])]
     news = [s for s in ordered if is_news_section(s)]
     weather = [s for s in ordered if desk_of(s) == "weather"]
@@ -1086,7 +1116,7 @@ def render_html(edition, name, template_text):
     # The lead story renders separately from the rest of the news well so
     # it can run full width after the standing desks.
     if news:
-        lead_html = html_section(news[0], drop_cap=True)
+        lead_html = html_section(news[0], drop_cap=True, language=language)
         rest = news[1:]
     elif priority:
         lead_html = ""
@@ -1096,17 +1126,17 @@ def render_html(edition, name, template_text):
         rest = []
 
     pair_cells = "".join(
-        f'<div class="news-pair-cell">{html_section(section)}</div>'
+        f'<div class="news-pair-cell">{html_section(section, language=language)}</div>'
         for section in rest
     )
     news_pair_html = (
         f'<div class="news-pair">{pair_cells}</div>' if pair_cells else ""
     )
-    weather_html = wrap_desk(join_articles(weather))
-    calendar_html = wrap_desk(join_articles(calendar))
-    mail_html = wrap_desk(join_articles(mail))
-    sports_html = wrap_desk(join_articles(sports))
-    priority_html = wrap_desk(join_articles(priority))
+    weather_html = wrap_desk(join_articles(weather, language))
+    calendar_html = wrap_desk(join_articles(calendar, language))
+    mail_html = wrap_desk(join_articles(mail, language))
+    sports_html = wrap_desk(join_articles(sports, language))
+    priority_html = wrap_desk(join_articles(priority, language))
     # The priority card's visible label is the desk's own <h2> -- the
     # model-written title (owner.language), styled by the template as the
     # black bar on top of the box. No separate heading is emitted here:
@@ -1193,7 +1223,8 @@ def main(argv=None):
 
     if isinstance(edition, dict):
         fill_news_desk(edition)
-    edition, _ = ensure_priority_desk(edition, _load_json_file(args.config))
+    config = _load_json_file(args.config)
+    edition, _ = ensure_priority_desk(edition, config)
 
     failures = validate(edition)
     if failures:
@@ -1219,7 +1250,7 @@ def main(argv=None):
             template_text = TEMPLATE.read_text()
         except OSError as exc:
             sys.exit(f"error: could not read template {TEMPLATE}: {exc!r}")
-        page = render_html(edition, name, template_text)
+        page = render_html(edition, name, template_text, language=_owner_language(config))
         if args.html:
             pathlib.Path(args.html).write_text(page)
         if args.pdf:
