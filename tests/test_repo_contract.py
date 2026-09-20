@@ -756,11 +756,13 @@ class TestSkills:
             "/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json",
             "A recommendation without a supporting sourced quote is ineligible",
             "global paper budget does not shorten",
+            "dated today is still generation zero",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "reserved 150-minute window" in desks
         assert "global batch budget starts after priority" in desks
+        assert "Every cron execution runs a fresh tournament" in desks
 
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"

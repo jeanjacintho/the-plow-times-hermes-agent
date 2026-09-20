@@ -45,6 +45,8 @@ its compact JSON in the root context; do not reopen or dump the edition archive.
 delivered recommendations are generation zero. With no history, seed candidates from the named
 advisors' “Questions that change the advice.” Preserve the last fully criticized champion set as
 the rollback checkpoint.
+A delivered edition dated today is still generation zero on a replay, never proof that the
+tournament ran in the current cron session.
 
 Load this skill once during Orient. Then write the compact working state to
 `/var/lib/hermes/pt/run/desk-priority/tournament.json`: generation number; each champion's
