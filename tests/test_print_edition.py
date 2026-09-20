@@ -157,6 +157,25 @@ class TestShip:
         pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
         assert polls == ["job-1"]
 
+    @pytest.mark.parametrize("blocked", ["poll", "diagnosed"])
+    def test_blocked_job_surfaces_the_owner_action(self, tmp_path, blocked):
+        pdf = _edition(tmp_path)
+
+        def call_tool(name, arguments):
+            if name == "plow_write_file":
+                return {"path": "/Users/test-owner/Plow/pt/edition-2026-09-17.pdf.b64"}
+            if name == "plow_get_output":
+                raise pe.LatchError("latch blocked: Click Allow on the Mac")
+            if arguments["argv"][0] == "lp":
+                if blocked == "diagnosed":
+                    return {"status": "running", "handle": "job-1",
+                            "diagnosis": {"owner_action": "Click Allow on the Mac"}}
+                return {"status": "running", "handle": "job-1"}
+            return {"exit_code": 0, "output": ""}
+
+        with pytest.raises(SystemExit, match="lp outcome unknown: .*Click Allow on the Mac"):
+            pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
+
     def test_lp_bad_file_descriptor_retries_via_applescript(self, tmp_path):
         pdf = _edition(tmp_path)
         tools = []

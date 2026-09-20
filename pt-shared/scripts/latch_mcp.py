@@ -74,7 +74,9 @@ def settle(parsed, get_result, sleep=time.sleep, max_wait=POLL_SECONDS):
             parsed = get_result(handle)
             continue
         if status in ("denied", "failed", "expired", "unknown", "blocked"):
-            raise LatchError(f"latch {status}")
+            # A blocked run names what the owner must do to unblock it.
+            action = (parsed.get("diagnosis") or {}).get("owner_action")
+            raise LatchError(f"latch {status}" + (f": {action}" if action else ""))
         if status == "ready":
             inner = parsed.get("result", parsed)
             if isinstance(inner, str):
@@ -95,12 +97,14 @@ def require_command_result(parsed, call_tool=None, tries=POLL_SECONDS):
     plow_get_output; whatever never reports an exit_code raises LatchError.
     """
     while (call_tool and tries > 0 and isinstance(parsed, dict)
-           and "exit_code" not in parsed and parsed.get("handle")):
+           and "exit_code" not in parsed and parsed.get("handle")
+           and not parsed.get("diagnosis")):
         time.sleep(1)
         tries -= 1
         parsed = call_tool("plow_get_output", {"handle": parsed["handle"]})
     if not isinstance(parsed, dict) or "exit_code" not in parsed:
-        raise LatchError(f"did not finish: {parsed}")
+        action = (parsed.get("diagnosis") or {}).get("owner_action") if isinstance(parsed, dict) else None
+        raise LatchError(action or f"did not finish: {parsed}")
     return int(parsed["exit_code"]), str(parsed.get("output") or "")
 
 

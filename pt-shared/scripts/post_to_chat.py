@@ -175,7 +175,7 @@ def run_print_edition(pdf_path, config_path):
     )
     blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
     if proc.returncode != 0:
-        if "page not printed" in blob:
+        if "page not printed" in blob or "page may not have printed" in blob:
             return blob
         return f"page not printed — {blob or proc.returncode}"
     return blob

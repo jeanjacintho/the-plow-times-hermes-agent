@@ -127,8 +127,9 @@ def require_finished_ok(parsed, step, call_tool=None):
     """
     try:
         code, output = require_command_result(parsed, call_tool)
-    except LatchError:
-        sys.exit(f"error: page may not have printed — {step} outcome unknown; check the printer queue")
+    except LatchError as exc:
+        sys.exit(f"error: page may not have printed — {step} outcome unknown: {exc}; "
+                 "check the printer queue")
     if code:
         sys.exit(f"error: page not printed — {step} {code}: {output or parsed}")
 

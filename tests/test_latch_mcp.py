@@ -26,6 +26,11 @@ class TestSettle:
         with pytest.raises(LatchError, match=f"latch {status}"):
             lm.settle({"status": status, "handle": "h"}, lambda _h: {}, sleep=lambda _n: None)
 
+    def test_a_blocked_call_carries_the_owner_action(self):
+        blocked = {"status": "blocked", "diagnosis": {"owner_action": "Click Allow"}}
+        with pytest.raises(LatchError, match="latch blocked: Click Allow"):
+            lm.settle(blocked, lambda _h: {}, sleep=lambda _n: None)
+
 
 class TestDecodeBody:
     @pytest.mark.parametrize("raw", [b"", b'{"jsonrpc": "2.0", "id": 1}', b"null", b'"result"'])
