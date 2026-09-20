@@ -36,6 +36,25 @@ def _edition(tmp_path, pdf=b"%PDF-1.4 fake"):
     return path
 
 
+def _running_lp_tool(poll_result, calls=None):
+    """A fake Latch whose lp outlives its wait and is settled by plow_get_output."""
+    def call_tool(name, args):
+        if calls is not None:
+            calls.append(name)
+        if name == "plow_write_file":
+            return {"path": "/Users/test-owner/Plow/pt/edition-2026-09-17.pdf.b64"}
+        if name == "plow_get_output":
+            if isinstance(poll_result, Exception):
+                raise poll_result
+            return poll_result
+        if name == "plow_run_applescript":
+            return {"exit_code": 0, "output": "request id is HP-2"}
+        if args["argv"][0] == "lp":
+            return {"status": "running", "handle": "job-1"}
+        return {"exit_code": 0, "output": ""}
+    return call_tool
+
+
 class TestPrinterGate:
     def test_missing_config_is_a_skip_not_a_crash(self, tmp_path):
         assert pe.printer_name(str(tmp_path / "nope.json")) is None
@@ -145,55 +164,24 @@ class TestShip:
             pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
 
     def test_running_lp_is_polled_to_its_exit(self, tmp_path):
-        pdf = _edition(tmp_path)
-        polled = []
-
-        def call_tool(name, arguments):
-            if name == "plow_write_file":
-                return {"path": "/Users/test-owner/Plow/pt/edition-2026-09-17.pdf.b64"}
-            if name == "plow_get_output":
-                polled.append(arguments["handle"])
-                return {"status": "completed", "exit_code": 0, "output": "request id is HP-1"}
-            if arguments["argv"][0] == "lp":
-                return {"status": "running", "handle": "job-1"}
-            return {"exit_code": 0, "output": ""}
-
-        pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
-        assert polled == ["job-1"]
+        calls = []
+        done = {"status": "completed", "exit_code": 0, "output": "request id is HP-1"}
+        pe.ship(str(_edition(tmp_path)), "JornalVirtual", "2026-09-17",
+                _running_lp_tool(done, calls))
+        assert calls.count("plow_get_output") == 1
 
     def test_running_lp_that_ends_in_bad_file_descriptor_still_retries(self, tmp_path):
-        pdf = _edition(tmp_path)
-        tools = []
-
-        def call_tool(name, arguments):
-            tools.append(name)
-            if name == "plow_write_file":
-                return {"path": "/Users/test-owner/Plow/pt/edition-2026-09-17.pdf.b64"}
-            if name == "plow_get_output":
-                return {"status": "completed", "exit_code": 1, "output": "lp: Bad file descriptor"}
-            if name == "plow_run_applescript":
-                return {"exit_code": 0, "output": "request id is HP-2"}
-            if arguments["argv"][0] == "lp":
-                return {"status": "running", "handle": "job-1"}
-            return {"exit_code": 0, "output": ""}
-
-        pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
-        assert "plow_run_applescript" in tools
+        calls = []
+        bfd = {"status": "completed", "exit_code": 1, "output": "lp: Bad file descriptor"}
+        pe.ship(str(_edition(tmp_path)), "JornalVirtual", "2026-09-17",
+                _running_lp_tool(bfd, calls))
+        assert "plow_run_applescript" in calls
 
     def test_polling_failure_or_block_is_an_unknown_outcome_with_the_action(self, tmp_path):
-        pdf = _edition(tmp_path)
-
-        def call_tool(name, arguments):
-            if name == "plow_write_file":
-                return {"path": "/Users/test-owner/Plow/pt/edition-2026-09-17.pdf.b64"}
-            if name == "plow_get_output":
-                raise pe.LatchError("latch blocked: Click Allow on the Mac")
-            if arguments["argv"][0] == "lp":
-                return {"status": "running", "handle": "job-1"}
-            return {"exit_code": 0, "output": ""}
-
+        blocked = pe.LatchError("latch blocked: Click Allow on the Mac")
         with pytest.raises(pe.LatchError, match="lp outcome unknown: latch blocked: Click Allow"):
-            pe.ship(str(pdf), "JornalVirtual", "2026-09-17", call_tool)
+            pe.ship(str(_edition(tmp_path)), "JornalVirtual", "2026-09-17",
+                    _running_lp_tool(blocked))
 
     def test_lp_bad_file_descriptor_retries_via_applescript(self, tmp_path):
         pdf = _edition(tmp_path)

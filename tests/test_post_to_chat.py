@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import types
 import subprocess
 import sys
 
@@ -61,6 +62,14 @@ class TestComposePayload:
         post.after_posted(tmp_path / "seal.json")
         status = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["status"]
         assert status == "pending"
+
+
+class TestRunPrintEdition:
+    def test_unknown_outcome_line_is_kept_not_rewrapped_as_a_failure(self, monkeypatch):
+        line = "error: page may not have printed — lp outcome unknown: Click Allow; check the printer queue"
+        monkeypatch.setattr("subprocess.run", lambda *a, **k: types.SimpleNamespace(
+            returncode=1, stdout="", stderr=line))
+        assert post.run_print_edition("/x.pdf", "/c.json") == line
 
 
 class TestTextFileFlag:

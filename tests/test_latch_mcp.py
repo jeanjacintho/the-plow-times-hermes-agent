@@ -55,3 +55,10 @@ class TestUnwrap:
     def test_json_text_is_parsed(self):
         result = {"content": [{"type": "text", "text": '{"path": "/Users/test-owner/a", "content": "x"}'}]}
         assert lm.unwrap_tool_result(result) == {"path": "/Users/test-owner/a", "content": "x"}
+
+
+class TestFinishCommand:
+    def test_a_diagnosed_running_job_reports_its_owner_action(self):
+        parked = {"status": "running", "handle": "j", "diagnosis": {"owner_action": "Click Allow"}}
+        with pytest.raises(LatchError, match="lp outcome unknown: Click Allow"):
+            lm.finish_command(lambda *_: {}, parked, "lp")
