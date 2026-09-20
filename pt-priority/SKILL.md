@@ -142,6 +142,6 @@ bank quote's `quote`, post `url` and post title as `source_label`; Today's event
 `today` (`time`, `null` all day or for a chore; `title`; `note`); that entry's headline and what
 became of it (As of) as `yesterday`; the Q&A's number that matters most this week at this stage,
 with its date, as `week`; the top three Open questions as `questions`, each `Q<n> — ` and the
-question in the card's words, asked of the reader with `you`/`você` — the page gate refuses one
-that only names them. Omit what its sources lack. A card the page gate refuses at print is left
+question in the card's words, asked of the reader in their language, never about them by
+name. Omit what its sources lack. A card the page gate refuses at print is left
 as it is.

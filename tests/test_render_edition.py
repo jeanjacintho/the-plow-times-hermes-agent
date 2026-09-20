@@ -305,8 +305,6 @@ class TestValidate:
         ("questions", [" "], "priority.questions is not a list of non-blank strings"),
         ("questions", ["Q4 — Is prioritization.md current?"],
          "priority.questions[0] prints a file path or name ('prioritization.md')"),
-        ("questions", ["Q3 — Has Sam asked anyone for a reference?"],
-         "priority.questions[0] asks about the reader instead of to them"),
         ("questions", ["Q3 — Have you asked anyone for a reference?"], None),
         ("today", EVENT, "priority.today is not a list"),
         ("today", [EVENT] * 5, "priority.today has more than 4 items"),

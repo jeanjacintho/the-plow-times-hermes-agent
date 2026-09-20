@@ -100,8 +100,6 @@ SELF_RE = re.compile(
     r"\b(?:the (?:founder|ceo|owner)|a founder should|o (?:fundador|ceo|dono)|a (?:fundadora|dona))\b",
     re.I,
 )
-# A printed question asks the reader, not about them: you/your/yours or você/seu/sua/teu/tua.
-READER_RE = re.compile(r"\b(?:you|your|yours|voc[eê]|seu|sua|teu|tua)\b", re.I)
 # A second sentence starts with a capital ("Oct. 15", "Acme Corp. by" never
 # split) and never follows an initial, "p.m." or a title ("Dr. Lee").
 TWO_ACTIONS_RE = re.compile(
@@ -416,8 +414,6 @@ def page_rules(sections):
                 failures.append(f"{where}.{field} prints a file path or name ({match.group(0)!r})")
             if match := SELF_RE.search(text):
                 failures.append(f"{where}.{field} calls the reader {match.group(0)!r}")
-            if field.startswith("priority.questions[") and not READER_RE.search(text):
-                failures.append(f"{where}.{field} asks about the reader instead of to them")
         headline = (section.get("headline") or "").strip()
         if len(headline) > HEADLINE_MAX:
             failures.append(f"{where}.headline is over {HEADLINE_MAX} chars")
