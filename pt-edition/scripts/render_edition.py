@@ -89,7 +89,6 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
 # The advisor bank: short verbatim quotes, each with its post's url and title.
-BANK = pathlib.Path(__file__).resolve().parents[2] / "pt-setup/assets/advisors/salyer-bank.json"
 QUOTE_MAX_WORDS = 25
 HEADLINE_MAX = 120
 # The bank verifier's normalization: curly quotes and runs of whitespace.
@@ -282,53 +281,35 @@ def validate(edition):
             elif not isinstance(priority, dict):
                 failures.append(f"{where}.priority is not an object")
             else:
-                why = priority.get("why")
-                if not isinstance(why, list) or not (1 <= len(why) <= 3):
-                    failures.append(f"{where}.priority.why needs 1 to 3 items")
+                recommendations = priority.get("recommendations")
+                if not isinstance(recommendations, list) or not (1 <= len(recommendations) <= 3):
+                    failures.append(f"{where}.priority.recommendations needs 1 to 3 items")
                 else:
-                    for i, item in enumerate(why):
-                        iwhere = f"{where}.priority.why[{i}]"
+                    for i, item in enumerate(recommendations):
+                        iwhere = f"{where}.priority.recommendations[{i}]"
                         if not isinstance(item, dict):
                             failures.append(f"{iwhere} is not an object")
                             continue
-                        if blank(item.get("text")):
-                            failures.append(f"{iwhere}.text is blank")
-                        if blank(item.get("source_label")):
-                            failures.append(f"{iwhere}.source_label is blank")
-                        for key in ("quote", "url"):
-                            if item.get(key) is not None and blank(item[key]):
+                        for key in ("headline", "body", "first_step"):
+                            if blank(item.get(key)):
                                 failures.append(f"{iwhere}.{key} is blank")
-                step = priority.get("first_step")
-                if blank(step):
-                    failures.append(f"{where}.priority.first_step is blank")
-                for key in ("stage_label", "stage_why", "yesterday", "week", "draft"):
-                    if priority.get(key) is not None and blank(priority[key]):
-                        failures.append(f"{where}.priority.{key} is blank")
-                for key, cap in (("not_today", 2), ("who", 3), ("questions", 3)):
-                    items = priority.get(key)
-                    if items is None:
-                        continue
-                    if not isinstance(items, list) or any(blank(t) for t in items):
-                        failures.append(f"{where}.priority.{key} is not a list of non-blank strings")
-                    elif len(items) > cap:
-                        failures.append(f"{where}.priority.{key} has more than {cap} items")
-                today = priority.get("today")
-                if today is not None:
-                    if not isinstance(today, list):
-                        failures.append(f"{where}.priority.today is not a list")
-                    elif len(today) > 4:
-                        failures.append(f"{where}.priority.today has more than 4 items")
-                    else:
-                        for i, event in enumerate(today):
-                            ewhere = f"{where}.priority.today[{i}]"
-                            if not isinstance(event, dict):
-                                failures.append(f"{ewhere} is not an object")
-                                continue
-                            if event.get("time") is not None and blank(event["time"]):
-                                failures.append(f"{ewhere}.time is blank")
-                            for key in ("title", "note"):
-                                if blank(event.get(key)):
-                                    failures.append(f"{ewhere}.{key} is blank")
+                        if isinstance(item.get("body"), str) and len(item["body"]) > 1024:
+                            failures.append(f"{iwhere}.body is over 1024 characters")
+                        advisor = item.get("advisor")
+                        if not isinstance(advisor, dict):
+                            failures.append(f"{iwhere}.advisor is not an object")
+                        else:
+                            for key in ("name", "quote"):
+                                if blank(advisor.get(key)):
+                                    failures.append(f"{iwhere}.advisor.{key} is blank")
+                            url = advisor.get("url")
+                            if not (isinstance(url, str) and url.strip().startswith(("http://", "https://"))):
+                                failures.append(f"{iwhere}.advisor.url is not an http(s) URL")
+                questions = priority.get("questions", [])
+                if not isinstance(questions, list) or any(blank(q) for q in questions):
+                    failures.append(f"{where}.priority.questions is not a list of non-blank strings")
+                elif len(questions) > 3:
+                    failures.append(f"{where}.priority.questions has more than 3 items")
         image = section.get("image")
         if image is not None:
             if desk not in (None, "news"):
@@ -363,36 +344,13 @@ def _own_words(section):
         if section.get(key):
             yield key, section[key]
     priority = section.get("priority") or {}
-    for key in ("yesterday", "stage_label", "stage_why", "week", "first_step"):
-        if priority.get(key):
-            yield f"priority.{key}", priority[key]
-    for key in ("not_today", "questions"):
+    for key in ("questions",):
         for i, text in enumerate(priority.get(key) or []):
             yield f"priority.{key}[{i}]", text
-    for i, event in enumerate(priority.get("today") or []):
-        yield f"priority.today[{i}].note", event["note"]
-    for i, item in enumerate(priority.get("why", [])):
-        yield f"priority.why[{i}].text", item["text"]
-
-
-def _why_rules(where, why):
-    """A `why` citing the bank quotes it verbatim, under the post's own title."""
-    cited = [(i, item) for i, item in enumerate(why) if item.get("quote") or item.get("url")]
-    posts = json.loads(BANK.read_text(encoding="utf-8")) if cited else []
-    for i, item in cited:
-        iwhere = f"{where}.priority.why[{i}]"
-        post = next((post for post in posts if post["url"] == item.get("url")), {})
-        if not post:
-            yield f"{iwhere}.url is not in the advisor bank"
-        elif item["source_label"].strip() != post["title"]:
-            yield f"{iwhere}.source_label is not the bank title for its url"
-        quote = item.get("quote")
-        if quote is None:
-            continue
-        if len(quote.split()) > QUOTE_MAX_WORDS:
-            yield f"{iwhere}.quote is over {QUOTE_MAX_WORDS} words"
-        if not any(_normalized(quote) in _normalized(e["quote"]) for e in post.get("entries", [])):
-            yield f"{iwhere}.quote is not verbatim from the bank entry at its url"
+    for i, item in enumerate(priority.get("recommendations") or []):
+        for key in ("headline", "body", "first_step"):
+            if item.get(key):
+                yield f"priority.recommendations[{i}].{key}", item[key]
 
 
 def page_rules(sections):
@@ -417,7 +375,6 @@ def page_rules(sections):
             failures.append(f"{where}.headline is over {HEADLINE_MAX} chars")
         if TWO_ACTIONS_RE.search(headline):
             failures.append(f"{where}.headline carries more than one action")
-        failures.extend(_why_rules(where, (section.get("priority") or {}).get("why", [])))
     return failures
 
 
@@ -835,44 +792,21 @@ def _inline(heading, texts):
     return f'<h3>{heading}</h3><ul class="priority-inline">{items}</ul>'
 
 
-def priority_lead(priority):
-    """Above the focus: the open questions, yesterday's follow-up, the stage and its reason, today, the week."""
-    blocks = []
-    if priority.get("questions"):
-        blocks.append(_inline("QUESTIONS · “Q2: …”", priority["questions"]))
-    if priority.get("yesterday"):
-        blocks.append(_note("YESTERDAY", priority["yesterday"]))
-    if priority.get("stage_label"):
-        blocks.append(f'<p class="priority-stage">STAGE · {_esc(priority["stage_label"])}</p>')
-    if priority.get("stage_why"):
-        blocks.append(f'<div class="priority-note">{_esc(priority["stage_why"])}</div>')
-    if priority.get("today"):
-        items = []
-        for event in priority["today"]:
-            time = f"<b>{_esc(event['time'])}</b> " if event.get("time") else ""
-            note = f'<span class="src">{_esc(event["note"])}</span>'
-            items.append(f"<li>{time}{_esc(event['title'])} {note}</li>")
-        blocks.append('<h3>TODAY</h3><ul class="priority-list">' + "".join(items) + "</ul>")
-    if priority.get("week"):
-        blocks.append(_note("THIS WEEK", priority["week"]))
-    return "\n".join(blocks)
-
-
 def priority_block(priority):
-    """Below the focus: first step, sourced why, who, the draft, what not to do."""
-    blocks = [f'<p class="priority-step">{_esc(priority["first_step"])}</p>']
-    items = []
-    for item in priority["why"]:
-        quote = f" “{_esc(item['quote'])}”" if item.get("quote") else ""
-        label = source_markup(item.get("url") or "", item["source_label"].strip())
-        items.append(f'<li>{_esc(item["text"])}{quote} <span class="src">— {label}</span></li>')
-    blocks.append(f'<ul class="priority-list">{"".join(items)}</ul>')
-    if priority.get("who"):
-        blocks.append(_inline("WHO", priority["who"]))
-    if priority.get("draft"):
-        blocks.append(_note("DRAFT", priority["draft"], "priority-note priority-draft"))
-    if priority.get("not_today"):
-        blocks.append(_inline("NOT TODAY", priority["not_today"]))
+    """Ranked recommendation essays, followed by questions for the owner."""
+    blocks = []
+    for rank, recommendation in enumerate(priority["recommendations"], 1):
+        advisor = recommendation["advisor"]
+        paragraphs = "".join(f"<p>{html.escape(p)}</p>" for p in body_paragraphs(recommendation["body"]))
+        blocks.append(
+            f'<article class="priority-rec"><p class="priority-rank">{rank}</p>'
+            f'<h2>{_esc(recommendation["headline"])}</h2>{paragraphs}'
+            f'<p class="priority-step"><strong>FIRST STEP</strong> {_esc(recommendation["first_step"])}</p>'
+            f'<blockquote>“{_esc(advisor["quote"])}” <span class="src">— '
+            f'<a href="{_esc(advisor["url"])}">{_esc(advisor["name"])}</a></span></blockquote></article>'
+        )
+    if priority.get("questions"):
+        blocks.append(_inline('QUESTIONS FOR YOU · TEXT “Q2: …”', priority["questions"]))
     return "\n".join(blocks)
 
 
@@ -1062,8 +996,6 @@ def html_section(section, drop_cap=False):
         if kicker_html:
             blocks.append(kicker_html)
         blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
-        if desk == "priority" and priority:
-            blocks.append(priority_lead(priority))
         if headline:
             blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None

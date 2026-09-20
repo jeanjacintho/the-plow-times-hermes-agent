@@ -22,31 +22,21 @@
       "desk": "priority",
       "headline": "Finish the Friday loaf list before the market opens.",
       "body": "Write the bakers' board, then walk the first tray.",
-      "priority": {
-        "stage_label": "Neighborhood bakery",
-        "why": [
-          {
-            "text": "Saturday market still has no card for the rye",
-            "source_label": "your file, Opening notes"
-          },
-          {
-            "text": "Mira asked for the tasting flight in writing",
-            "source_label": "your file, Counter"
+    "priority": {
+      "recommendations": [
+        {
+          "headline": "Finish the Friday loaf list before the market opens",
+          "body": "Saturday's market still has no clear card for the rye, while the tasting flight is already drawing questions at the counter. Make the offer legible before adding another product: a customer who understands the loaf can choose it, describe it, and come back for it.",
+          "first_step": "Write the rye card and pin it on the board by 09:00.",
+          "advisor": {
+            "name": "Mira Chen",
+            "quote": "Make the choice obvious before making the menu bigger.",
+            "url": "https://example.com/bakery-notes"
           }
-        ],
-        "first_step": "Write the rye card and pin it on the board by 09:00.",
-        "today": [
-          {
-            "time": "09:15",
-            "title": "Walk the first trays with Mira",
-            "note": "Check the crust, not the recipe."
-          }
-        ],
-        "not_today": [
-          "Redesign the paper bags",
-          "Answer last month's wholesale thread"
-        ]
-      },
+        }
+      ],
+      "questions": []
+    },
       "sources": []
     },
     {

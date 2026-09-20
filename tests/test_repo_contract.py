@@ -720,6 +720,29 @@ class TestSkills:
         assert "def ensure_priority_desk" in renderer
         assert "Never omit the slot" in edition
 
+    def test_priority_evolution_contract(self):
+        text = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        for clause in (
+            "three current champions and three challengers",
+            "one independent critic per recommendation",
+            "A critic is a prosecutor, never a reviser",
+            "unknown, never disproved",
+            "the prior fully criticized champion set stands",
+            "Every generation reaches Cull",
+            "resources.md",
+            "at most 1,024 characters",
+        ):
+            assert clause in text
+
+    def test_bundled_advisors_are_one_named_markdown_file_each(self):
+        advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"
+        markdown = sorted(p.name for p in advisor_dir.glob("*.md") if p.name != "README.md")
+        assert markdown == ["patrick-salyer.md"]
+        assert not list(advisor_dir.glob("*-bank.json"))
+        priority = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "every `*.md` except `README.md`" in priority
+        assert "salyer-*" not in priority and "salyer-bank.json" not in priority
+
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
         # Measured live 2026-09-18: two real appointments, paper said the
         # day was empty. Google was called as `calendar today` (exit 2) and

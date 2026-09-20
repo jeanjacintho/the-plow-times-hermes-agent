@@ -8,30 +8,18 @@ import pytest
 from conftest import ROOT, load_module
 
 render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
-SHIPPED_BANK = render.BANK
-BANK_POST = {
-    "url": "https://advisor.example/talk", "title": "Talk To Customers", "date": "2026-01-01",
-    "entries": [{"id": "talk#1", "quote": "Don’t build before you’ve talked to ten customers. Then build less.",
-                 "advice": "Interview customers first.", "situations": ["customer-discovery"],
-                 "stages": ["discovery"]}],
+RECOMMENDATION = {
+    "headline": "Put retention at the center of Monday's investor conversation",
+    "body": "Lead with the segment that returns, what those users repeatedly ask the product to do, and the milestone this round buys.",
+    "first_step": "Draft the three-slide spine: retention, repeated use, and the runway milestone.",
+    "advisor": {"name": "Patrick Salyer", "quote": "Forget the naming (seed / A / B).", "url": "https://example.com/advisor"},
 }
-BANKED = {"text": "Three discovery calls this week", "source_label": "Talk To Customers",
-          "url": BANK_POST["url"], "quote": "Don’t build before you’ve talked to ten customers."}
-
-
-@pytest.fixture
-def synthetic_bank(tmp_path, monkeypatch):
-    path = tmp_path / "bank.json"
-    path.write_text(json.dumps([BANK_POST]), encoding="utf-8")
-    monkeypatch.setattr(render, "BANK", path)
-
-
 def edition_with_priority_and_weather():
     return edition(sections=[
         {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []},
         {"kind": "section", "title": "Your #1 priority today", "desk": "priority",
          "headline": "Close the seed extension", "body": "Send the deck",
-         "priority": {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"},
+         "priority": {"recommendations": [RECOMMENDATION], "questions": []},
          "sources": []},
     ])
 
@@ -40,10 +28,19 @@ EVENT = {"time": "10:00", "title": "Customer call: Dana", "note": "Go in with: w
 
 
 def priority_edition(headline="Book 3 customer calls by Friday", sources=(), **fields):
-    p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x", **fields}
+    recommendation = {**RECOMMENDATION, "headline": headline}
+    p = {"recommendations": [recommendation], "questions": fields.pop("questions", []), **fields}
     return edition(sections=[{"kind": "section", "title": "P", "desk": "priority",
                               "headline": headline, "body": "b", "priority": p,
                               "sources": list(sources)}])
+
+
+def recommendation_edition(recommendations=None, questions=None):
+    priority = {"recommendations": recommendations if recommendations is not None else [RECOMMENDATION],
+                "questions": questions or []}
+    return edition(sections=[{"kind": "section", "title": "Advisor", "desk": "priority",
+                              "body": "Today's recommendations.", "priority": priority,
+                              "sources": []}])
 
 
 def edition(**overrides):
@@ -70,6 +67,23 @@ def write(tmp_path, data):
 
 
 class TestValidate:
+    @pytest.mark.parametrize("recommendations,failure", [
+        ([], "priority.recommendations needs 1 to 3 items"),
+        ([RECOMMENDATION] * 4, "priority.recommendations needs 1 to 3 items"),
+        (["call customers"], "priority.recommendations[0] is not an object"),
+        ([{**RECOMMENDATION, "body": "x" * 1025}], "priority.recommendations[0].body is over 1024 characters"),
+    ])
+    def test_recommendation_rules(self, recommendations, failure):
+        assert failure in render.validate(recommendation_edition(recommendations))
+
+    def test_ranked_recommendations_render_escaped_paper_prose(self):
+        second = {**RECOMMENDATION, "headline": "Interview <three> users", "body": "First paragraph.\n\nSecond & final."}
+        page = recommendation_edition([RECOMMENDATION, second], ["Q4 — What changed?"])
+        assert render.validate(page) == ""
+        output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        assert output.index("Put retention at the center") < output.index("Interview &lt;three&gt; users")
+        assert "Second &amp; final." in output
+        assert "FIRST STEP" in output and "Patrick Salyer" in output
     def test_valid_is_silent(self):
         assert render.validate(edition()) == ""
 
@@ -186,46 +200,13 @@ class TestValidate:
         }])
         assert "priority is only valid on the priority desk" in render.validate(edition_data)
 
-    def test_priority_why_must_have_one_to_three_sourced_items(self):
-        p = {"why": [], "first_step": "Send the deck"}
-        assert "priority.why needs 1 to 3 items" in render.validate(edition(sections=[{
-            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-        }]))
-        p = {"why": [{"text": "t"}], "first_step": "Send the deck"}
-        assert "priority.why[0].source_label is blank" in render.validate(edition(sections=[{
-            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-        }]))
-
-    @pytest.mark.parametrize("why, printed", [
-        ({"text": "Q3 goal: raise $1.5M by Sep 30", "source_label": "your file, Goals"},
-         'Q3 goal: raise $1.5M by Sep 30 <span class="src">— your file, Goals</span>'),
-        (BANKED, "Three discovery calls this week “Don’t build before you’ve talked to ten "
-                 'customers.” <span class="src">— <a href="https://advisor.example/talk">'
-                 "Talk To Customers</a></span>"),
-    ])
-    def test_priority_renders_headline_why_and_first_step(self, why, printed):
-        p = {"why": [why], "first_step": "Send the deck"}
-        html = render.render_html(edition(sections=[{
-            "kind": "section", "title": "Your #1 priority today", "desk": "priority",
-            "headline": "Close the seed extension", "body": "Send the deck", "priority": p,
-            "sources": [],
-        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
-        assert "Close the seed extension" in html
-        assert printed in html
-        assert "Send the deck" in html
-        assert "<script" not in html.lower()
-
     def test_priority_title_is_the_desk_title_not_python_text(self):
-        html = render.render_html(edition(sections=[{
-            "kind": "section", "title": "O que devo priorizar hoje?", "desk": "priority",
-            "headline": "Close the seed extension", "body": "Send the deck",
-            "priority": {"why": [{"text": "t", "source_label": "calendar"}],
-                         "first_step": "x"},
-            "sources": [],
-        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
+        data = recommendation_edition()
+        data["sections"][0]["title"] = "O que devo priorizar hoje?"
+        html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
         assert "O que devo priorizar hoje?" in html
         assert "priority-wrap" in html
-        assert "Close the seed extension" in html
+        assert "Put retention at the center" in html
 
     def test_priority_title_empty_without_a_priority_desk(self):
         html = render.render_html(edition(), render.DEFAULT_MASTHEAD,
@@ -291,87 +272,6 @@ class TestValidate:
         assert '<div class="desks-row">' in html
         assert html.count('<div class="desks-cell">') == 2
 
-    @pytest.mark.parametrize("field, value, failure", [
-        ("stage_label", " ", "priority.stage_label is blank"),
-        ("stage_why", "", "priority.stage_why is blank"),
-        ("yesterday", 3, "priority.yesterday is blank"),
-        ("week", "  ", "priority.week is blank"),
-        ("draft", ["Hey Raj"], "priority.draft is blank"),
-        ("not_today", ["a", "b", "c"], "priority.not_today has more than 2 items"),
-        ("not_today", [" "], "priority.not_today is not a list of non-blank strings"),
-        ("who", "Raj", "priority.who is not a list of non-blank strings"),
-        ("who", ["a", "b", "c", "d"], "priority.who has more than 3 items"),
-        ("questions", ["a", "b", "c", "d"], "priority.questions has more than 3 items"),
-        ("questions", [" "], "priority.questions is not a list of non-blank strings"),
-        ("questions", ["Q4 — Is prioritization.md current?"],
-         "priority.questions[0] prints a file path or name ('prioritization.md')"),
-        ("today", EVENT, "priority.today is not a list"),
-        ("today", [EVENT] * 5, "priority.today has more than 4 items"),
-        ("today", ["10:00 call"], "priority.today[0] is not an object"),
-        ("today", [{**EVENT, "time": ""}], "priority.today[0].time is blank"),
-        ("today", [{**EVENT, "title": " "}], "priority.today[0].title is blank"),
-        ("today", [{"time": None, "title": "Call"}], "priority.today[0].note is blank"),
-        # A why citing the advisor bank quotes it verbatim, under the post's title.
-        ("why", [BANKED], None),
-        ("why", [{**BANKED, "quote": "Don't build before\n you've  talked to ten customers."}], None),
-        ("why", [{**BANKED, "quote": None}], None),
-        ("why", [{**BANKED, "quote": "Build before you talk to customers."}],
-         "priority.why[0].quote is not verbatim from the bank entry at its url"),
-        ("why", [{**BANKED, "quote": " ".join(["ten"] * 26)}], "priority.why[0].quote is over 25 words"),
-        ("why", [{**BANKED, "url": "https://elsewhere.example/post"}],
-         "priority.why[0].url is not in the advisor bank"),
-        ("why", [{**BANKED, "source_label": "Another Post"}],
-         "priority.why[0].source_label is not the bank title for its url"),
-        ("why", [{**BANKED, "url": " "}], "priority.why[0].url is blank"),
-        # One action, at most 120 chars.
-        ("headline", "Raise $1.5M from Acme Corp. by Oct. 15 with Dr. Lee", None),
-        ("headline", "Ligue para a Dra. Silva às 5 p.m. Friday", None),
-        ("headline", "x" * 121, "sections[0].headline is over 120 chars"),
-        ("headline", "Call Sam. Send the deck", "sections[0].headline carries more than one action"),
-        ("headline", "Call Dana; send the deck", "sections[0].headline carries more than one action"),
-        ("headline", "Call Dana then send the deck", "sections[0].headline carries more than one action"),
-        ("headline", "Call Dana + send the deck", "sections[0].headline carries more than one action"),
-        # No plumbing, and the card talks to the reader -- other people's words excepted.
-        ("stage_why", "Your prioritization.md says discovery",
-         "priority.stage_why prints a file path or name ('prioritization.md')"),
-        ("today", [{**EVENT, "note": "From ~/Plow/goals"}], "priority.today[0].note prints a file path"),
-        ("week", "Investor pipeline: 3 calls booked", None),
-        ("first_step", "The founder should call Dana", "priority.first_step calls the reader 'The founder'"),
-        ("not_today", ["O fundador deve contratar"], "priority.not_today[0] calls the reader 'O fundador'"),
-        ("today", [{**EVENT, "title": "Pipeline review with the CEO"}], None),
-        ("who", ["Dana — the CEO at Acme, sent notes"], None),
-        ("draft", "Hi Dana, the founder of Acme here.", None),
-    ])
-    def test_priority_field_rules(self, synthetic_bank, field, value, failure):
-        failures = render.validate(priority_edition(**{field: value}))
-        assert (failure in failures) if failure else failures == ""
-
-    def test_priority_renders_every_field_escaped_in_page_order(self):
-        data = priority_edition(
-            yesterday="1 booked (Dana <Acme>)", stage_label="Discovery",
-            stage_why="No revenue yet & you still sell alone",
-            today=[EVENT, {"time": None, "title": "Write the memo", "note": "Keep it short"}],
-            week="Customer conversations: 2. The bar is tens.",
-            who=["Raj — replied to the launch post", "Priya — trial user since Sep 9"],
-            draft='Hey Raj, 20 minutes this week? "Tue" works.',
-            not_today=["Hire a sales team"],
-            questions=["Q2 — Do you keep a page with weekly numbers?"],
-        )
-        assert render.validate(data) == ""
-        html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
-        order = [
-            "<h3>QUESTIONS · “Q2: …”", "Q2 — Do you keep a page with weekly numbers?",
-            "<h3>YESTERDAY</h3>", "1 booked (Dana &lt;Acme&gt;)",
-            "STAGE · Discovery", "No revenue yet &amp; you still sell alone",
-            "<h3>TODAY</h3>", "10:00", "Customer call: Dana", "Go in with: what they use today",
-            "Write the memo", "<h3>THIS WEEK</h3>", "Customer conversations: 2.",
-            "Book 3 customer calls by Friday", '<p class="priority-step">x</p>', "<h3>WHO</h3>", "Raj — replied",
-            "Priya — trial user", "<h3>DRAFT</h3>", "Hey Raj, 20 minutes this week? &quot;Tue&quot;",
-            "<h3>NOT TODAY</h3>", "Hire a sales team",
-        ]
-        positions = [html.index(text) for text in order]
-        assert positions == sorted(positions)
-
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
             {"kind": "section", "title": "News", "desk": "news", "body": "n", "sources": []},
@@ -401,7 +301,7 @@ class TestValidate:
       
 
     def test_chat_edition_keeps_the_priority_body(self):
-        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"}
+        p = {"recommendations": [RECOMMENDATION], "questions": []}
         text = render.render_chat(edition(sections=[{
             "kind": "section", "title": "P", "desk": "priority", "body": "Send the deck",
             "priority": p, "sources": [],
@@ -776,16 +676,6 @@ class TestMain:
         render.main([str(path), "--html", str(first)])
         render.main([str(path), "--html", str(second)])
         assert first.read_text() == second.read_text()
-
-
-class TestAdvisorBank:
-    def test_shipped_bank_shape(self):
-        posts = json.loads(SHIPPED_BANK.read_text(encoding="utf-8"))
-        entries = [entry for post in posts for entry in post["entries"]]
-        assert all(len(e["quote"].split()) <= render.QUOTE_MAX_WORDS for e in entries)
-        assert len({e["id"] for e in entries}) == len(entries)
-        assert len({p["url"] for p in posts}) == len(posts)
-        assert all(p["url"].startswith("https://") for p in posts)
 
 
 class TestEnsurePriorityDesk:

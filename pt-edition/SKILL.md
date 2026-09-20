@@ -122,22 +122,11 @@ HTML.** Hand-write `edition.json` under the run directory:
   sources shape in every slot; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
-  already talks to the reader; do not turn it into a memo about "the
-  founder". When present it
-  replaces the prose body on the printed page (`skip_body`); `headline` is
-  the day's priority, one action in at most 120 characters, and `body` is
-  the first step in prose for the chat edition. Shape: `why` (1–3 objects
-  with `text` and `source_label`, and optionally `url` and `quote`: `url` is a
-  post in `pt-setup/assets/advisors/salyer-bank.json` (one `{url, title,
-  date, entries}` record per post), `source_label` is its exact `title`,
-  and `quote` is verbatim from one of its `entries`, at most 25 words; the
-  card prints it in quotation marks with the title linked),
-  `first_step`, optional `not_today` (at most two strings), `questions`
-  (at most three strings, printed first), and optional `stage_label`,
-  `stage_why`, `yesterday`, `week`, `draft` (non-blank strings), `who`
-  (at most three strings) and `today` (at most four `{"time", "title",
-  "note"}`, where `time` is the printed start such as "10:00", or null
-  for an all-day event).
+  already talks to the reader. When present it replaces the section prose on print. Shape:
+  `recommendations` is one to three ranked objects, each with non-blank `headline`, `body`,
+  `first_step`, and `advisor: {name, quote, url}`; `body` is at most 1,024 characters and `url`
+  is HTTP(S). `questions` is zero to three non-blank strings. The advisor desk owns all semantic
+  judgment; the renderer enforces only shape, length, URL form, escaping, and layout.
 - **`forecast` is optional, weather-only, and drawn — not written.** 1-6
   day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
   "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
@@ -362,10 +351,8 @@ transcript after it is the wall of text they did not ask for.
 The renderer validates `edition.json` structurally before emitting anything
 (the same discipline `pt_config_gate.py` holds for the config): a bad shape
 exits non-zero with the failing field named. Page rules then refuse the
-priority card the same way: its own words (not `who`, `draft`, an event title
-or a quote) name no file or path and never the reader in the third person
-("the founder", "the CEO", "the owner", "o fundador" and the like); its
-headline is one action (no second sentence, ` then ` or ` + `) in at most 120
-characters; and a `why` with `url` or `quote` matches the advisor bank. Other
-desks get the structural gate only. A run that cannot render says so
+priority card the same way: its own recommendation prose names no file or path and never labels
+the reader in the third person ("the founder", "the CEO", "the owner", "o fundador" and the
+like). Content ranking and quote selection belong to the advisor desk, not this deterministic
+gate. Other desks get the structural gate only. A run that cannot render says so
 and waits for the next cycle — it does not ship a half page.

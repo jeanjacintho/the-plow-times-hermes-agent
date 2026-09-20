@@ -19,6 +19,7 @@ WRITER = "theplowtimes"
 ROOT = f"projects/{WRITER}"
 OVERVIEW = f"{ROOT}/{WRITER}.md"
 QA = f"{ROOT}/qa.md"
+RESOURCES = f"{ROOT}/resources.md"
 GOALS = "entities/owner/goals.md"
 SCHEMA = f"_meta/schemas/{ROOT}.md"
 
