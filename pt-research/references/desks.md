@@ -8,7 +8,8 @@ joins only when it has `"sports": { "configured": true }`. Notes go under
 `/var/lib/hermes/pt/run/desk-<name>/notes.json` (same shape as a topic
 notes file, `topic_id` omitted; every desk file also carries a top-level
 `"date": "<today>"`, and `render_edition.py` refuses one with none or another
-day's, so a failed gather cannot reprint yesterday). pt-edition compiles them with
+day's when the edition carries a standing desk, so a failed gather cannot
+reprint yesterday; a one-topic subscription renders no desk and is not checked). pt-edition compiles them with
 `"desk": "priority"|"weather"|"calendar"|"mail"|"sports"`. Never mark them in topics.py.
 
 Every Latch call is the same two tools the print path uses:
