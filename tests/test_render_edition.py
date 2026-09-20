@@ -826,6 +826,24 @@ class TestHtml:
         assert page.count("Private inbox metadata.") == 1
         assert "{{MAIL}} marker." in page
 
+    def test_longest_news_story_is_the_lead(self):
+        data = edition(sections=[
+            {"kind": "section", "title": "Short first", "desk": "news",
+             "body": "Brief.", "sources": []},
+            {"kind": "section", "title": "Longest second", "desk": "news",
+             "body": "This story has enough detail to be the longest of the three.",
+             "sources": []},
+            {"kind": "section", "title": "Short third", "desk": "news",
+             "body": "Also brief.", "sources": []},
+        ])
+        page = render.render_html(
+            data, render.DEFAULT_MASTHEAD, "<main>{{LEAD}}</main><aside>{{NEWS_PAIR}}</aside>",
+        )
+        lead, pair = page.split("</main><aside>")
+        assert "Longest second" in lead
+        assert "Short first" in pair
+        assert "Short third" in pair
+
     def test_pdf_refuses_more_than_one_rendered_page(self, tmp_path, monkeypatch):
         target = tmp_path / "edition.pdf"
         target.write_bytes(b"old edition")

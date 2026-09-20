@@ -1,6 +1,7 @@
 """topics.py -- the single validated writer for the topic store."""
 from __future__ import annotations
 
+import fcntl
 import json
 import re
 
@@ -22,6 +23,19 @@ def pt_home(tmp_path, monkeypatch):
 
 def read_store(pt_home):
     return json.loads((pt_home / "topics.json").read_text())["topics"]
+
+
+def test_mutating_commands_hold_the_topic_store_lock(pt_home, monkeypatch):
+    def assert_locked(_args):
+        with open(pt_home / "topics.lock", "a") as second_handle:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(second_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return 0
+
+    monkeypatch.setattr(topics, "cmd_add", assert_locked)
+    assert topics.main([
+        "add", "--text", "x", "--kind", "one_off", "--depth", "quick",
+    ]) == 0
 
 
 class TestAdd:

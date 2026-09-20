@@ -1113,11 +1113,15 @@ def render_html(edition, name, template_text, language=""):
     sports = [s for s in ordered if desk_of(s) == "sports"]
     priority = [s for s in ordered if desk_of(s) == "priority"]
 
-    # The lead story renders separately from the rest of the news well so
-    # it can run full width after the standing desks.
+    # The longest story gets the full-width lead; equal lengths preserve
+    # roster order, and the other two retain their original relative order.
     if news:
-        lead_html = html_section(news[0], drop_cap=True, language=language)
-        rest = news[1:]
+        lead_index = max(
+            range(len(news)), key=lambda index: len(news[index].get("body", ""))
+        )
+        lead = news[lead_index]
+        rest = news[:lead_index] + news[lead_index + 1:]
+        lead_html = html_section(lead, drop_cap=True, language=language)
     elif priority:
         lead_html = ""
         rest = []

@@ -59,11 +59,13 @@ Status transitions (design doc §3.3):
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import pathlib
 import re
 import sys
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 
 TOPICS_FILE = "topics.json"
@@ -74,6 +76,7 @@ ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DELIVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 MAX_NEWS_ITEMS = 3
+MUTATING_COMMANDS = {"add", "cancel", "mark", "reopen-sections"}
 
 
 def home():
@@ -82,6 +85,16 @@ def home():
 
 def topics_path():
     return home() / TOPICS_FILE
+
+
+@contextmanager
+def mutation_lock():
+    """Serialize each topic store read/validate/write transaction."""
+    path = home() / "topics.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        yield
 
 
 def now_iso():
@@ -456,6 +469,9 @@ def main(argv=None):
     p_reopen.set_defaults(func=cmd_reopen_sections)
 
     args = parser.parse_args(argv)
+    if args.command in MUTATING_COMMANDS:
+        with mutation_lock():
+            return args.func(args)
     return args.func(args)
 
 
