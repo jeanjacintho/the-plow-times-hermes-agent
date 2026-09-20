@@ -88,11 +88,7 @@ SCHEDULE_STRIP_MAX = 6
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
-# The advisor bank: short verbatim quotes, each with its post's url and title.
-QUOTE_MAX_WORDS = 25
 HEADLINE_MAX = 120
-# The bank verifier's normalization: curly quotes and runs of whitespace.
-CURLY_QUOTES = str.maketrans("‘’‚‛′“”„‟″", "'''''\"\"\"\"\"")
 # Page rules, priority card only: no file or path, never the reader in the third person.
 FILE_RE = re.compile(r"\S+\.(?:md|json|csv|py|txt)\b|~/|/var/lib|\brun/")
 SELF_RE = re.compile(
@@ -344,10 +340,6 @@ def validate(edition):
     return "; ".join(failures or page_rules(sections))
 
 
-def _normalized(text):
-    return re.sub(r"\s+", " ", text.translate(CURLY_QUOTES)).strip()
-
-
 def _own_words(section):
     """(field, text) the priority card writes in its own words.
 
@@ -372,8 +364,7 @@ def page_rules(sections):
     """What the priority card may print; each failure names the field.
 
     It names no file or path and talks to the reader, never about "the
-    founder"; its headline is one action; a `why` with `quote` or `url`
-    cites the bank. The leak was only ever on this desk.
+    founder". The leak was only ever on this desk.
     """
     failures = []
     for index, section in enumerate(sections):
@@ -521,11 +512,28 @@ def chat_section(section):
     desk = desk_of(section)
     kicker = f"{desk} \u2014 " if desk != "news" else ""
     lines = [f"\u25b8 {kicker}{title}" + (f" \u2014 {tag}" if tag else "")]
+    priority = section.get("priority") if desk == "priority" else None
     headline = (section.get("headline") or "").strip()
-    if headline:
+    if headline and not priority:
         lines.append(f"  {headline}")
     schedule = section.get("schedule") if desk == "calendar" else None
-    if schedule:
+    if priority:
+        for rank, recommendation in enumerate(priority["recommendations"], 1):
+            lines.append(f"  {rank}. {recommendation['headline'].strip()}")
+            for paragraph in body_paragraphs(recommendation["body"]):
+                lines.append(f"     {paragraph}")
+            for fact in recommendation["evidence"]:
+                source = fact["source"].strip()
+                if fact.get("url"):
+                    source += f" ({fact['url'].strip()})"
+                lines.append(f"     Evidence: {fact['claim'].strip()} — {source}")
+            lines.append(f"     First step: {recommendation['first_step'].strip()}")
+            advisor = recommendation["advisor"]
+            lines.append(f"     {advisor['name'].strip()}: “{advisor['quote'].strip()}” ({advisor['url'].strip()})")
+        if priority.get("questions"):
+            lines.append("  Questions for you:")
+            lines.extend(f"     {question.strip()}" for question in priority["questions"])
+    elif schedule:
         for item in schedule:
             lines.append(f"  {item['time'].strip()} {item['title'].strip()}")
     else:
@@ -796,10 +804,6 @@ def messages_list(items):
 
 def _esc(text):
     return html.escape(text.strip())
-
-
-def _note(heading, text, css="priority-note"):
-    return f'<h3>{heading}</h3><div class="{css}">{_esc(text)}</div>'
 
 
 def _inline(heading, texts):

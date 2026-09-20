@@ -324,7 +324,17 @@ class TestValidate:
             "kind": "section", "title": "P", "desk": "priority", "body": "Send the deck",
             "priority": p, "sources": [],
         }]), render.DEFAULT_MASTHEAD)
-        assert "Send the deck" in text
+        assert "Send the deck" not in text
+        for rank in range(1, 4):
+            assert f"{rank}. Put retention" in text
+        assert "Evidence: Returning users repeat the same workflow — Weekly retention note" in text
+        assert "First step: Draft the three-slide spine" in text
+        assert "Patrick Salyer: “Forget the naming (seed / A / B).”" in text
+
+    def test_chat_priority_includes_ranked_questions(self):
+        text = render.render_chat(recommendation_edition(questions=["Q4 — What changed?"]),
+                                  render.DEFAULT_MASTHEAD)
+        assert "Questions for you:" in text and "Q4 — What changed?" in text
 
 
 class TestMasthead:

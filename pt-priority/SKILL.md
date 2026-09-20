@@ -57,9 +57,9 @@ invented incumbents. Run the following stages with `delegate_task` children that
 
 ### 1. Challenge
 
-Run three writer children in parallel. Each proposes one contender that tries to beat a different
-champion with a more meaningful, specific, and distinct recommendation. It must name the champion
-it beats, the decision it changes, the evidence needed, and the advisor principle it applies.
+Run three writer children in parallel. Each proposes one contender. It targets a different
+available champion when there is one; otherwise it starts from a distinct named-advisor question.
+It must name what it tries to beat or seed, the decision it changes, the evidence needed, and the advisor principle it applies.
 Novel wording is not diversity; different owner decisions are.
 
 ### 2. Research

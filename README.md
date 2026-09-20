@@ -23,8 +23,8 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 - **Standing desks** you can keep every day: the advisor's desk (three ranked,
   sourced recommendation essays challenged by independent critics using your
   mail, messages, calendar and owner-named sources; there is no template to fill
-  in, and you steer it by texting answers and corrections), weather, calendar, mail. The advisor's desk thinks
-  for about 40 minutes per pass, so set `delivery.lead_minutes` (up to 179, and
+  in, and you steer it by texting answers and corrections), weather, calendar, mail. The advisor's desk uses
+  the configured overnight window, so set `delivery.lead_minutes` (up to 179, and
   never so much that the run would start before midnight of its delivery day;
   registration refuses that) to have the paper arrive by the delivery hour.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.
