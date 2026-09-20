@@ -313,9 +313,10 @@ The edition, when it lands, speaks for itself.
 
 ## Budgeted statuses, kept honest
 
-The run itself moves the topic through `pending → running → delivered` (via
-`topics.py mark`, from the cron-fired session). A subscription or section
-goes back to `pending` after delivery, awaiting the next fire. An assignment
-is terminal once delivered. Never mark a topic delivered yourself in the
+The run itself moves the topic `pending → running` (via `topics.py mark`,
+from the cron-fired session). A subscription or section is never marked
+delivered: `post_to_chat.py` reopens it to `pending` and stamps
+`last_edition_at` once the chat POST succeeds. An assignment is marked
+`delivered` (terminal) after the edition is out. Never mark a topic delivered yourself in the
 intake turn — nothing has been delivered yet, and a delivered mark on a topic
 whose edition failed is how a silent gap looks like a working paper.

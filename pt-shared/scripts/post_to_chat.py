@@ -142,7 +142,7 @@ def reopen_sections_after_paper():
     import subprocess
 
     proc = subprocess.run(
-        [sys.executable, str(intake), "reopen-sections"],
+        [sys.executable, str(intake), "reopen-sections", "--stamp"],
         capture_output=True,
         text=True,
     )

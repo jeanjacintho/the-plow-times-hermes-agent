@@ -354,17 +354,20 @@ class TestReopenStampsEdition:
         topics.main(["mark", tid, "--status", "running"])
         return tid
 
-    def test_section_delivery_stamps_last_edition(self, pt_home, capsys):
-        self.add_running("section", pt_home)
-        assert topics.reopen_evergreen() == [read_store(pt_home)[0]["id"]]
+    @pytest.mark.parametrize("kind", ["section", "subscription"])
+    def test_evergreen_delivery_stamps_last_edition(self, kind, pt_home, capsys):
+        tid = self.add_running(kind, pt_home)
+        assert topics.reopen_evergreen(stamp=True) == [tid]
         (topic,) = read_store(pt_home)
         assert topic["status"] == "pending"
         assert topic["last_edition_at"] is not None
 
-    def test_subscription_delivery_stamps_last_edition(self, pt_home, capsys):
-        self.add_running("subscription", pt_home)
+    def test_startup_reopen_of_a_dead_run_does_not_stamp(self, pt_home, capsys):
+        self.add_running("section", pt_home)
         topics.reopen_evergreen()
-        assert read_store(pt_home)[0]["last_edition_at"] is not None
+        (topic,) = read_store(pt_home)
+        assert topic["status"] == "pending"
+        assert topic["last_edition_at"] is None
 
     def test_already_delivered_keeps_its_stamp(self, pt_home, capsys):
         tid = self.add_running("section", pt_home)
