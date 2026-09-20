@@ -1067,25 +1067,17 @@ def html_section(section, drop_cap=False):
     games = section.get("games") if desk == "sports" else None
     priority = section.get("priority") if desk == "priority" else None
     structured = forecast or schedule or messages or games or priority
-    # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
-    # no caption) -- the title bar, headline, body prose and sources line
-    # are all dropped for weather when it's carrying a grid, so the box
-    # is just the days and any gap. Calendar/mail/sports keep their
-    # title and headline but drop the body PROSE once a schedule,
-    # messages or games list is present -- otherwise the box shows the
-    # same event twice. They also drop the print sources line (the strip
-    # is the evidence; "Sources: your calendar" was plumbing). The
-    # plain-text chat edition is unaffected by any of this (see
-    # chat_section) -- every omission here is print/HTML-only; body
-    # stays required in the JSON because the chat edition has no icons
-    # to fall back on.
+    # A forecast grid is self-explanatory (a sun icon and 26 degrees
+    # needs no caption) -- title, headline, body and sources drop so
+    # the box is the days and any gap. Calendar/mail/sports keep title
+    # and headline but drop the body PROSE once a list is present, or
+    # the box shows the same event twice. Print sources stay (every
+    # claim carries a source). Chat is unaffected (chat_section). Body
+    # stays required in the JSON because chat has no icons to fall back
+    # on.
     skip_caption = bool(forecast)
     skip_body = bool(structured)
-    # A forecast grid, schedule strip, mail list or scoreboard is the
-    # box itself -- a "Sources: your calendar" line under it is
-    # plumbing. Chat still prints sources (chat_section). Gaps
-    # (`could_not_source`) still reach the printed box.
-    skip_print_sources = bool(forecast or schedule or messages or games)
+    skip_print_sources = bool(forecast)
     blocks = [f'<article class="{article_class}">']
     if not skip_caption:
         if kicker_html:
@@ -1211,27 +1203,32 @@ def sudoku_section_html(edition_date):
 
 
 def news_well(sections):
-    """Remaining news after the lead, as two columns.
+    """Leftover news as two-column pairs that never split a cell.
 
     CSS column-count left a blank second column in WeasyPrint 62.3
-    (measured). A 3-cell table with break-inside:avoid jumped whole
-    rows. Two table-cells, one stack each, no avoid -- the well may
-    still split poorly across pages (a cell continuation paints in the
-    wrong column), but a single leftover story stays one column so
-    page 1 does not grow an empty gutter.
+    (measured). Two tall stacks in one table continue in the wrong
+    column when a cell paginates. One story per cell, two cells per
+    row, break-inside:avoid on the row: two columns, no cell
+    continuation. A lone leftover stays full width.
     """
     if not sections:
         return ""
-    if len(sections) == 1:
-        return html_section(sections[0])
-    left = "".join(html_section(section) for section in sections[0::2])
-    right = "".join(html_section(section) for section in sections[1::2])
-    return (
-        '<div class="news-cols">'
-        f'<div class="news-col">{left}</div>'
-        f'<div class="news-col">{right}</div>'
-        "</div>"
-    )
+    rows = []
+    i = 0
+    while i < len(sections):
+        left = html_section(sections[i])
+        if i + 1 >= len(sections):
+            rows.append(left)
+            break
+        right = html_section(sections[i + 1])
+        rows.append(
+            '<div class="news-cols">'
+            f'<div class="news-col">{left}</div>'
+            f'<div class="news-col">{right}</div>'
+            "</div>"
+        )
+        i += 2
+    return "".join(rows)
 
 
 def render_html(edition, name, template_text):

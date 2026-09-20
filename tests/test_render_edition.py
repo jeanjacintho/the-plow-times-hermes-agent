@@ -264,12 +264,14 @@ class TestValidate:
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
                                   "{{SECTIONS}}")
-        # 1 lead + 6 in the well, split left (1,3,5) / right (2,4,6).
-        # A 3-col table with break-inside:avoid used to jump whole rows.
-        assert '<div class="news-cols">' in html
-        assert html.count('class="news-col"') == 2
+        # 1 lead + 6 leftover → 3 unbreakable pairs (1|2, 3|4, 5|6).
+        # Two tall stacks in one table painted a split cell in the wrong
+        # column; a pair per row with break-inside:avoid does not.
+        assert html.count('class="news-cols"') == 3
+        assert html.count('class="news-col"') == 6
         assert html.count("<article") == 6
-        left, right = html.split('class="news-col"')[1:]
+        first_row = html.split('class="news-cols"', 1)[1]
+        left, right = first_row.split('class="news-col"')[1:3]
         assert "Story 1" in left and "Story 2" not in left
         assert "Story 2" in right and "Story 1" not in right
 
@@ -653,7 +655,7 @@ class TestHtml:
         assert "Product &lt;sync&gt;" in page
         assert "Product <sync>" not in page
         assert "<img" not in page
-        assert "Sources:" not in page
+        assert "Sources: Calendar.app" in page
         chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
         assert "Sources: Calendar.app" in chat
 
@@ -697,7 +699,7 @@ class TestHtml:
         assert "Hello &lt;script&gt;" in page
         assert "<script>" not in page
         assert "<img" not in page
-        assert "Sources:" not in page
+        assert "Sources: Gmail" in page
         chat = render.render_chat(data, render.DEFAULT_MASTHEAD)
         assert "Sources: Gmail" in chat
 
