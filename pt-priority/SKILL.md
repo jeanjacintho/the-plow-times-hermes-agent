@@ -136,12 +136,12 @@ facts naming a basis to Answered); only once that write succeeds does it drop th
 the file is there, run `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
 
 **The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
-"ok", "priority": {…}}` mapped from the kept page, the Q&A and the latest history entry,
+"ok", "priority": {…}}` mapped from the kept page, the Q&A and the history entries (all dated before today),
 nothing added: Priority's stage as `stage_label` and the dated Q&A answer it rests on as
 `stage_why`; `headline`, `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a
 bank quote's `quote`, post `url` and post title as `source_label`; Today's events and chores as
-`today` (`time`, `null` all day or for a chore; `title`; `note`); that entry's headline and what
-became of it (As of) as `yesterday`; the Q&A's number that matters most this week at this stage,
+`today` (`time`, `null` all day or for a chore; `title`; `note`); the newest history entry's headline and what
+became of it (As of) as `yesterday`, omitted when history is empty; the Q&A's number that matters most this week at this stage,
 with its date, as `week`; the top three Open questions as `questions`, each `Q<n> — ` and the
 question in the card's words, asked of the reader. Omit what its sources lack. A card the page gate
 refuses at print is left as it is.
