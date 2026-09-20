@@ -892,11 +892,12 @@ class TestMain:
         render.main([str(path), "--html", str(second)])
         assert first.read_text() == second.read_text()
 
-    def test_refuses_a_desk_file_dated_for_another_day(self, tmp_path):
+    @pytest.mark.parametrize("fields", [{"date": "2000-01-01"}, {}])
+    def test_refuses_a_desk_file_dated_for_another_day_or_undated(self, tmp_path, fields):
         run = tmp_path / "run"
         (run / "desk-calendar").mkdir(parents=True)
         (run / "desk-calendar" / "events.json").write_text(
-            json.dumps({"date": "2000-01-01", "events": []}), encoding="utf-8")
+            json.dumps({**fields, "events": []}), encoding="utf-8")
         (run / "paper").mkdir()
         path = run / "paper" / "edition.json"
         path.write_text(json.dumps(edition()), encoding="utf-8")

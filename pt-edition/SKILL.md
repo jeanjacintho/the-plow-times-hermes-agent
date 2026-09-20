@@ -229,10 +229,12 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **A desk's notes file must be dated for today's edition.** A desk that
   fails to gather leaves the previous day's `run/desk-*/notes.json` /
   `events.json` in place. `render_edition.py` refuses the edition when any
-  such file's `date` is not the edition's `date`; re-run that desk, or
-  delete its stale files and then drop the section as a logged miss — the
-  check reads the files, not the edition, so dropping the section alone
-  still refuses.
+  such file's `date` is missing or not the edition's `date`; re-run that
+  desk, or delete its stale files. Weather and calendar are mandatory
+  departments: after deleting, compile an honest failed-gather section, never
+  drop them. Only an optional desk (mail, sports, priority) may be dropped as
+  a logged miss. The check reads the files, not the edition, so dropping a
+  section without deleting its files still refuses.
 - **Pagination is the renderer's job.** News that does not fit one Letter
   sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
   Each boxed desk stays whole; if the rail itself overflows, the next desk

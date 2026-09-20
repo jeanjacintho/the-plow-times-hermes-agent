@@ -6,7 +6,9 @@ runs only when `pt/config.json` has `"priority": { "configured": true }`.
 Mail joins only when it has `"mail": { "configured": true }`; sports
 joins only when it has `"sports": { "configured": true }`. Notes go under
 `/var/lib/hermes/pt/run/desk-<name>/notes.json` (same shape as a topic
-notes file, `topic_id` omitted). pt-edition compiles them with
+notes file, `topic_id` omitted; every desk file also carries a top-level
+`"date": "<today>"`, and `render_edition.py` refuses one with none or another
+day's, so a failed gather cannot reprint yesterday). pt-edition compiles them with
 `"desk": "priority"|"weather"|"calendar"|"mail"|"sports"`. Never mark them in topics.py.
 
 Every Latch call is the same two tools the print path uses:

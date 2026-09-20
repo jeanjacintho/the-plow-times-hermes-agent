@@ -542,18 +542,16 @@ def stale_desk_files(edition, run_root):
 
     A desk that fails to gather leaves the previous day's notes.json /
     events.json in place, and the paper would print yesterday's agenda as
-    today's. Every desk file that carries a `date` is checked; a file with
-    no date is not judged here.
+    today's. Every desk file must carry today's `date`: a missing one is as
+    stale as a wrong one. Called only on a validated edition.
     """
-    if not isinstance(edition, dict):
-        return []
     stale = []
     for path in sorted(pathlib.Path(run_root).glob("desk-*/*.json")):
         data = _load_json_file(path)
-        if data is None or "date" not in data:
+        if data is None:
             continue
-        if data["date"] != edition.get("date"):
-            stale.append(f"{path.parent.name}/{path.name} is dated {data['date']!r}")
+        if data.get("date") != edition["date"]:
+            stale.append(f"{path.parent.name}/{path.name} is dated {data.get('date')!r}")
     return stale
 
 
