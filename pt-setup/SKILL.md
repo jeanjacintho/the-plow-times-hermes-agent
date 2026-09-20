@@ -364,10 +364,13 @@ Stop. On their next message:
   first Latch call and after each write; do not type that you are writing anything.
   1. `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk` — it makes
      `~/Plow/wiki` ready (creating it when the Mac has none) and prints `WIKI:…`.
-  2. `mcp__plow__plow_read_file` `path=~/Plow/wiki/entities/owner/goals.md` once; add
+  2. `mcp__plow__plow_read_file` `path=~/Plow/wiki/entities/owner/goals.md`; add
      their answer as one `- ` line under `## Goals` unless it is already there, set
-     `updated:` to today, and `mcp__plow__plow_write_file` it back. Every other line,
-     frontmatter included, stays as it was. Never paste the page back in chat.
+     `updated:` to today. Read it again immediately before the write and fold in
+     whatever changed since the first read — the owner edits this page in Obsidian,
+     and their line is evidence of what they say, never overwritten. Then
+     `mcp__plow__plow_write_file` it back. Every other line, frontmatter included,
+     stays as it was. Never paste the page back in chat.
   Only once the goal is on the page: `record_setup.py <config path> priority.configured=true`.
   An `error:` from step 1, or a denied or failed write → say so in one line and record
   nothing; the question stays open.
