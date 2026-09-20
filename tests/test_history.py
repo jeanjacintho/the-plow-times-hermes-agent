@@ -21,14 +21,26 @@ def day_page(mac, day, card=None):
 
 class TestRecent:
     def test_the_last_weeks_cards_oldest_first_without_the_empty_days(self, mac):
-        day_page(mac, "2026-09-12", {"headline": "too old"})
-        day_page(mac, "2026-09-13", {"headline": "Call Raj"})
+        day_page(mac, "2026-09-11", {"headline": "too old"})
+        day_page(mac, "2026-09-12", {"headline": "Call Raj"})
         day_page(mac, "2026-09-15")  # an edition without the desk
-        day_page(mac, "2026-09-19", {"headline": "Close the pilot"})
+        day_page(mac, "2026-09-18", {"headline": "Close the pilot"})
         assert history.recent(Wiki(mac.call_tool), TODAY) == [
-            {"date": "2026-09-13", "desk": {"headline": "Call Raj"}},
-            {"date": "2026-09-19", "desk": {"headline": "Close the pilot"}},
+            {"date": "2026-09-12", "desk": {"headline": "Call Raj"}},
+            {"date": "2026-09-18", "desk": {"headline": "Close the pilot"}},
         ]
+
+    def test_todays_own_edition_is_not_history(self, mac):
+        # A second run on the same date must not read the first back as "yesterday".
+        day_page(mac, "2026-09-18", {"headline": "Close the pilot"})
+        day_page(mac, "2026-09-19", {"headline": "This morning's headline"})
+        assert history.recent(Wiki(mac.call_tool), TODAY) == [
+            {"date": "2026-09-18", "desk": {"headline": "Close the pilot"}},
+        ]
+
+    def test_only_todays_edition_is_no_history(self, mac):
+        day_page(mac, "2026-09-19", {"headline": "This morning's headline"})
+        assert history.recent(Wiki(mac.call_tool), TODAY) == []
 
     def test_no_pages_is_no_history(self, mac):
         assert history.recent(Wiki(mac.call_tool), TODAY) == []

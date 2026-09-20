@@ -4,7 +4,10 @@
 usage: history.py recent
 
 Prints JSON [{"date", "desk"}], oldest first: the `priority` card each of the
-last 7 days' edition pages carries (projects/theplowtimes/editions/<date>.md).
+7 days before today that has an edition page carries
+(projects/theplowtimes/editions/<date>.md). Today's own page is never history:
+a second edition for the same date would otherwise read the first back as
+"yesterday".
 record_edition.py writes those pages only once a paper was delivered, so a card
 the owner never received is never history. A day with no page, or no card, is
 left out. When the Mac does not answer: `error: history unavailable — <why>`,
@@ -33,7 +36,7 @@ DAYS = 7
 
 def recent(wiki, today):
     out = []
-    for back in range(DAYS - 1, -1, -1):
+    for back in range(DAYS, 0, -1):
         day = (today - timedelta(days=back)).isoformat()
         text = wiki.read(f"{EDITIONS}/{day}.md")
         card = split_page(text)[0].get("priority") if text else None
