@@ -799,19 +799,10 @@ class TestHtml:
         assert page.count("Private inbox metadata.") == 1
         assert "{{MAIL}} marker." in page
 
-    def test_companion_contains_only_unprinted_mail_and_sports(self):
-        text = render.render_companion(edition(sections=[
-            {"kind": "section", "title": "Lead", "desk": "news",
-             "body": "Printed news.", "sources": []},
-            {"kind": "section", "title": "Letters", "desk": "mail",
-             "body": "Inbox summary.", "sources": []},
-            {"kind": "section", "title": "Scores", "desk": "sports",
-             "body": "Final score.", "sources": []},
-        ]))
-        assert "Inbox summary." in text and "Final score." in text
-        assert "Printed news." not in text
-
     def test_pdf_refuses_more_than_one_rendered_page(self, tmp_path, monkeypatch):
+        target = tmp_path / "edition.pdf"
+        target.write_bytes(b"old edition")
+
         class FakeDocument:
             pages = [object(), object()]
 
@@ -827,24 +818,6 @@ class TestHtml:
 
         monkeypatch.setitem(sys.modules, "weasyprint", types.SimpleNamespace(HTML=FakeHTML))
         with pytest.raises(SystemExit, match="rendered 2 pages; expected exactly 1"):
-            render.write_pdf("<p>two pages</p>", tmp_path / "edition.pdf")
-
-    def test_page_count_refusal_removes_a_stale_pdf(self, tmp_path, monkeypatch):
-        target = tmp_path / "edition.pdf"
-        target.write_bytes(b"old edition")
-
-        class FakeDocument:
-            pages = [object(), object()]
-
-        class FakeHTML:
-            def __init__(self, *, string):
-                pass
-
-            def render(self):
-                return FakeDocument()
-
-        monkeypatch.setitem(sys.modules, "weasyprint", types.SimpleNamespace(HTML=FakeHTML))
-        with pytest.raises(SystemExit, match="rendered 2 pages"):
             render.write_pdf("<p>two pages</p>", target)
         assert not target.exists()
 
@@ -867,10 +840,13 @@ class TestMain:
              "body": "Printed.", "sources": []},
             {"kind": "section", "title": "Letters", "desk": "mail",
              "body": "Inbox summary.", "sources": []},
+            {"kind": "section", "title": "Scores", "desk": "sports",
+             "body": "Final score.", "sources": []},
         ]))
         out = tmp_path / "edition.companion.txt"
         render.main([str(path), "--companion", str(out)])
         assert "Inbox summary." in out.read_text()
+        assert "Final score." in out.read_text()
         assert "Printed." not in out.read_text()
 
     def test_no_chat_only_desks_remove_a_stale_companion(self, tmp_path):

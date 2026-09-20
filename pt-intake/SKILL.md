@@ -274,8 +274,9 @@ edition, and relaying it is the chat leg.
   which bakes the deliver target in; measured live, a run built by hand
   without it completes with a real final response that never reaches chat
   at all — the job succeeds and the owner gets nothing), prompt "Run
-  pt-research on topic <id> now, then pt-edition for it. Post the PDF only
-  (post_to_chat.py --pdf, empty body). Final response is NO_REPLY. When the
+  pt-research on topic <id> now, then pt-edition for it. Render `--pdf` plus
+  `--companion`, then post the PDF with the companion via `post_to_chat.py
+  --pdf --text-file` when present. Final response is NO_REPLY. When the
   edition is delivered, mark the
   topic delivered with topics.py and remove this job with `hermes cron
   remove pt-oneoff-<id>`." Record the scheduled moment at add time via
