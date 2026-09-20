@@ -110,12 +110,18 @@ the card or the stub.
       `mcp__plow__plow_write_file` it back whole; then strike every line with no item and every
       disproved line and `write_file` the struck page to `pt/advisor.md` itself before the writer
       runs. Any later failure keeps both.
-   3. **Rewrite.** A writer child drafts a candidate page from the struck page, the Q&A and the
-      surviving answers: same strike rule, estimates for what is missing.
-   4. **Score.** A separate scorer child, blind to which is which, scores both 1–5 on *grounding*
+   3. **Rewrite.** The kept page's headline is the one to beat. Three writer children in parallel
+      draft candidate pages from the struck page, the Q&A and the surviving answers, same strike
+      rule, estimates for what is missing — each told how to beat it: one **widens** to a
+      different lever than that headline's (pitching gives way to customers: which three, and
+      why them), one **deepens** that same lever into what it must contain (what goes in the
+      deck, which numbers, whose references), and one answers the Q&A's most valuable open
+      question. With no headline to beat, each takes a lever the answers raise.
+   4. **Score.** A separate scorer child, blind to which is which, scores the kept page and every
+      candidate 1–5 on *grounding*
       (every line true to its item), *stage*, *advisor fidelity* (in the advisor's words, pressing
       as an investor would), *actionability* (the owner can act today) and *voice*; a missing page
-      scores 0. The candidate wins only with grounding 5 and a strictly higher total. You then
+      scores 0. The best candidate wins only with grounding 5 and a strictly higher total. You then
       `write_file` the kept page to `pt/advisor.md` yourself, with the scorer's per-dimension
       scores for it under As of.
    5. **Card.** Every pass ends here, before any next one starts. A kept page with a headline and
