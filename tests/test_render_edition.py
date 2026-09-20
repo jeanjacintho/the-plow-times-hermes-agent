@@ -19,6 +19,11 @@ RECOMMENDATION = {
     "first_step": "Draft the three-slide spine: retention, repeated use, and the runway milestone.",
     "advisor": {"name": "Patrick Salyer", "quote": "Forget the naming (seed / A / B).", "url": "https://example.com/advisor"},
 }
+ADVISOR_WORDS = (
+    "Forget the naming (seed / A / B).",
+    "Raise the right amount of money to hit the milestones that unlock the next stage.",
+    "You'll know you're on the right track when you have referenceable customers.",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +33,7 @@ def synthetic_advisors(tmp_path, monkeypatch):
     (advisor_dir / "patrick-salyer.md").write_text(
         "---\nadvisor: Patrick Salyer\nsources:\n"
         "  - https://example.com/advisor\n---\n"
-        "## Sourced words\nForget the naming (seed / A / B).\n",
+        "## Sourced words\n" + "\n".join(ADVISOR_WORDS) + "\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(render, "ADVISORS", advisor_dir, raising=False)
@@ -36,7 +41,8 @@ def synthetic_advisors(tmp_path, monkeypatch):
 
 def recommendations(headline=RECOMMENDATION["headline"]):
     return [
-        {**RECOMMENDATION, "headline": f"{headline} — {rank}"}
+        {**RECOMMENDATION, "headline": f"{headline} — {rank}",
+         "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[rank - 1]}}
         for rank in range(1, 4)
     ]
 def edition_with_priority_and_weather():
@@ -112,8 +118,8 @@ class TestValidate:
         assert failure in render.validate(recommendation_edition(recommendations))
 
     def test_ranked_recommendations_render_escaped_paper_prose(self):
-        second = {**RECOMMENDATION, "headline": "Interview <three> users", "body": "First paragraph.\n\nSecond & final."}
-        third = {**RECOMMENDATION, "headline": "Ship the proof"}
+        second = {**RECOMMENDATION, "headline": "Interview <three> users", "body": "First paragraph.\n\nSecond & final.", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[1]}}
+        third = {**RECOMMENDATION, "headline": "Ship the proof", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[2]}}
         page = recommendation_edition([RECOMMENDATION, second, third], ["Q4 — What changed?"])
         assert render.validate(page) == ""
         output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
@@ -124,6 +130,13 @@ class TestValidate:
         assert "FIRST STEP" in output and "Patrick Salyer" in output
         assert "Returning users repeat the same workflow" in output
         assert 'href="https://example.com/retention"' in output
+
+    def test_recommendations_cannot_reuse_one_advisor_quote(self):
+        duplicated = [{**item, "advisor": RECOMMENDATION["advisor"]}
+                      for item in recommendations()]
+        assert "priority.recommendations reuse an advisor quote" in render.validate(
+            recommendation_edition(duplicated))
+
     def test_valid_is_silent(self):
         assert render.validate(edition()) == ""
 

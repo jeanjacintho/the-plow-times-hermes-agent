@@ -81,4 +81,7 @@ Salyer's record is mostly enterprise/B2B SaaS, from founder-led selling and cate
 - A sourced narrative connecting present traction, use of funds, and the next fundable milestone.
 
 ## Sourced words
+- “You'll know you're on the right track when you have a handful of referenceable customers ... and a "painkiller" solution.” — [The 3 Phases of Enterprise Software](https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software)
+- “it's crucial for founders to be involved in establishing a sales playbook.” — [Sales Playbook — What Is It and How Do You Build One?](https://patricksalyer.substack.com/p/sales-playbook-what-is-it-and-how)
 - “Forget the naming (seed / A / B).” — [The New Series A Is the Old Series B](https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series)
+- “Raise the right amount of money, at a stage appropriate valuation, to hit the milestones that unlock the next stage.” — [The New Series A Is the Old Series B](https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series)

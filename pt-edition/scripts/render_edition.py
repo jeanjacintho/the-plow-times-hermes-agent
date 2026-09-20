@@ -299,6 +299,7 @@ def validate(edition):
                 if not isinstance(recommendations, list) or len(recommendations) != 3:
                     failures.append(f"{where}.priority.recommendations needs exactly 3 items")
                 else:
+                    advisor_quotes = []
                     for i, item in enumerate(recommendations):
                         iwhere = f"{where}.priority.recommendations[{i}]"
                         if not isinstance(item, dict):
@@ -335,6 +336,8 @@ def validate(edition):
                             if not (isinstance(url, str) and url.strip().startswith(("http://", "https://"))):
                                 failures.append(f"{iwhere}.advisor.url is not an http(s) URL")
                             name, quote = advisor.get("name"), advisor.get("quote")
+                            if isinstance(quote, str) and quote.strip():
+                                advisor_quotes.append(" ".join(quote.split()))
                             source = advisors.get(name) if isinstance(name, str) else None
                             if not blank(name) and source is None:
                                 failures.append(f"{iwhere}.advisor.name has no named advisor file")
@@ -344,6 +347,8 @@ def validate(edition):
                                     failures.append(f"{iwhere}.advisor.url is not a source in the named advisor file")
                                 if isinstance(quote, str) and " ".join(quote.split()) not in words:
                                     failures.append(f"{iwhere}.advisor.quote is not in the named advisor file")
+                    if len(advisor_quotes) != len(set(advisor_quotes)):
+                        failures.append(f"{where}.priority.recommendations reuse an advisor quote")
                 questions = priority.get("questions", [])
                 if not isinstance(questions, list) or any(blank(q) for q in questions):
                     failures.append(f"{where}.priority.questions is not a list of non-blank strings")

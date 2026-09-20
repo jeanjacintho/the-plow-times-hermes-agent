@@ -752,6 +752,8 @@ class TestSkills:
             "150 minutes after Orient began",
             "at most 1,200 characters",
             "after every delegate set returns",
+            "Complete at least three generations",
+            "/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json",
         ):
             assert clause in text
 

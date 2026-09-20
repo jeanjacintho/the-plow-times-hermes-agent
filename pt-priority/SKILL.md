@@ -132,15 +132,18 @@ the quote. The card is:
 {"desk":"priority","status":"ok","priority":{"recommendations":[…],"questions":["Q<n> — …"]}}
 ```
 
-Write the candidate to `/tmp/priority-notes.json` and copy its `priority` object into the priority
-section of `/tmp/card-edition.json`. Never write `notes.json` directly. Run the normal renderer
+Write the candidate to `/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json` and
+copy its `priority` object into the priority section of
+`/var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json`.
+Never write `notes.json` directly. Run the normal renderer
 gate:
 
 ```sh
-/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /tmp/card-edition.json --chat /tmp/card-check.txt
+/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json --chat /var/lib/hermes/pt/run/desk-priority/card-check.txt
 ```
 
-Only after that exits zero, atomically move `/tmp/priority-notes.json` to
+Only after that exits zero, atomically move
+`/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json` to
 `/var/lib/hermes/pt/run/desk-priority/notes.json`, then update `tournament.json`. A failed gate
 leaves the previous checkpoint untouched and returns to Cull while time permits.
 
@@ -148,7 +151,8 @@ leaves the previous checkpoint untouched and returns to Cull while time permits.
 
 Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
 stop merely because a generation retained all incumbents. Record the Orient start time in
-`tournament.json`. Start another generation only when it can complete through criticism and Cull
+`tournament.json`. Complete at least three generations when 90 minutes remain before the cutoff.
+After that, start another generation only when it can complete through criticism and Cull
 at least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began;
 otherwise keep the last fully criticized checkpoint for delivery. A later failure never erases
 that checkpoint.
