@@ -3,580 +3,157 @@
 <head>
 <meta charset="utf-8">
 <!--
-  The Founder Times -- the fixed edition layout.
+  The Founder Times fixed one-page edition.
 
-  This file is deliberately plain: inline CSS, no JavaScript, and no
-  external assets loaded AT RENDER TIME -- the one exception, a news
-  story's optional photo, is fetched and converted to a self-contained
-  grayscale data: URI by render_edition.py (fetch_grayscale_photo)
-  before this HTML is even built, so by the time the browser or
-  WeasyPrint sees an <img> tag there is nothing left to fetch, same as
-  everything else on the page. The renderer substitutes the
-  placeholders (MASTHEAD, DATE, LOCATION, LEAD, PRIORITY_BLOCK,
-  WEATHER_EAR, DESKS_INLINE, SECTIONS, SUDOKU,
-  and PAGE_CLASS/PRIORITY/WEATHER/CALENDAR/MAIL/SPORTS/SIDEBAR for older
-  templates that still read them individually) and escapes every value
-  it inserts, so a page from the web can never inject markup here. Keep
-  it that way: a script tag or an inline event attribute makes the
-  Chrome-on-Mac PDF fallback execute untrusted content on the owner's
-  machine. Fonts stay system/websafe for the same reason -- the renderer
-  has no guarantee of network access when WeasyPrint runs, so a
-  @font-face or Google Fonts <link> would fall back silently (or time
-  out) on a real run. Every color below is a flat CSS value for the same
-  reason: nothing here is fetched at render time.
+  render_edition.py escapes every dynamic value and converts an optional
+  story photo to a self-contained grayscale data URI before this template
+  sees it. Keep this file free of JavaScript, remote assets and web fonts.
 
-  The masthead is drawn from PT_MASTHEAD (default "THE FOUNDER TIMES"),
-  resolved by the renderer -- not from edition.json, so the chat edition
-  and the printed page can never show two different names. The credit
-  "inspired by Mayfield" is fixed in this template. Layout edits
-  here survive redeploys: the deploy hook copies a skill into the
-  agent's home only when absent.
-
-  Anatomy, modeled on a classic broadsheet front page:
-
-  - Nameplate row: a quiet ear box on the left (the paper's slogan),
-    the nameplate centered and large, and the weather ear on the right
-    (today's drawn icon and high/low, filled by weather_ear_html). A
-    thin ornament rule with a diamond sits under the nameplate, then
-    the folio line (volume/number, city and date, single copy) between
-    hairlines, then the thick-and-thin double rule that closes the
-    masthead on real front pages.
-  - PRIORITY_BLOCK: the day's answer in a bordered box with a black
-    label bar. The bar's text is the desk's own <h2> -- the
-    model-written title, in owner.language, never a hardcoded string.
-    Do NOT try to hide that h2 with display:none and draw a replacement
-    title: measured on WeasyPrint 62.3, an element with display:none
-    that also matches a background rule still paints its background --
-    the page showed an empty black stripe where the "hidden" h2 was.
-    The card's own title bar IS the label; style it, don't hide it.
-  - LEAD: the first news story, full width -- a kicker (the story's
-    tag, letterspaced small caps, the broadsheet department label), a
-    very large uppercase headline, an italic deck, then the body as
-    ordinary paragraphs (they fill leftover space on the sheet; a
-    3-cell table of the body used to jump whole to the next page).
-  - DESKS_INLINE: calendar, mail and sports as a row of boxed
-    departments with the same black label bar as the priority box --
-    the "inside today's edition" teaser row of a real front page.
-    Weather is not here; it lives in the masthead's ear.
-  - News well: remaining stories stacked in block flow so they fill
-    leftover space and only start a new page when this one is full.
-  - SUDOKU: the puzzle box, generated and solved by scripts/sudoku.py,
-    seeded on the edition's date -- never authored by the model.
-  - Footer: the double rule again and the folio repeated.
-
-  Measured WeasyPrint constraints (all learned live, do not regress):
-  grid lost whole columns of content across page breaks; a float beside
-  a multicol block let the second text column overlap the float;
-  column-count on the news well rendered as a single column with the
-  second column's width left blank in the actual PDF even though a
-  browser preview looked right; and display:none on an element with a
-  background from another rule paints the background anyway. Layout
-  here is therefore display:table/table-cell and plain block flow only.
-
-  Palette: pure white paper, a soft black-brown ink (never pure #000,
-  which prints harsher than it previews), two greys, nothing else -- a
-  strict monochrome scale, no hue anywhere on the page.
+  The printed hierarchy is deliberate: compact founder focus; first news
+  story at full width; two similarly sized stories beside each other; one
+  calendar rail. Weather is the masthead ear. Mail and sports remain in the
+  chat edition but do not compete for space on the founder briefing.
 -->
 <style>
-  /* 12mm all around: tight enough for broadsheet density, still clear
-     of the unprintable edge most home inkjet/laser printers have. */
-  /* The running page number lives in the @page margin box (CSS Paged
-     Media) -- the only way a page count WeasyPrint itself is still
-     computing can be numbered without Python counting pages by hand.
-     Bare numerals, no "Page"/"of" words: that text would be
-     Python-authored and can't follow the edition's own owner.language. */
-  @page {
-    size: Letter; margin: 12mm; background: #ffffff;
-    @bottom-center {
-      content: "\2014  " counter(page) " / " counter(pages) "  \2014";
-      font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-      font-size: 8px; color: #9a9a9a; letter-spacing: 0.5px;
-    }
-  }
+  @page { size: Letter; margin: 9mm 10mm 10mm; background: #ffffff; }
   * { box-sizing: border-box; }
-
-  :root {
-    --paper: #ffffff;
-    --ink: #141414;
-    --ink-soft: #555555;
-    --accent: #333333;
-    --accent-soft: #767676;
-    --hairline: #cccccc;
-  }
-
-  html { background: var(--paper); }
+  :root { --paper: #ffffff; --ink: #151515; --ink-soft: #5b5b5b; --hairline: #c9c9c9; }
+  html, body { background: var(--paper); }
   body {
+    margin: 0; color: var(--ink);
     font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-    color: var(--ink);
-    margin: 0;
-    line-height: 1.4;
-    font-size: 12px;
-    background: var(--paper);
-    padding: 6px 4px 8px;
+    font-size: 9px; line-height: 1.32;
   }
 
-  /* -- Masthead: ears, the nameplate, an ornament rule, the folio ----- */
-  .rule-top { border: none; border-top: 1px solid var(--ink); margin: 0 0 6px; }
+  .rule-top { border: 0; border-top: 1px solid var(--ink); margin: 0 0 4px; }
   .masthead-row { display: table; width: 100%; table-layout: fixed; }
-  .ear {
-    display: table-cell; vertical-align: middle; width: 96px;
-  }
-  .ear-left { text-align: left; }
+  .ear { display: table-cell; width: 82px; vertical-align: middle; }
   .ear-right { text-align: right; }
-  .ear-box {
-    display: inline-block; border: 1px solid var(--ink);
-    padding: 5px 8px;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 7.5px; font-style: italic; line-height: 1.35;
-    color: var(--ink-soft); text-align: center;
-  }
-  .ear-weather {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    font-style: normal;
-  }
-  .ear-weather .wx-icon-wrap { color: var(--ink); line-height: 0; }
-  .ear-weather .ear-wx-temps { display: flex; flex-direction: column; align-items: flex-start; }
-  .ear-weather .ear-wx-high { font-weight: 800; font-size: 11px; color: var(--ink); line-height: 1.15; }
-  .ear-weather .ear-wx-low { font-size: 9px; color: var(--ink-soft); line-height: 1.15; }
   .masthead-cell { display: table-cell; vertical-align: middle; text-align: center; }
   .nameplate {
-    /* Big Caslon first: a real macOS system font (no bundling, no
-       network fetch), and measured a much closer match to a traditional
-       broadsheet nameplate than the Didone stacks. It ships one weight
-       only (WeasyPrint doesn't synthesize bold for it), so size and
-       letter-spacing carry the presence a bold weight would give. */
-    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", "Times New Roman", Georgia, serif;
-    font-size: 48px; font-weight: 900; letter-spacing: 0.5px;
-    margin: 0;
-    line-height: 0.95;
-    color: var(--ink);
+    margin: 0; font-family: "Big Caslon", Didot, "Bodoni MT", "Times New Roman", serif;
+    font-size: 46px; font-weight: 900; line-height: .9; letter-spacing: .2px;
   }
-  .nameplate-credit {
-    margin: 6px 0 0;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 9px; font-style: italic; font-weight: 400;
-    letter-spacing: 0.8px;
-    color: var(--ink-soft);
-  }
-  .ornament {
-    display: flex; align-items: center; gap: 10px;
-    margin: 5px 0 6px; color: var(--ink);
-  }
-  .orn-rule { flex: 1 1 auto; border-top: 1px solid var(--ink); }
-  .orn-diamond { display: block; }
+  .nameplate-credit { margin: 1px 0 0; color: var(--ink-soft); font-size: 6px; font-style: italic; letter-spacing: .7px; }
+  .ear-box { display: inline-block; min-width: 72px; border: 1px solid var(--ink); padding: 4px 6px; text-align: center; }
+  .ear-weather { display: table; margin-left: auto; }
+  .ear-weather .wx-icon-wrap, .ear-weather .ear-wx-temps { display: table-cell; vertical-align: middle; }
+  .ear-weather .wx-icon-wrap { padding-right: 5px; }
+  .ear-wx-high { font: 700 10px/1 Arial, sans-serif; }
+  .ear-wx-low { margin-top: 2px; color: var(--ink-soft); font: 7px/1 Arial, sans-serif; }
+  .ornament { display: table; width: 100%; margin: 3px 0 4px; }
+  .orn-rule { display: table-cell; width: 49%; border-top: 1px solid var(--ink); }
+  .orn-diamond { display: table-cell; margin: 0 6px; vertical-align: -3px; }
   .folio {
     display: table; width: 100%; table-layout: fixed;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase;
-    color: var(--ink-soft);
-    border-top: 1px solid var(--ink);
-    border-bottom: 1px solid var(--ink);
+    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+    color: var(--ink-soft); font: 6.5px/1.2 Arial, sans-serif;
+    letter-spacing: 1px; text-transform: uppercase;
   }
-  .folio span { display: table-cell; padding: 4px 2px; vertical-align: middle; }
-  .folio .meta-left { text-align: left; }
-  .folio .meta-center { text-align: center; }
-  .folio .meta-right { text-align: right; }
-  /* Thick-and-thin double rule closing the masthead. content-box against
-     the global border-box reset, or the height already equals the two
-     borders and the "double" rule prints as one solid bar (measured). */
+  .folio span { display: table-cell; padding: 3px 1px; }
+  .meta-left { text-align: left; }
+  .meta-center { text-align: center; }
+  .meta-right { text-align: right; }
   .rule-double {
-    box-sizing: content-box; height: 2px;
-    border-top: 2.5px solid var(--ink); border-bottom: 1px solid var(--ink);
-    margin: 5px 0 18px;
+    box-sizing: content-box; height: 1px; margin: 4px 0 7px;
+    border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink);
   }
 
-  /* -- The priority box: the day's answer, first thing under the
-     masthead. A bordered box with a black label bar -- the bar's text
-     is the desk's own model-written <h2> (owner.language). See the
-     header comment: never display:none that h2 (WeasyPrint paints the
-     bar's background anyway); the bar IS the label. ------------------ */
-  .priority-wrap {
-    margin-bottom: 18px;
-  }
+  .priority-wrap { margin: 0 0 8px; }
   .section--priority {
-    border: 1.5px solid var(--ink);
-    background: var(--paper);
+    display: table; width: 100%; table-layout: fixed; padding: 0;
+    border: 1px solid var(--ink);
   }
   .section--priority h2 {
+    display: table-cell; width: 112px; padding: 7px 8px; vertical-align: middle;
     background: var(--ink); color: var(--paper);
-    margin: 0; padding: 8px 11px 7px;
-    font-size: 12px; letter-spacing: 2.5px; font-weight: 800;
-    text-transform: uppercase; text-align: center;
+    font: 700 8px/1.25 Arial, sans-serif; letter-spacing: 1.2px;
+    text-align: center; text-transform: uppercase;
   }
-  .section--priority h2 .desk-icon {
-    display: inline-block; vertical-align: -2px; margin-right: 7px;
-  }
-  .section--priority .priority-stage {
-    margin: 12px 24px 2px; padding: 0;
-    font-size: 9.5px; letter-spacing: 1.8px; text-transform: uppercase;
-    color: var(--ink-soft); text-align: center;
-  }
+  .section--priority .headline, .section--priority .priority-step,
+  .section--priority .priority-list, .section--priority .priority-stage,
+  .section--priority .priority-note, .section--priority .priority-inline,
+  .section--priority h3 { margin-left: 124px; margin-right: 8px; }
   .section--priority .headline {
-    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
-    font-size: 30px; line-height: 1.08; font-weight: 900; font-style: normal;
-    color: var(--ink); text-align: center;
-    margin: 4px 0 10px; padding: 0 24px;
-    border-bottom: none;
+    margin-top: 6px; margin-bottom: 3px; color: var(--ink);
+    font-size: 12px; font-style: normal; font-weight: 700; line-height: 1.12;
   }
-  .section--priority .priority-step {
-    margin: 0 24px 12px; padding: 8px 0;
-    border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
-    font-weight: 700; font-size: 13px; text-align: center; color: var(--ink);
-  }
-  .priority-list {
-    list-style: none; margin: 0 auto 4px; padding: 0 11px;
-    max-width: 540px;
-    font-size: 11px; line-height: 1.55; color: var(--ink);
-    text-align: justify;
-  }
-  .priority-list li { margin: 0 0 7px; }
-  .priority-list .src { font-style: italic; display: block; color: var(--ink-soft); }
-  .section--priority h3 {
-    margin: 12px 24px 4px; padding: 8px 0 0;
-    border-top: 1px solid var(--hairline);
-    font-size: 9.5px; letter-spacing: 2px; font-weight: 800;
-    text-transform: uppercase; text-align: center; color: var(--ink-soft);
-  }
-  .priority-note {
-    margin: 0 24px 6px; font-size: 11px; line-height: 1.5;
-    text-align: center; color: var(--ink);
-  }
-  .priority-draft { font-style: italic; white-space: pre-line; }
-  .section--priority h2 + h3 { border-top: none; }
-  .priority-inline {
-    list-style: none; margin: 0; padding: 0 11px;
-    font-size: 10.5px; color: var(--ink-soft); text-align: center;
-  }
+  .priority-stage { margin-top: 4px; margin-bottom: 2px; color: var(--ink-soft); font: 6px Arial, sans-serif; letter-spacing: 1px; text-transform: uppercase; }
+  .section--priority h3 { margin-top: 3px; margin-bottom: 1px; color: var(--ink-soft); font: 700 6px Arial, sans-serif; letter-spacing: .8px; }
+  .priority-note { margin-top: 0; margin-bottom: 2px; font-size: 7px; }
+  .priority-step { margin-top: 3px; margin-bottom: 3px; font-size: 8px; font-weight: 700; }
+  .priority-list, .priority-inline { margin-top: 0; margin-bottom: 4px; padding: 0; list-style: none; font-size: 7px; }
+  .priority-list li { margin-bottom: 2px; }
+  .priority-list .src { color: var(--ink-soft); font-style: italic; }
   .priority-inline li { display: inline; }
-  .priority-inline li + li::before { content: "  \00b7  "; }
-  .section--priority .sources,
-  .section--priority .unsourced { padding: 0 11px 10px; text-align: center; }
+  .priority-inline li + li::before { content: " · "; }
+  .priority-draft { white-space: pre-line; }
 
-  /* -- Lead story: full width, the page's dominant headline ---------- */
-  .top-row {
-    margin-bottom: 16px; padding-bottom: 16px;
-    border-bottom: 2px solid var(--ink);
-  }
-  .lead-cell .section {
-    border: none; margin: 0; padding: 0;
-    /* Do not glue the lead to the next block. Measured 2026-09-18:
-       break-after:avoid-page kept the desks with a jumped lead body
-       and left the front page empty under the headline. */
-  }
-  .kicker {
-    font-size: 8.5px; font-weight: 700; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--accent);
-    margin: 0 0 4px;
-  }
-  .lead-cell .kicker {
-    font-size: 10.5px; letter-spacing: 2.5px;
-    margin: 0 0 7px;
-  }
-  .lead-cell h2 {
-    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
-    font-style: normal; font-weight: 900;
-    text-transform: uppercase;
-    font-size: 40px; letter-spacing: -0.2px; line-height: 1.04;
-    border-bottom: none; padding-bottom: 0; margin: 0 0 8px;
-  }
-  .lead-cell .headline {
-    font-size: 14.5px; font-style: italic; font-weight: 400; color: var(--ink-soft);
-    line-height: 1.45; margin: 0 0 14px;
-    padding: 0; border-bottom: none;
-  }
-  /* Drop cap: a real <span class="dropcap"> emitted by html_section()
-     -- not a ::first-letter pseudo-element, which measured broken with
-     float in WeasyPrint (the second character printed underneath the
-     cap instead of beside it). */
-  .lead-cell .dropcap {
-    font-family: "Bodoni MT", Didot, "Playfair Display", Georgia, serif;
-    font-size: 2.9em; font-weight: 900; font-style: normal; color: var(--ink);
-    float: left; line-height: 0.78; padding: 0.02em 0.08em 0 0;
-    /* The paragraph's own line-height leaves half-leading above its
-       first glyph that the cap's tighter line-height doesn't get;
-       0.10em of the cap's font-size brings its top back in line with
-       the text beside it (measured). */
-    margin-top: 0.1em;
-  }
-  .lead-cell .sources {
-    margin: 10px 0 0; padding-top: 6px;
-    border-top: 1px solid var(--hairline);
-    /* Keep the sources line with the story it belongs to -- measured:
-       it once orphaned onto the next page, after the desks row. */
-    break-before: avoid; page-break-before: avoid;
-  }
-
-  /* -- Department boxes: calendar, mail and sports as a row of boxed
-     desks with black label bars -- the front page's teaser row. ------ */
-  .desks-row {
-    display: table; width: 100%; table-layout: fixed;
-    margin-bottom: 16px; padding-bottom: 16px;
-    border-bottom: 2px solid var(--ink);
-    /* Same WeasyPrint table-split bug as the news well: never let the
-       row break across pages or a box's continuation paints in the
-       wrong column. Issue #7: a full-day calendar used to make this
-       row a page tall so avoid jumped it and left the previous sheet
-       blank -- the print schedule strip is capped (SCHEDULE_STRIP_MAX)
-       and tightened below so the row stays on the page. */
-    break-inside: avoid; page-break-inside: avoid;
-  }
-  .desks-cell {
-    display: table-cell; vertical-align: top;
-    padding-right: 12px;
-  }
-  .desks-cell:last-child { padding-right: 0; }
-  .section--desk {
-    padding: 0;
-    border: 1.5px solid var(--ink);
-    break-inside: avoid; page-break-inside: avoid;
-  }
-  .section--desk h2 {
-    background: var(--ink); color: var(--paper); margin: 0; padding: 6px 10px 5px;
-    font-size: 10px; letter-spacing: 2px; font-weight: 800;
-    text-transform: uppercase; text-align: center;
-  }
-  .section--desk h2 .desk-icon {
-    display: inline-block; vertical-align: -2px; margin-right: 6px;
-  }
-  .section--desk .headline,
-  .section--desk .sources,
-  .section--desk .unsourced { padding: 0 10px; }
-  .section--desk .headline {
-    margin: 8px 0; color: var(--ink-soft); line-height: 1.4;
-    font-size: 10.5px;
-    padding-bottom: 8px; border-bottom: 1px solid var(--hairline);
-  }
-  .section--desk p:last-of-type { margin-bottom: 0; }
-  .section--desk .sources,
-  .section--desk .unsourced { padding-bottom: 9px; margin-top: 4px; font-size: 8px; }
-
-  /* Each paragraph in a boxed desk reads as one bullet item -- a meeting,
-     a message, a day's forecast -- not one dense run-on sentence. */
-  .section--desk p:not(.headline):not(.sources):not(.unsourced) {
-    position: relative;
-    margin: 0 0 9px; padding: 0 10px 0 18px;
-    font-size: 10px; line-height: 1.5; text-align: left;
-  }
-  .section--desk p:not(.headline):not(.sources):not(.unsourced)::before {
-    content: "\2022"; position: absolute; left: 9px; top: 0;
-    color: var(--accent-soft); font-size: 12px; line-height: 1;
-  }
-
-  /* -- News well: ordinary block flow. Stories fill leftover space on
-     the current page and only start a new sheet when this one is full.
-     A 3-cell table with break-inside:avoid (the previous well) jumped
-     whole rows -- measured 2026-09-18, headline on page 1, body on
-     page 2, sudoku alone on page 3. WeasyPrint 62.3 still cannot split
-     a table cell without painting the continuation in the wrong
-     column, so this well is not a table. -------------------------- */
-  .news-well .section {
-    break-inside: auto; page-break-inside: auto;
-    orphans: 2; widows: 2;
-  }
-
-  .section {
-    border: none;
-    background: var(--paper);
-    padding: 0 0 12px;
-    margin: 0 0 12px;
-    border-bottom: 1px solid var(--hairline);
-    orphans: 2; widows: 2;
-  }
+  .page-body { display: table; width: 100%; table-layout: fixed; }
+  .news-column { display: table-cell; width: 75%; padding-right: 10px; vertical-align: top; }
+  .calendar-rail { display: table-cell; width: 25%; padding-left: 10px; border-left: 1px solid var(--ink); vertical-align: top; }
+  .top-row { margin: 0 0 8px; padding: 0 0 8px; border-bottom: 2px solid var(--ink); }
+  .section { margin: 0; padding: 0; }
   .section h2 {
-    font-family: "Big Caslon", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
-    font-size: 18.5px; font-weight: 900; line-height: 1.12;
-    text-transform: none; margin: 0 0 4px;
-    letter-spacing: -0.2px;
-    break-after: avoid;
+    margin: 0 0 3px; font-family: "Big Caslon", Didot, "Bodoni MT", Georgia, serif;
+    font-size: 16px; font-weight: 900; line-height: 1.05; break-after: avoid;
   }
-  .headline {
-    font-size: 11px; font-weight: 400; font-style: italic;
-    line-height: 1.4;
-    margin: 0 0 7px; color: var(--ink-soft);
+  .kicker { margin: 0 0 3px; color: var(--ink-soft); font: 700 6px Arial, sans-serif; letter-spacing: 1.3px; text-transform: uppercase; }
+  .headline { margin: 0 0 4px; color: var(--ink-soft); font-size: 8px; font-style: italic; line-height: 1.25; }
+  .section p { margin: 0 0 4px; font-size: 8.2px; line-height: 1.32; text-align: justify; hyphens: auto; }
+  .lead-cell h2 { font-size: 24px; line-height: 1; }
+  .lead-cell .headline { font-size: 10px; }
+  .lead-cell .dropcap {
+    float: left; margin: .08em .08em 0 0;
+    font-family: "Bodoni MT", Didot, Georgia, serif;
+    font-size: 2.7em; font-weight: 900; line-height: .75;
   }
-  /* A real photo, when a story has one -- render_edition.py fetches it
-     and converts it to grayscale in Python before this HTML even
-     exists, because WeasyPrint doesn't implement CSS `filter`. What
-     lands in `src` is already a self-contained grayscale data: URI. */
-  .story-photo {
-    margin: 4px 0 10px;
-    break-inside: avoid; page-break-inside: avoid;
-  }
-  .story-photo img {
-    display: block; width: 100%; height: auto;
-    border: 1px solid var(--hairline);
-  }
-  .story-photo figcaption {
-    font-size: 8.5px; font-style: italic; color: var(--ink-soft);
-    margin-top: 3px;
-  }
-  .section p {
-    margin: 0 0 8px; font-size: 11px; line-height: 1.5;
-    text-align: justify; hyphens: auto; -webkit-hyphens: auto;
-  }
-  .tag {
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 8px; text-transform: uppercase; letter-spacing: 1px;
-    background: var(--accent); color: var(--paper); padding: 1px 5px; vertical-align: middle;
-    margin-left: 6px; white-space: nowrap;
-  }
-  .sources { font-size: 8.5px; color: var(--ink-soft); word-break: break-all; text-align: left; }
+  .sources { margin-top: 4px !important; padding-top: 3px; border-top: 1px solid var(--hairline); color: var(--ink-soft); font: 6px/1.2 Arial, sans-serif !important; text-align: left !important; word-break: break-all; }
   .sources a { color: var(--ink-soft); }
-  .unsourced { font-size: 9.5px; font-style: italic; color: var(--ink-soft); text-align: left; }
+  .unsourced { color: var(--ink-soft); font-size: 6.5px !important; font-style: italic; text-align: left !important; }
+  .tag { margin-left: 4px; padding: 1px 3px; background: var(--ink); color: var(--paper); font: 6px Arial, sans-serif; white-space: nowrap; }
 
-  /* -- Weather strip: unused by the default body markup now that
-     WEATHER_EAR carries the day's weather instead, but the multi-day
-     forecast_grid() and this styling stay defined -- the renderer still
-     fills the WEATHER placeholder for any custom template that wants
-     the full strip back. A drawn (never fetched) icon per forecast day,
-     in ink. */
-  .wx-grid {
-    display: flex; flex-wrap: wrap;
-    margin: 10px 0; padding: 0 11px;
-    gap: 10px 4px;
-  }
-  .wx-day {
-    display: flex; flex-direction: column; align-items: center;
-    flex: 1 1 0; min-width: 46px;
-    text-align: center;
-    border-left: 1px solid var(--hairline);
-    padding: 0 2px;
-  }
-  .wx-day:first-child { border-left: none; }
-  .wx-day-name {
-    font-weight: 800; font-size: 10px; letter-spacing: 0.4px;
-    text-transform: uppercase; color: var(--ink);
-  }
-  .wx-day-date { font-size: 8px; color: var(--ink-soft); margin-bottom: 4px; }
-  .wx-icon-wrap { color: var(--ink); margin: 2px 0 4px; }
-  .wx-icon { display: block; }
-  .wx-high { font-weight: 700; font-size: 11px; color: var(--ink); }
-  .wx-low { font-size: 10px; color: var(--ink-soft); }
+  .news-pair { display: table; width: 100%; table-layout: fixed; break-inside: avoid; page-break-inside: avoid; }
+  .news-pair-cell { display: table-cell; width: 50%; vertical-align: top; }
+  .news-pair-cell:first-child { padding-right: 8px; }
+  .news-pair-cell + .news-pair-cell { padding-left: 8px; border-left: 1px solid var(--hairline); }
+  .news-pair-cell h2 { font-size: 14px; }
+  .story-photo { margin: 3px 0 5px; break-inside: avoid; page-break-inside: avoid; }
+  .story-photo img { display: block; width: 100%; height: auto; border: 1px solid var(--hairline); }
+  .story-photo figcaption { margin-top: 2px; color: var(--ink-soft); font-size: 6px; font-style: italic; }
 
-  /* -- Calendar strip: one drawn icon per event kind, a bold time, then
-     the title. Tightened for issue #7 so a full day does not inflate
-     the desks-row past one page (the row cannot split). */
-  .cal-list, .mail-list { margin: 6px 0 0; padding: 0 8px 8px; }
-  .cal-item {
-    display: flex; align-items: flex-start; gap: 5px;
-    margin: 0 0 3px;
+  .section--calendar { break-inside: avoid; page-break-inside: avoid; }
+  .section--calendar h2 {
+    margin: 0; padding: 5px 6px; background: var(--ink); color: var(--paper);
+    font: 700 8px Arial, sans-serif; letter-spacing: 1.2px;
+    text-align: center; text-transform: uppercase;
   }
-  .cal-item:last-child { margin-bottom: 0; }
-  .cal-icon-wrap { color: var(--ink-soft); flex: 0 0 auto; margin-top: 1px; }
-  .cal-icon { display: block; }
-  .cal-time {
-    flex: 0 0 auto; min-width: 36px;
-    font-weight: 800; font-size: 9px; color: var(--ink);
-  }
-  .cal-title { font-size: 9px; line-height: 1.3; color: var(--ink); }
+  .section--calendar .headline { margin: 5px 0; padding-bottom: 5px; border-bottom: 1px solid var(--hairline); font-size: 8px; }
+  .cal-list { margin: 0; padding: 0; }
+  .cal-item { display: table; width: 100%; padding: 5px 0; border-bottom: 1px solid var(--hairline); }
+  .cal-icon-wrap, .cal-time, .cal-title { display: table-cell; vertical-align: top; }
+  .cal-icon-wrap { width: 17px; padding-right: 3px; color: var(--ink-soft); }
+  .cal-time { width: 34px; font: 700 7px Arial, sans-serif; }
+  .cal-title { font: 7px/1.25 Arial, sans-serif; }
+  .desk-icon { display: inline-block; margin-right: 4px; vertical-align: -2px; }
+  .wx-icon, .cal-icon, .mail-icon { display: block; }
 
-  /* -- Mail strip: an envelope mark, the sender bold, the subject after. */
-  .mail-item {
-    display: flex; align-items: flex-start; gap: 6px;
-    margin: 0 0 8px;
-  }
-  .mail-item:last-child { margin-bottom: 0; }
-  .mail-icon-wrap { color: var(--ink-soft); flex: 0 0 auto; margin-top: 1px; }
-  .mail-icon { display: block; }
-  .mail-sender { font-weight: 800; font-size: 10px; color: var(--ink); margin-right: 4px; }
-  .mail-subject { font-size: 10px; color: var(--ink-soft); }
-
-  /* -- Sports strip: away @ home, and either the kickoff time (not
-     started yet) or the score (it's over) -- no "live" state, no
-     crests or logos. A printed page is read after the fact. */
-  .sp-list { margin: 8px 0 0; padding: 0 10px 10px; }
-  .sp-game {
-    display: flex; align-items: baseline; flex-wrap: wrap;
-    gap: 3px 8px; margin: 0 0 8px; padding-bottom: 8px;
-    border-bottom: 1px solid var(--hairline);
-  }
-  .sp-game:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-  .sp-teams { font-size: 10px; color: var(--ink); flex: 1 1 auto; }
-  .sp-away, .sp-home { font-weight: 800; }
-  .sp-vs {
-    color: var(--ink-soft); font-weight: 400; margin: 0 4px;
-    font-size: 8px; text-transform: uppercase;
-  }
-  .sp-score {
-    font-weight: 800; font-size: 11px; color: var(--ink);
-    white-space: nowrap; flex: 0 0 auto;
-  }
-
-  /* -- Puzzle box: one Easy/Medium Sudoku, generated and verified by
-     sudoku.py, never authored by the model. Cell borders draw only
-     right+bottom (the standard trick for a seamless grid); the 3x3
-     blocks get an extra thick left/top line. CSS grid is forbidden
-     here (measured: lost columns in WeasyPrint). The solution prints in
-     full underneath, small and light, with no caption -- a
-     "Solução:"/"Solution:" label would be Python-authored text outside
-     the edition's own owner.language. Difficulty is filled/hollow dots
-     for the same reason. */
-  .puzzle-row { margin-top: 4px; }
-  .sudoku-section {
-    border: 1.5px solid var(--ink);
-    padding: 0 0 12px; margin: 0;
-    text-align: center;
-    break-inside: avoid; page-break-inside: avoid;
-  }
-  .sudoku-section h2 {
-    background: var(--ink); color: var(--paper);
-    margin: 0 0 12px; padding: 6px 10px 5px;
-    font-size: 10px; letter-spacing: 2px; font-weight: 800;
-    text-transform: uppercase; text-align: center;
-    border-bottom: none;
-  }
-  .sudoku-section h2 .tag {
-    background: transparent; color: var(--paper);
-    border: 1px solid var(--paper);
-    padding: 0 5px;
-  }
-  .sk-difficulty { font-size: 9px; letter-spacing: 2px; }
-  .sk-grid {
-    border-collapse: collapse;
-    margin: 0 auto 8px;
-    border: 2px solid var(--ink);
-  }
-  .sk-cell {
-    width: 24px; height: 24px; padding: 0;
-    text-align: center; vertical-align: middle;
-    border-right: 1px solid var(--hairline);
-    border-bottom: 1px solid var(--hairline);
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 12px; color: var(--ink-soft);
-  }
-  .sk-given { font-weight: 800; color: var(--ink); }
-  .sk-box-left { border-left: 1.5px solid var(--ink); }
-  .sk-box-top { border-top: 1.5px solid var(--ink); }
-  .sk-solution {
-    font-size: 6px; letter-spacing: 0.3px; color: var(--hairline);
-    margin: 4px auto 0; white-space: nowrap; font-style: italic;
-  }
-
-  footer {
-    display: table; width: 100%; table-layout: fixed;
-    margin-top: 0;
-    padding: 0;
-    font-size: 8.5px; letter-spacing: 1.2px; text-transform: uppercase;
-    color: var(--ink-soft);
-    break-inside: avoid;
-    border-top: 1px solid var(--ink);
-    padding-top: 6px;
-  }
-  .rule-double.rule-double--footer { margin: 14px 0 3px; }
-  footer span { display: table-cell; vertical-align: middle; }
-  footer .meta-left { text-align: left; }
-  footer .meta-center { text-align: center; }
-  footer .meta-right { text-align: right; }
+  .rule-double--footer { margin-top: 8px; margin-bottom: 3px; }
+  footer { display: table; width: 100%; table-layout: fixed; color: var(--ink-soft); font: 6px Arial, sans-serif; letter-spacing: .8px; text-transform: uppercase; }
+  footer span { display: table-cell; }
 </style>
 </head>
 <body>
   <hr class="rule-top">
   <div class="masthead-row">
-    <div class="ear ear-left"><span class="ear-box">Every claim<br>carries its source</span></div>
-    <div class="masthead-cell"><h1 class="nameplate">{{MASTHEAD}}</h1><p class="nameplate-credit">inspired by Mayfield</p></div>
+    <div class="ear ear-left"></div>
+    <div class="masthead-cell">
+      <h1 class="nameplate">{{MASTHEAD}}</h1>
+      <p class="nameplate-credit">inspired by Mayfield</p>
+    </div>
     <div class="ear ear-right">{{WEATHER_EAR}}</div>
   </div>
-  <div class="ornament"><span class="orn-rule"></span><svg class="orn-diamond" viewBox="0 0 10 10" width="8" height="8" aria-hidden="true"><path d="M5 0 L10 5 L5 10 L0 5 Z" fill="currentColor"/></svg><span class="orn-rule"></span></div>
+  <div class="ornament"><span class="orn-rule"></span><svg class="orn-diamond" viewBox="0 0 10 10" width="7" height="7" aria-hidden="true"><path d="M5 0 L10 5 L5 10 L0 5 Z" fill="currentColor"/></svg><span class="orn-rule"></span></div>
   <div class="folio">
     <span class="meta-left">Vol. 1 &mdash; No. 1</span>
     <span class="meta-center">{{LOCATION}}, {{DATE}}</span>
@@ -586,18 +163,14 @@
 
 {{PRIORITY_BLOCK}}
 
-  <div class="top-row">
-    <div class="lead-cell">{{LEAD}}</div>
-  </div>
-
-{{DESKS_INLINE}}
-
-  <div class="news-well">
-{{SECTIONS}}
-  </div>
-
-  <div class="puzzle-row">
-{{SUDOKU}}
+  <div class="page-body">
+    <main class="news-column">
+      <div class="top-row"><div class="lead-cell">{{LEAD}}</div></div>
+{{NEWS_PAIR}}
+    </main>
+    <aside class="calendar-rail">
+{{CALENDAR_RAIL}}
+    </aside>
   </div>
 
   <div class="rule-double rule-double--footer"></div>
