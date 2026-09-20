@@ -88,6 +88,7 @@ SCHEDULE_STRIP_MAX = 6
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOPIC_ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 TEMPLATE = pathlib.Path(__file__).resolve().parent.parent / "template.html"
+ADVISORS = pathlib.Path(__file__).resolve().parents[2] / "pt-setup" / "assets" / "advisors"
 HEADLINE_MAX = 120
 # Page rules, priority card only: no file or path, never the reader in the third person.
 FILE_RE = re.compile(r"\S+\.(?:md|json|csv|py|txt)\b|~/|/var/lib|\brun/")
@@ -123,6 +124,24 @@ def blank(value):
     return not (isinstance(value, str) and value.strip())
 
 
+def advisor_catalog():
+    """Bundled advisor name -> (source URLs, words), from the one-file contract."""
+    catalog = {}
+    for path in ADVISORS.glob("*.md"):
+        if path.name == "README.md":
+            continue
+        text = path.read_text(encoding="utf-8")
+        parts = text.split("---", 2)
+        front = parts[1] if len(parts) == 3 else ""
+        name = next((line.split(":", 1)[1].strip() for line in front.splitlines()
+                     if line.startswith("advisor:")), "")
+        sources = {line.strip()[2:].strip() for line in front.splitlines()
+                   if line.strip().startswith("- http")}
+        if name:
+            catalog[name] = (sources, " ".join(text.split()))
+    return catalog
+
+
 def validate(edition):
     """The gate for edition.json, shape then page_rules; returns "; "-joined failures.
 
@@ -131,6 +150,7 @@ def validate(edition):
     crashing on a KeyError deep in rendering.
     """
     failures = []
+    advisors = advisor_catalog()
     if not isinstance(edition, dict):
         return "edition.json is not a JSON object"
 
@@ -316,6 +336,16 @@ def validate(edition):
                             url = advisor.get("url")
                             if not (isinstance(url, str) and url.strip().startswith(("http://", "https://"))):
                                 failures.append(f"{iwhere}.advisor.url is not an http(s) URL")
+                            name, quote = advisor.get("name"), advisor.get("quote")
+                            source = advisors.get(name) if isinstance(name, str) else None
+                            if not blank(name) and source is None:
+                                failures.append(f"{iwhere}.advisor.name has no named advisor file")
+                            elif source:
+                                urls, words = source
+                                if isinstance(url, str) and url.strip() not in urls:
+                                    failures.append(f"{iwhere}.advisor.url is not a source in the named advisor file")
+                                if isinstance(quote, str) and " ".join(quote.split()) not in words:
+                                    failures.append(f"{iwhere}.advisor.quote is not in the named advisor file")
                 questions = priority.get("questions", [])
                 if not isinstance(questions, list) or any(blank(q) for q in questions):
                     failures.append(f"{where}.priority.questions is not a list of non-blank strings")

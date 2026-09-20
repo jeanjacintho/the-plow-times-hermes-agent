@@ -94,9 +94,7 @@ case to cull it:
 - duplicate of or subsumed by another contender.
 
 Each returns checked claims, contrary evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
-It may not repair or rewrite its target. A critic failure invalidates the generation whenever fewer
-than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands;
-retry only when time permits. Without a checkpoint, keep the honest unavailable card.
+It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, keep the honest unavailable card.
 
 ### 4. Cull
 
@@ -120,8 +118,9 @@ Each recommendation is (evidence carries the printed basis for company-specific 
 ```
 
 The body reads like a short paper: argument, current evidence, and why this action wins. It is at most 1,024 characters.
-The quote is short, sourced, and supports the argument; rendering is not a
-deterministic quote-selection system. The card is:
+The quote is short, verbatim from the named advisor file, and supports the argument; its URL is
+one of that file's front-matter sources. Rendering verifies those two claims but does not select
+the quote. The card is:
 
 ```json
 {"desk":"priority","status":"ok","priority":{"recommendations":[…],"questions":["Q<n> — …"]}}

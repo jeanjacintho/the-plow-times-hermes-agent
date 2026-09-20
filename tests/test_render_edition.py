@@ -19,6 +19,19 @@ RECOMMENDATION = {
 }
 
 
+@pytest.fixture(autouse=True)
+def synthetic_advisors(tmp_path, monkeypatch):
+    advisor_dir = tmp_path / "advisors"
+    advisor_dir.mkdir()
+    (advisor_dir / "patrick-salyer.md").write_text(
+        "---\nadvisor: Patrick Salyer\nsources:\n"
+        "  - https://example.com/advisor\n---\n"
+        "## Sourced words\nForget the naming (seed / A / B).\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(render, "ADVISORS", advisor_dir, raising=False)
+
+
 def recommendations(headline=RECOMMENDATION["headline"]):
     return [
         {**RECOMMENDATION, "headline": f"{headline} — {rank}"}
@@ -86,6 +99,12 @@ class TestValidate:
         ([{**RECOMMENDATION, "evidence": []}] * 3, "priority.recommendations[0].evidence needs 1 to 3 items"),
         ([{**RECOMMENDATION, "evidence": [{"claim": "x", "source": "y", "url": "file:///tmp/x"}]}] * 3,
          "priority.recommendations[0].evidence[0].url is not an http(s) URL"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "quote": "Invented words."}}] * 3,
+         "priority.recommendations[0].advisor.quote is not in the named advisor file"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "url": "https://elsewhere.example/post"}}] * 3,
+         "priority.recommendations[0].advisor.url is not a source in the named advisor file"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "name": "Unknown Advisor"}}] * 3,
+         "priority.recommendations[0].advisor.name has no named advisor file"),
     ])
     def test_recommendation_rules(self, recommendations, failure):
         assert failure in render.validate(recommendation_edition(recommendations))

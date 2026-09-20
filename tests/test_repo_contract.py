@@ -743,6 +743,7 @@ class TestSkills:
             "A critic's verdict is evidence, not an elimination vote",
             "Never say fewer is fine",
             "Never write `notes.json` directly",
+            "An inherited champion without fresh criticism invalidates the generation",
         ):
             assert clause in text
 
@@ -843,12 +844,22 @@ class TestSkills:
         # (measured: an empty black stripe where the "hidden" h2 was).
         assert "display: none" not in template
 
-    def test_index_screenshots_are_shot_from_synthetic_fixture(self):
+    def test_index_screenshots_are_shot_from_synthetic_fixture(self, tmp_path, monkeypatch):
         # Agent Index thumbs used to be a live paper: the owner's city,
         # their priority file, and third-party inbox rows. Re-shoot from
         # index/edition.json (see index/render_screenshots.sh).
         fixture_path = ROOT / "index" / "edition.json"
         render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
+        advisors = tmp_path / "advisors"
+        advisors.mkdir()
+        (advisors / "mira-chen.md").write_text(
+            "---\nadvisor: Mira Chen\nsources:\n  - https://example.com/bakery-notes\n---\n"
+            "Make the choice obvious before making the menu bigger.\n"
+            "A process is real when the next baker can run it.\n"
+            "Learn from the counter before polishing the wrapper.\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(render, "ADVISORS", advisors)
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
         assert render.validate(fixture) == ""
         blob = json.dumps(fixture)
