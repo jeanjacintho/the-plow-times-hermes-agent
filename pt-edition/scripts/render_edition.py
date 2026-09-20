@@ -971,10 +971,8 @@ def fetch_grayscale_photo(url):
     out of template.html from the start.
 
     Never raises: Pillow being absent, a timeout, a 404, a non-image
-    response, or a file too large all just mean no photo for that story
-    -- the same soft-fail the optional PDF leg and the Sudoku generator
-    already use, so one bad photo URL never takes down the rest of the
-    paper."""
+    response, or a file too large all just mean no photo for that story,
+    so one bad photo URL never takes down the rest of the paper."""
     try:
         from PIL import Image  # noqa: PLC0415 -- optional dependency
 
@@ -1215,7 +1213,6 @@ def render_html(edition, name, template_text):
         .replace("{{MAIL}}", mail_html)
         .replace("{{SPORTS}}", sports_html)
         .replace("{{SIDEBAR}}", desks_html)
-        .replace("{{SUDOKU}}", "")
     )
 
 

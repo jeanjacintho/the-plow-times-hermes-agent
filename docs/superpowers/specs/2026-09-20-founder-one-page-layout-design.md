@@ -18,7 +18,7 @@ The design uses the existing monochrome newspaper vocabulary, local fonts, escap
 
 ## Content ownership
 
-The structured calendar `schedule` is the sole printed representation of events. Calendar prose is not printed when a schedule is present, and `priority.today` remains valid input/chat data but does not render inside the founder-focus card. This prevents the same event from appearing in both the founder card and calendar rail.
+The structured calendar `schedule` is the sole printed representation of events. Calendar prose is not printed when a schedule is present, and `priority.today` remains valid advisor evidence but does not render inside the founder-focus card. This prevents the same event from appearing in both the founder card and calendar rail.
 
 Weather remains the masthead ear. Mail and sports remain supported in structured data and chat output, but do not create separate printed desk boxes in the one-page founder briefing. The print page is reserved for the founder focus, one calendar, and the three news articles supplied by the new infrastructure.
 
@@ -30,7 +30,7 @@ The fixed template uses compact type, spacing, and source treatment sized for th
 
 ## Compatibility
 
-Chat output is unchanged, including full calendar, mail, sports, and priority data. Legacy/custom HTML templates continue receiving named placeholder replacements, but the shipped `template.html` uses the new one-page slots. Editions with fewer than three articles render the available articles without synthetic filler. More than three news articles fail validation by name rather than being omitted.
+Chat output is unchanged, including full calendar, mail, sports, and priority body data. Legacy/custom HTML templates continue receiving named placeholder replacements, but the shipped `template.html` uses the new one-page slots. Editions with fewer than three articles render the available articles without synthetic filler. More than three news articles fail validation by name rather than being omitted.
 
 The Sudoku feature is removed completely from the edition renderer, template, authoring instructions, and tests. The standalone generator and its tests are deleted because nothing consumes it after this change.
 

@@ -728,10 +728,6 @@ class TestHtml:
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{LEAD}}")
         assert 'href="https://example.com/weather"' in page
 
-    def test_legacy_sudoku_placeholder_is_removed_empty(self):
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "X{{SUDOKU}}Y")
-        assert page == "XY"
-
     def test_pdf_refuses_more_than_one_rendered_page(self, tmp_path, monkeypatch):
         class FakeDocument:
             pages = [object(), object()]

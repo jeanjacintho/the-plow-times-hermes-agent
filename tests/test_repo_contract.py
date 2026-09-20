@@ -345,7 +345,7 @@ class TestSoul:
         # wrapped python3, which tripped Hermes' /approve gate in a loop.
         # SKILL.md-only scanning misses this: the lock lives in
         # register_crons.py's printed recipe, not in a SKILL.md example.
-        skip = {"bearer_http.py", "sudoku.py"}  # imported, never invoked bare
+        skip = {"bearer_http.py"}  # imported, never invoked bare
         missing = []
         for path in sorted(ROOT.glob("pt-*/scripts/*.py")):
             if path.name in skip:
