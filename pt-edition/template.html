@@ -22,7 +22,7 @@
   body {
     margin: 0; color: var(--ink);
     font-family: Georgia, "Times New Roman", "Liberation Serif", serif;
-    font-size: 9px; line-height: 1.32;
+    font-size: 10px; line-height: 1.4;
   }
 
   .rule-top { border: 0; border-top: 1px solid var(--ink); margin: 0 0 4px; }
@@ -61,28 +61,28 @@
 
   .priority-wrap { margin: 0 0 8px; }
   .section--priority {
-    display: table; width: 100%; table-layout: fixed; padding: 0;
+    display: block; width: 100%; padding: 0 0 4px;
     border: 1px solid var(--ink);
   }
   .section--priority h2 {
-    display: table-cell; width: 112px; padding: 7px 8px; vertical-align: middle;
+    display: block; width: auto; margin: 0; padding: 5px 8px;
     background: var(--ink); color: var(--paper);
-    font: 700 8px/1.25 Arial, sans-serif; letter-spacing: 1.2px;
+    font: 700 8px/1.2 Arial, sans-serif; letter-spacing: 1.2px;
     text-align: center; text-transform: uppercase;
   }
   .section--priority .headline, .section--priority .priority-step,
   .section--priority .priority-list, .section--priority .priority-stage,
   .section--priority .priority-note, .section--priority .priority-inline,
-  .section--priority h3 { margin-left: 124px; margin-right: 8px; }
+  .section--priority h3 { margin-left: 10px; margin-right: 10px; }
   .section--priority .headline {
     margin-top: 6px; margin-bottom: 3px; color: var(--ink);
-    font-size: 12px; font-style: normal; font-weight: 700; line-height: 1.12;
+    font-size: 13px; font-style: normal; font-weight: 700; line-height: 1.15;
   }
   .priority-stage { margin-top: 4px; margin-bottom: 2px; color: var(--ink-soft); font: 6px Arial, sans-serif; letter-spacing: 1px; text-transform: uppercase; }
   .section--priority h3 { margin-top: 3px; margin-bottom: 1px; color: var(--ink-soft); font: 700 6px Arial, sans-serif; letter-spacing: .8px; }
-  .priority-note { margin-top: 0; margin-bottom: 2px; font-size: 7px; }
-  .priority-step { margin-top: 3px; margin-bottom: 3px; font-size: 8px; font-weight: 700; }
-  .priority-list, .priority-inline { margin-top: 0; margin-bottom: 4px; padding: 0; list-style: none; font-size: 7px; }
+  .priority-note { margin-top: 0; margin-bottom: 3px; font-size: 8px; }
+  .priority-step { margin-top: 4px; margin-bottom: 4px; font-size: 9px; font-weight: 700; }
+  .priority-list, .priority-inline { margin-top: 0; margin-bottom: 4px; padding: 0; list-style: none; font-size: 8px; }
   .priority-list li { margin-bottom: 2px; }
   .priority-list .src { color: var(--ink-soft); font-style: italic; }
   .priority-inline li { display: inline; }
@@ -90,19 +90,19 @@
   .priority-draft { white-space: pre-line; }
 
   .page-body { display: table; width: 100%; table-layout: fixed; }
-  .news-column { display: table-cell; width: 75%; padding-right: 10px; vertical-align: top; }
-  .calendar-rail { display: table-cell; width: 25%; padding-left: 10px; border-left: 1px solid var(--ink); vertical-align: top; }
-  .top-row { margin: 0 0 8px; padding: 0 0 8px; border-bottom: 2px solid var(--ink); }
+  .news-column { display: table-cell; width: 76%; padding-right: 11px; vertical-align: top; }
+  .calendar-rail { display: table-cell; width: 24%; padding-left: 11px; border-left: 1px solid var(--ink); vertical-align: top; }
+  .top-row { margin: 0 0 10px; padding: 0 0 10px; border-bottom: 2px solid var(--ink); }
   .section { margin: 0; padding: 0; }
   .section h2 {
     margin: 0 0 3px; font-family: "Big Caslon", Didot, "Bodoni MT", Georgia, serif;
-    font-size: 16px; font-weight: 900; line-height: 1.05; break-after: avoid;
+    font-size: 18px; font-weight: 900; line-height: 1.05; break-after: avoid;
   }
   .kicker { margin: 0 0 3px; color: var(--ink-soft); font: 700 6px Arial, sans-serif; letter-spacing: 1.3px; text-transform: uppercase; }
-  .headline { margin: 0 0 4px; color: var(--ink-soft); font-size: 8px; font-style: italic; line-height: 1.25; }
-  .section p { margin: 0 0 4px; font-size: 8.2px; line-height: 1.32; text-align: justify; hyphens: auto; }
-  .lead-cell h2 { font-size: 24px; line-height: 1; }
-  .lead-cell .headline { font-size: 10px; }
+  .headline { margin: 0 0 5px; color: var(--ink-soft); font-size: 9.5px; font-style: italic; line-height: 1.3; }
+  .section p { margin: 0 0 6px; font-size: 10px; line-height: 1.42; text-align: justify; hyphens: auto; }
+  .lead-cell h2 { font-size: 30px; line-height: 1; }
+  .lead-cell .headline { font-size: 11px; }
   .lead-cell .dropcap {
     float: left; margin: .08em .08em 0 0;
     font-family: "Bodoni MT", Didot, Georgia, serif;
@@ -117,7 +117,8 @@
   .news-pair-cell { display: table-cell; width: 50%; vertical-align: top; }
   .news-pair-cell:first-child { padding-right: 8px; }
   .news-pair-cell + .news-pair-cell { padding-left: 8px; border-left: 1px solid var(--hairline); }
-  .news-pair-cell h2 { font-size: 14px; }
+  .news-pair-cell h2 { font-size: 17px; }
+  .news-pair-cell .section p { font-size: 9.5px; line-height: 1.4; }
   .story-photo { margin: 3px 0 5px; break-inside: avoid; page-break-inside: avoid; }
   .story-photo img { display: block; width: 100%; height: auto; border: 1px solid var(--hairline); }
   .story-photo figcaption { margin-top: 2px; color: var(--ink-soft); font-size: 6px; font-style: italic; }
@@ -128,13 +129,13 @@
     font: 700 8px Arial, sans-serif; letter-spacing: 1.2px;
     text-align: center; text-transform: uppercase;
   }
-  .section--calendar .headline { margin: 5px 0; padding-bottom: 5px; border-bottom: 1px solid var(--hairline); font-size: 8px; }
+  .section--calendar .headline { margin: 6px 0; padding-bottom: 6px; border-bottom: 1px solid var(--hairline); font-size: 9px; }
   .cal-list { margin: 0; padding: 0; }
-  .cal-item { display: table; width: 100%; padding: 5px 0; border-bottom: 1px solid var(--hairline); }
+  .cal-item { display: table; width: 100%; padding: 7px 0; border-bottom: 1px solid var(--hairline); }
   .cal-icon-wrap, .cal-time, .cal-title { display: table-cell; vertical-align: top; }
   .cal-icon-wrap { width: 17px; padding-right: 3px; color: var(--ink-soft); }
-  .cal-time { width: 34px; font: 700 7px Arial, sans-serif; }
-  .cal-title { font: 7px/1.25 Arial, sans-serif; }
+  .cal-time { width: 35px; font: 700 8px Arial, sans-serif; }
+  .cal-title { font: 8px/1.3 Arial, sans-serif; }
   .desk-icon { display: inline-block; margin-right: 4px; vertical-align: -2px; }
   .wx-icon, .cal-icon, .mail-icon { display: block; }
 

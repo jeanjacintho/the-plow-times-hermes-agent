@@ -128,6 +128,16 @@
       "headline": "Harbor Mill stays on two ovens through winter",
       "body": "Harbor Mill's night crew voted to keep the second shift through March, after a week of counting sacks against winter orders from the inner towns.\n\nThe mill posted the result on the dock board at dawn. Bakers on the strip said the extra bags are what Saturday's market has been short of since August.",
       "sources": ["https://example.com/news/harbor-mill-shift"]
+    },
+    {
+      "kind": "section",
+      "topic_id": "t_a107",
+      "title": "Market adds an early bakers' gate",
+      "desk": "news",
+      "tag": "Customers",
+      "headline": "Saturday setup moves forward by half an hour",
+      "body": "Port Market will open the service gate to bakers at 06:30 on Saturday, thirty minutes earlier than last week.\n\nThe market coordinator said the change is a trial for the winter schedule. Stallholders must still clear the lane before the public gates open.",
+      "sources": ["https://example.com/news/market-bakers-gate"]
     }
   ]
 }

@@ -811,6 +811,10 @@ class TestSkills:
         assert "calendar-rail" in template
         assert "news-pair" in template
         assert "break-inside: avoid" in template
+        # A long localized focus title must be a horizontal bar. Making it
+        # a narrow table cell stacked the English title into five lines and
+        # turned the card into a black vertical slab in the real PDF.
+        assert ".section--priority h2 {\n    display: block;" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).
