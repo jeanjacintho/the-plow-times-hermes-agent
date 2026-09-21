@@ -69,7 +69,10 @@ def owner_language(config_path):
 def unavailable_line(blank, language):
     """`blank` is the unset variable's name; the sentence is the owner's."""
     tag = (language or "").lower().replace("_", "-")
-    key = "pt" if ("portug" in tag or tag in {"pt", "pt-br"}) else "en"
+    # Every pt-* region, not an allow-list of two: pt-PT and pt-AO are as
+    # Portuguese as pt-BR, and an allow-list silently answers them in English.
+    portuguese = tag == "pt" or tag.startswith("pt-") or "portug" in tag
+    key = "pt" if portuguese else "en"
     return UNAVAILABLE[key].format(name=blank)
 
 

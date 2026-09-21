@@ -514,7 +514,9 @@ def fill_news_desk(edition):
 
 def _is_portuguese(language):
     s = (language or "").lower().replace("_", "-")
-    return "portug" in s or s in {"pt", "pt-br"}
+    # Every pt-* region: pt-PT and pt-AO reached the English priority card
+    # here for the same reason print_edition.py's line did.
+    return "portug" in s or s == "pt" or s.startswith("pt-")
 
 
 def _owner_language(config):

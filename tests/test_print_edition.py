@@ -73,7 +73,10 @@ class TestPrinterGate:
         (None, "paper is unavailable on this install"),
         ("en", "paper is unavailable on this install"),
         ("pt-BR", "papel não está disponível nesta instalação"),
+        ("pt-PT", "papel não está disponível nesta instalação"),
+        ("pt_AO", "papel não está disponível nesta instalação"),
         ("Português", "papel não está disponível nesta instalação"),
+        ("es-MX", "paper is unavailable on this install"),
     ])
     def test_no_latch_credential_says_paper_is_unavailable_in_the_owners_language(
         self, tmp_path, monkeypatch, language, expected
