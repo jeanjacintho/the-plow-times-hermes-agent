@@ -30,8 +30,8 @@ save time for weather, calendar, mail, sports, or news; those desks use the time
 Every canonical scheduled execution runs a fresh tournament. A delivered edition dated today is generation-zero
 input on a same-day replay, never evidence that the current execution completed priority.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
-or news. Immediately after loading `pt-priority`, Orient and create `tournament.working.json`
-before any later-desk work. After compaction, resume that progress file alongside the last atomic
+or news. Immediately after loading `pt-priority`, Orient and create the run's wiki state page
+before any later-desk work. After compaction, resume that page alongside the last atomic
 `tournament.json` deliverable checkpoint.
 An older delivered card is generation-zero input, never proof that today's desk is complete.
 **Skipping this desk in the canonical scheduled paper is a bug, not a shortcut**:

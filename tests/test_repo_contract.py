@@ -713,7 +713,7 @@ class TestSkills:
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## Priority — first" in desks
         assert "Complete this desk before opening the shared browser" in desks
-        assert "create `tournament.working.json`" in desks
+        assert "create the run's wiki state page" in desks
         assert "never proof that today's desk is complete" in desks
         assert "run/desk-calendar/events.json" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
@@ -770,6 +770,30 @@ class TestSkills:
         assert "reserved 150-minute window" in desks
         assert "global batch budget starts after priority" in desks
         assert "Every canonical scheduled execution runs a fresh tournament" in desks
+        assert "tournament.working.json" not in text + desks
+
+    def test_priority_persists_replayable_research_and_ranks_facts(self):
+        text = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        for clause in (
+            "projects/theplowtimes/runs/<run-datetime>/state.md",
+            "after Orient and after every Challenge, Criticize, and Cull",
+            "`priority_case`",
+            "`reads`",
+            "reopens the decisive read receipts",
+            "critic also returns its own `reads`",
+            "private research state, never printed",
+            "one adjacent position",
+            "at most three existing entries",
+            "Only the final successful Cull of the run",
+            "no numeric score",
+            "Never run a separate polish generation",
+        ):
+            assert clause in text
+
+        qa = (ROOT / "pt-shared" / "assets" / "wiki" / "qa.md").read_text()
+        assert "Rank is positional" in qa
+        assert "one adjacent position" in qa
+        assert "current sourced facts" in qa
 
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"

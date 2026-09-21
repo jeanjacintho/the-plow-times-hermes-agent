@@ -9,8 +9,10 @@ The daily run is the only writer. It owns `/var/lib/hermes/pt/advisor.md`,
 `run/desk-priority/tournament.json`, and these Mac wiki pages:
 
 - `~/Plow/wiki/projects/theplowtimes/qa.md`: ranked `## Open` and `## Answered` entries,
-  each identified as `Q<n>`, at most 20 total.
+  each identified as `Q<n>`, at most 20 total. Answered entries are the sourced fact/FAQ base.
 - `~/Plow/wiki/projects/theplowtimes/resources.md`: documented read capabilities and sources.
+- `~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`: one private, auditable
+  snapshot of this run's research and tournament progress.
 
 Read both wiki pages again immediately before writing and fold owner edits into the new whole.
 The next daily run, not live intake, re-ranks Q&A by how much an answer changes the advice.
@@ -49,23 +51,27 @@ A delivered edition dated today is still generation zero on a replay, never proo
 tournament ran in the current cron session.
 
 Load this skill once during Orient. Preserve any canonical
-`/var/lib/hermes/pt/run/desk-priority/tournament.json` checkpoint, and write in-progress state to
-`tournament.working.json`. A complete checkpoint contains the canonical `priority` card;
-generation number; each champion's headline, decision, evidence locations, critic summary, and
-rank; and the ranked Open question IDs. If context is compacted, resume from the working file and
+`/var/lib/hermes/pt/run/desk-priority/tournament.json` checkpoint. Name the run from its scheduled
+local start as `YYYY-MM-DDTHHMM` and create
+`projects/theplowtimes/runs/<run-datetime>/state.md`. Copy the required OKF front matter shape from
+`qa.md`, with a run-specific title and description. The page is private research state, never printed.
+Rewrite that one page whole after Orient and after every Challenge, Criticize, and Cull;
+do not create per-generation files or an append-only event log. It holds the stage and generation,
+champions, contenders, priority cases, read receipts, unknowns, critic verdicts, fact-rank moves,
+and the last complete checkpoint summary. If context is compacted, resume from this page and the
 canonical checkpoint.
 **Never load this skill again in the same run.**
 
 Every child returns compact structured JSON of at most 1,200 characters, with no narrative preface.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
-into `tournament.working.json` before any other tool call or model work. Keep an in-progress `working`
-array with only decisions, evidence locations, unknowns, and verdicts; never copy tool transcripts
-or hidden reasoning. This file, not conversational memory, is the tournament state.
+into the run's wiki state page before any other model work. Keep only decisions, priority cases,
+replayable read receipts, evidence locations, unknowns, and verdicts; never copy tool transcripts
+or hidden reasoning. This page, not conversational memory, is the in-progress tournament state.
 
-**The parent never calls Latch, opens a Latch spillover file, or researches current evidence.**
-It only orchestrates compact children and reads the small local Orient/checkpoint files. All
-current-source research happens inside the bounded challenger and critic children. This keeps a
-three-generation tournament recoverable across context compaction.
+**The parent never calls Latch for research, opens a Latch spillover file, or researches current
+evidence.** Its only Latch operations are whole-page reads and writes for the run state, Q&A, and
+resource catalog. All current-source research happens inside the bounded challenger and critic
+children. This keeps a three-generation tournament recoverable across context compaction.
 
 Read tools from their installed documentation before using them. Mail uses the
 `google-workspace` skill; Messages uses `mcp__plow__plow_read_skill` with `name` = `imessage`;
@@ -92,12 +98,19 @@ operations. Each result is a claim/item pair, contrary evidence, unknowns, and s
 discoveries. Revisit owner-named sources, including URLs in `resources.md`; a URL received
 unsolicited in an inbound item is evidence for today, not a new standing source.
 
+Each writer also returns `priority_case`: two or three compact lines stating why this is the
+highest-leverage decision now, what competing action it beats, and the cost of waiting. Its
+`reads` array contains at most six receipts of `tool`, replayable sanitized `query`, `source`, and
+one-line `result`. Preserve selectors and item IDs needed to rerun a read; remove credentials,
+tokens, and private excerpts. The receipts belong only in the private run page, never the resource
+catalog or printed recommendation.
+
 ### 2. Criticize
 
 Run **one independent critic per recommendation**, for every incumbent and challenger, after
-research. Give critics the recommendation and source locations, never the writer's hidden
-reasoning. Each critic independently reopens evidence and uses Latch research to make the strongest
-case to cull it:
+research. Give critics the recommendation, `priority_case`, `reads`, and source locations, never
+the writer's hidden reasoning. Each critic reopens the decisive read receipts, independently
+checks the evidence, and uses Latch research to make the strongest case to cull it:
 
 - stale or already completed, including a meeting that already happened;
 - false, weak, or date-mismatched data;
@@ -105,7 +118,8 @@ case to cull it:
 - infeasible now or lower leverage than another action;
 - duplicate of or subsumed by another contender.
 
-Each returns checked claims, contrary evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
+Each critic also returns its own `reads` in the writer receipt shape, plus checked claims, contrary
+evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
 It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, keep the honest unavailable card.
 After the critic set returns, preserve every returned verdict in the compact working array; do not
 copy tool transcripts or claim a critic that did not return a verdict.
@@ -113,19 +127,26 @@ copy tool transcripts or claim a critic that did not return a verdict.
 ### 3. Cull
 
 Every generation reaches Cull unless fewer than three fully criticized targets remain. One culler sees the available targets,
-their item-backed research, and all prosecutions. It selects and ranks exactly three grounded,
+their priority cases, replayable reads, item-backed research, and all prosecutions. It selects and ranks exactly three grounded,
 distinct champions by decision impact, specificity, advisor fidelity, evidence, feasibility, and
-survival of criticism. Incumbency gives continuity, not immunity. A challenger wins only by
-beating an incumbent on the decision the owner should make now.
+survival of criticism. It explicitly compares why each action matters now, what it displaces, and
+the cost of waiting. Incumbency gives continuity, not immunity. A challenger wins only by beating
+an incumbent on the decision the owner should make now.
 
 A critic's verdict is evidence, not an elimination vote. When at least three fully criticized
 targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
 A recommendation without a supporting sourced quote is ineligible, not a slot to pad: its quoted
 words must support the recommendation's actual proposition, not merely come from the same advisor.
 
-The culler also ranks Open questions by decision impact, folds supported answers into Answered,
-and keeps no more than 20 entries. Missing sources remain Open. It consolidates sanitized resource
-discoveries, checkpoints `pt/advisor.md`, and derives the card.
+The culler also ranks Open questions by decision impact and folds supported answers into Answered.
+Each Answered entry is a current sourced fact/FAQ answer with its question, as-of date, and source
+items or URLs; missing sources remain Open. New entries receive an initial position by relevance.
+For existing entries, rank is positional. Only the final successful Cull of the run may move
+at most three existing entries by one adjacent position, at most once per entry: `+1` swaps upward
+and `-1` swaps downward. There is no numeric score. Record each move and its evidence in the run
+page; without evidence, make no move. Keep no more than 20 entries total. Earlier culls propose
+changes in run state but do not rewrite Q&A. The final culler consolidates sanitized resource discoveries,
+checkpoints `pt/advisor.md`, and derives the card.
 
 Each recommendation is (evidence carries the printed basis for company-specific premises):
 
@@ -155,8 +176,8 @@ the checkpoint `stage` is exactly
 ```
 
 Only after that exits zero, atomically move `tournament.candidate.json` over
-`tournament.json`, then refresh `tournament.working.json` from it. A failed gate leaves the
-previous checkpoint untouched and returns to Cull
+`tournament.json`, then refresh the run's wiki state from it. A failed gate leaves the previous
+checkpoint untouched and returns to Cull
 while time permits. Never split the card and tournament metadata across separate canonical files.
 
 ## Repeat and stop
@@ -164,6 +185,8 @@ while time permits. Never split the card and tournament metadata across separate
 Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
 stop merely because a generation retained all incumbents. Record the Orient start time in
 `tournament.json`. Complete at least three generations when 90 minutes remain before the cutoff.
+Every generation runs the same Challenge + research, Criticize, and Cull stages.
+Never run a separate polish generation or count rewriting as a generation.
 Increment `generation` only after that generation's Challenge, Research, Criticize, Cull, and
 candidate gate all completed; changing the number is not a substitute for running those stages.
 Keep `champions` in the culler's printed rank order and make their headlines exactly match the
