@@ -13,30 +13,24 @@ from conftest import load_module
 lang = load_module("owner_language", "pt-shared/scripts/owner_language.py")
 
 
-@pytest.mark.parametrize("language", [
-    "pt",
-    "pt-BR",
-    "pt-PT",          # European Portuguese -- an allow-list of two missed it
-    "pt-AO",          # Angolan
-    "pt_BR",          # underscore form Hermes sometimes passes through
-    "pt_AO",
-    "PT-br",          # case is not significant
-    "Português",      # the plain-English name record_owner_language.py stores
-    "portuguese",
+@pytest.mark.parametrize("language, portuguese", [
+    ("pt", True),
+    ("pt-BR", True),
+    ("pt-PT", True),          # European -- an allow-list of two missed it
+    ("pt-AO", True),          # Angolan
+    ("pt_BR", True),          # underscore form Hermes sometimes passes through
+    ("pt_AO", True),
+    ("PT-br", True),          # case is not significant
+    ("Português", True),      # the name record_owner_language.py stores
+    ("portuguese", True),
+    ("en", False),
+    ("en-GB", False),
+    ("English", False),
+    ("es-MX", False),         # Spanish, and notably not a pt- prefix
+    ("pts", False),           # merely starting with "pt" is not Portuguese
+    ("ptolemaic", False),
+    ("", False),
+    (None, False),
 ])
-def test_every_portuguese_tag_and_region(language):
-    assert lang.is_portuguese(language) is True
-
-
-@pytest.mark.parametrize("language", [
-    "en",
-    "en-GB",
-    "English",
-    "es-MX",          # Spanish, and notably not a pt- prefix
-    "pts",            # a tag that merely starts with "pt" is not Portuguese
-    "ptolemaic",
-    "",
-    None,
-])
-def test_everything_else_is_not_portuguese(language):
-    assert lang.is_portuguese(language) is False
+def test_which_tags_are_portuguese(language, portuguese):
+    assert lang.is_portuguese(language) is portuguese
