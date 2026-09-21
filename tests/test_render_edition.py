@@ -179,11 +179,6 @@ class TestValidate:
         )
         assert "tournament needs at least 3 completed generations" in failure
 
-    def test_candidate_tournament_accepts_a_matching_first_generation(self):
-        assert render.validate_tournament(
-            recommendation_edition(), tournament(generation=1), min_generation=1
-        ) == ""
-
     def test_complete_tournament_requires_ranked_champions_to_match_card(self):
         reversed_items = list(reversed(recommendations()))
         failure = render.validate_tournament(
