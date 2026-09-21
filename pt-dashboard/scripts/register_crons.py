@@ -117,8 +117,9 @@ _EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
 # sections at 12:30 share one job and a dropped hour is sweepable by name.
 _PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
 _LOCK_RE = re.compile(
-    r"^(?:daily\d*|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
+    r"^(?:daily\d*|paper-\d{4}|paper-workspace)-(\d{4}-\d{2}-\d{2})\.lock$"
 )
+WORKSPACE_LOCK = "paper-workspace"
 DEFAULT_LEAD_MINUTES = 0
 
 SUBSCRIPTION_PROMPT = (
@@ -134,13 +135,10 @@ SUBSCRIPTION_PROMPT = (
 def daily_prompt(lock_name, live=False):
     """The daily paper's run prompt, parametrized by its lock name.
 
-    lock_name is "daily" for the canonical slot and "daily2"/"daily3"/... for
-    an extra delivery time (delivery.extra_hours) -- each slot re-researches
-    and re-delivers the same paper independently, so each needs its own lock
-    or a second slot firing minutes after the first would read the first
-    slot's lock as "held" and silently skip the whole edition. It works in
-    one cron-fired session: acquire the run lock (two runs racing on the
-    SAME slot would deliver a hollow edition), research every active section
+    lock_name distinguishes the canonical slot ("daily") from extra delivery
+    times for archival only. Every paper shares one workspace lock because
+    their desk and topic scratch is shared. It works in one cron-fired session:
+    acquire the run lock, research every active section
     that belongs to the MAIN paper (no deliver_at, or deliver_at equal to
     delivery.hour in pt/config.json — not a section that owns another paper
     hour) and every assignment due today, compile one edition.json, render it,
@@ -152,23 +150,35 @@ def daily_prompt(lock_name, live=False):
     the PDF posted and print_edition.py was never invoked. It is inside
     post_to_chat.py now.
 
-    live marks the on-demand copy: it shares the daily lock, so it never races
-    the scheduled run, but it never writes pt-priority's page.
+    live marks the on-demand copy: it shares the workspace lock, so it never
+    races a scheduled run, but it never writes pt-priority's page.
     """
+    prepare = (
+        "/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py "
+        "(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
+        if lock_name == "daily" and not live else ""
+    )
+    desks = (
+        "run the priority tournament, then every other standing desk "
+        "pt-research/references/desks.md lists, in its order, "
+        if lock_name == "daily" and not live else
+        "do not run priority; reuse its atomic checkpoint or gap card, then run every other "
+        "standing desk pt-research/references/desks.md lists, starting with weather, "
+    )
     return (
         f"Run the daily edition now, in one session. First run "
         f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
-        f"--name {lock_name}-<today's date in the owner's "
-        f"zone> --stale-minutes 120; if its output is 'held', another run owns "
-        f"this slot -- say NO_REPLY and stop. Then "
+        f"--name {WORKSPACE_LOCK}-<today's date in the owner's "
+        f"zone> --stale-minutes 180; if its output is 'held', another paper owns "
+        f"the workspace -- say NO_REPLY and stop. Then "
+        f"{prepare}"
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
         f"(delivered sections are yesterday's paper, not a skip). Run "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py check-paper "
         f"--deliver-at main --as-of <today's YYYY-MM-DD>. If it refuses, repeat "
         f"its named roster, run /var/lib/hermes/skills/pt-shared/scripts/run_lock.py "
-        f"release --name the same {lock_name}-<date>, and stop before research. "
-        f"Then run pt-research: first "
-        f"every standing desk pt-research/references/desks.md lists, in its order, "
+        f"release --name the same {WORKSPACE_LOCK}-<date>, and stop before research. "
+        f"Then run pt-research: first {desks}"
         f"then every active news section with no deliver_at (or deliver_at "
         f"equal to delivery.hour in pt/config.json — skip sections that belong "
         f"to another paper hour) and every assignment with run_on <= "
@@ -190,7 +200,7 @@ def daily_prompt(lock_name, live=False):
         f"delivered then pending, assignments delivered. Do not mark desks. "
         f"Release the lock "
         f"with /var/lib/hermes/skills/pt-shared/scripts/run_lock.py release "
-        f"--name the same {lock_name}-<date>. "
+        f"--name the same {WORKSPACE_LOCK}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     ) + (" This is a live copy: print today's advisor card as it stands, or the gap "
          "card, and make no advisor pass." if live else "")
@@ -201,16 +211,17 @@ def paper_prompt(lock_name, hour):
     return (
         f"Run the {hour} paper now, in one session. First run "
         f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
-        f"--name {lock_name}-<today's date in the owner's "
-        f"zone> --stale-minutes 120; if its output is 'held', another run owns "
-        f"this slot -- say NO_REPLY and stop. Then "
+        f"--name {WORKSPACE_LOCK}-<today's date in the owner's "
+        f"zone> --stale-minutes 180; if its output is 'held', another paper owns "
+        f"the workspace -- say NO_REPLY and stop. Then "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
         f"(delivered sections are yesterday's paper, not a skip). Run "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py check-paper "
         f"--deliver-at {hour}. If it refuses, repeat its named roster and stop before "
         f"research only after running /var/lib/hermes/skills/pt-shared/scripts/run_lock.py "
-        f"release --name the same {lock_name}-<date>. Then run pt-research: first "
-        f"every standing desk pt-research/references/desks.md lists, in its order, "
+        f"release --name the same {WORKSPACE_LOCK}-<date>. Then run pt-research: first "
+        f"do not run priority; reuse its atomic checkpoint or gap card, then run every other "
+        f"standing desk pt-research/references/desks.md lists, starting with weather, "
         f"then ONLY active news sections whose deliver_at is {hour} "
         f"(read topics.json; do not research unscoped sections, sections of "
         f"another hour, or assignments). Write notes under run/<id>/ and "
@@ -227,7 +238,7 @@ def paper_prompt(lock_name, hour):
         f"Mark every news topic it carried: sections delivered then pending. "
         f"Do not mark desks. Do not mark assignments. Release the lock "
         f"with /var/lib/hermes/skills/pt-shared/scripts/run_lock.py release "
-        f"--name the same {lock_name}-<date>. "
+        f"--name the same {WORKSPACE_LOCK}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
 
@@ -470,6 +481,22 @@ def focused_paper_hours(topics, delivery_hour):
     return sorted(hours)
 
 
+def require_workspace_spacing(hours):
+    """Refuse paper starts whose shared-workspace windows can overlap."""
+    minimum_minutes = 180
+    for index, first in enumerate(hours):
+        first_hour, first_minute = _hour_minute(first)
+        first_total = first_hour * 60 + first_minute
+        for second in hours[index + 1:]:
+            second_hour, second_minute = _hour_minute(second)
+            distance = abs(first_total - (second_hour * 60 + second_minute))
+            if min(distance, 24 * 60 - distance) < minimum_minutes:
+                raise SystemExit(
+                    f"refusing to register: paper times {first} and {second} are less than "
+                    f"{minimum_minutes} minutes apart; their shared workspace can overlap."
+                )
+
+
 def paper_job(hour, lead_minutes, env=None):
     """One focused paper: desks plus sections whose deliver_at is this hour."""
     name = paper_job_name(hour)
@@ -505,13 +532,15 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     deliver_at that is not delivery.hour (a different newspaper), then one
     job per subscription.
     """
+    focused_hours = focused_paper_hours(topics, delivery_hour)
+    require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
     jobs = []
     if has_paper(topics):
         jobs.append(daily_job(delivery_hour, lead_minutes, env))
         for n, hour in enumerate(extra_hours, start=2):
             jobs.append(daily_job(hour, lead_minutes, env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
-        for hour in focused_paper_hours(topics, delivery_hour):
+        for hour in focused_hours:
             jobs.append(paper_job(hour, lead_minutes, env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)

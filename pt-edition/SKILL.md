@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render the one-page PDF plus any chat-only desk companion, post them via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render the Letter PDF plus any chat-only desk companion, post them via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -111,7 +111,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   printed page is the masthead ear (a vendored Atlas icon and high/low, or
   the named miss when research failed); it has no sources line. The chat
   edition still prints weather sources and gaps.
-- **`desk` is the newspaper department.** On the printed one-pager,
+- **`desk` is the newspaper department.** At the front of the printed paper,
   weather occupies the masthead ear, priority occupies the founder-focus
   band, calendar occupies the sole right rail, and news occupies the main
   well. The longest news body leads at full width; article order breaks ties
@@ -119,23 +119,13 @@ HTML.** Hand-write `edition.json` under the run directory:
   chat edition but do not consume print space. Every desk keeps the same title / headline /
   body / sources shape; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
-  `run/desk-priority/notes.json` without rewriting.** When present it
-  replaces the prose body on the printed page (`skip_body`); `headline` is
-  the day's priority, one action in at most 120 characters, and `body` is
-  the first step in prose for the chat edition. Shape: `why` (1–3 objects
-  with `text` and `source_label`, and optionally `url` and `quote` — a
-  `quote` needs its `url` too, and at least one item needs a `quote`:
-  `url` is a post in `pt-setup/assets/advisors/salyer-bank.json` (one `{url, title,
-  date, entries}` record per post), `source_label` is its exact `title`,
-  and `quote` is verbatim from one of its `entries`, at most 25 words; the
-  card prints it in quotation marks with the title linked),
-  `first_step`, optional `not_today` (at most two strings), `questions`
-  (at most three strings, printed first), and optional `stage_label`,
-  `stage_why`, `yesterday`, `week`, `draft` (non-blank strings), `who`
-  (at most three strings) and `today` (at most four `{"time", "title",
-  "note"}`, where `time` is a start such as "10:00", or null for an
-  all-day event). `today` remains accepted advisor evidence but does not
-  print: the calendar schedule is the page's only event list.
+  `run/desk-priority/tournament.json` without rewriting.** The printed card
+  already talks to the reader. When present it replaces the section prose on print. Shape:
+  `recommendations` is exactly three ranked objects, each with non-blank `headline`, `body`,
+  `first_step`, `evidence` (one to three `{claim, source, url?}` items), and
+  `advisor: {name, quote, url}`; `body` is at most 1,024 characters and every present `url`
+  is HTTP(S). `questions` is zero to three non-blank strings. The advisor desk owns all semantic
+  judgment; the renderer enforces only shape, length, URL form, escaping, and layout.
 - **`forecast` is optional, weather-only, and drawn — not written.** Exactly
   one day object: `day` (short label, e.g. "Tue"), `date` (e.g.
   "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
@@ -203,8 +193,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   (measured live: two real appointments, empty `events.json` after a
   failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
-  it from `run/desk-priority/notes.json` without rewriting. If those notes
-  are missing or say `"status": "unavailable"`, or the **As of** date in
+  its `priority` object from `run/desk-priority/tournament.json` without rewriting. If that
+  complete checkpoint is missing, or the **As of** date in
   `pt/advisor.md` is not today, leave the section out of
   `edition.json`: `render_edition.py` then fills the slot with its honest
   gap card. Never omit the slot any other way. Mail only when
@@ -220,14 +210,14 @@ HTML.** Hand-write `edition.json` under the run directory:
   compile a main-paper section into a noon paper, or the reverse. Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
-- **The PDF is exactly one Letter sheet.** Include no more than three news
-  articles. The renderer keeps every included word and refuses the PDF by
-  name if WeasyPrint lays it out onto anything other than one page; it never
-  truncates or silently drops a fourth article. Never hand-split copy.
+- **Let the Letter PDF paginate naturally.** Include no more than three news
+  articles. The renderer keeps every included word and may use a second page
+  instead of shrinking readable type; it never truncates or silently drops a
+  fourth article. Never hand-split copy.
 - **`location` is this run's city** from the Latch location step, a string,
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
-- **`layout` remains accepted for compatibility**, but the fixed one-page
+- **`layout` remains accepted for compatibility**, but the fixed newspaper
   template makes the longest news body the lead; article order breaks ties
   and otherwise preserves the remaining pair.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
@@ -263,11 +253,18 @@ transcript after it is the wall of text they did not ask for.
    complete command, printer or not; **copy it and change only the
    paths.** Do not add flags that are not here:
 
-       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf --companion run/<id>/edition.companion.txt
+       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --tournament /var/lib/hermes/pt/run/desk-priority/tournament.json --pdf run/<id>/edition.pdf --companion run/<id>/edition.companion.txt
 
    The printed page is this same PDF. `--chat PATH` is optional and takes
    a path when used; the chat transcript is not posted, so you normally
    leave it out entirely.
+
+   For an edition carrying `priority.recommendations`, `--tournament` is the delivery gate, not an
+   optional decoration. It refuses fewer than three completed generations, an unfinished
+   checkpoint, or a card that differs from the checkpoint. Topic-only editions and the honest
+   unavailable-card fallback have no recommendations, so this flag does not require a tournament
+   for them. Return to the priority tournament and run a missing generation; never edit its
+   generation number merely to satisfy the gate.
 
    **Continue only when the renderer exits zero and
    `run/<id>/edition.pdf` exists.** The renderer removes an old target before
@@ -361,10 +358,8 @@ transcript after it is the wall of text they did not ask for.
 The renderer validates `edition.json` structurally before emitting anything
 (the same discipline `pt_config_gate.py` holds for the config): a bad shape
 exits non-zero with the failing field named. Page rules then refuse the
-priority card the same way: its own words (not `who`, `draft`, an event title
-or a quote) name no file or path and never the reader in the third person
-("the founder", "the CEO", "the owner", "o fundador" and the like); its
-headline is one action (no second sentence, ` then ` or ` + `) in at most 120
-characters; and a `why` with `url` or `quote` matches the advisor bank. Other
-desks get the structural gate only. A run that cannot render says so
+priority card the same way: its own recommendation prose names no file or path and never labels
+the reader in the third person ("the founder", "the CEO", "the owner", "o fundador" and the
+like). Content ranking and quote selection belong to the advisor desk, not this deterministic
+gate. Other desks get the structural gate only. A run that cannot render says so
 and waits for the next cycle — it does not ship a half page.

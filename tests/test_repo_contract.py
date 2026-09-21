@@ -712,20 +712,78 @@ class TestSkills:
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## Priority — first" in desks
+        assert "Complete this desk before opening the shared browser" in desks
+        assert "create `tournament.working.json`" in desks
+        assert "never proof that today's desk is complete" in desks
         assert "run/desk-calendar/events.json" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
-        assert "run/desk-priority/notes.json" in skill
+        assert "run/desk-priority/tournament.json" in skill
         assert "`name` = `imessage`" in skill
         assert "**An event is its people,**" in skill
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "record_edition.py" in edition
-        assert "Skipping this desk is a bug" in desks
+        assert "Skipping this desk in the canonical scheduled paper is a bug" in desks
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "Only the canonical scheduled paper runs priority" in soul
+        assert "reuse its priority checkpoint or gap card and begin with weather" in soul
         assert "the founder" in skill
         assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "def ensure_priority_desk" in renderer
         assert "Never omit the slot" in edition
+
+    def test_priority_evolution_contract(self):
+        text = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        for clause in (
+            "one to three inherited champions and three challengers",
+            "one independent critic per recommendation",
+            "A critic is a prosecutor, never a reviser",
+            "unknown, never disproved",
+            "the prior fully criticized champion set stands",
+            "Every generation reaches Cull",
+            "resources.md",
+            "at most 1,024 characters",
+            "tournament.json",
+            "Never load this skill again",
+            "A critic's verdict is evidence, not an elimination vote",
+            "Never say fewer is fine",
+            "Never split the card and tournament metadata",
+            "generation_<n>_complete_gate_passed_checkpoint_written",
+            "An inherited champion without fresh criticism invalidates the generation",
+            "at most six tool calls",
+            "Do not list or rediscover directories",
+            "150 minutes after Orient began",
+            "at most 1,200 characters",
+            "after every delegate set returns",
+            "Complete at least three generations",
+            "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
+            "A recommendation without a supporting sourced quote is ineligible",
+            "global paper budget does not shorten",
+            "dated today is still generation zero",
+            "The parent never calls Latch",
+            "proposes and researches one contender",
+            "claim a critic that did not return a verdict",
+        ):
+            assert clause in text
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        assert "reserved 150-minute window" in desks
+        assert "global batch budget starts after priority" in desks
+        assert "Every canonical scheduled execution runs a fresh tournament" in desks
+
+    def test_bundled_advisors_are_one_named_markdown_file_each(self):
+        advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"
+        markdown = sorted(p.name for p in advisor_dir.glob("*.md") if p.name != "README.md")
+        assert markdown == ["patrick-salyer.md"]
+        assert not list(advisor_dir.glob("*-bank.json"))
+        priority = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "every `*.md` except `README.md`" in priority
+        assert "salyer-*" not in priority and "salyer-bank.json" not in priority
+        assert "owner advisor page" not in priority
+        overview = (ROOT / "pt-shared" / "assets" / "wiki" / "overview.md").read_text()
+        advisor_readme = (advisor_dir / "README.md").read_text()
+        assert "Add your own advisor" not in overview
+        assert "Owner-added advisors" not in advisor_readme
 
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
         # Measured live 2026-09-18: two real appointments, paper said the
@@ -756,7 +814,7 @@ class TestSkills:
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
                      "record_owner_language.py", "reconcile_pt_skills.py",
-                     "seal_chat_session.py"):
+                     "seal_chat_session.py", "prepare_daily_run.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_record_setup_is_executable_and_referenced(self):
@@ -812,7 +870,7 @@ class TestSkills:
         # A long localized focus title must be a horizontal bar. Making it
         # a narrow table cell stacked the English title into five lines and
         # turned the card into a black vertical slab in the real PDF.
-        assert ".section--priority h2 {\n    display: block;" in template
+        assert ".section--priority > h2 {\n    display: block;" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).
@@ -832,7 +890,6 @@ class TestSkills:
             "Delattre",
             "McDonald",
             "SW Blumenau",
-            "Patrick Salyer",
             "$1-10M",
             "Blueprint",
         ):
@@ -841,6 +898,11 @@ class TestSkills:
         assert jpg.is_file() and jpg.stat().st_size > 0
         assert not (ROOT / "index" / "edition-page-2.jpg").exists()
         assert not (ROOT / "index" / "edition-page-3.jpg").exists()
+
+    def test_recorder_has_only_the_current_recommendation_schema(self):
+        recorder = (ROOT / "pt-edition" / "scripts" / "record_edition.py").read_text()
+        assert "CARD_LINES" not in recorder
+        assert 'card.get("why")' not in recorder
 
     def test_cross_skill_imports_resolve(self):
         # register_crons.py imports topics from pt-intake/scripts at run time;
@@ -987,6 +1049,8 @@ class TestDeployment:
         # enough; the answer is both, and a probe that proves both.
         assert "--python /opt/hermes/.venv/bin/python3" in text
         assert "--python /usr/bin/python3" in text
+        assert text.count('"PyYAML==') == 2
+        assert "import yaml" in text
         # The probe must exercise the plain shell AND the login shell: each
         # one alone has already shipped a broken PDF leg.
         assert "bash -lc" in text, "the build probe does not test a login shell"

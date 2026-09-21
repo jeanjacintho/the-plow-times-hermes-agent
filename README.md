@@ -6,10 +6,11 @@ A [Hermes](https://howto.plow.co/hermes) agent on [Plow Chat](https://howto.plow
 
 ## What it is
 
-The product is a **one-page paper**. It can open with **what Patrick Salyer
+The product is a **compact Letter paper**. It can open with **what Patrick Salyer
 would tell you** after watching your last day, learned from your Mac, then
 weather, one calendar rail, and up to three stories you told it to cover. The
-longest story leads; the other two sit side by side. That page goes to a
+longest story leads; the other two sit side by side. Readability wins over an
+artificial page limit, so a dense edition may continue onto a second sheet. It goes to a
 printer on your Mac when one is there, and the same edition can land as a PDF
 in chat. Mail and sports stay available in the chat edition and research
 context, but do not compete for space on the printed page.
@@ -24,12 +25,12 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 
 ## What goes in the paper
 
-- **Printed desks** kept on the one-pager: the advisor's desk (your stage,
-  one focus with the people and a draft, and what not to do, read from your
-  mail, messages and calendar; there is no template to fill in, and you steer
-  it by texting corrections), weather, and one calendar rail. Mail and sports
-  remain chat-only. The advisor's desk thinks
-  for about 40 minutes per pass, so set `delivery.lead_minutes` (up to 179, and
+- **Printed desks** kept at the front of the paper: the advisor's desk (three ranked,
+  sourced recommendation essays challenged by independent critics using your
+  mail, messages, calendar and owner-named sources; there is no template to fill
+  in, and you steer it by texting answers and corrections), weather, and one
+  calendar rail. Mail and sports remain chat-only. The advisor's desk uses
+  the configured overnight window, so set `delivery.lead_minutes` (up to 179, and
   never so much that the run would start before midnight of its delivery day;
   registration refuses that) to have the paper arrive by the delivery hour.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.

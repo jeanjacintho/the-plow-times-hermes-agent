@@ -98,6 +98,7 @@ RUN apt-get update \
 # instead of shipping quietly.
 ARG WEASYPRINT_VERSION=62.3
 ARG PYDYF_VERSION=0.10.0
+ARG PYYAML_VERSION=6.0.3
 # BOTH interpreters, because which one `python3` means depends on the shell.
 # Measured live on 2026-09-16, after the venv-only install shipped:
 #   `sh -c 'command -v python3'`      -> /opt/hermes/.venv/bin/python3   (weasyprint 62.3)
@@ -114,11 +115,11 @@ ARG PYDYF_VERSION=0.10.0
 # (verified in the running container) and both interpreters are 3.13.5, so
 # one wheel set is valid for both.
 RUN uv pip install --python /opt/hermes/.venv/bin/python3 \
-      "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" \
+      "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" "PyYAML==${PYYAML_VERSION}" \
  && uv pip install --python /usr/bin/python3 \
       --target /usr/local/lib/python3.13/dist-packages \
-      "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" \
- && probe="import weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)" \
+      "weasyprint==${WEASYPRINT_VERSION}" "pydyf==${PYDYF_VERSION}" "PyYAML==${PYYAML_VERSION}" \
+ && probe="import yaml, weasyprint; weasyprint.HTML(string='<p>build probe</p>').write_pdf('/tmp/probe.pdf'); import os; os.remove('/tmp/probe.pdf'); print('weasyprint', weasyprint.__version__)" \
  && sh -c "python3 -c \"$probe\"" \
  && bash -lc "python3 -c \"$probe\"" \
  && bash -c "python3 -c \"$probe\""

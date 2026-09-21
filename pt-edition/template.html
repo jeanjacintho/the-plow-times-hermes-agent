@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!--
-  The Founder Times fixed one-page edition.
+  The Founder Times Letter edition.
 
   render_edition.py escapes every dynamic value and converts an optional
   story photo to a self-contained grayscale data URI before this template
@@ -64,7 +64,7 @@
     display: block; width: 100%; padding: 0 0 4px;
     border: 1px solid var(--ink);
   }
-  .section--priority h2 {
+  .section--priority > h2 {
     display: block; width: auto; margin: 0; padding: 5px 8px;
     background: var(--ink); color: var(--paper);
     font: 700 8px/1.2 Arial, sans-serif; letter-spacing: 1.2px;
@@ -88,6 +88,32 @@
   .priority-inline li { display: inline; }
   .priority-inline li + li::before { content: " · "; }
   .priority-draft { white-space: pre-line; }
+  .priority-grid { display: block; width: 100%; }
+  .priority-rec {
+    padding: 8px 10px 6px; vertical-align: top;
+  }
+  .priority-feature { border-bottom: 1px solid var(--hairline); }
+  .priority-feature .priority-rec { display: block; width: auto; }
+  .priority-pair { display: table; width: 100%; table-layout: fixed; }
+  .priority-pair .priority-rec { display: table-cell; width: 50%; }
+  .priority-pair .priority-rec + .priority-rec { border-left: 1px solid var(--hairline); }
+  .section--priority .priority-rec h2 {
+    margin: 1px 0 3px; padding: 0; background: transparent; color: var(--ink);
+    font: 700 14px/1.1 Georgia, "Times New Roman", serif;
+    text-align: left; text-transform: none; letter-spacing: 0;
+  }
+  .section--priority .priority-rec p {
+    margin: 0 0 5px; font-size: 9.5px; line-height: 1.32; text-align: left;
+  }
+  .section--priority .priority-rec .priority-rank {
+    margin: 0; color: var(--ink-soft); font: 700 7px/1 Arial, sans-serif;
+  }
+  .priority-evidence { margin: 3px 0 5px; padding-left: 14px; font-size: 8px; line-height: 1.3; }
+  .priority-evidence li { margin-bottom: 2px; }
+  .priority-rec blockquote {
+    margin: 5px 0 0; padding-top: 4px; border-top: 1px solid var(--hairline);
+    color: var(--ink-soft); font-size: 8px; line-height: 1.3;
+  }
 
   .page-body { display: table; width: 100%; table-layout: fixed; }
   .news-column { display: table-cell; width: 76%; padding-right: 11px; vertical-align: top; }

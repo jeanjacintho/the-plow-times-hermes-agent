@@ -13,12 +13,20 @@ rec = load_module("record_edition", "pt-edition/scripts/record_edition.py")
 SP = timezone(timedelta(hours=-3))
 MORNING = datetime(2026, 9, 19, 6, 4, tzinfo=SP)
 AFTERNOON = datetime(2026, 9, 19, 14, 0, tzinfo=SP)
-CARD = {"stage_label": "Discovery ($0–1M ARR)", "stage_why": "$4K MRR as of Sep 10",
-        "first_step": "Send Raj the pilot terms", "who": ["Raj — replied to the launch post"],
-        "draft": "Raj, here are the terms.", "not_today": ["Hiring a VP Sales"],
-        "why": [{"text": "A pilot is the proof", "quote": "Proof beats promises.",
-                 "source_label": "The Blueprint", "url": "https://example.com/blueprint"}],
-        "today": [{"time": "10:00", "title": "Dentist", "note": "private"}]}
+RECOMMENDATION = {
+    "headline": "Close the Acme pilot",
+    "body": "The pilot is the shortest path to evidence that changes the next financing decision.",
+    "evidence": [{"claim": "Acme asked for pilot terms", "source": "Gmail",
+                  "url": "https://example.com/acme"}],
+    "first_step": "Send Raj the pilot terms",
+    "advisor": {"name": "Patrick Salyer", "quote": "Proof beats promises.",
+                "url": "https://example.com/blueprint"},
+}
+CARD = {"recommendations": [
+    RECOMMENDATION,
+    {**RECOMMENDATION, "headline": "Confirm the runway model"},
+    {**RECOMMENDATION, "headline": "Ask a customer for a reference"},
+], "questions": ["Q1 — Which customer would publicly vouch for you?"]}
 
 
 @pytest.fixture(autouse=True)
@@ -63,8 +71,13 @@ class TestRecord:
         out = rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
         assert out == f"RECORDED {EDITIONS}/2026-09-19.md"
         meta, body = split_page(day(mac))
-        assert meta["priority"]["first_step"] == "Send Raj the pilot terms"
+        assert meta["priority"]["recommendations"][0]["first_step"] == "Send Raj the pilot terms"
         assert {"resource": "https://news.example/fx"} in meta["sources"]
+        assert {"resource": "https://example.com/acme"} in meta["sources"]
+        assert {"resource": "https://example.com/blueprint"} in meta["sources"]
+        assert "### 1. Close the Acme pilot" in body
+        assert "Proof beats promises." in body
+        assert "Q1 — Which customer would publicly vouch for you?" in body
         assert "BRL up 1% on Sep 18 (https://news.example/fx)" in body
         assert "Could not source: the central bank's comment" in body
         assert "editions/2026-09-19.md" in (mac.home / "Plow" / "wiki" / OVERVIEW).read_text()
