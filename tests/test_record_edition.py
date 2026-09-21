@@ -136,6 +136,36 @@ class TestRecord:
         assert meta["sections"]["t_9f2a"] == {
             "headline": "The real firms",
             "printed": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"}]}
+
+    def test_a_later_editions_missing_headline_keeps_the_earlier_one(self, mac, tmp_path):
+        # render_edition.py's `elif headline:` guard allows a section with no
+        # headline; a later same-day edition like that must not blank a
+        # headline an earlier edition already gave the section, and a
+        # claim/url repeated between editions must not be recorded twice.
+        def write(run_name, headline, notes):
+            run_dir = tmp_path / "run" / run_name
+            run_dir.mkdir(parents=True, exist_ok=True)
+            notes_dir = tmp_path / "run" / "t_9f2a"
+            notes_dir.mkdir(parents=True, exist_ok=True)
+            (notes_dir / "notes.json").write_text(json.dumps({"topic_id": "t_9f2a", "notes": notes}))
+            sections = [{"kind": "section", "topic_id": "t_9f2a", "desk": "news", "title": "The dollar",
+                         "headline": headline, "body": "The real rose 1%.",
+                         "sources": ["https://news.example/fx"]}]
+            path = run_dir / "edition.json"
+            path.write_text(json.dumps({"date": "2026-09-19", "location": "Sao Paulo", "sections": sections}))
+            return path
+
+        w = Wiki(mac.call_tool)
+        first = [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"}]
+        second = [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"},
+                  {"claim": "BRL steady by close", "url": "https://news.example/fx2"}]
+        rec.record(w, write("daily-2026-09-19", "The real firms", first), "cht_1", MORNING)
+        rec.record(w, write("daily2-2026-09-19", "", second), "cht_1", AFTERNOON)
+        meta = split_page(day(mac))[0]
+        assert meta["sections"]["t_9f2a"] == {
+            "headline": "The real firms",
+            "printed": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"},
+                        {"claim": "BRL steady by close", "url": "https://news.example/fx2"}]}
         assert "t_1234" not in meta["sections"]  # mail is the owner's own account
 
 

@@ -73,7 +73,8 @@ def _section(section, notes):
 
 def _section_record(section, notes, prior):
     """This section's structural frontmatter entry: its latest headline and every
-    sourced claim, merged with what an earlier edition the same day already recorded."""
+    sourced claim, merged with what an earlier edition the same day already recorded.
+    A later edition with no headline of its own does not blank out one already known."""
     printed = list(prior.get("printed") or [])
     seen = {(p["claim"], p["url"]) for p in printed}
     for note in notes.get("notes") or []:
@@ -81,7 +82,8 @@ def _section_record(section, notes, prior):
         if pair not in seen:
             printed.append({"claim": note["claim"], "url": note["url"]})
             seen.add(pair)
-    return {"headline": section.get("headline") or "", "printed": printed}
+    headline = section.get("headline") or prior.get("headline") or ""
+    return {"headline": headline, "printed": printed}
 
 
 def record(wiki, edition_json, chat, now):
