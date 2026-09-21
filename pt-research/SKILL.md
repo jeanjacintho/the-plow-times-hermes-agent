@@ -59,7 +59,8 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
    as you go.
    **Before desks, reopen news:**
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections`
-   Sections stuck at `delivered` are not "already done" — they are yesterday's
+   (It only resets status; `post_to_chat.py` stamps `last_edition_at` after a
+   successful POST.) Sections stuck at `delivered` are not "already done" — they are yesterday's
    paper. Measured live 2026-09-18, skipping them shipped weather/calendar/mail
    with no news. Do not skip a section because its status was delivered.
 1. Read the topic (or each news topic of the batch) from `pt/topics.json` (the id
@@ -94,7 +95,7 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
    ```
 
 5. Leave each topic's status alone after that — pt-edition's delivery marks
-   `delivered`. (A run that dies mid-pass leaves it `running` on purpose: a
+   assignments `delivered` and `post_to_chat.py` reopens sections. (A run that dies mid-pass leaves it `running` on purpose: a
    silent return to `pending` would make a failed pass look like no pass at
    all.)
 
