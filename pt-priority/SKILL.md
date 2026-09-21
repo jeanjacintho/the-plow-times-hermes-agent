@@ -183,6 +183,8 @@ A critic's verdict is evidence, not an elimination vote. When at least three ful
 targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
 A recommendation without a supporting sourced quote is ineligible, not a slot to pad: its quoted
 words must support the recommendation's actual proposition, not merely come from the same advisor.
+Before building the candidate, rewrite every reference to the owner by name or role into direct reader voice
+in every recommendation and question, using `owner.language`.
 
 The culler proposes Open-question ranks and supported answers only in run state. Each Answered entry
 is a current sourced fact/FAQ answer with its question, as-of date, and source items or URLs;

@@ -771,6 +771,7 @@ class TestSkills:
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
             "--tournament",
             "A recommendation without a supporting sourced quote is ineligible",
+            "rewrite every reference to the owner by name or role into direct reader voice",
             "global paper budget does not shorten",
             "dated today is still generation zero",
             "The parent never calls Latch",
