@@ -822,6 +822,8 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         p = crons.daily_prompt("daily")
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
+        assert "post_to_chat.py already finalizes every carried topic" in p
+        assert "sections delivered then pending" not in p
         assert "printer.configured" in p
         assert "Do not invoke pt-print" in p
         assert "reopen-sections" in p
@@ -862,6 +864,8 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         p = crons.paper_prompt("paper1", "12:00")
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
+        assert "post_to_chat.py already finalizes every carried topic" in p
+        assert "sections delivered then pending" not in p
         assert "printer.configured" in p
 
     @pytest.mark.parametrize("prompt", [

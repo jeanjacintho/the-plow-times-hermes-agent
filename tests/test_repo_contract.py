@@ -189,6 +189,7 @@ class TestSoul:
         # sections went unread: a one-off edition carries only its own topic.
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
         assert "not a topic" in intake, "the on-demand row is missing from the routing table"
+        assert "post_to_chat.py finalizes it" in intake
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "## On demand" in edition
         # It must POINT at the cron's own recipe, never restate it: a second
@@ -248,6 +249,7 @@ class TestSoul:
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "print_edition.py" in edition
         assert "call `pt-print`" in edition
+        assert "Do not mark topics after posting" in edition
 
         seal = ROOT / "pt-shared" / "scripts" / "seal_chat_session.py"
         assert seal.is_file()
@@ -713,7 +715,7 @@ class TestSkills:
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## Priority — first" in desks
         assert "Complete this desk before opening the shared browser" in desks
-        assert "create `tournament.working.json`" in desks
+        assert "create the run's wiki state page" in desks
         assert "never proof that today's desk is complete" in desks
         assert "run/desk-calendar/events.json" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
@@ -738,6 +740,16 @@ class TestSkills:
         for clause in (
             "one to three inherited champions and three challengers",
             "one independent critic per recommendation",
+            "six independent critic children in one delegate set",
+            "Mechanical loop (authoritative)",
+            "Do not make another `delegate_task` call until that wiki write returns success",
+            "critic task count is `I + 3`",
+            "set its `Stage` to Cull complete",
+            "Recovery from `Cull complete` proceeds to the next required action",
+            "Generations one and two advance from their wiki Cull checkpoint",
+            "Generation three and later build and render the candidate",
+            "The prior delivered `tournament.json` remains untouched until generation three passes",
+            "first action after the culler returns",
             "A critic is a prosecutor, never a reviser",
             "unknown, never disproved",
             "the prior fully criticized champion set stands",
@@ -754,22 +766,57 @@ class TestSkills:
             "at most six tool calls",
             "Do not list or rediscover directories",
             "150 minutes after Orient began",
-            "at most 1,200 characters",
             "after every delegate set returns",
             "Complete at least three generations",
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
+            "--tournament",
             "A recommendation without a supporting sourced quote is ineligible",
             "global paper budget does not shorten",
             "dated today is still generation zero",
             "The parent never calls Latch",
             "proposes and researches one contender",
             "claim a critic that did not return a verdict",
+            "projects/theplowtimes/runs/<run-datetime>/state.md",
+            "`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`",
+            "Never infer the active page from timestamps",
+            "actual Orient invocation time",
+            "after Orient and after every Challenge, Criticize, and Cull",
+            "`priority_case`",
+            "`reads`",
+            "reopens the decisive read receipts",
+            "critic also returns its own `reads`",
+            "private research state, never printed",
+            "run page's `## Critic verdicts` section",
+            "one adjacent position",
+            "at most three existing entries",
+            "Only the final successful Cull of the run",
+            "no numeric score",
+            "only after the renderer succeeds and `tournament.json` is atomically published",
+            "retry only that wiki write",
+            "Never run a separate polish generation",
+            "Delegate payloads are short pointers",
+            "reads `RUN_PAGE` first",
+            "Do not inline the run state",
+            "concise stage procedure and result schema",
+            "complete edition JSON document",
+            "Generation three is the next required action",
+            "Delivery waits for generation three",
+            "only decides whether to start generation four or later",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "reserved 150-minute window" in desks
+        assert "reserved 150-minute window; delivery waits" in desks
+        assert "ending earlier when the delivery cutoff requires it" not in desks
         assert "global batch budget starts after priority" in desks
         assert "Every canonical scheduled execution runs a fresh tournament" in desks
+        assert "tournament.working.json" not in text + desks
+        assert "newest active run page" not in text
+        qa = (ROOT / "pt-shared" / "assets" / "wiki" / "qa.md").read_text()
+        assert "Rank is positional" in qa
+        assert "one adjacent position" in qa
+        assert "current sourced facts" in qa
+        assert "at most 1,200 characters" not in text
 
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"

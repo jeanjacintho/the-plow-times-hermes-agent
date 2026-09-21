@@ -31,9 +31,9 @@ base its own bearer is sent to. Any of the three unset or blank is refused
 BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
-attachment_uids) and optionally sends the companion as its body. After a successful POST, three
-finalizers run independently and best-effort: seal (and reopen today's
-sections), print via print_edition.py when configured, and record via
+attachment_uids) and optionally sends the companion as its body. After a successful POST, four
+finalizers run independently and best-effort: finalize exactly the topics carried by
+`edition.json`, seal, print via print_edition.py when configured, and record via
 record_edition.py (`--pdf` and `--text-file` both) on the sibling
 `edition.json` -- one's failure never skips or undoes another, and nothing
 about the record reaches chat. `--dry-run` prints the redacted envelope and
@@ -62,6 +62,12 @@ RECORD_SCRIPT = (
     / "pt-edition"
     / "scripts"
     / "record_edition.py"
+)
+TOPICS_SCRIPT = (
+    Path(__file__).resolve().parent.parent.parent
+    / "pt-intake"
+    / "scripts"
+    / "topics.py"
 )
 
 
@@ -127,29 +133,7 @@ def after_posted(stamp=None):
         platform=prev.get("platform") or "",
         delivered=True,
     )
-    return f"sealed; {reopen_sections_after_paper()}"
-
-
-def reopen_sections_after_paper():
-    """Sections must be pending for the next paper. The model often marks
-    delivered and stops; the next on-demand copy then ships desks only.
-    """
-    intake = Path("/var/lib/hermes/skills/pt-intake/scripts/topics.py")
-    if not intake.is_file():
-        intake = Path(__file__).resolve().parent.parent.parent / "pt-intake" / "scripts" / "topics.py"
-    if not intake.is_file():
-        return "REOPEN:skipped"
-    import subprocess
-
-    proc = subprocess.run(
-        [sys.executable, str(intake), "reopen-sections"],
-        capture_output=True,
-        text=True,
-    )
-    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
-    if proc.returncode != 0:
-        return f"REOPEN:failed {blob or proc.returncode}"
-    return blob or "REOPEN:none"
+    return "sealed"
 
 
 def _best_effort(run, args, failure):
@@ -232,6 +216,29 @@ def maybe_record(posted_path, runner=None):
         return "skipped: no posted file"
     edition_json = Path(posted_path).resolve().parent / "edition.json"
     run = runner or run_record_edition
+    return run(str(edition_json))
+
+
+def run_finalize_topics(edition_json):
+    import subprocess
+
+    proc = subprocess.run(
+        [sys.executable, str(TOPICS_SCRIPT), "finalize-edition", edition_json],
+        capture_output=True,
+        text=True,
+    )
+    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        return f"topics not finalized — {blob or proc.returncode}"
+    return blob
+
+
+def maybe_finalize_topics(posted_path, runner=None):
+    """Finalize only topic IDs in the edition that was successfully posted."""
+    if not posted_path:
+        return "skipped: no posted file"
+    edition_json = Path(posted_path).resolve().parent / "edition.json"
+    run = runner or run_finalize_topics
     return run(str(edition_json))
 
 
@@ -335,6 +342,10 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
+    topics_result = _best_effort(
+        maybe_finalize_topics, (args.pdf or args.text_file,), "topics not finalized"
+    )
+    print(topics_result)
     print(_best_effort(after_posted, (), "chat session not sealed"))
     if args.pdf:
         suffix = " + companion" if text else " only"
@@ -350,6 +361,11 @@ def main():
     else:
         print(f"chat edition posted ({len(text)} chars)")
     print(_best_effort(maybe_record, (args.pdf or args.text_file,), "edition not recorded"))
+    if topics_result.startswith("topics not finalized"):
+        sys.exit(
+            "error: topic finalization failed after delivery; recover with "
+            "topics.py finalize-edition <edition.json>; do not repost"
+        )
 
 
 if __name__ == "__main__":

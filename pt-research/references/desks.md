@@ -23,15 +23,15 @@ then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
 web budget.
 Priority runs only in the canonical scheduled daily paper. Live, alternate, and focused papers
 reuse its atomic checkpoint or the honest gap card and start below at weather; they never run the
-tournament or write its state. The canonical run gives priority a reserved 150-minute window
-(ending earlier when the delivery cutoff requires it),
+tournament or write its state. The canonical run gives priority a reserved 150-minute window; delivery waits
+for its required third generation,
 and the global batch budget starts after priority completes. Never stop its tournament early to
 save time for weather, calendar, mail, sports, or news; those desks use the time that remains.
 Every canonical scheduled execution runs a fresh tournament. A delivered edition dated today is generation-zero
 input on a same-day replay, never evidence that the current execution completed priority.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
-or news. Immediately after loading `pt-priority`, Orient and create `tournament.working.json`
-before any later-desk work. After compaction, resume that progress file alongside the last atomic
+or news. Immediately after loading `pt-priority`, Orient and create the run's wiki state page
+before any later-desk work. After compaction, resume that page alongside the last atomic
 `tournament.json` deliverable checkpoint.
 An older delivered card is generation-zero input, never proof that today's desk is complete.
 **Skipping this desk in the canonical scheduled paper is a bug, not a shortcut**:

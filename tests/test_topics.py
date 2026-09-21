@@ -435,3 +435,34 @@ class TestReopenSections:
         by_id = {t["id"]: t for t in read_store(pt_home)}
         assert by_id[read_store(pt_home)[0]["id"]]["status"] == "pending"
         assert by_id[stop]["status"] == "cancelled"
+
+
+class TestFinalizeEdition:
+    def test_stamps_only_carried_topics_and_reopens_recurring_ones(
+        self, pt_home, tmp_path, capsys
+    ):
+        topics.main(["add", "--text", "AI", "--kind", "subscription", "--depth", "deep"])
+        topics.main(["add", "--text", "other", "--kind", "subscription", "--depth", "deep"])
+        topics.main([
+            "add", "--text", "brief", "--kind", "assignment", "--depth", "quick",
+            "--run-on", "2026-09-21",
+        ])
+        carried, other, assignment = (t["id"] for t in read_store(pt_home))
+        for tid in (carried, other, assignment):
+            topics.main(["mark", tid, "--status", "running"])
+        edition = tmp_path / "edition.json"
+        edition.write_text(json.dumps({"sections": [
+            {"topic_id": carried}, {"desk": "weather"}, {"topic_id": assignment},
+        ]}))
+        capsys.readouterr()
+
+        topics.main([
+            "finalize-edition", str(edition), "--at", "2026-09-21T08:31:00-07:00",
+        ])
+
+        by_id = {t["id"]: t for t in read_store(pt_home)}
+        assert by_id[carried]["status"] == "pending"
+        assert by_id[carried]["last_edition_at"] == "2026-09-21T08:31:00-07:00"
+        assert by_id[assignment]["status"] == "delivered"
+        assert by_id[assignment]["last_edition_at"] == "2026-09-21T08:31:00-07:00"
+        assert by_id[other]["status"] == "running"

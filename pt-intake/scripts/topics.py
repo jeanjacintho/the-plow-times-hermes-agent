@@ -23,6 +23,8 @@ Subcommands:
   list     [--kind K]      prints the topics array as JSON
   check-paper --deliver-at {main,HH:MM} [--as-of YYYY-MM-DD]
                            validates one paper's three-item news roster
+  finalize-edition <edition.json> [--at ISO8601]
+                           stamps only carried topics after a successful post
   reopen-sections          every section/subscription that is delivered or
                            running becomes pending (a paper about to run;
                            measured live, delivered sections were skipped
@@ -76,7 +78,7 @@ ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DELIVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 MAX_NEWS_ITEMS = 3
-MUTATING_COMMANDS = {"add", "cancel", "mark", "reopen-sections"}
+MUTATING_COMMANDS = {"add", "cancel", "mark", "finalize-edition", "reopen-sections"}
 
 
 def home():
@@ -419,6 +421,38 @@ def cmd_reopen_sections(args):
     return 0
 
 
+def cmd_finalize_edition(args):
+    """Atomically stamp exactly the topics carried by a posted edition."""
+    path = pathlib.Path(args.edition_json)
+    try:
+        edition = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        sys.exit(f"error: {path} cannot be read as edition JSON ({exc!r})")
+    sections = edition.get("sections") if isinstance(edition, dict) else None
+    if not isinstance(sections, list):
+        sys.exit(f"error: {path} has no sections list")
+    ids = list(dict.fromkeys(
+        section.get("topic_id") for section in sections
+        if isinstance(section, dict) and section.get("topic_id")
+    ))
+    topics = load_topics()
+    stamp = args.at or now_iso()
+    finalized, skipped = [], []
+    for topic_id in ids:
+        topic = find_topic(topics, topic_id)
+        if topic["status"] == "cancelled":
+            skipped.append(topic_id)
+            continue
+        topic["last_edition_at"] = stamp
+        topic["status"] = "pending" if topic["kind"] in EVERGREEN else "delivered"
+        if topic["status"] == "pending":
+            topic["scheduled_for"] = None
+        finalized.append({"id": topic_id, "status": topic["status"]})
+    save_topics(topics)
+    print(json.dumps({"finalized": finalized, "cancelled": skipped}))
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -467,6 +501,13 @@ def main(argv=None):
         help="pending every delivered/running section and subscription",
     )
     p_reopen.set_defaults(func=cmd_reopen_sections)
+
+    p_finalize = sub.add_parser(
+        "finalize-edition", help="stamp the topics carried by a posted edition",
+    )
+    p_finalize.add_argument("edition_json")
+    p_finalize.add_argument("--at", default=None, help="ISO8601 edition timestamp")
+    p_finalize.set_defaults(func=cmd_finalize_edition)
 
     args = parser.parse_args(argv)
     if args.command in MUTATING_COMMANDS:

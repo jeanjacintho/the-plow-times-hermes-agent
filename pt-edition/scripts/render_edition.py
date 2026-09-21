@@ -209,6 +209,8 @@ def validate(edition):
             isinstance(topic_id, str) and TOPIC_ID_RE.fullmatch(topic_id)
         ):
             failures.append(f"{where}.topic_id is not a t_xxxx id")
+        if topic_id is None and (kind == "assignment" or desk in (None, "news")):
+            failures.append(f"{where}.topic_id is required for carried news")
         if kind == "assignment":
             run_on = section.get("run_on")
             if not (isinstance(run_on, str) and DATE_RE.fullmatch(run_on)):
@@ -389,13 +391,17 @@ def validate(edition):
 
 
 def validate_tournament(edition, tournament):
-    """Refuse a priority card that is not a real third-generation checkpoint."""
+    """Refuse a priority card that is not a third-generation checkpoint."""
     if not isinstance(tournament, dict):
         return "tournament.json is not a JSON object"
 
     generation = tournament.get("generation")
     failures = []
-    if not isinstance(generation, int) or isinstance(generation, bool) or generation < 3:
+    if (
+        not isinstance(generation, int)
+        or isinstance(generation, bool)
+        or generation < 3
+    ):
         failures.append("tournament needs at least 3 completed generations")
     expected_stage = (
         f"generation_{generation}_complete_gate_passed_checkpoint_written"
@@ -1269,7 +1275,7 @@ def main(argv=None):
     parser.add_argument("--config", default=CONFIG_DEFAULT,
                         help="pt/config.json; used to force the priority desk on")
     parser.add_argument("--tournament", default=None,
-                        help="require a completed priority tournament from this JSON path")
+                        help="require a final priority tournament from this JSON path")
     args = parser.parse_args(argv)
 
     try:
