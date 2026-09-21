@@ -340,12 +340,12 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Mark every topic the edition carried** from its `topic_id`:
+3. **Mark each one-off or assignment the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
-   edition is how a silent gap looks like a working paper. A section then
-   goes back to `pending` for tomorrow's paper. An assignment stays
-   `delivered` (terminal).
+   edition is how a silent gap looks like a working paper. `post_to_chat.py`
+   already returns carried sections and subscriptions to `pending` in its
+   successful-post finalizer. Do not mark a section or subscription after posting.
    - A `topics.py mark` that **refuses because the topic was cancelled while
      the run worked is expected, not an error**: the owner said stop at 6h20;
      the edition already left without it. Report it and carry on — do not

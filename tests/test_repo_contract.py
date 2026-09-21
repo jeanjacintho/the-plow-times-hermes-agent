@@ -248,6 +248,7 @@ class TestSoul:
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "print_edition.py" in edition
         assert "call `pt-print`" in edition
+        assert "Do not mark a section or subscription after posting" in edition
 
         seal = ROOT / "pt-shared" / "scripts" / "seal_chat_session.py"
         assert seal.is_file()
