@@ -723,7 +723,7 @@ class TestSkills:
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "record_edition.py" in edition
-        assert "Skipping this desk is a bug" in desks
+        assert "Skipping this desk in the canonical scheduled paper is a bug" in desks
         assert "the founder" in skill
         assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()

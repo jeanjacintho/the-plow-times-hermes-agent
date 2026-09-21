@@ -481,7 +481,8 @@ def focused_paper_hours(topics, delivery_hour):
     return sorted(hours)
 
 
-def require_workspace_spacing(hours, minimum_minutes=180):
+def require_workspace_spacing(hours):
+    minimum_minutes = 180
     """Refuse paper starts whose shared-workspace windows can overlap."""
     for index, first in enumerate(hours):
         first_hour, first_minute = _hour_minute(first)

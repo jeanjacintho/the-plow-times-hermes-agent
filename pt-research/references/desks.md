@@ -14,9 +14,10 @@ Every Latch call is the same two tools the print path uses:
 `{"status":"pending","handle":…}`, `plow_get_result` until `ready`. A
 401/412/deny is one blocked source: log it, do not retry.
 
-## Priority — first, when configured
+## Priority — first in the canonical scheduled paper, when configured
 
-Before every desk below: run `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk`,
+For the canonical scheduled daily paper, before starting the desks below: run
+`/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk`,
 then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
 `run/desk-priority/tournament.json` checkpoint. It reads the owner's sources itself and spends no
 web budget.
@@ -33,7 +34,8 @@ or news. Immediately after loading `pt-priority`, Orient and create `tournament.
 before any later-desk work. After compaction, resume that progress file alongside the last atomic
 `tournament.json` deliverable checkpoint.
 An older delivered card is generation-zero input, never proof that today's desk is complete.
-**Skipping this desk is a bug, not a shortcut**: `render_edition.py`'s gap card for a
+**Skipping this desk in the canonical scheduled paper is a bug, not a shortcut**:
+`render_edition.py`'s gap card for a
 missing complete tournament checkpoint is the backstop, not the plan.
 
 ## 1. Location, then weather — every daily run
