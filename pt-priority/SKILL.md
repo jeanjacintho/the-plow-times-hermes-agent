@@ -93,6 +93,23 @@ Begin each generation with **one to three inherited champions and three challeng
 run, there may be no inherited champion; advisor-seeded proposals enter as challengers rather than
 invented incumbents. Run the following stages with `delegate_task` children that cannot delegate.
 
+### Mechanical loop (authoritative)
+
+Let `I` be the number of inherited champions at the start of this generation. Execute this loop in
+order; the stage sections below define each payload, but never reorder or merge these gates:
+
+1. Make one `delegate_task` call containing exactly three writer tasks. Every writer goal ends with: "Return ONLY complete JSON of at most 3,000 characters."
+2. Rewrite `RUN_PAGE` with all three Challenge results and set its `Stage` to Challenge complete.
+   Do not make another `delegate_task` call until that wiki write returns success.
+3. Make one `delegate_task` call whose critic task count is `I + 3`: one task for each inherited
+   champion and one for each challenger. Every critic goal ends with: "Return ONLY complete JSON of at most 2,500 characters."
+4. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
+   call the culler until that wiki write returns success.
+5. Make one one-task `delegate_task` call for Cull. The culler goal ends with: "Return ONLY complete JSON of at most 10,000 characters."
+6. Rewrite `RUN_PAGE` with Cull before building or validating the candidate. Then run the candidate
+   gate and publish the accepted checkpoint as specified below.
+7. When fewer than three generations are complete, immediately start the next generation at step 1.
+
 ### 1. Challenge + research
 
 Run three writer-research children in parallel. Each proposes and researches one contender. It targets a different
