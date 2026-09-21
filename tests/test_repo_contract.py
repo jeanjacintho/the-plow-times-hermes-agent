@@ -738,6 +738,11 @@ class TestSkills:
         for clause in (
             "one to three inherited champions and three challengers",
             "one independent critic per recommendation",
+            "six independent critic children in one delegate set",
+            "Writer JSON is at most 3,000 characters",
+            "Critic JSON is at most 2,500 characters",
+            "Culler JSON is at most 10,000 characters",
+            "first action after the culler returns",
             "A critic is a prosecutor, never a reviser",
             "unknown, never disproved",
             "the prior fully criticized champion set stands",

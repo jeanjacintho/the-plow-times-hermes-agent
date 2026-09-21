@@ -61,8 +61,13 @@ champions, contenders, priority cases, read receipts, unknowns, critic verdicts,
 and the last complete checkpoint summary. If context is compacted, resume from this page and the
 canonical checkpoint.
 **Never load this skill again in the same run.**
+On a compacted or restated turn, the first action is to read the newest active run page for
+today and obey its `Stage`. Never delegate a stage already recorded there as complete.
 
 Every child returns compact structured JSON with no narrative preface.
+Writer JSON is at most 3,000 characters. Critic JSON is at most 2,500 characters.
+Culler JSON is at most 10,000 characters. These are complete JSON envelopes, not targets that may be exceeded;
+prefer fewer words and receipts over truncating JSON.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
 into the run's wiki state page before any other model work. Keep only decisions, priority cases,
 replayable read receipts, evidence locations, unknowns, and verdicts; never copy tool transcripts
@@ -108,7 +113,11 @@ catalog or printed recommendation.
 ### 2. Criticize
 
 Run **one independent critic per recommendation**, for every incumbent and challenger, after
-research. Give critics the recommendation, `priority_case`, `reads`, and source locations, never
+research. With three inherited champions and three challengers, dispatch six independent critic children in one delegate set.
+Each child receives and prosecutes exactly one target; never pair an incumbent with the challenger
+that tried to beat it, and never treat the challenger as a revision that replaces fresh criticism
+of the incumbent. With fewer inherited champions, the critic count is exactly inherited plus three.
+Give critics the recommendation, `priority_case`, `reads`, and source locations, never
 the writer's hidden reasoning. Each critic reopens the decisive read receipts, independently
 checks the evidence, and uses Latch research to make the strongest case to cull it:
 
@@ -132,6 +141,8 @@ distinct champions by decision impact, specificity, advisor fidelity, evidence, 
 survival of criticism. It explicitly compares why each action matters now, what it displaces, and
 the cost of waiting. Incumbency gives continuity, not immunity. A challenger wins only by beating
 an incumbent on the decision the owner should make now.
+The parent's first action after the culler returns is to rewrite the run page with the Cull result
+and proposed fact-rank moves. Only then may it build or validate candidate files.
 
 A critic's verdict is evidence, not an elimination vote. When at least three fully criticized
 targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
