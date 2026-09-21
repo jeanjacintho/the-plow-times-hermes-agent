@@ -827,6 +827,18 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "post_to_chat.py already runs" in p
         assert "printer.configured" in p
 
+    @pytest.mark.parametrize("prompt", [
+        crons.daily_prompt("daily"),
+        crons.paper_prompt("paper1", "12:00"),
+    ])
+    def test_paper_prompt_stops_before_research_on_legacy_overfill(self, prompt):
+        assert "topics.py check-paper" in prompt
+        assert "before research" in prompt
+        refusal = prompt.index("If it refuses")
+        release = prompt.index("run_lock.py release", refusal)
+        research = prompt.index("Then run pt-research")
+        assert refusal < release < research
+
     def test_print_leg_is_best_effort_and_after_the_chat_edition(self):
         p = crons.daily_prompt("daily")
         assert "best-effort" in p or "best effort" in p

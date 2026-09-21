@@ -111,7 +111,7 @@ These are ordinary turns, not classifications. Do them and end:
       topics.py add --text "<topic>" --kind section --depth quick --deliver-at HH:MM
 
   If `deliver_at` equals `delivery.hour`, omit `--deliver-at` — it rides
-  the main paper. Count news sections **per paper** (max 8 on that hour's
+  the main paper. Count news items **per paper** (max 3 on that hour's
   roster, standing desks do not count). Then run `register_crons.py` so
   `pt-paper-HHMM` exists now. Confirm in the owner's terms: "you'll get a
   sports paper at 12:00".
@@ -202,7 +202,7 @@ cadence into someone's mornings.
 **3. Quick or deep?** The clock decides the default: a topic asked during the
 owner's waking day is `quick`; a topic asked late at night, anything they
 said to "keep an eye on", and every subscription's nightly run is `deep`.
-**Sections are always `quick`** — eight sections at deep would blow any
+**Sections are always `quick`** — several sections at deep would blow any
 delivery lead, so depth there is not offered. Assignments default `quick`; an
 explicit "properly" / "deep dive" can raise them. An explicit "quick, one
 line" lowers anything.
@@ -216,11 +216,12 @@ Two rules that keep the paper honest:
   should have the dollar" when a dollar section is already active → point at
   the existing one. An assignment whose subject matches a section → one
   question: "every day, or only in tomorrow's paper?".
-- **The news desk holds at most 8 sections per paper.** Weather, calendar
-  and mail do not count against it. Count only sections that share the same
-  paper hour (unscoped + main `delivery.hour` together; each other
-  `deliver_at` is its own roster). If the owner asks for a ninth on that
-  paper, refuse with the count and ask which one to drop.
+- **Each paper holds at most 3 news items total.** Weather and the single
+  calendar rail do not count against it. Count standing sections plus any
+  assignments due in the main paper. Sections at a different `deliver_at`
+  have their own three-item roster; unscoped sections and sections explicitly
+  set to the main `delivery.hour` share one roster. If another item would
+  exceed three, refuse with the full roster and ask which one to drop.
 
 Then write it — this script is the ONLY writer for topics.json:
 
@@ -274,8 +275,9 @@ edition, and relaying it is the chat leg.
   which bakes the deliver target in; measured live, a run built by hand
   without it completes with a real final response that never reaches chat
   at all — the job succeeds and the owner gets nothing), prompt "Run
-  pt-research on topic <id> now, then pt-edition for it. Post the PDF only
-  (post_to_chat.py --pdf, empty body). Final response is NO_REPLY. When the
+  pt-research on topic <id> now, then pt-edition for it. Render `--pdf` plus
+  `--companion`, then post the PDF with the companion via `post_to_chat.py
+  --pdf --text-file` when present. Final response is NO_REPLY. When the
   edition is delivered, mark the
   topic delivered with topics.py and remove this job with `hermes cron
   remove pt-oneoff-<id>`." Record the scheduled moment at add time via

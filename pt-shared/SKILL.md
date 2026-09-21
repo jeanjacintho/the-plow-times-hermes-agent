@@ -66,8 +66,8 @@ does not, and every run fails on the import.
   `error: wiki not ready — …` exits non-zero. **This bullet is the contract.**
 - `assets/wiki/` — the seeds `wiki_setup.py` writes: the root's schema (fields and the
   Editions / Your advisors tables), the paper's page, the goals page, the desk's Q&A.
-- `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
-  body) to the owner's home channel, or the chat text if there is no PDF.
+- `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF plus its
+  chat-only mail/sports companion when present, or chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
   run file stays `edition.pdf` on disk). A successful `--pdf` POST stamps
   `seal_chat_session.py` and then runs `print_edition.py` when the printer

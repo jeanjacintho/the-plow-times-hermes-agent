@@ -107,17 +107,15 @@ dead domain.
    Source URLs are the forecast pages. If location failed, still write the
    notes file with `could_not_source` naming the miss; do not invent a city.
 
-   **When the source page also gives a multi-day outlook** (most forecast
-   pages show 3-7 days), capture it as structured per-day data alongside
-   the prose notes — day label, date, a plain-language condition
-   (clear/partly cloudy/cloudy/rain/thunderstorm/snow), high, low. That's
-   all pt-edition's weather strip uses (see its SKILL.md `forecast`
-   field) — deliberately just temperatures and a condition, not a full
-   station readout, so wind/humidity/precipitation aren't worth capturing
-   for this desk even when the source states them. Do not invent a day's
-   condition or numbers to fill a gap — a source that only gives today
-   means the notes only cover today, and pt-edition prints prose-only
-   that day.
+   Capture **today** as structured data alongside the prose notes when the
+   source gives a condition and high/low — day label, date, a
+   plain-language condition (clear/partly cloudy/cloudy/rain/thunderstorm/snow),
+   high, low. That's all pt-edition's ear uses (see its SKILL.md `forecast`
+   field) — one day, temperatures and a condition, not a week and not a
+   full station readout. Do not invent numbers. Extra days from a
+   multi-day outlook stay off the notes: they have no consumer. If today's
+   numbers could not be sourced, omit `forecast` and name the miss in
+   `could_not_source`.
 
 ## 2. Calendar — every daily run
 

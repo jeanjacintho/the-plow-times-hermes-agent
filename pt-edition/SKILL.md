@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into the PDF, post the PDF only via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render the Letter PDF plus any chat-only desk companion, post them via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -33,8 +33,7 @@ HTML.** Hand-write `edition.json` under the run directory:
       "headline": "Rain in the afternoon",
       "body": "3–6 sentences from desk-weather notes, city named.",
       "forecast": [
-        { "day": "Tue", "date": "17/05", "icon": "partly-cloudy", "high": 19, "low": 9 },
-        { "day": "Wed", "date": "18/05", "icon": "rain", "high": 17, "low": 6 }
+        { "day": "Tue", "date": "17/05", "icon": "partly-cloudy", "high": 19, "low": 9 }
       ],
       "sources": ["https://…"],
       "could_not_source": [] },
@@ -108,14 +107,16 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **Every desk but priority prints `sources` and `could_not_source`**, in
   the reader's words ("your calendar", never a file or a path). On the
   priority desk those lines were the paper's own plumbing ("Sources:
-  priority desk"), so the renderer drops them there. A weather `forecast`
-  grid prints no sources line in the HTML/PDF; the chat edition still does.
-- **`desk` is the newspaper department.** On the printed one-pager,
+  priority desk"), so the renderer drops them there. Weather on the
+  printed page is the masthead ear (a vendored Atlas icon and high/low, or
+  the named miss when research failed); it has no sources line. The chat
+  edition still prints weather sources and gaps.
+- **`desk` is the newspaper department.** At the front of the printed paper,
   weather occupies the masthead ear, priority occupies the founder-focus
   band, calendar occupies the sole right rail, and news occupies the main
-  well. The first news article leads at full width; articles two and three
-  sit side by side below it. Mail and sports remain in the chat edition but
-  do not consume print space. Every desk keeps the same title / headline /
+  well. The longest news body leads at full width; article order breaks ties
+  and otherwise preserves the pair below it. Mail and sports remain in the
+  chat edition but do not consume print space. Every desk keeps the same title / headline /
   body / sources shape; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
   `run/desk-priority/notes.json` without rewriting.** The printed card
@@ -125,19 +126,17 @@ HTML.** Hand-write `edition.json` under the run directory:
   `advisor: {name, quote, url}`; `body` is at most 1,024 characters and every present `url`
   is HTTP(S). `questions` is zero to three non-blank strings. The advisor desk owns all semantic
   judgment; the renderer enforces only shape, length, URL form, escaping, and layout.
-- **`forecast` is optional, weather-only, and drawn — not written.** 1-6
-  day objects, each `day` (short label, e.g. "Tue"), `date` (e.g.
+- **`forecast` is optional, weather-only, and drawn — not written.** Exactly
+  one day object: `day` (short label, e.g. "Tue"), `date` (e.g.
   "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
-  `rain`, `storm`, `snow` — the renderer draws a fixed monochrome icon
+  `rain`, `storm`, `snow` — the renderer draws a vendored monochrome icon
   for each key, so anything else fails the gate), and `high`/`low`
   (numbers, the units come from the template, not the JSON) — deliberately
   temperatures and the icon only, nothing else; wind/humidity/precip
-  were tried and dropped so the strip stays readable at a glance. Only
-  include it when desk-weather's notes
-  actually name a day-by-day forecast (icon condition + high/low) for
-  more than just today; a same-day-only forecast has nothing to put in
-  a second or third cell, so leave `forecast` out and let the prose
-  `body` carry it alone, same as before this field existed.
+  the ear stays readable at a glance. That one day is `{{WEATHER_EAR}}`.
+  Extra days are not in the schema and do not reach chat. Leave `forecast`
+  out only when today's icon + high/low could not be sourced, and let
+  the prose `body` plus `could_not_source` carry the weather in chat.
 - **`schedule` (calendar-only), `messages` (mail-only) and `games`
   (sports-only) are the same idea as `forecast`, optional and drawn.**
   `schedule` is a non-empty list of `{ "time", "title", "icon" }`,
@@ -219,7 +218,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
 - **`layout` remains accepted for compatibility**, but the fixed newspaper
-  template owns story placement from article order: lead first, pair second.
+  template makes the longest news body the lead; article order breaks ties
+  and otherwise preserves the remaining pair.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
   sentence ("nothing to report this time"), and what was tried.
@@ -253,7 +253,7 @@ transcript after it is the wall of text they did not ask for.
    complete command, printer or not; **copy it and change only the
    paths.** Do not add flags that are not here:
 
-       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --tournament /var/lib/hermes/pt/run/desk-priority/tournament.json --pdf run/<id>/edition.pdf
+       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --tournament /var/lib/hermes/pt/run/desk-priority/tournament.json --pdf run/<id>/edition.pdf --companion run/<id>/edition.companion.txt
 
    The printed page is this same PDF. `--chat PATH` is optional and takes
    a path when used; the chat transcript is not posted, so you normally
@@ -264,7 +264,9 @@ transcript after it is the wall of text they did not ask for.
    match the three printed recommendations. Return to the priority tournament and run the missing
    generation; never edit its generation number merely to satisfy the gate.
 
-   **Then check that `run/<id>/edition.pdf` actually exists before step 2.**
+   **Continue only when the renderer exits zero and
+   `run/<id>/edition.pdf` exists.** The renderer removes an old target before
+   trying, so a refusal can never leave yesterday's PDF looking successful.
    If it does not, read the renderer's own stderr and act on which failure
    it was:
 
@@ -285,13 +287,14 @@ transcript after it is the wall of text they did not ask for.
    text. The owner had asked for a copy of the paper and got a wall of
    text, on a machine where weasyprint 62.3 was installed and working.
 2. **Send the PDF yourself, by running `post_to_chat.py --pdf`, instead of
-   returning the transcript as your final response.** The owner asked for
-   the newspaper file, not the file plus the chat dump. `post_to_chat.py`
-   with `--pdf` posts an empty body and the attachment — the same envelope
-   plow-chat-platform uses for photo-only sends. Do not pipe
-   `edition.chat.txt` into it:
+   returning the transcript as your final response.** If the renderer wrote
+   `edition.companion.txt`, it contains only the mail/sports desks omitted
+   from print; include it with `--text-file`. This is not the full chat dump:
 
-       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --filename The-Founder-Times-<date>.pdf
+       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --text-file run/<id>/edition.companion.txt --filename The-Founder-Times-<date>.pdf
+
+   When no companion file exists, omit only `--text-file`; the PDF posts with
+   an empty body, the same envelope used for attachment-only sends.
 
    Omit `--pdf` **only** when step 1 established that weasyprint is
    genuinely absent — never because your own command failed. In that one

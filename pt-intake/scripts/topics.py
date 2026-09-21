@@ -21,6 +21,8 @@ Subcommands:
   cancel   <id>            any topic the owner says stop on
   mark     <id> --status {pending,running,delivered} [--at ISO8601]
   list     [--kind K]      prints the topics array as JSON
+  check-paper --deliver-at {main,HH:MM} [--as-of YYYY-MM-DD]
+                           validates one paper's three-item news roster
   reopen-sections          every section/subscription that is delivered or
                            running becomes pending (a paper about to run;
                            measured live, delivered sections were skipped
@@ -57,11 +59,13 @@ Status transitions (design doc §3.3):
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import pathlib
 import re
 import sys
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 
 TOPICS_FILE = "topics.json"
@@ -71,6 +75,8 @@ STATUSES = ("pending", "running", "delivered", "cancelled")
 ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DELIVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+MAX_NEWS_ITEMS = 3
+MUTATING_COMMANDS = {"add", "cancel", "mark", "reopen-sections"}
 
 
 def home():
@@ -79,6 +85,16 @@ def home():
 
 def topics_path():
     return home() / TOPICS_FILE
+
+
+@contextmanager
+def mutation_lock():
+    """Serialize each topic store read/validate/write transaction."""
+    path = home() / "topics.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        yield
 
 
 def now_iso():
@@ -181,6 +197,84 @@ def checked_deliver_at(args):
     return raw
 
 
+def paper_slot(topic, main_hour=None):
+    """Return the paper roster a section belongs to."""
+    deliver_at = topic.get("deliver_at")
+    if deliver_at is None:
+        return "main"
+    if main_hour is None:
+        config = json.loads((home() / "config.json").read_text())
+        main_hour = config["delivery"]["hour"]
+    return "main" if deliver_at == main_hour else deliver_at
+
+
+def paper_items(topics, slot, *, main_hour=None, as_of=None):
+    """Select the news roster for one paper; all callers share this rule."""
+    items = [
+        topic for topic in topics
+        if topic.get("kind") == "section"
+        and topic.get("status") != "cancelled"
+        and paper_slot(topic, main_hour) == slot
+    ]
+    if slot == "main":
+        items += [
+            topic for topic in topics
+            if topic.get("kind") == "assignment"
+            and topic.get("status") in ("pending", "running")
+            and (as_of is None or topic.get("run_on", "") <= as_of)
+        ]
+    return items
+
+
+def refuse_if_overfilled(items, label):
+    if len(items) <= MAX_NEWS_ITEMS:
+        return
+    names = ", ".join(topic.get("text", "") for topic in items)
+    sys.exit(
+        f"error: {label} has more than {MAX_NEWS_ITEMS} news items: {names} "
+        f"-- drop one before continuing"
+    )
+
+
+def refuse_overfilled_paper(topics, addition):
+    """Keep every printed paper within the renderer's three-story contract."""
+    if addition["kind"] not in ("section", "assignment"):
+        return
+    candidates = [*topics, addition]
+    if addition["kind"] == "assignment":
+        carried = paper_items(candidates, "main", as_of=addition["run_on"])
+        label = f"main paper on {addition['run_on']}"
+    else:
+        slot = paper_slot(addition)
+        carried = paper_items(candidates, slot)
+        label = "main paper" if slot == "main" else f"{slot} paper"
+    refuse_if_overfilled(carried, label)
+
+
+def cmd_check_paper(args):
+    """Refuse a legacy or newly merged roster that cannot fit one page."""
+    if args.deliver_at != "main" and not DELIVER_AT_RE.fullmatch(args.deliver_at):
+        sys.exit(f"error: --deliver-at {args.deliver_at!r} is not main or HH:MM")
+    if args.main_hour is not None and not DELIVER_AT_RE.fullmatch(args.main_hour):
+        sys.exit(f"error: --main-hour {args.main_hour!r} is not HH:MM")
+    if args.as_of is not None:
+        if not RUN_ON_RE.fullmatch(args.as_of):
+            sys.exit(f"error: --as-of {args.as_of!r} is not YYYY-MM-DD")
+        try:
+            date.fromisoformat(args.as_of)
+        except ValueError:
+            sys.exit(f"error: --as-of {args.as_of!r} is not a real date")
+    items = paper_items(
+        load_topics(), args.deliver_at,
+        main_hour=args.main_hour, as_of=args.as_of,
+    )
+    label = "main paper" if args.deliver_at == "main" else f"{args.deliver_at} paper"
+    refuse_if_overfilled(items, label)
+    print(json.dumps({"paper": args.deliver_at, "news_items": len(items),
+                      "topics": [topic["text"] for topic in items]}))
+    return 0
+
+
 def cmd_add(args):
     topics = load_topics()
     run_on = checked_run_on(args)
@@ -230,6 +324,7 @@ def cmd_add(args):
                               "text": existing.get("text"),
                               "status": existing.get("status")}))
             return 0
+    refuse_overfilled_paper(topics, topic)
     topics.append(topic)
     save_topics(topics)
     print(json.dumps({"added": topic["id"], "kind": topic["kind"],
@@ -356,6 +451,17 @@ def main(argv=None):
     p_list.add_argument("--kind", choices=KINDS, default=None)
     p_list.set_defaults(func=cmd_list)
 
+    p_check = sub.add_parser(
+        "check-paper", help="refuse a paper roster with more than three news items",
+    )
+    p_check.add_argument("--deliver-at", required=True,
+                         help="main or the focused paper's HH:MM")
+    p_check.add_argument("--as-of", default=None,
+                         help="YYYY-MM-DD; include assignments due by this day")
+    p_check.add_argument("--main-hour", default=None,
+                         help="prospective HH:MM when validating a setting change")
+    p_check.set_defaults(func=cmd_check_paper)
+
     p_reopen = sub.add_parser(
         "reopen-sections",
         help="pending every delivered/running section and subscription",
@@ -363,6 +469,9 @@ def main(argv=None):
     p_reopen.set_defaults(func=cmd_reopen_sections)
 
     args = parser.parse_args(argv)
+    if args.command in MUTATING_COMMANDS:
+        with mutation_lock():
+            return args.func(args)
     return args.func(args)
 
 

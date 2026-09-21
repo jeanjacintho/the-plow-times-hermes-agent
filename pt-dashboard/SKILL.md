@@ -23,8 +23,8 @@ The daily schedule is computed in minutes, so `00:00 − 0min` is `0 0 * * *`
 
 Every row still carries `--deliver plow_chat:${PLOW_HOME_CHANNEL}` (an
 unset or blank `PLOW_HOME_CHANNEL` refuses the registration by name). The
-edition itself is posted mid-run as the PDF only (`post_to_chat.py --pdf`,
-empty body). The job's final response is `NO_REPLY` so that `--deliver`
+edition itself is posted mid-run as the PDF plus any chat-only mail/sports
+companion (`post_to_chat.py --pdf --text-file`). The job's final response is `NO_REPLY` so that `--deliver`
 does not also send the research transcript. An empty target is a chat
 leg that silently delivers nowhere.
 

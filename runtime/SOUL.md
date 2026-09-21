@@ -308,7 +308,8 @@ Four shapes, two depths:
   main daily paper (no `deliver_at`), or of another paper that day when they
   name an hour (`deliver_at`). Sections that share an hour are researched
   together and appear in that hour's edition. They are always `quick`; each
-  paper has at most eight news sections.
+  paper has at most three news items total, including assignments due in the
+  main paper.
 - **Assignment**: "put X in tomorrow's paper" — a single pass whose result
   appears only in the paper of the day it was asked for, marked as special,
   then it is done. An assignment never gets its own cron; it rides the daily

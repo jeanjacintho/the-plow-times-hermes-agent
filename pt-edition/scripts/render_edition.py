@@ -70,10 +70,10 @@ PRIORITY_UNAVAILABLE = {
 # Controlled vocabulary for a sports desk game row -- what state the game
 # is in, drawn as a label/tag, never free text.
 GAME_STATUSES = ("scheduled", "live", "final")
-# Controlled vocabulary for the weather forecast strip -- an icon is drawn
-# from this fixed inline-SVG set (see WEATHER_ICONS), never fetched, so an
-# unrecognized key is a validation failure rather than a silently broken
-# picture or a remote image request.
+# Controlled vocabulary for the weather forecast strip -- an icon is
+# inlined from pt-edition/assets/weather (Atlas Icons, MIT), never
+# fetched, so an unrecognized key is a validation failure rather than
+# a silently broken picture or a remote image request.
 FORECAST_ICONS = ("sun", "partly-cloudy", "cloud", "rain", "storm", "snow")
 # Same idea for the calendar desk's schedule rows -- what kind of event this
 # is, drawn from CALENDAR_ICONS, never free text.
@@ -209,8 +209,8 @@ def validate(edition):
         if forecast is not None:
             if desk != "weather":
                 failures.append(f"{where}.forecast is only valid on the weather desk")
-            elif not isinstance(forecast, list) or not (1 <= len(forecast) <= 6):
-                failures.append(f"{where}.forecast is not a list of 1-6 days")
+            elif not isinstance(forecast, list) or len(forecast) != 1:
+                failures.append(f"{where}.forecast must contain today's forecast")
             else:
                 for day_index, day in enumerate(forecast):
                     dwhere = f"{where}.forecast[{day_index}]"
@@ -601,8 +601,8 @@ def is_news_section(section):
     return desk_of(section) == "news"
 
 
-def join_articles(sections):
-    return "\n".join(html_section(s) for s in sections)
+def join_articles(sections, language=""):
+    return "\n".join(html_section(s, language=language) for s in sections)
 
 
 def wrap_desk(html):
@@ -687,90 +687,40 @@ def render_chat(edition, name):
     return "\n".join(lines) + "\n"
 
 
-# Inline, monochrome (currentColor) weather-strip icons -- drawn, never
-# fetched, so the "no external assets" rule in template.html holds even
-# for pictures. Each is a small fixed-viewBox line drawing; FORECAST_ICONS
-# is the only allowed set of keys into this dict.
-WEATHER_ICONS = {
-    "sun": (
-        '<circle cx="12" cy="12" r="4.5"/>'
-        '<path d="M12 2v3M12 19v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1'
-        'M2 12h3M19 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>'
-    ),
-    "partly-cloudy": (
-        '<circle cx="9.5" cy="9.5" r="3.6"/>'
-        '<path d="M9.5 2.8v2.2M4.3 4.3l1.6 1.6M2.8 9.5H5M15 9.5h2.2M13.4 5.9l1.6-1.6"/>'
-        '<path d="M8 21h9.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8.6 12.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-    ),
-    "cloud": (
-        '<path d="M7 20h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.6 11.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-    ),
-    "rain": (
-        '<path d="M6.5 15h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 6.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M8 18.5l-1.2 3M12 18.5l-1.2 3M16 18.5l-1.2 3"/>'
-    ),
-    "storm": (
-        '<path d="M6.5 13.5h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 4.7'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M12.5 15.5l-2.7 4.3h2.6l-1.7 3.4"/>'
-    ),
-    "snow": (
-        '<path d="M6.5 15h10.5a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 7.1 6.2'
-        'a3.2 3.2 0 0 0-.6 6.3"/>'
-        '<path d="M8 18v3.5M6.5 19.2l3 2.1M9.5 19.2l-3 2.1'
-        'M16 18v3.5M14.5 19.2l3 2.1M17.5 19.2l-3 2.1"/>'
-    ),
-}
+def render_companion(edition):
+    """Chat-only desks omitted from the print layout."""
+    sections = [
+        section for _index, section in ordered_sections(edition["sections"])
+        if desk_of(section) in ("mail", "sports")
+    ]
+    if not sections:
+        return ""
+    return "\n\n".join(chat_section(section) for section in sections) + "\n"
+
+
+# Forecast drawings: Atlas Icons weather glyphs (MIT), vendored beside
+# this skill so the "no external assets" rule in template.html holds.
+# FORECAST_ICONS is the only allowed set of filenames.
+WEATHER_ICON_DIR = pathlib.Path(__file__).resolve().parent.parent / "assets" / "weather"
 
 
 def weather_icon(key, size=28):
     """One inline SVG for a forecast day, `size` px square. `key` is
-    pre-validated against FORECAST_ICONS by validate(); this still falls
-    back to a plain cloud rather than trust an unchecked caller."""
-    body = WEATHER_ICONS.get(key, WEATHER_ICONS["cloud"])
-    return (
-        f'<svg class="wx-icon" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        'fill="none" stroke="currentColor" stroke-width="1.4" '
-        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-        f"{body}</svg>"
+    pre-validated against FORECAST_ICONS by validate()."""
+    text = (WEATHER_ICON_DIR / f"{key}.svg").read_text(encoding="utf-8")
+    return text.replace(
+        "<svg ",
+        f'<svg class="wx-icon" width="{size}" height="{size}" ',
+        1,
     )
 
 
-def forecast_grid(days):
-    """The weather desk's day-by-day strip: one cell per forecast day,
-    each a drawn icon plus day/date/high/low. Every string here came from
-    the day's own note, so it is escaped like any other section field.
-    Deliberately just temperatures -- wind/humidity/precip were tried and
-    dropped, the owner wanted the strip to stay to a glance, not a full
-    weather-station readout."""
-    cells = []
-    for day in days:
-        label = html.escape(day["day"].strip())
-        date_str = html.escape(day["date"].strip())
-        icon = weather_icon(day.get("icon"))
-        high = html.escape(str(day["high"]))
-        low = html.escape(str(day["low"]))
-        cells.append(
-            '<div class="wx-day">'
-            f'<span class="wx-day-name">{label}</span>'
-            f'<span class="wx-day-date">{date_str}</span>'
-            f'<span class="wx-icon-wrap">{icon}</span>'
-            f'<span class="wx-high">{high}&deg;</span>'
-            f'<span class="wx-low">{low}&deg;</span>'
-            "</div>"
-        )
-    return '<div class="wx-grid">' + "".join(cells) + "</div>"
-
-
 def weather_ear_html(weather_sections):
-    """The masthead's right ear: today's icon and high/low only, in place
-    of the old static tagline -- the full multi-day strip lives nowhere
-    else on the page, so this is the one place the paper's weather shows
-    up at all. Falls back to the plain tagline box when there's no
-    forecast to draw from (a prose-only weather section, or none today)."""
+    """The masthead's right ear: today's icon and high/low when the
+    notes have a forecast. A weather desk that failed research (no
+    forecast, named in could_not_source) must not look like a complete
+    paper -- the ear prints that miss instead of the slogan. The slogan
+    is only for a day with no weather desk at all."""
     fallback = '<span class="ear-box">One edition<br>for one reader</span>'
     for section in weather_sections:
         forecast = section.get("forecast")
@@ -786,6 +736,15 @@ def weather_ear_html(weather_sections):
                 f'<span class="ear-wx-high">{high}&deg;</span>'
                 f'<span class="ear-wx-low">{low}&deg;</span>'
                 "</span>"
+                "</span>"
+            )
+    for section in weather_sections:
+        misses = [str(m).strip() for m in section.get("could_not_source", []) if str(m).strip()]
+        if misses:
+            return (
+                '<span class="ear-box">'
+                "Couldn't source<br>"
+                f"{html.escape(misses[0])}"
                 "</span>"
             )
     return fallback
@@ -849,10 +808,10 @@ DESK_HEADER_ICONS = {
 }
 
 
-def _stroke_svg(css_class, body, size):
+def _stroke_svg(css_class, body, size, stroke="currentColor"):
     return (
         f'<svg class="{css_class}" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        'fill="none" stroke="currentColor" stroke-width="1.5" '
+        f'fill="none" stroke="{stroke}" stroke-width="1.5" '
         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
         f"{body}</svg>"
     )
@@ -863,7 +822,9 @@ def desk_header_icon(desk):
     body = DESK_HEADER_ICONS.get(desk)
     if not body:
         return ""
-    return _stroke_svg("desk-icon", body, 13)
+    # Title bars are ink; WeasyPrint leaves currentColor as black, so the
+    # stroke has to be paper-white here or the mark vanishes into the bar.
+    return _stroke_svg("desk-icon", body, 13, stroke="#ffffff")
 
 
 def calendar_icon(key):
@@ -871,12 +832,7 @@ def calendar_icon(key):
     against SCHEDULE_ICONS by validate(); falls back to the generic note
     icon rather than trust an unchecked caller."""
     body = CALENDAR_ICONS.get(key, CALENDAR_ICONS["note"])
-    return (
-        '<svg class="cal-icon" viewBox="0 0 24 24" width="16" height="16" '
-        'fill="none" stroke="currentColor" stroke-width="1.5" '
-        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-        f"{body}</svg>"
-    )
+    return _stroke_svg("cal-icon", body, 16)
 
 
 def schedule_list(items):
@@ -895,8 +851,10 @@ def schedule_list(items):
         rows.append(
             '<div class="cal-item">'
             f'<span class="cal-icon-wrap">{icon}</span>'
+            '<span class="cal-body">'
             f'<span class="cal-time">{time_str}</span>'
             f'<span class="cal-title">{title}</span>'
+            "</span>"
             "</div>"
         )
     return '<div class="cal-list">' + "".join(rows) + "</div>"
@@ -918,8 +876,10 @@ def messages_list(items):
         rows.append(
             '<div class="mail-item">'
             f'<span class="mail-icon-wrap">{icon}</span>'
+            '<span class="mail-body">'
             f'<span class="mail-sender">{sender}</span>'
             f'<span class="mail-subject">{subject}</span>'
+            "</span>"
             "</div>"
         )
     return '<div class="mail-list">' + "".join(rows) + "</div>"
@@ -1097,14 +1057,14 @@ def fetch_grayscale_photo(url):
         return None
 
 
-def html_section(section, drop_cap=False):
+def html_section(section, drop_cap=False, language=""):
     """One topic's block as escaped HTML. Every dynamic string is escaped.
 
     ``desk`` (optional, default ``news``) is the newspaper department.
-    Each standing desk is a slot of its own ({{WEATHER}}, {{CALENDAR}},
-    {{MAIL}}); the first news story fills {{LEAD}} and the rest fill
-    {{SECTIONS}}. Same story fields, same escaping; only the wrapping
-    class and the page slot differ.
+    Calendar, mail and sports fill {{DESKS_INLINE}}; weather draws
+    {{WEATHER_EAR}} (not this function); the first news story fills
+    {{LEAD}} and the rest fill {{SECTIONS}}. Same story fields, same
+    escaping; only the wrapping class and the page slot differ.
 
     A news story's ``tag`` prints as a kicker -- the small letterspaced
     section label above the headline, the way a broadsheet labels
@@ -1149,34 +1109,24 @@ def html_section(section, drop_cap=False):
         classes.append("section--sidebar")
     article_class = " ".join(classes)
     header_icon = desk_header_icon(desk)
-    forecast = section.get("forecast") if desk == "weather" else None
     schedule = section.get("schedule") if desk == "calendar" else None
     messages = section.get("messages") if desk == "mail" else None
     games = section.get("games") if desk == "sports" else None
     priority = section.get("priority") if desk == "priority" else None
-    structured = forecast or schedule or messages or games or priority
-    # A forecast grid is self-explanatory (a sun icon and 26 degrees needs
-    # no caption) -- the title bar, headline, body prose and sources line
-    # are all dropped for weather when it's carrying a grid, so the box
-    # is just the days and any gap. Calendar/mail/sports keep their
-    # title, headline and sources either way (unlike weather, nobody
-    # asked for those gone) but drop the body PROSE specifically once a
-    # schedule, messages or games list is present -- otherwise the box
-    # shows the same event twice, once as a clean icon/score row and
-    # again as a redundant bullet restating it in a sentence. The
-    # plain-text chat edition is unaffected by any of this (see
-    # chat_section) -- every omission here is print/HTML-only; body
-    # stays required in the JSON because the chat edition has no icons
-    # to fall back on.
-    skip_caption = bool(forecast)
+    structured = schedule or messages or games or priority
+    # Calendar/mail/sports keep title and headline but drop the body
+    # PROSE once a list is present, or the box shows the same event
+    # twice. Print sources stay. Chat is unaffected (chat_section).
+    # Body stays required in the JSON because chat has no icons to
+    # fall back on. Weather never reaches this function -- the ear
+    # draws it.
     skip_body = bool(structured)
     blocks = [f'<article class="{article_class}">']
-    if not skip_caption:
-        if kicker_html:
-            blocks.append(kicker_html)
-        blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
-        if headline and desk != "priority":
-            blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
+    if kicker_html:
+        blocks.append(kicker_html)
+    blocks.append(f'  <h2>{header_icon}{title}{tag_html}</h2>')
+    if headline and desk != "priority":
+        blocks.append(f'  <p class="headline">{html.escape(headline)}</p>')
     image = section.get("image") if desk == "news" else None
     if image:
         data_uri = fetch_grayscale_photo(image["url"].strip())
@@ -1189,8 +1139,6 @@ def html_section(section, drop_cap=False):
                 f'  <figure class="story-photo"><img src="{data_uri}" alt="">'
                 f"{credit_html}</figure>"
             )
-    if forecast:
-        blocks.append(forecast_grid(forecast))
     if schedule:
         blocks.append(schedule_list(schedule))
     if messages:
@@ -1215,7 +1163,7 @@ def html_section(section, drop_cap=False):
         blocks.append("  <p>(nothing to report this time)</p>")
     # The priority desk's sources were our own plumbing ("Sources: priority desk").
     if desk != "priority":
-        sources = [] if skip_caption else dedupe(section.get("sources", []))
+        sources = dedupe(section.get("sources", []))
         if sources:
             links = ", ".join(source_markup(url) for url in sources)
             blocks.append(f'  <p class="sources">Sources: {links}</p>')
@@ -1227,7 +1175,7 @@ def html_section(section, drop_cap=False):
     return "\n".join(blocks)
 
 
-def render_html(edition, name, template_text):
+def render_html(edition, name, template_text, language=""):
     ordered = [section for _index, section in ordered_sections(edition["sections"])]
     news = [s for s in ordered if is_news_section(s)]
     weather = [s for s in ordered if desk_of(s) == "weather"]
@@ -1236,12 +1184,15 @@ def render_html(edition, name, template_text):
     sports = [s for s in ordered if desk_of(s) == "sports"]
     priority = [s for s in ordered if desk_of(s) == "priority"]
 
-    # The lead story renders separately from the rest of the news well so
-    # it can run alone, full width, in its own row above everything else
-    # (see the top comment for why the desks no longer sit beside it).
+    # The longest story gets the full-width lead; equal lengths preserve
+    # roster order, and the other two retain their original relative order.
     if news:
-        lead_html = html_section(news[0], drop_cap=True)
-        rest = news[1:]
+        lead_index = max(
+            range(len(news)), key=lambda index: len(news[index].get("body", ""))
+        )
+        lead = news[lead_index]
+        rest = news[:lead_index] + news[lead_index + 1:]
+        lead_html = html_section(lead, drop_cap=True, language=language)
     elif priority:
         lead_html = ""
         rest = []
@@ -1250,17 +1201,17 @@ def render_html(edition, name, template_text):
         rest = []
 
     pair_cells = "".join(
-        f'<div class="news-pair-cell">{html_section(section)}</div>'
+        f'<div class="news-pair-cell">{html_section(section, language=language)}</div>'
         for section in rest
     )
     news_pair_html = (
         f'<div class="news-pair">{pair_cells}</div>' if pair_cells else ""
     )
-    weather_html = wrap_desk(join_articles(weather))
-    calendar_html = wrap_desk(join_articles(calendar))
-    mail_html = wrap_desk(join_articles(mail))
-    sports_html = wrap_desk(join_articles(sports))
-    priority_html = wrap_desk(join_articles(priority))
+    weather_html = wrap_desk(join_articles(weather, language))
+    calendar_html = wrap_desk(join_articles(calendar, language))
+    mail_html = wrap_desk(join_articles(mail, language))
+    sports_html = wrap_desk(join_articles(sports, language))
+    priority_html = wrap_desk(join_articles(priority, language))
     # The priority card's visible label is the desk's own <h2> -- the
     # model-written title (owner.language), styled by the template as the
     # black bar on top of the box. No separate heading is emitted here:
@@ -1270,20 +1221,16 @@ def render_html(edition, name, template_text):
     priority_block_html = (
         f'<div class="priority-wrap">{priority_html}</div>' if priority_html else ""
     )
-    # {{SIDEBAR}} is the desks column as a whole, for older templates that
-    # still have one rail slot instead of four. New template.html uses the
-    # named slots and leaves this empty of news.
     desks_html = "\n".join(
         part for part in (weather_html, calendar_html, mail_html, sports_html) if part
     )
 
-    # Calendar, mail and sports run as a row of boxed departments below
-    # the lead -- the same black-label-bar box language as the priority
-    # card, three cells side by side like a front page's "inside today"
-    # teasers. Empty string when none of them ran today, so the template
-    # never prints a bare rule above nothing. Weather isn't here -- it
-    # lives in the masthead's ear. Priority has its own {{PRIORITY_BLOCK}}
-    # slot and must not also land here.
+    # Calendar, mail and sports run as a row of boxed departments under
+    # the priority pack, above the news lead. Empty string when none of
+    # them ran today, so the template never prints a bare rule above
+    # nothing. Weather isn't here -- it lives in the masthead's ear.
+    # Priority has its own {{PRIORITY_BLOCK}} slot and must not also
+    # land here.
     inline_parts = [part for part in (calendar_html, mail_html, sports_html) if part]
     desks_inline_html = ""
     if inline_parts:
@@ -1291,32 +1238,33 @@ def render_html(edition, name, template_text):
         desks_inline_html = f'<div class="desks-row">{cells}</div>'
     weather_ear = weather_ear_html(weather)
 
-    page_class = "page" if desks_html else "page page--no-desks"
     location = html.escape((edition.get("location") or "").strip() or "One copy")
-    return (
-        template_text
-        .replace("{{MASTHEAD}}", html.escape(name))
-        .replace("{{DATE}}", html.escape(pretty_date(edition["date"])))
-        .replace("{{LOCATION}}", location)
-        .replace("{{PAGE_CLASS}}", page_class)
-        .replace("{{LEAD}}", lead_html)
-        .replace("{{PRIORITY}}", priority_html)
-        .replace("{{PRIORITY_BLOCK}}", priority_block_html)
-        .replace("{{WEATHER_EAR}}", weather_ear)
-        .replace("{{DESKS_INLINE}}", desks_inline_html)
-        .replace("{{NEWS_PAIR}}", news_pair_html)
-        .replace("{{CALENDAR_RAIL}}", calendar_html)
-        .replace("{{SECTIONS}}", news_pair_html)
-        .replace("{{WEATHER}}", weather_html)
-        .replace("{{CALENDAR}}", calendar_html)
-        .replace("{{MAIL}}", mail_html)
-        .replace("{{SPORTS}}", sports_html)
-        .replace("{{SIDEBAR}}", desks_html)
-    )
+    slots = {
+        "{{MASTHEAD}}": html.escape(name),
+        "{{DATE}}": html.escape(pretty_date(edition["date"])),
+        "{{LOCATION}}": location,
+        "{{LEAD}}": lead_html,
+        "{{PRIORITY}}": priority_html,
+        "{{PRIORITY_BLOCK}}": priority_block_html,
+        "{{WEATHER_EAR}}": weather_ear,
+        "{{DESKS_INLINE}}": desks_inline_html,
+        "{{NEWS_PAIR}}": news_pair_html,
+        "{{CALENDAR_RAIL}}": calendar_html,
+        "{{SECTIONS}}": news_pair_html,
+        "{{WEATHER}}": weather_html,
+        "{{CALENDAR}}": calendar_html,
+        "{{MAIL}}": mail_html,
+        "{{SPORTS}}": sports_html,
+        "{{SIDEBAR}}": desks_html,
+        "{{SUDOKU}}": "",
+    }
+    slot_re = re.compile("|".join(re.escape(slot) for slot in slots))
+    return slot_re.sub(lambda match: slots[match.group(0)], template_text)
 
 
 def write_pdf(html_text, path):
     """The PDF leg. weasyprint is optional; its absence is a named failure."""
+    pathlib.Path(path).unlink(missing_ok=True)
     try:
         from weasyprint import HTML  # noqa: PLC0415 -- optional dependency
     except ImportError:
@@ -1334,6 +1282,8 @@ def main(argv=None):
     parser.add_argument("--chat", default=None, help="write the chat text here")
     parser.add_argument("--html", default=None, help="write the printable HTML here")
     parser.add_argument("--pdf", default=None, help="write a PDF here (needs weasyprint)")
+    parser.add_argument("--companion", default=None,
+                        help="write chat-only mail/sports desks here when present")
     parser.add_argument("--config", default=CONFIG_DEFAULT,
                         help="pt/config.json; used to force the priority desk on")
     parser.add_argument("--tournament", default=None,
@@ -1347,7 +1297,8 @@ def main(argv=None):
 
     if isinstance(edition, dict):
         fill_news_desk(edition)
-    edition, _ = ensure_priority_desk(edition, _load_json_file(args.config))
+    config = _load_json_file(args.config)
+    edition, _ = ensure_priority_desk(edition, config)
 
     failures = validate(edition)
     if failures:
@@ -1366,12 +1317,19 @@ def main(argv=None):
     else:
         sys.stdout.write(chat_text)
 
+    if args.companion:
+        companion_path = pathlib.Path(args.companion)
+        companion_path.unlink(missing_ok=True)
+        companion = render_companion(edition)
+        if companion:
+            companion_path.write_text(companion)
+
     if args.html or args.pdf:
         try:
             template_text = TEMPLATE.read_text()
         except OSError as exc:
             sys.exit(f"error: could not read template {TEMPLATE}: {exc!r}")
-        page = render_html(edition, name, template_text)
+        page = render_html(edition, name, template_text, language=_owner_language(config))
         if args.html:
             pathlib.Path(args.html).write_text(page)
         if args.pdf:

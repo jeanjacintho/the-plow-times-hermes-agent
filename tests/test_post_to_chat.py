@@ -14,9 +14,11 @@ post = load_module("post_to_chat", "pt-shared/scripts/post_to_chat.py")
 
 
 class TestComposePayload:
-    def test_pdf_is_attachment_with_empty_body(self):
-        payload = post.compose_payload("ignored transcript", "att_1")
-        assert payload == {"body": "", "attachment_uids": ["att_1"]}
+    @pytest.mark.parametrize("text", ["Mail summary", ""])
+    def test_pdf_body_carries_the_optional_companion(self, text):
+        assert post.compose_payload(text, "att_1") == {
+            "body": text, "attachment_uids": ["att_1"],
+        }
 
     def test_attachment_filename_defaults_to_basename(self):
         assert post.attachment_filename("/var/lib/hermes/pt/run/edition.pdf") == (
