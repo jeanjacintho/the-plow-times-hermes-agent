@@ -89,13 +89,18 @@ class TestPrinterGate:
         assert "paper is unavailable on this install" in message
         assert "nothing to fix on your Mac" in message
 
-    def test_a_configured_credential_gets_past_the_gate(
-        self, tmp_path, monkeypatch, capsys
+    @pytest.mark.parametrize("credential", [True, False])
+    def test_dry_run_previews_without_touching_the_credential(
+        self, tmp_path, monkeypatch, capsys, credential
     ):
-        # The gate must not stand between a properly configured install and
-        # its printer: with both values present the run proceeds normally.
-        monkeypatch.setenv("DOMO_DEVICE_UID", "device")
-        monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
+        # --dry-run opens no Latch session, so it must not require one: it
+        # previews the commands either way. The gate belongs on the last line
+        # before a session is opened, not in front of a preview.
+        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
+            monkeypatch.delenv(name, raising=False)
+        if credential:
+            monkeypatch.setenv("DOMO_DEVICE_UID", "device")
+            monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
         pdf = _edition(tmp_path)
         config = _config(tmp_path)
 

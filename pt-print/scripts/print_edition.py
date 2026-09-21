@@ -185,20 +185,23 @@ def main(argv=None):
     if not printer:
         print("skipped: printer.configured is not true")
         return
-    # Before anything else: this install may have no Latch credential at all
-    # (a self-hosted setup step nothing performs on a hosted agent). That is
-    # not a failed print, it is a print that can never happen, so say so
-    # terminally -- post_to_chat.py must not append a retry promise to it.
+    date = args.date or edition_date(args.pdf)
+    if args.dry_run:
+        print(f"dry-run: would write {mac_pdf_path(date)} and lp -d {printer}")
+        return
+
+    # This install may have no Latch credential at all (a self-hosted setup
+    # step nothing performs on a hosted agent). That is not a failed print,
+    # it is a print that can never happen, so say so terminally --
+    # post_to_chat.py must not append a retry promise to it. Asked here, on
+    # the last line before a session is opened, so --dry-run stays what it
+    # says it is: a preview that touches nothing and needs no credential.
     blank = missing_credential()
     if blank:
         sys.exit(
             f"error: page not printed — {blank} is not set, so paper is "
             "unavailable on this install; nothing to fix on your Mac"
         )
-    date = args.date or edition_date(args.pdf)
-    if args.dry_run:
-        print(f"dry-run: would write {mac_pdf_path(date)} and lp -d {printer}")
-        return
 
     try:
         ship(args.pdf, printer, date, connect().call_tool)
