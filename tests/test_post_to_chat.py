@@ -174,15 +174,17 @@ class TestFinalizersRunIndependently:
             monkeypatch.setattr(post, "run_record_edition", overrides["run_record_edition"])
         monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", pdf_arg or str(pdf)])
 
-    @pytest.mark.parametrize("topics, seal, print_result, error", [
-        ("FINALIZED", _seal_ok, "page printed", None),
-        ("FINALIZED", _seal_fails, "page printed", None),
-        ("FINALIZED", _seal_ok, "page not printed — lp 1", None),
-        ("topics not finalized — broken", _seal_ok, "page printed",
+    @pytest.mark.parametrize("topics, seal, print_result, recorded, error", [
+        ("FINALIZED", _seal_ok, "page printed", "RECORDED", None),
+        ("FINALIZED", _seal_fails, "page printed", "RECORDED", None),
+        ("FINALIZED", _seal_ok, "page not printed — lp 1", "RECORDED", None),
+        ("topics not finalized — broken", _seal_ok, "page printed", "RECORDED",
          r"topics.py finalize-edition <edition.json>.*do not repost"),
+        ("FINALIZED", _seal_ok, "page printed", "edition not recorded — broken",
+         r"record_edition.py <edition.json>.*do not repost"),
     ])
     def test_finalizers_continue_in_order(self, tmp_path, monkeypatch,
-                                          topics, seal, print_result, error):
+                                          topics, seal, print_result, recorded, error):
         order = []
         paths = []
         self._mock_main(
@@ -190,7 +192,7 @@ class TestFinalizersRunIndependently:
             run_finalize_topics=lambda path: paths.append(path) or order.append("finalize") or topics,
             after_posted=lambda: order.append("seal") or seal(),
             maybe_print=lambda *a, **k: order.append("print") or print_result,
-            run_record_edition=lambda path: paths.append(path) or order.append("record") or "RECORDED",
+            run_record_edition=lambda path: paths.append(path) or order.append("record") or recorded,
         )
         if error:
             with pytest.raises(SystemExit, match=error):

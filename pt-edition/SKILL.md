@@ -344,9 +344,10 @@ transcript after it is the wall of text they did not ask for.
    **`post_to_chat.py` also records the edition in the owner's wiki itself**,
    the same way it already prints: after either a successful `--pdf` or
    `--text-file` POST, it runs `record_edition.py` on the sibling
-   `edition.json`, best-effort — whatever it prints, the delivery and the
-   marks below already stand, it is never retried, and nothing about it goes
-   to the owner. This is no longer a step you run.
+   `edition.json`. The delivery already stands, but a recorder failure exits
+   non-zero after every finalizer and names the one recovery command:
+   `record_edition.py <edition.json>; do not repost`. Run that command once;
+   never resend the PDF. This is no longer a normal step you run.
 
    A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
    (you do not have to run that script yourself). When this turn ends, the

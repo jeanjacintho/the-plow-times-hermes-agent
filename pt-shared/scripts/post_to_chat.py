@@ -404,6 +404,11 @@ def main():
             "error: topic finalization failed after delivery; recover with "
             "topics.py finalize-edition <edition.json>; do not repost"
         )
+    if recorded.startswith("edition not recorded"):
+        sys.exit(
+            "error: edition recording failed after delivery; recover with "
+            "record_edition.py <edition.json>; do not repost"
+        )
 
 
 if __name__ == "__main__":

@@ -397,6 +397,8 @@ def validate_tournament(edition, tournament):
 
     generation = tournament.get("generation")
     failures = []
+    if tournament.get("date") != edition.get("date"):
+        failures.append("tournament date does not match edition date")
     if (
         not isinstance(generation, int)
         or isinstance(generation, bool)

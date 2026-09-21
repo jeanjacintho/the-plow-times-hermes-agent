@@ -222,7 +222,8 @@ Write the complete candidate checkpoint to
 `priority` object into the priority section of
 `/var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json`. The latter is a complete edition JSON document,
 including `date`, `location`, and a `sections` list containing the priority section; it is not a
-standalone card fragment. Run the normal renderer gate
+standalone card fragment. The tournament checkpoint also carries that same edition `date` at its
+top level. Run the normal renderer gate
 against those two views of the same candidate:
 the checkpoint `stage` is exactly
 `generation_<n>_complete_gate_passed_checkpoint_written`, with `<n>` equal to `generation`.
@@ -243,6 +244,7 @@ run-state proposal; never re-run Cull or apply another rank move.
 ## Accepted checkpoint consistency
 
 Record the Orient start time in `tournament.json`.
+Keep its top-level `date` equal to the candidate edition's date.
 Keep `champions` in the culler's printed rank order and make their headlines exactly match the
 three recommendations in `tournament.json`'s `priority` object. The final renderer checks all
 three conditions and exact card equality.

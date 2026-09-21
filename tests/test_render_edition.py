@@ -106,6 +106,7 @@ def write(tmp_path, data):
 def tournament(generation=3, items=None, stage=None):
     items = items if items is not None else recommendations()
     return {
+        "date": "2026-09-11",
         "generation": generation,
         "stage": stage or f"generation_{generation}_complete_gate_passed_checkpoint_written",
         "priority": {"recommendations": items, "questions": []},
@@ -185,6 +186,17 @@ class TestValidate:
             assert result == ""
         else:
             assert failure in result
+
+    @pytest.mark.parametrize("date", [None, "2026-09-10"])
+    def test_tournament_date_must_match_edition(self, date):
+        checkpoint = tournament()
+        if date is None:
+            checkpoint.pop("date")
+        else:
+            checkpoint["date"] = date
+        assert "tournament date does not match edition date" in (
+            render.validate_tournament(recommendation_edition(), checkpoint)
+        )
 
     def test_complete_tournament_owns_the_exact_priority_card(self):
         checkpoint = tournament()
