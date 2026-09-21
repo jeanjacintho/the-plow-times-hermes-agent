@@ -8,10 +8,10 @@ Prints JSON, oldest first, reading the edition pages record_edition.py writes
 own history: [{"date", "desk"}], the `priority` card each of the 7 days
 before today carries. With `--topic`, it is one news section's:
 [{"date", "headline", "printed": [{"claim", "url"}]}], what record_edition.py
-recorded under that topic id in the page's frontmatter, for the 7 days
-through today -- so the next pass knows which sources it has already spent
-and which claims it has already made -- a section with no memory reprints
-the same story every morning (issue #69).
+recorded under that topic id in the page's frontmatter, for today and the 7
+days before it -- so the next pass knows which sources it has already
+spent and which claims it has already made -- a section with no memory
+reprints the same story every morning (issue #69).
 The two windows differ on purpose. Today's own page is never the desk's
 history: a second edition the same date would otherwise read the first
 back as "yesterday". A topic's window reaches through today instead: the
