@@ -103,12 +103,13 @@ order; the stage sections below define each payload, but never reorder or merge 
 4. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
    call the culler until that wiki write returns success.
 5. Make one one-task `delegate_task` call for Cull.
-6. Rewrite `RUN_PAGE` with Cull and set its `Stage` to Cull complete before building or validating
-   the candidate. Recovery from `Cull complete` proceeds to candidate construction and validation.
-   Then run the candidate gate and publish the accepted checkpoint as specified below.
-   A generation is not complete until its renderer exits zero. Never defer a generation's candidate gate.
-7. Do not start the next generation until the accepted checkpoint is published. When fewer than
-   three generations are complete, immediately start the next generation at step 1.
+6. Rewrite `RUN_PAGE` with Cull and set its `Stage` to Cull complete before taking another action.
+   Recovery from `Cull complete` proceeds to the next required action.
+7. Generations one and two advance from their wiki Cull checkpoint: immediately start the next
+   generation at step 1 without building a candidate. Generation three and later build and render the candidate
+   as specified below, and do not start another generation until that accepted checkpoint is published.
+   The prior delivered `tournament.json` remains untouched until generation three passes, so an
+   interrupted early generation cannot replace the last deliverable result.
 
 ### 1. Challenge + research
 
@@ -203,7 +204,7 @@ the checkpoint `stage` is exactly
 `generation_<n>_complete_gate_passed_checkpoint_written`, with `<n>` equal to `generation`.
 
 ```sh
-/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json --candidate-tournament /var/lib/hermes/pt/run/desk-priority/tournament.candidate.json --chat /var/lib/hermes/pt/run/desk-priority/card-check.txt
+/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json --tournament /var/lib/hermes/pt/run/desk-priority/tournament.candidate.json --chat /var/lib/hermes/pt/run/desk-priority/card-check.txt
 ```
 
 Only after that exits zero, atomically move `tournament.candidate.json` over
@@ -222,8 +223,9 @@ stop merely because a generation retained all incumbents. Record the Orient star
 `tournament.json`. Complete at least three generations when 90 minutes remain before the cutoff.
 Every generation runs the same Challenge + research, Criticize, and Cull stages.
 Never run a separate polish generation or count rewriting as a generation.
-Increment `generation` only after that generation's Challenge, Research, Criticize, Cull, and
-candidate gate all completed; changing the number is not a substitute for running those stages.
+Increment `generation` only after that generation's Challenge, Research, Criticize, and Cull
+completed. For generation three and later, its candidate gate and publish must also complete;
+changing the number is not a substitute for running those stages.
 Keep `champions` in the culler's printed rank order and make their headlines exactly match the
 three recommendations in `tournament.json`'s `priority` object. The final renderer checks all
 three conditions and exact card equality.

@@ -912,15 +912,6 @@ class TestMain:
         with pytest.raises(SystemExit, match="at least 3 completed generations"):
             render.main([str(path), "--tournament", str(tournament_path)])
 
-    def test_candidate_tournament_flag_accepts_an_early_priority_checkpoint(self, tmp_path):
-        path = write(tmp_path, recommendation_edition())
-        tournament_path = tmp_path / "tournament.json"
-        tournament_path.write_text(json.dumps(tournament(generation=1)))
-
-        assert render.main([
-            str(path), "--candidate-tournament", str(tournament_path)
-        ]) == 0
-
     def test_tournament_flag_does_not_block_an_edition_without_recommendations(self, tmp_path):
         path = write(tmp_path, edition())
 

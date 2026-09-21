@@ -388,8 +388,8 @@ def validate(edition):
     return "; ".join(failures or page_rules(sections))
 
 
-def validate_tournament(edition, tournament, min_generation=3):
-    """Refuse a priority card that is not a real completed checkpoint."""
+def validate_tournament(edition, tournament):
+    """Refuse a priority card that is not a third-generation checkpoint."""
     if not isinstance(tournament, dict):
         return "tournament.json is not a JSON object"
 
@@ -398,12 +398,9 @@ def validate_tournament(edition, tournament, min_generation=3):
     if (
         not isinstance(generation, int)
         or isinstance(generation, bool)
-        or generation < min_generation
+        or generation < 3
     ):
-        failures.append(
-            f"tournament needs at least {min_generation} completed generation"
-            f"{'s' if min_generation != 1 else ''}"
-        )
+        failures.append("tournament needs at least 3 completed generations")
     expected_stage = (
         f"generation_{generation}_complete_gate_passed_checkpoint_written"
         if isinstance(generation, int) and not isinstance(generation, bool)
@@ -1275,11 +1272,8 @@ def main(argv=None):
                         help="write chat-only mail/sports desks here when present")
     parser.add_argument("--config", default=CONFIG_DEFAULT,
                         help="pt/config.json; used to force the priority desk on")
-    tournament_gate = parser.add_mutually_exclusive_group()
-    tournament_gate.add_argument("--tournament", default=None,
-                                 help="require a final priority tournament from this JSON path")
-    tournament_gate.add_argument("--candidate-tournament", default=None,
-                                 help="require a completed candidate generation from this JSON path")
+    parser.add_argument("--tournament", default=None,
+                        help="require a final priority tournament from this JSON path")
     args = parser.parse_args(argv)
 
     try:
@@ -1302,11 +1296,9 @@ def main(argv=None):
         and bool(section["priority"].get("recommendations"))
         for section in edition.get("sections", [])
     )
-    tournament_path = args.tournament or args.candidate_tournament
-    if tournament_path and has_recommendations:
-        tournament = _load_json_file(tournament_path)
-        minimum = 1 if args.candidate_tournament else 3
-        failures = validate_tournament(edition, tournament, min_generation=minimum)
+    if args.tournament and has_recommendations:
+        tournament = _load_json_file(args.tournament)
+        failures = validate_tournament(edition, tournament)
         if failures:
             sys.exit(f"error: invalid tournament.json: {failures}")
 
