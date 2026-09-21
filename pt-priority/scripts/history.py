@@ -21,7 +21,7 @@ that repeat would be caught.
 record_edition.py writes those pages only once a paper was delivered, so a card
 the owner never received is never history. A day with no page, or no card, is
 left out. When the Mac does not answer: `error: history unavailable — <why>`,
-non-zero; the desk then runs as if history were empty.
+non-zero; the desk then writes only its stub and stops (`pt-priority/SKILL.md`).
 
 "Today" is the owner's own day (`owner_time.owner_today()`), not the
 container's -- see that module's docstring for why, and for the same
