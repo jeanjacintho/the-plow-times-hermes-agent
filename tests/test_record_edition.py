@@ -136,6 +136,7 @@ class TestRecord:
         assert meta["sections"]["t_9f2a"] == {
             "headline": "The real firms",
             "printed": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"}]}
+        assert "t_1234" not in meta["sections"]  # mail is the owner's own account
 
     def test_a_later_editions_missing_headline_keeps_the_earlier_one(self, mac, tmp_path):
         # render_edition.py's `elif headline:` guard allows a section with no
@@ -166,7 +167,6 @@ class TestRecord:
             "headline": "The real firms",
             "printed": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"},
                         {"claim": "BRL steady by close", "url": "https://news.example/fx2"}]}
-        assert "t_1234" not in meta["sections"]  # mail is the owner's own account
 
 
 class TestCli:
