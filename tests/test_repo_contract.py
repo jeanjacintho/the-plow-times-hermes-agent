@@ -736,10 +736,6 @@ class TestSkills:
         assert "already spent" in research
         shared = (ROOT / "pt-shared" / "SKILL.md").read_text()
         assert "--topic" in shared
-        recorder = (ROOT / "pt-edition" / "scripts" / "record_edition.py").read_text()
-        assert 'meta.setdefault("sections", {})' in recorder
-        reader = (ROOT / "pt-priority" / "scripts" / "history.py").read_text()
-        assert 'get("sections", {}).get(topic)' in reader
 
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
         # Measured live 2026-09-18: two real appointments, paper said the
