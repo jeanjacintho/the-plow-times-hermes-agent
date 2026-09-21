@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pt-shared" / "scri
 from bearer_http import require
 from latch_mcp import LatchError
 from owner_time import owner_now
-from wiki import EDITIONS, PAPER_LINK, connect, join_page, split_page
+from wiki import EDITIONS, PAPER_LINK, SECTION_MARK, connect, join_page, split_page
 from wiki_setup import ensure
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -60,7 +60,7 @@ def _card(card):
 
 
 def _section(section, notes):
-    lines = [f"### {section['title']}", ""]
+    lines = [f"### {section['title']}", SECTION_MARK.format(section["topic_id"]), ""]
     if section.get("headline"):
         lines += [f"**{section['headline']}**", ""]
     lines += [section["body"], ""]

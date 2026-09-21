@@ -23,6 +23,10 @@ QA = f"{ROOT}/qa.md"
 GOALS = "entities/owner/goals.md"
 SCHEMA = f"_meta/schemas/{ROOT}.md"
 PAPER_LINK = f"[The Founder Times](/{OVERVIEW})"
+# Marks a news section's block on a day page, its topic id filled in; record_edition.py
+# writes it under the section's heading, history.py reads it back to find that section's
+# own past blocks.
+SECTION_MARK = "<!-- section {} -->"
 
 
 def split_page(text):

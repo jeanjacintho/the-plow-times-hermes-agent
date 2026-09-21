@@ -126,6 +126,15 @@ class TestRecord:
         assert out.startswith("SKIPPED:")
         assert not (mac.home / "Plow" / "wiki" / EDITIONS).exists()
 
+    def test_a_news_block_is_addressable_by_its_topic_id(self, mac, tmp_path):
+        # history.py reads a section's own past blocks back out of the day
+        # page; the heading text is the owner's words and can be restated,
+        # so the topic id is what makes a block findable.
+        rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
+        body = split_page(day(mac))[1]
+        assert "### The dollar\n<!-- section t_9f2a -->\n" in body
+        assert "<!-- section t_1234 -->" not in body  # mail is the owner's own account
+
 
 class TestCli:
     def test_an_unreachable_mac_fails_loudly(self, mac, monkeypatch, tmp_path):
