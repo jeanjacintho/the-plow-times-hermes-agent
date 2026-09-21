@@ -68,9 +68,6 @@ On a compacted or restated turn, the first action is to read `RUN_PAGE` and obey
 Never infer the active page from timestamps or delegate a stage recorded there as complete.
 
 Every child returns compact structured JSON with no narrative preface.
-Writer JSON is at most 3,000 characters. Critic JSON is at most 2,500 characters.
-Culler JSON is at most 10,000 characters. These are complete JSON envelopes, not targets that may be exceeded;
-prefer fewer words and receipts over truncating JSON.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
 into the run's wiki state page before any other model work. Keep only decisions, priority cases,
 replayable read receipts, evidence locations, unknowns, and verdicts; never copy tool transcripts
@@ -98,18 +95,20 @@ invented incumbents. Run the following stages with `delegate_task` children that
 Let `I` be the number of inherited champions at the start of this generation. Execute this loop in
 order; the stage sections below define each payload, but never reorder or merge these gates:
 
-1. Make one `delegate_task` call containing exactly three writer tasks. Every writer goal ends with: "Return ONLY complete JSON of at most 3,000 characters."
+1. Make one `delegate_task` call containing exactly three writer tasks.
 2. Rewrite `RUN_PAGE` with all three Challenge results and set its `Stage` to Challenge complete.
    Do not make another `delegate_task` call until that wiki write returns success.
 3. Make one `delegate_task` call whose critic task count is `I + 3`: one task for each inherited
-   champion and one for each challenger. Every critic goal ends with: "Return ONLY complete JSON of at most 2,500 characters."
+   champion and one for each challenger.
 4. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
    call the culler until that wiki write returns success.
-5. Make one one-task `delegate_task` call for Cull. The culler goal ends with: "Return ONLY complete JSON of at most 10,000 characters."
+5. Make one one-task `delegate_task` call for Cull.
 6. Rewrite `RUN_PAGE` with Cull and set its `Stage` to Cull complete before building or validating
    the candidate. Recovery from `Cull complete` proceeds to candidate construction and validation.
    Then run the candidate gate and publish the accepted checkpoint as specified below.
-7. When fewer than three generations are complete, immediately start the next generation at step 1.
+   A generation is not complete until its renderer exits zero. Never defer a generation's candidate gate.
+7. Do not start the next generation until the accepted checkpoint is published. When fewer than
+   three generations are complete, immediately start the next generation at step 1.
 
 ### 1. Challenge + research
 
