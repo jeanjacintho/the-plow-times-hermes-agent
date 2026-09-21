@@ -729,6 +729,8 @@ class TestSkills:
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
         assert "Only the canonical scheduled paper runs priority" in soul
         assert "reuse its priority checkpoint or gap card and begin with weather" in soul
+        assert "Live copies and alternate daily reruns re-research the main roster" in soul
+        assert "Focused papers add only sections booked for their own hour" in soul
         assert "the founder" in skill
         assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
