@@ -278,9 +278,8 @@ edition, and relaying it is the chat leg.
   pt-research on topic <id> now, then pt-edition for it. Render `--pdf` plus
   `--companion`, then post the PDF with the companion via `post_to_chat.py
   --pdf --text-file` when present. Final response is NO_REPLY. When the
-  edition is delivered, mark the
-  topic delivered with topics.py and remove this job with `hermes cron
-  remove pt-oneoff-<id>`." Record the scheduled moment at add time via
+  edition is delivered, post_to_chat.py finalizes it; remove this job with
+  `hermes cron remove pt-oneoff-<id>`." Record the scheduled moment at add time via
   `--scheduled-for`.
 - **One-off, deep** — the same, including `--deliver
   plow_chat:${PLOW_HOME_CHANNEL}`, at the next `delivery.hour` from
@@ -316,10 +315,9 @@ The edition, when it lands, speaks for itself.
 
 ## Budgeted statuses, kept honest
 
-The run itself moves the topic `pending → running` (via `topics.py mark`,
-from the cron-fired session). A subscription or section is never marked
-delivered: `post_to_chat.py` reopens it to `pending` and stamps
-`last_edition_at` once the chat POST succeeds. An assignment is marked
-`delivered` (terminal) after the edition is out. Never mark a topic delivered yourself in the
+The run moves a topic to `running`; after the edition POST succeeds,
+`post_to_chat.py` finalizes exactly the carried topic IDs atomically. A subscription or section
+records `last_edition_at` and goes back to `pending`, awaiting the next fire. An assignment
+is terminal once delivered. Never mark a topic delivered yourself in the
 intake turn — nothing has been delivered yet, and a delivered mark on a topic
 whose edition failed is how a silent gap looks like a working paper.

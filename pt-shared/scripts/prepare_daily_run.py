@@ -17,10 +17,6 @@ def _dated_directory(name: str) -> bool:
         return False
 
 
-def _topic_directory(name: str) -> bool:
-    return len(name) == 6 and name.startswith("t_") and all(c in "0123456789abcdef" for c in name[2:])
-
-
 def _daily_directory(name: str) -> bool:
     slot, separator, day = name.partition("-")
     suffix = slot.removeprefix("daily")
@@ -29,8 +25,8 @@ def _daily_directory(name: str) -> bool:
 
 def _scratch(path: Path) -> bool:
     if path.is_dir():
-        return (path.name.startswith("desk-") or _topic_directory(path.name)
-                or _dated_directory(path.name) or _daily_directory(path.name))
+        return (path.name.startswith("desk-") or _dated_directory(path.name)
+                or _daily_directory(path.name))
     return path.name in {"chat-status.json", "seal-session.json"}
 
 

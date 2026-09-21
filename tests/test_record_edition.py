@@ -73,8 +73,9 @@ class TestRecord:
         meta, body = split_page(day(mac))
         assert meta["priority"]["recommendations"][0]["first_step"] == "Send Raj the pilot terms"
         assert {"resource": "https://news.example/fx"} in meta["sources"]
-        assert {"resource": "https://example.com/acme"} in meta["sources"]
         assert {"resource": "https://example.com/blueprint"} in meta["sources"]
+        assert "https://example.com/acme" not in day(mac)
+        assert "Acme asked for pilot terms (Gmail)" in body
         assert "### 1. Close the Acme pilot" in body
         assert "Proof beats promises." in body
         assert "Q1 — Which customer would publicly vouch for you?" in body

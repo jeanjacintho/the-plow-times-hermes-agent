@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render the Letter PDF plus any chat-only desk companion, post them via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render the Letter PDF plus any chat-only desk companion, and post them via post_to_chat.py, which finalizes carried topics and prints when configured. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -362,19 +362,11 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Mark every one-off and assignment the edition carried** from its `topic_id`:
-   `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
-   only after the chat leg is out — a delivered mark on an undelivered
-   edition is how a silent gap looks like a working paper. Both stay
-   `delivered` (terminal). **Never mark a section or subscription:**
-   the chat leg's seal already sent them back to `pending` for tomorrow's
-   paper and stamped `last_edition_at`, so a mark would be refused.
-   - A `topics.py mark` that **refuses because the topic was cancelled while
-     the run worked is expected, not an error**: the owner said stop at 6h20;
-     the edition already left without it. Report it and carry on — do not
-     crash the delivery over a valid cancellation.
-   - **Never mark a standing desk.** Weather, calendar, mail and sports
-     have no topic id on purpose.
+3. **Do not mark topics after posting.** On the successful POST boundary,
+   `post_to_chat.py` atomically stamps only the `topic_id`s carried by its sibling
+   `edition.json`: one-offs and assignments become `delivered`; sections and
+   subscriptions record `last_edition_at` and become `pending`. Cancelled topics
+   remain cancelled. Weather, calendar, mail and sports have no topic id.
 
 ## Repo note — the edition gate
 

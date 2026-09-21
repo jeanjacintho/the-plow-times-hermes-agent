@@ -31,13 +31,12 @@ base its own bearer is sent to. Any of the three unset or blank is refused
 BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
-attachment_uids) and optionally sends the companion as its body. After a successful POST, three
 attachment_uids) and optionally sends the companion as its body.
 `--hold-until HH:MM` waits until
 that clock in TZ before posting; if it has already passed, posts now.
-After a successful POST, three
-finalizers run independently and best-effort: seal (and reopen today's
-sections), print via print_edition.py when configured, and record via
+After a successful POST, four
+finalizers run independently and best-effort: finalize exactly the topics carried by
+`edition.json`, seal, print via print_edition.py when configured, and record via
 record_edition.py (`--pdf` and `--text-file` both) on the sibling
 `edition.json` -- one's failure never skips or undoes another, and nothing
 about the record reaches chat. `--dry-run` prints the redacted envelope and
@@ -71,6 +70,12 @@ RECORD_SCRIPT = (
     / "pt-edition"
     / "scripts"
     / "record_edition.py"
+)
+TOPICS_SCRIPT = (
+    Path(__file__).resolve().parent.parent.parent
+    / "pt-intake"
+    / "scripts"
+    / "topics.py"
 )
 
 
@@ -156,7 +161,7 @@ def attachment_filename(pdf_path, override=None):
     return name
 
 
-def after_posted(stamp=None, posted_path=None):
+def after_posted(stamp=None):
     """The PDF is out; the next owner message must not re-read this turn.
 
     A dry-run never calls this. Marks the stamp delivered so the gateway
@@ -173,45 +178,7 @@ def after_posted(stamp=None, posted_path=None):
         platform=prev.get("platform") or "",
         delivered=True,
     )
-    return f"sealed; {reopen_sections_after_paper(delivered_topic_ids(posted_path))}"
-
-
-def delivered_topic_ids(posted_path):
-    """The topic ids the just-posted edition.json carried; [] if unreadable.
-
-    posted_path is the PDF or the text file: the edition.json is its sibling.
-    """
-    if not posted_path:
-        return []
-    try:
-        edition = json.loads((Path(posted_path).resolve().parent / "edition.json").read_text(encoding="utf-8"))
-        return sorted({s["topic_id"] for s in edition["sections"] if s.get("topic_id")})
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        return []
-
-
-def reopen_sections_after_paper(ids):
-    """The topics this paper carried go back to pending, stamped delivered.
-    Scoped to them: another paper's running topics are not this one's.
-    """
-    if not ids:
-        return "REOPEN:none"
-    intake = Path("/var/lib/hermes/skills/pt-intake/scripts/topics.py")
-    if not intake.is_file():
-        intake = Path(__file__).resolve().parent.parent.parent / "pt-intake" / "scripts" / "topics.py"
-    if not intake.is_file():
-        return "REOPEN:skipped"
-    import subprocess
-
-    proc = subprocess.run(
-        [sys.executable, str(intake), "reopen-sections", "--delivered", *ids],
-        capture_output=True,
-        text=True,
-    )
-    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
-    if proc.returncode != 0:
-        return f"REOPEN:failed {blob or proc.returncode}"
-    return blob or "REOPEN:none"
+    return "sealed"
 
 
 def _best_effort(run, args, failure):
@@ -294,6 +261,29 @@ def maybe_record(posted_path, runner=None):
         return "skipped: no posted file"
     edition_json = Path(posted_path).resolve().parent / "edition.json"
     run = runner or run_record_edition
+    return run(str(edition_json))
+
+
+def run_finalize_topics(edition_json):
+    import subprocess
+
+    proc = subprocess.run(
+        [sys.executable, str(TOPICS_SCRIPT), "finalize-edition", edition_json],
+        capture_output=True,
+        text=True,
+    )
+    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    if proc.returncode != 0:
+        return f"topics not finalized — {blob or proc.returncode}"
+    return blob
+
+
+def maybe_finalize_topics(posted_path, runner=None):
+    """Finalize only topic IDs in the edition that was successfully posted."""
+    if not posted_path:
+        return "skipped: no posted file"
+    edition_json = Path(posted_path).resolve().parent / "edition.json"
+    run = runner or run_finalize_topics
     return run(str(edition_json))
 
 
@@ -407,7 +397,11 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    print(_best_effort(after_posted, (None, args.pdf or args.text_file), "chat session not sealed"))
+    topics_result = _best_effort(
+        maybe_finalize_topics, (args.pdf or args.text_file,), "topics not finalized"
+    )
+    print(topics_result)
+    print(_best_effort(after_posted, (), "chat session not sealed"))
     if args.pdf:
         suffix = " + companion" if text else " only"
         print(f"chat edition posted (pdf{suffix}) {args.pdf}")
@@ -422,6 +416,11 @@ def main():
     else:
         print(f"chat edition posted ({len(text)} chars)")
     print(_best_effort(maybe_record, (args.pdf or args.text_file,), "edition not recorded"))
+    if topics_result.startswith("topics not finalized"):
+        sys.exit(
+            "error: topic finalization failed after delivery; recover with "
+            "topics.py finalize-edition <edition.json>; do not repost"
+        )
 
 
 if __name__ == "__main__":

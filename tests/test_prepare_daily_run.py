@@ -22,11 +22,12 @@ def test_archives_only_prior_run_scratch_and_keeps_the_live_lock(tmp_path):
     archived = prepare.prepare(tmp_path, NOW)
 
     assert archived == tmp_path.parent / f".{tmp_path.name}-run-archives" / "run-20260920-110710"
-    for name in ("desk-priority", "desk-weather", "t_4cac", "2026-09-20",
+    for name in ("desk-priority", "desk-weather", "2026-09-20",
                  "daily-2026-09-20", "daily2-2026-09-20",
                  "chat-status.json", "seal-session.json"):
         assert (archived / name).exists()
         assert not (run / name).exists()
+    assert (run / "t_4cac" / "notes.json").read_text() == "t_4cac"
     assert (run / "daily-2026-09-20.lock").read_text() == "held"
     assert (run / "company-set-dm.json").read_text() == "durable setup evidence"
 

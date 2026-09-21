@@ -439,29 +439,12 @@ class TestReopenSections:
         assert by_id[stop]["status"] == "cancelled"
 
 
-class TestReopenStampsEdition:
+class TestStartupReopen:
     def add_running(self, kind, pt_home):
         topics.main(["add", "--text", "x", "--kind", kind, "--depth", "deep"])
         tid = read_store(pt_home)[-1]["id"]
         topics.main(["mark", tid, "--status", "running"])
         return tid
-
-    @pytest.mark.parametrize("kind", ["section", "subscription"])
-    def test_evergreen_delivery_stamps_last_edition(self, kind, pt_home, capsys):
-        tid = self.add_running(kind, pt_home)
-        assert topics.reopen_evergreen(delivered=[tid]) == [tid]
-        (topic,) = read_store(pt_home)
-        assert topic["status"] == "pending"
-        assert topic["last_edition_at"] is not None
-
-    def test_delivery_stamps_a_carried_topic_another_startup_already_reset(self, pt_home, capsys):
-        # Paper B's startup recovery reset paper A's running topic to pending;
-        # A then ships it. A's finalizer must still record the delivery.
-        tid = self.add_running("section", pt_home)
-        topics.reopen_evergreen()
-        assert read_store(pt_home)[0]["last_edition_at"] is None
-        topics.reopen_evergreen(delivered=[tid])
-        assert read_store(pt_home)[0]["last_edition_at"] is not None
 
     def test_startup_reopen_of_a_dead_run_does_not_stamp(self, pt_home, capsys):
         self.add_running("section", pt_home)
@@ -490,3 +473,34 @@ class TestConcurrentWriters:
                  for i in range(8)]
         assert all(p.wait() == 0 for p in procs)
         assert len(read_store(pt_home)) == 8
+
+
+class TestFinalizeEdition:
+    def test_stamps_only_carried_topics_and_reopens_recurring_ones(
+        self, pt_home, tmp_path, capsys
+    ):
+        topics.main(["add", "--text", "AI", "--kind", "subscription", "--depth", "deep"])
+        topics.main(["add", "--text", "other", "--kind", "subscription", "--depth", "deep"])
+        topics.main([
+            "add", "--text", "brief", "--kind", "assignment", "--depth", "quick",
+            "--run-on", "2026-09-21",
+        ])
+        carried, other, assignment = (t["id"] for t in read_store(pt_home))
+        for tid in (carried, other, assignment):
+            topics.main(["mark", tid, "--status", "running"])
+        edition = tmp_path / "edition.json"
+        edition.write_text(json.dumps({"sections": [
+            {"topic_id": carried}, {"desk": "weather"}, {"topic_id": assignment},
+        ]}))
+        capsys.readouterr()
+
+        topics.main([
+            "finalize-edition", str(edition), "--at", "2026-09-21T08:31:00-07:00",
+        ])
+
+        by_id = {t["id"]: t for t in read_store(pt_home)}
+        assert by_id[carried]["status"] == "pending"
+        assert by_id[carried]["last_edition_at"] == "2026-09-21T08:31:00-07:00"
+        assert by_id[assignment]["status"] == "delivered"
+        assert by_id[assignment]["last_edition_at"] == "2026-09-21T08:31:00-07:00"
+        assert by_id[other]["status"] == "running"

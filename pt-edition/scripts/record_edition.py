@@ -52,8 +52,7 @@ def _card(card):
         lines += [f"### {rank}. {recommendation['headline']}", "", recommendation["body"], "",
                   f"- First step: {recommendation['first_step']}"]
         for evidence in recommendation["evidence"]:
-            location = f"; {evidence['url']}" if evidence.get("url") else ""
-            lines.append(f"- Evidence: {evidence['claim']} ({evidence['source']}{location})")
+            lines.append(f"- Evidence: {evidence['claim']} ({evidence['source']})")
         advisor = recommendation["advisor"]
         lines += [f'- Advisor: "{advisor["quote"]}" — {advisor["name"]} ({advisor["url"]})', ""]
     lines += [f"- Question: {question}" for question in card.get("questions") or []]
@@ -62,11 +61,18 @@ def _card(card):
 
 def _card_urls(card):
     for recommendation in card["recommendations"]:
-        for evidence in recommendation.get("evidence") or []:
-            if evidence.get("url"):
-                yield evidence["url"]
         if (recommendation.get("advisor") or {}).get("url"):
             yield recommendation["advisor"]["url"]
+
+
+def _archive_card(card, headline):
+    """Keep advisor citations, but never persist private evidence locators."""
+    recommendations = [
+        {**item, "evidence": [{k: v for k, v in evidence.items() if k != "url"}
+                               for evidence in item["evidence"]]}
+        for item in card["recommendations"]
+    ]
+    return {**card, "headline": headline, "recommendations": recommendations}
 
 
 def _section(section, notes):
@@ -104,8 +110,10 @@ def record(wiki, edition_json, chat, now):
         already = existing is not None and mark in existing
         if not already:
             lines, urls = [f"## {now:%H:%M} edition", mark, ""], []
-            card = ({k: v for k, v in printed["priority"].items() if k != "today"}
-                     | {"headline": printed["headline"]}) if printed else None
+            card = _archive_card(
+                {k: v for k, v in printed["priority"].items() if k != "today"},
+                printed["headline"],
+            ) if printed else None
             if card:
                 lines += _card(card)
                 urls += list(_card_urls(card))

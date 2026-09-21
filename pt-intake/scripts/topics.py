@@ -23,14 +23,12 @@ Subcommands:
   list     [--kind K]      prints the topics array as JSON
   check-paper --deliver-at {main,HH:MM} [--as-of YYYY-MM-DD]
                            validates one paper's three-item news roster
-  reopen-sections [--delivered ID ...]
-                           every section/subscription that is delivered or
+  finalize-edition <edition.json> [--at ISO8601]
+                           stamps only carried topics after a successful post
+  reopen-sections          every section/subscription that is delivered or
                            running becomes pending (a paper about to run;
                            measured live, delivered sections were skipped
-                           and the next edition had desks only). With
-                           --delivered, passed only once the chat POST
-                           succeeded, only those topics are reopened and
-                           stamped last_edition_at; nothing else is touched
+                           and the next edition had desks only)
 
 `--run-on` is the date a `section`/`assignment` belongs to the paper:
 required for `assignment` (the one day its result appears) and refused for
@@ -80,7 +78,7 @@ ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DELIVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 MAX_NEWS_ITEMS = 3
-MUTATING_COMMANDS = {"add", "cancel", "mark", "reopen-sections"}
+MUTATING_COMMANDS = {"add", "cancel", "mark", "finalize-edition", "reopen-sections"}
 
 
 def home():
@@ -396,19 +394,12 @@ EVERGREEN = ("section", "subscription")
 REOPEN_FROM = ("delivered", "running")
 
 
-def reopen_evergreen(topic_list=None, delivered=None):
+def reopen_evergreen(topic_list=None):
     """Put evergreen topics back on the next paper's research list.
 
     One-offs and assignments stay delivered. Cancelled stays cancelled.
-    delivered=[ids] is the moment those topics' edition shipped (post_to_chat,
-    after the POST succeeded): only they are reopened and stamped, the one
-    writer of last_edition_at for these kinds, so an overlapping paper's
-    running topics are left alone. A carried topic that another paper's
-    startup recovery already reset to pending is stamped too: it shipped.
-    Without it (startup recovery) every such
-    topic is reopened and none is stamped: a run that died leaves a topic
-    running, and that is not a delivery. A topic already marked delivered
-    keeps the stamp that mark wrote.
+    This is startup recovery only: a run that died leaves a topic running,
+    and reopening it is not a delivery, so this function never stamps it.
     """
     owned = topic_list is None
     topics = load_topics() if owned else topic_list
@@ -416,12 +407,8 @@ def reopen_evergreen(topic_list=None, delivered=None):
     for topic in topics:
         if topic.get("kind") not in EVERGREEN:
             continue
-        if topic.get("status") not in REOPEN_FROM + (("pending",) if delivered else ()):
+        if topic.get("status") not in REOPEN_FROM:
             continue
-        if delivered is not None and topic["id"] not in delivered:
-            continue
-        if delivered is not None and topic["status"] != "delivered":
-            topic["last_edition_at"] = now_iso()
         topic["status"] = "pending"
         topic["scheduled_for"] = None
         reopened.append(topic["id"])
@@ -431,8 +418,40 @@ def reopen_evergreen(topic_list=None, delivered=None):
 
 
 def cmd_reopen_sections(args):
-    reopened = reopen_evergreen(delivered=args.delivered)
+    reopened = reopen_evergreen()
     print(json.dumps({"reopened": reopened}))
+    return 0
+
+
+def cmd_finalize_edition(args):
+    """Atomically stamp exactly the topics carried by a posted edition."""
+    path = pathlib.Path(args.edition_json)
+    try:
+        edition = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        sys.exit(f"error: {path} cannot be read as edition JSON ({exc!r})")
+    sections = edition.get("sections") if isinstance(edition, dict) else None
+    if not isinstance(sections, list):
+        sys.exit(f"error: {path} has no sections list")
+    ids = list(dict.fromkeys(
+        section.get("topic_id") for section in sections
+        if isinstance(section, dict) and section.get("topic_id")
+    ))
+    topics = load_topics()
+    stamp = args.at or now_iso()
+    finalized, skipped = [], []
+    for topic_id in ids:
+        topic = find_topic(topics, topic_id)
+        if topic["status"] == "cancelled":
+            skipped.append(topic_id)
+            continue
+        topic["last_edition_at"] = stamp
+        topic["status"] = "pending" if topic["kind"] in EVERGREEN else "delivered"
+        if topic["status"] == "pending":
+            topic["scheduled_for"] = None
+        finalized.append({"id": topic_id, "status": topic["status"]})
+    save_topics(topics)
+    print(json.dumps({"finalized": finalized, "cancelled": skipped}))
     return 0
 
 
@@ -483,9 +502,14 @@ def main(argv=None):
         "reopen-sections",
         help="pending every delivered/running section and subscription",
     )
-    p_reopen.add_argument("--delivered", nargs="+", metavar="ID", default=None,
-                          help="reopen and stamp only these topics (a paper just delivered)")
     p_reopen.set_defaults(func=cmd_reopen_sections)
+
+    p_finalize = sub.add_parser(
+        "finalize-edition", help="stamp the topics carried by a posted edition",
+    )
+    p_finalize.add_argument("edition_json")
+    p_finalize.add_argument("--at", default=None, help="ISO8601 edition timestamp")
+    p_finalize.set_defaults(func=cmd_finalize_edition)
 
     args = parser.parse_args(argv)
     if args.command in MUTATING_COMMANDS:
