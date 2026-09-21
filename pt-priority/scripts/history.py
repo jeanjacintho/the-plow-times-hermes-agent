@@ -7,10 +7,11 @@ Prints JSON, oldest first, for the 7 days before today, reading the edition
 pages record_edition.py writes (projects/theplowtimes/editions/<date>.md).
 Bare, it is the advisor's desk's own history: [{"date", "desk"}], the
 `priority` card each day carries. With `--topic`, it is one news section's:
-[{"date", "headline", "printed": [{"claim", "url"}]}], every block that
-section's topic id marks on the page, so the next pass knows which sources
-it has already spent and which claims it has already made -- a section with
-no memory reprints the same story every morning (issue #69).
+[{"date", "headline", "printed": [{"claim", "url"}]}], what record_edition.py
+recorded under that topic id in the page's frontmatter, so the next pass
+knows which sources it has already spent and which claims it has already
+made -- a section with no memory reprints the same story every morning
+(issue #69).
 Today's own page is never history: a second edition for the same date would
 otherwise read the first back as "yesterday".
 record_edition.py writes those pages only once a paper was delivered, so a card
@@ -27,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -35,12 +35,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pt-shared" / "scripts"))
 from latch_mcp import LatchError
 from owner_time import owner_today
-from wiki import EDITIONS, SECTION_MARK, connect, split_page
+from wiki import EDITIONS, connect, split_page
 
 DAYS = 7
-HEADING_RE = re.compile(r"^#{2,3} ", re.M)
-HEADLINE_RE = re.compile(r"^\*\*(.+)\*\*$", re.M)
-CLAIM_RE = re.compile(r"^- (.+?) \((https?://\S+)\)$", re.M)
 
 
 def _desk(text):
@@ -50,17 +47,8 @@ def _desk(text):
 
 
 def _section(text, topic):
-    """What this section printed on the page: its last headline and every
-    sourced claim, both editions of the day included, or None if it is absent."""
-    blocks = [HEADING_RE.split(chunk, maxsplit=1)[0]
-              for chunk in split_page(text)[1].split(SECTION_MARK.format(topic))[1:]]
-    if not blocks:
-        return None
-    headlines = [m.group(1).strip() for block in blocks
-                 for m in [HEADLINE_RE.search(block)] if m]
-    return {"headline": headlines[-1] if headlines else "",
-            "printed": [{"claim": claim.strip(), "url": url}
-                        for block in blocks for claim, url in CLAIM_RE.findall(block)]}
+    """This topic's record on the page (headline and every sourced claim), or None."""
+    return split_page(text)[0].get("sections", {}).get(topic)
 
 
 def recent(wiki, today, topic=None):

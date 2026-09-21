@@ -127,13 +127,16 @@ class TestRecord:
         assert not (mac.home / "Plow" / "wiki" / EDITIONS).exists()
 
     def test_a_news_block_is_addressable_by_its_topic_id(self, mac, tmp_path):
-        # history.py reads a section's own past blocks back out of the day
-        # page; the heading text is the owner's words and can be restated,
-        # so the topic id is what makes a block findable.
+        # history.py reads a section's own past record back out of the day
+        # page's frontmatter, not the Markdown body -- the heading text is
+        # the owner's words and can be restated, so the topic id is what
+        # makes a section findable.
         rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
-        body = split_page(day(mac))[1]
-        assert "### The dollar\n<!-- section t_9f2a -->\n" in body
-        assert "<!-- section t_1234 -->" not in body  # mail is the owner's own account
+        meta = split_page(day(mac))[0]
+        assert meta["sections"]["t_9f2a"] == {
+            "headline": "The real firms",
+            "printed": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"}]}
+        assert "t_1234" not in meta["sections"]  # mail is the owner's own account
 
 
 class TestCli:
