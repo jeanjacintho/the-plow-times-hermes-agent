@@ -203,7 +203,7 @@ the checkpoint `stage` is exactly
 `generation_<n>_complete_gate_passed_checkpoint_written`, with `<n>` equal to `generation`.
 
 ```sh
-/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json --tournament /var/lib/hermes/pt/run/desk-priority/tournament.candidate.json --chat /var/lib/hermes/pt/run/desk-priority/card-check.txt
+/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json --candidate-tournament /var/lib/hermes/pt/run/desk-priority/tournament.candidate.json --chat /var/lib/hermes/pt/run/desk-priority/card-check.txt
 ```
 
 Only after that exits zero, atomically move `tournament.candidate.json` over

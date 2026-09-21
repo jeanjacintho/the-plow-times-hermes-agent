@@ -767,6 +767,7 @@ class TestSkills:
             "after every delegate set returns",
             "Complete at least three generations",
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
+            "--candidate-tournament",
             "A recommendation without a supporting sourced quote is ineligible",
             "global paper budget does not shorten",
             "dated today is still generation zero",
