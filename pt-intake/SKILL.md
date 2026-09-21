@@ -278,9 +278,8 @@ edition, and relaying it is the chat leg.
   pt-research on topic <id> now, then pt-edition for it. Render `--pdf` plus
   `--companion`, then post the PDF with the companion via `post_to_chat.py
   --pdf --text-file` when present. Final response is NO_REPLY. When the
-  edition is delivered, mark the
-  topic delivered with topics.py and remove this job with `hermes cron
-  remove pt-oneoff-<id>`." Record the scheduled moment at add time via
+  edition is delivered, post_to_chat.py finalizes it; remove this job with
+  `hermes cron remove pt-oneoff-<id>`." Record the scheduled moment at add time via
   `--scheduled-for`.
 - **One-off, deep** — the same, including `--deliver
   plow_chat:${PLOW_HOME_CHANNEL}`, at the next `delivery.hour` from

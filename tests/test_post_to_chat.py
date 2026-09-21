@@ -216,3 +216,18 @@ class TestFinalizersRunIndependently:
         )
         post.main()
         assert order == ["record"]
+
+    def test_topic_failure_finishes_finalizers_then_names_recovery(self, tmp_path, monkeypatch):
+        order = []
+        self._mock_main(
+            tmp_path, monkeypatch,
+            maybe_finalize_topics=lambda *a, **k: order.append("finalize") or "topics not finalized — broken",
+            after_posted=lambda: order.append("seal") or "sealed",
+            maybe_print=lambda *a, **k: order.append("print") or "page printed",
+            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
+        )
+
+        with pytest.raises(SystemExit, match=r"topics.py finalize-edition <edition.json>.*do not repost"):
+            post.main()
+
+        assert order == ["finalize", "seal", "print", "record"]

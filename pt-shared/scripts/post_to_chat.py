@@ -342,9 +342,10 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    print(_best_effort(
+    topics_result = _best_effort(
         maybe_finalize_topics, (args.pdf or args.text_file,), "topics not finalized"
-    ))
+    )
+    print(topics_result)
     print(_best_effort(after_posted, (), "chat session not sealed"))
     if args.pdf:
         suffix = " + companion" if text else " only"
@@ -360,6 +361,11 @@ def main():
     else:
         print(f"chat edition posted ({len(text)} chars)")
     print(_best_effort(maybe_record, (args.pdf or args.text_file,), "edition not recorded"))
+    if topics_result.startswith("topics not finalized"):
+        sys.exit(
+            "error: topic finalization failed after delivery; recover with "
+            "topics.py finalize-edition <edition.json>; do not repost"
+        )
 
 
 if __name__ == "__main__":

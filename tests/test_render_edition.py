@@ -226,6 +226,13 @@ class TestValidate:
         bad = edition(sections=[{"kind": "assignment", "title": "x", "body": "y"}])
         assert "run_on is required" in render.validate(bad)
 
+    @pytest.mark.parametrize("section", [
+        {"kind": "section", "desk": "news", "title": "x", "body": "y"},
+        {"kind": "assignment", "run_on": "2026-09-21", "title": "x", "body": "y"},
+    ])
+    def test_carried_news_requires_topic_id(self, section):
+        assert "topic_id is required" in render.validate(edition(sections=[section]))
+
     def test_sources_must_be_strings(self):
         bad = edition(sections=[{"kind": "section", "title": "x", "body": "y",
                                  "sources": [1, 2]}])
@@ -269,7 +276,7 @@ class TestValidate:
     def test_layout_optional(self):
         assert render.validate(edition()) == ""
         assert render.validate(edition(sections=[{
-            "kind": "section", "title": "x", "body": "y", "layout": "sidebar",
+            "kind": "section", "topic_id": "t_8c1d", "title": "x", "body": "y", "layout": "sidebar",
         }])) == ""
 
     def test_headline_must_be_a_string_when_present(self):
@@ -812,7 +819,7 @@ class TestHtml:
 
     def test_dynamic_placeholder_text_is_not_re_evaluated(self):
         page = render.render_html(edition(sections=[
-            {"kind": "section", "title": "Lead", "desk": "news",
+            {"kind": "section", "topic_id": "t_8c1d", "title": "Lead", "desk": "news",
              "body": "Literal {{MAIL}} marker.", "sources": []},
             {"kind": "section", "title": "Letters", "desk": "mail",
              "body": "Private inbox metadata.", "sources": []},
@@ -874,7 +881,7 @@ class TestMain:
 
     def test_writes_chat_only_desk_companion(self, tmp_path):
         path = write(tmp_path, edition(sections=[
-            {"kind": "section", "title": "Lead", "desk": "news",
+            {"kind": "section", "topic_id": "t_8c1d", "title": "Lead", "desk": "news",
              "body": "Printed.", "sources": []},
             {"kind": "section", "title": "Letters", "desk": "mail",
              "body": "Inbox summary.", "sources": []},
@@ -889,7 +896,7 @@ class TestMain:
 
     def test_no_chat_only_desks_remove_a_stale_companion(self, tmp_path):
         path = write(tmp_path, edition(sections=[
-            {"kind": "section", "title": "Lead", "desk": "news",
+            {"kind": "section", "topic_id": "t_8c1d", "title": "Lead", "desk": "news",
              "body": "Printed.", "sources": []},
         ]))
         out = tmp_path / "edition.companion.txt"

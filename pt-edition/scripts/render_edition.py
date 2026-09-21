@@ -209,6 +209,8 @@ def validate(edition):
             isinstance(topic_id, str) and TOPIC_ID_RE.fullmatch(topic_id)
         ):
             failures.append(f"{where}.topic_id is not a t_xxxx id")
+        if topic_id is None and (kind == "assignment" or desk in (None, "news")):
+            failures.append(f"{where}.topic_id is required for carried news")
         if kind == "assignment":
             run_on = section.get("run_on")
             if not (isinstance(run_on, str) and DATE_RE.fullmatch(run_on)):

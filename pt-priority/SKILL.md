@@ -103,21 +103,33 @@ order; the stage sections below define each payload, but never reorder or merge 
 2. Rewrite `RUN_PAGE` with all three Challenge results and set its `Stage` to Challenge complete.
    Do not make another `delegate_task` call until that wiki write returns success.
 3. Make one `delegate_task` call whose critic task count is `I + 3`: one task for each inherited
-   champion and one for each challenger.
+   champion and one for each challenger, so there is one independent critic per recommendation.
+   With three inherited champions, this is six independent critic children in one delegate set.
 4. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
    call the culler until that wiki write returns success.
-5. Make one one-task `delegate_task` call for Cull.
+5. Every generation reaches Cull unless fewer than three fully criticized targets remain. With
+   fewer than three, the generation is invalid and the prior checkpoint stands. Otherwise make
+   one one-task `delegate_task` call for Cull.
 6. Rewrite `RUN_PAGE` with Cull and set its `Stage` to Cull complete before taking another action.
    Recovery from `Cull complete` proceeds to the next required action.
 7. Generations one and two advance from their wiki Cull checkpoint: immediately start the next
    generation at step 1 without building a candidate. Generation three and later build and render the candidate
    as specified below, and do not start another generation until that accepted checkpoint is published.
+   After generation two, Generation three is the next required action; later desks are prohibited.
    The prior delivered `tournament.json` remains untouched until generation three passes, so an
    interrupted early generation cannot replace the last deliverable result.
+8. Complete at least three generations. Delivery waits for generation three. After an accepted
+   generation-three checkpoint, start another generation only when it can finish through Cull at
+   least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began.
+   Otherwise stop with the last fully criticized checkpoint. The time cutoff only decides whether to start generation four or later;
+   the global paper budget does not shorten this window.
+9. Never run a separate polish generation or count rewriting as a generation. Increment
+   `generation` only after Challenge, Research, Criticize, and Cull complete; generation three and
+   later also require the candidate gate and publish.
 
 ### 1. Challenge + research
 
-Run three writer-research children in parallel. Each proposes and researches one contender. It targets a different
+Each writer proposes and researches one contender. It targets a different
 available champion when there is one; otherwise it starts from a distinct named-advisor question.
 It must name what it tries to beat or seed, the decision it changes, the evidence needed, and the advisor principle it applies.
 Novel wording is not diversity; different owner decisions are.
@@ -137,11 +149,9 @@ catalog or printed recommendation.
 
 ### 2. Criticize
 
-Run **one independent critic per recommendation**, for every incumbent and challenger, after
-research. With three inherited champions and three challengers, dispatch six independent critic children in one delegate set.
 Each child receives and prosecutes exactly one target; never pair an incumbent with the challenger
 that tried to beat it, and never treat the challenger as a revision that replaces fresh criticism
-of the incumbent. With fewer inherited champions, the critic count is exactly inherited plus three.
+of the incumbent.
 The payload names the critic's target; the child gets its recommendation, `priority_case`,
 `reads`, and source locations from `RUN_PAGE`, never the writer's hidden reasoning. Each critic reopens the decisive read receipts, independently
 checks the evidence, and uses Latch research to make the strongest case to cull it:
@@ -160,7 +170,7 @@ do not copy tool transcripts or claim a critic that did not return a verdict.
 
 ### 3. Cull
 
-Every generation reaches Cull unless fewer than three fully criticized targets remain. The culler reads from `RUN_PAGE` the available targets,
+The culler reads from `RUN_PAGE` the available targets,
 their priority cases, replayable reads, item-backed research, and all prosecutions. It selects and ranks exactly three grounded,
 distinct champions by decision impact, specificity, advisor fidelity, evidence, feasibility, and
 survival of criticism. It explicitly compares why each action matters now, what it displaces, and
@@ -222,26 +232,13 @@ Re-read each whole page and fold owner edits into it
 immediately before writing. If either write fails, retry only that wiki write from the accepted
 run-state proposal; never re-run Cull or apply another rank move.
 
-## Repeat and stop
+## Accepted checkpoint consistency
 
-Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
-stop merely because a generation retained all incumbents. Record the Orient start time in
-`tournament.json`. Complete at least three generations.
-After generation two reaches Cull without an accepted generation-three checkpoint, Generation three is the next required action;
-later desks are prohibited. Delivery waits for generation three. The time cutoff only decides whether to start generation four or later.
-Every generation runs the same Challenge + research, Criticize, and Cull stages.
-Never run a separate polish generation or count rewriting as a generation.
-Increment `generation` only after that generation's Challenge, Research, Criticize, and Cull
-completed. For generation three and later, its candidate gate and publish must also complete;
-changing the number is not a substitute for running those stages.
+Record the Orient start time in `tournament.json`.
 Keep `champions` in the culler's printed rank order and make their headlines exactly match the
 three recommendations in `tournament.json`'s `priority` object. The final renderer checks all
 three conditions and exact card equality.
-After that, start another generation only when it can complete through criticism and Cull
-at least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began;
-otherwise keep the last fully criticized checkpoint for delivery. A later failure never erases
-that checkpoint. The global paper budget does not shorten this reserved advisor window; later
-desks use the time that remains.
+A later failure never erases that checkpoint; later desks use the time that remains.
 
 ## Resource catalog write discipline
 
