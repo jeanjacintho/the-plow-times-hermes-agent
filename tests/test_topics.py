@@ -363,6 +363,15 @@ class TestReopenStampsEdition:
         assert topic["status"] == "pending"
         assert topic["last_edition_at"] is not None
 
+    def test_delivery_stamps_a_carried_topic_another_startup_already_reset(self, pt_home, capsys):
+        # Paper B's startup recovery reset paper A's running topic to pending;
+        # A then ships it. A's finalizer must still record the delivery.
+        tid = self.add_running("section", pt_home)
+        topics.reopen_evergreen()
+        assert read_store(pt_home)[0]["last_edition_at"] is None
+        topics.reopen_evergreen(delivered=[tid])
+        assert read_store(pt_home)[0]["last_edition_at"] is not None
+
     def test_startup_reopen_of_a_dead_run_does_not_stamp(self, pt_home, capsys):
         self.add_running("section", pt_home)
         topics.reopen_evergreen()
