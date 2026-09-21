@@ -788,6 +788,15 @@ class TestSkills:
         advisor_readme = (advisor_dir / "README.md").read_text()
         assert "Add your own advisor" not in overview
         assert "Owner-added advisors" not in advisor_readme
+    def test_a_news_section_reads_back_what_it_printed(self):
+        # A section researched with no memory of its own past editions prints
+        # the same backgrounder every morning (issue #69). The instrument is
+        # the advisor desk's, one level down -- not a second mechanism.
+        research = (ROOT / "pt-research" / "SKILL.md").read_text()
+        assert "history.py recent --topic" in research
+        assert "already spent" in research
+        shared = (ROOT / "pt-shared" / "SKILL.md").read_text()
+        assert "--topic" in shared
 
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
         # Measured live 2026-09-18: two real appointments, paper said the

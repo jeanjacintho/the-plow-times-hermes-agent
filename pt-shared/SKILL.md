@@ -88,8 +88,11 @@ does not, and every run fails on the import.
   config or the key is absent; a config that exists but can't be trusted (bad
   JSON, an unreadable file, an unknown zone name) raises. Shared by
   `history.py`'s window and `record_edition.py`'s heading below.
-- `pt-priority/scripts/history.py recent` — the cards the desk printed on the last 7 days, read
-  from the wiki's edition pages; prints `[{"date", "desk"}]`.
+- `pt-priority/scripts/history.py recent [--topic ID]` — what this paper printed on the last 7
+  days, read from the wiki's edition pages: bare, the advisor desk's cards, `[{"date", "desk"}]`;
+  with a news section's topic id, that section's own blocks,
+  `[{"date", "headline", "printed": [{"claim", "url"}]}]`, so a pass knows which sources it has
+  already spent.
 - `pt-edition/scripts/record_edition.py <edition.json>` — the delivered edition onto the day's
   page in the wiki, then `wiki validate` + `wiki index`.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so

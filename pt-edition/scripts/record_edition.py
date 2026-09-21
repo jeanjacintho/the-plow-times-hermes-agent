@@ -13,9 +13,11 @@ topic_id) with its body, the evidence its research notes hold
 calendar, mail and sports stay out: they are the day's reads of the owner's
 own accounts, and the wiki is every agent's recall.
 
-The page's `priority` frontmatter is the last card printed that day; history.py
-reads it back as the desk's history. After the write, `wiki validate` and
-`wiki index`, so the paper's page lists the day.
+The page's `priority` frontmatter is the last card printed that day; its
+`sections` frontmatter is each topic id's own record (headline and every
+sourced claim), merged across the day's editions. history.py reads both back
+as history. After the write, `wiki validate` and `wiki index`, so the
+paper's page lists the day.
 
 The renderer already refused a malformed edition.json before delivery, so the
 fields it requires are read directly.
@@ -85,6 +87,21 @@ def _section(section, notes):
     return lines + [""]
 
 
+def _section_record(section, notes, prior):
+    """This section's structural frontmatter entry: its latest headline and every
+    sourced claim, merged with what an earlier edition the same day already recorded.
+    A later edition with no headline of its own does not blank out one already known."""
+    printed = list(prior.get("printed") or [])
+    seen = {(p["claim"], p["url"]) for p in printed}
+    for note in notes.get("notes") or []:
+        pair = (note["claim"], note["url"])
+        if pair not in seen:
+            printed.append({"claim": note["claim"], "url": note["url"]})
+            seen.add(pair)
+    headline = section.get("headline") or prior.get("headline") or ""
+    return {"headline": headline, "printed": printed}
+
+
 def record(wiki, edition_json, chat, now):
     run_dir = Path(edition_json).parent
     raw = Path(edition_json).read_bytes()
@@ -109,6 +126,16 @@ def record(wiki, edition_json, chat, now):
         existing = wiki.read(rel)
         already = existing is not None and mark in existing
         if not already:
+            if existing is None:
+                meta = {"type": "Edition", "title": f"The Founder Times, {edition['date']}",
+                        "description": "", "category": "projects", "tags": ["edition"],
+                        "paper": PAPER_LINK, "date": edition["date"], "sources": [],
+                        "created": now.isoformat(timespec="seconds")}
+                body = f"# The Founder Times, {edition['date']}\n"
+            else:
+                meta, body = split_page(existing)
+            sections_meta = meta.setdefault("sections", {})
+
             lines, urls = [f"## {now:%H:%M} edition", mark, ""], []
             card = _archive_card(
                 {k: v for k, v in printed["priority"].items() if k != "today"},
@@ -123,15 +150,9 @@ def record(wiki, edition_json, chat, now):
                 lines += _section(section, notes)
                 urls += [note["url"] for note in notes.get("notes") or []]
                 urls += [u for u in section.get("sources") or [] if u.startswith("http")]
+                sections_meta[section["topic_id"]] = _section_record(
+                    section, notes, sections_meta.get(section["topic_id"], {}))
 
-            if existing is None:
-                meta = {"type": "Edition", "title": f"The Founder Times, {edition['date']}",
-                        "description": "", "category": "projects", "tags": ["edition"],
-                        "paper": PAPER_LINK, "date": edition["date"], "sources": [],
-                        "created": now.isoformat(timespec="seconds")}
-                body = f"# The Founder Times, {edition['date']}\n"
-            else:
-                meta, body = split_page(existing)
             cited = {s["resource"] for s in meta["sources"]}
             meta["sources"] += [{"resource": u} for u in dict.fromkeys(urls) if u not in cited]
             meta["sources"] = meta["sources"] or [{"resource": f"plow-chat:{chat}"}]

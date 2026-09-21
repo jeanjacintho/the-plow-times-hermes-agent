@@ -68,6 +68,25 @@ pass that found 3 of 5 sources reports 3 sources; it does not keep hunting.
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status running`. If it is
    already `running`, another run is working on it — skip it rather than
    racing it.
+
+   Then, for a `section`, read what it already printed:
+   `/var/lib/hermes/skills/pt-priority/scripts/history.py recent --topic <id>`
+   — `[{"date", "headline", "printed": [{"claim", "url"}]}]` for today and
+   the 7 days before it, oldest first. Those URLs are already spent and
+   those claims are already made: **this pass is what changed since the
+   last date it lists**, not the subject again. Do not open a URL it names,
+   and do not restate a claim it names, however well the search ranks it —
+   measured across the Sep 18, 19 and 21 editions, the same section ran the
+   same backgrounder off the same June and July articles three mornings out
+   of four. An `error:` line is a failed read, not "none found": write the
+   notes file with that exact error in `could_not_source` and stop there —
+   do not research the topic as if its history were empty. An assignment
+   has no history — it runs once, on its own day.
+
+   When the window genuinely holds nothing newer, that is the answer: write
+   the notes file short, name what you looked for in `could_not_source`, and
+   let the edition say so. Refilling the column with the story it already
+   ran is the failure this history exists to prevent.
 2. Open the browser on the owner's Mac through Latch **once**: `plow_browser_open`
    with the origin starter list in `references/desks.md` (location + weather +
    Google + sports, apex and `*.host`). Then navigate. **Do not leave
@@ -111,9 +130,9 @@ hour's sections, never assignments.
 Two rules make a batch survivable in one session:
 
 - **Sections are always `quick`; assignments default `quick` too.** A section
-  is researched fresh every day, so depth there would multiply the run's wall
-  clock by the section count. Only an assignment the owner explicitly asked
-  to be "properly" done runs `deep`.
+  runs every day, so depth there would multiply the run's wall clock by the
+  section count. Only an assignment the owner explicitly asked to be
+  "properly" done runs `deep`.
 - **Standing desks run first, every paper batch, and they are not topics.**
   Follow `pt-research/references/desks.md` — the one roster of which desks
   run and in what order. Notes at `run/desk-<name>/notes.json`. Do not
