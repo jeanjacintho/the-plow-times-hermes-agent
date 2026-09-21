@@ -249,21 +249,6 @@ def run_record_edition(edition_json):
     return blob
 
 
-def maybe_record(posted_path, runner=None):
-    """Put the edition into the owner's wiki after the chat leg is out.
-
-    Plain, exactly like maybe_print: main() makes this best-effort. Runs
-    for both the --pdf and the --text-file legs (edition.json is a sibling
-    of whichever file was actually posted); a bare stdin post has no file
-    to derive that sibling from, so it is skipped.
-    """
-    if not posted_path:
-        return "skipped: no posted file"
-    edition_json = Path(posted_path).resolve().parent / "edition.json"
-    run = runner or run_record_edition
-    return run(str(edition_json))
-
-
 def run_finalize_topics(edition_json):
     import subprocess
 
@@ -276,15 +261,6 @@ def run_finalize_topics(edition_json):
     if proc.returncode != 0:
         return f"topics not finalized — {blob or proc.returncode}"
     return blob
-
-
-def maybe_finalize_topics(posted_path, runner=None):
-    """Finalize only topic IDs in the edition that was successfully posted."""
-    if not posted_path:
-        return "skipped: no posted file"
-    edition_json = Path(posted_path).resolve().parent / "edition.json"
-    run = runner or run_finalize_topics
-    return run(str(edition_json))
 
 
 def print_failure_line(result):
@@ -397,8 +373,11 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    topics_result = _best_effort(
-        maybe_finalize_topics, (args.pdf or args.text_file,), "topics not finalized"
+    posted_path = args.pdf or args.text_file
+    edition_json = str(Path(posted_path).parent / "edition.json") if posted_path else None
+    topics_result = (
+        _best_effort(run_finalize_topics, (edition_json,), "topics not finalized")
+        if edition_json else "skipped: no posted file"
     )
     print(topics_result)
     print(_best_effort(after_posted, (), "chat session not sealed"))
@@ -415,7 +394,11 @@ def main():
                 print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     else:
         print(f"chat edition posted ({len(text)} chars)")
-    print(_best_effort(maybe_record, (args.pdf or args.text_file,), "edition not recorded"))
+    recorded = (
+        _best_effort(run_record_edition, (edition_json,), "edition not recorded")
+        if edition_json else "skipped: no posted file"
+    )
+    print(recorded)
     if topics_result.startswith("topics not finalized"):
         sys.exit(
             "error: topic finalization failed after delivery; recover with "

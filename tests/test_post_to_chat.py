@@ -56,19 +56,6 @@ class TestComposePayload:
         assert json.loads(stamp.read_text(encoding="utf-8"))["pending"] is True
         assert json.loads(stamp.read_text(encoding="utf-8"))["delivered"] is True
 
-    def test_posted_path_finalizes_the_sibling_edition(self, tmp_path):
-        pdf = tmp_path / "edition.pdf"
-        pdf.write_bytes(b"%PDF")
-        seen = []
-
-        out = post.maybe_finalize_topics(
-            str(pdf), runner=lambda path: seen.append(path) or "FINALIZED"
-        )
-
-        assert seen == [str(tmp_path / "edition.json")]
-        assert out == "FINALIZED"
-
-
 class TestRunPrintEdition:
     def test_unknown_outcome_line_is_kept_not_rewrapped_as_a_failure(self, monkeypatch):
         line = "error: page may not have printed — lp outcome unknown: Click Allow; check the printer queue"
@@ -145,21 +132,8 @@ class TestMaybePrint:
         assert post.print_failure_line(result) == line
 
 
-class TestMaybeRecord:
+class TestRunRecord:
     """post_to_chat.py records the edition itself now, the same way it prints."""
-
-    def test_a_successful_post_invokes_the_recorder_with_the_sibling_edition_json(self, tmp_path):
-        pdf = tmp_path / "edition.pdf"
-        pdf.write_bytes(b"%PDF")
-        seen = []
-
-        def runner(edition_json):
-            seen.append(edition_json)
-            return "RECORDED projects/theplowtimes/editions/2026-09-19.md"
-
-        out = post.maybe_record(str(pdf), runner=runner)
-        assert seen == [str(tmp_path / "edition.json")]
-        assert "RECORDED" in out
 
     def test_a_hung_recorder_times_out_instead_of_blocking_the_run(self, monkeypatch):
         def fake_run(*args, **kwargs):
@@ -190,32 +164,42 @@ class TestFinalizersRunIndependently:
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
         monkeypatch.setattr(post, "post_json", lambda *a, **k: None)
         monkeypatch.setattr(
-            post, "maybe_finalize_topics",
-            overrides.get("maybe_finalize_topics", lambda *a, **k: "FINALIZED"),
+            post, "run_finalize_topics",
+            overrides.get("run_finalize_topics", lambda *a, **k: "FINALIZED"),
         )
         monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda: "sealed"))
         if "maybe_print" in overrides:
             monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
-        if "maybe_record" in overrides:
-            monkeypatch.setattr(post, "maybe_record", overrides["maybe_record"])
+        if "run_record_edition" in overrides:
+            monkeypatch.setattr(post, "run_record_edition", overrides["run_record_edition"])
         monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", pdf_arg or str(pdf)])
 
-    @pytest.mark.parametrize("seal, print_result", [
-        (_seal_ok, "page printed"),  # the happy path: prints before it records
-        (_seal_fails, "page printed"),  # a seal failure
-        (_seal_ok, "page not printed — lp 1"),  # a print failure
+    @pytest.mark.parametrize("topics, seal, print_result, error", [
+        ("FINALIZED", _seal_ok, "page printed", None),
+        ("FINALIZED", _seal_fails, "page printed", None),
+        ("FINALIZED", _seal_ok, "page not printed — lp 1", None),
+        ("topics not finalized — broken", _seal_ok, "page printed",
+         r"topics.py finalize-edition <edition.json>.*do not repost"),
     ])
-    def test_a_failing_finalizer_never_blocks_the_next_one(self, tmp_path, monkeypatch, seal, print_result):
+    def test_finalizers_continue_in_order(self, tmp_path, monkeypatch,
+                                          topics, seal, print_result, error):
         order = []
+        paths = []
         self._mock_main(
             tmp_path, monkeypatch,
-            maybe_finalize_topics=lambda *a, **k: order.append("finalize") or "FINALIZED",
+            run_finalize_topics=lambda path: paths.append(path) or order.append("finalize") or topics,
             after_posted=lambda: order.append("seal") or seal(),
             maybe_print=lambda *a, **k: order.append("print") or print_result,
-            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
+            run_record_edition=lambda path: paths.append(path) or order.append("record") or "RECORDED",
         )
-        post.main()
+        if error:
+            with pytest.raises(SystemExit, match=error):
+                post.main()
+        else:
+            post.main()
         assert order == ["finalize", "seal", "print", "record"]
+        expected = str(tmp_path / "edition.json")
+        assert paths == [expected, expected]
 
     def test_a_print_failure_before_its_own_runner_still_records(self, tmp_path, monkeypatch):
         # maybe_print itself is real here (not mocked): an unresolvable pdf
@@ -225,25 +209,14 @@ class TestFinalizersRunIndependently:
         order = []
         self._mock_main(
             tmp_path, monkeypatch, pdf_arg="bad\x00path",
-            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
+            run_record_edition=lambda *a, **k: order.append("record") or "RECORDED",
         )
         post.main()
         assert order == ["record"]
 
-    def test_topic_failure_finishes_finalizers_then_names_recovery(self, tmp_path, monkeypatch):
-        order = []
-        self._mock_main(
-            tmp_path, monkeypatch,
-            maybe_finalize_topics=lambda *a, **k: order.append("finalize") or "topics not finalized — broken",
-            after_posted=lambda: order.append("seal") or "sealed",
-            maybe_print=lambda *a, **k: order.append("print") or "page printed",
-            maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
-        )
-
-        with pytest.raises(SystemExit, match=r"topics.py finalize-edition <edition.json>.*do not repost"):
-            post.main()
-
-        assert order == ["finalize", "seal", "print", "record"]
+    def test_delivery_has_no_duplicate_path_adapters(self):
+        assert not hasattr(post, "maybe_finalize_topics")
+        assert not hasattr(post, "maybe_record")
 
 
 class TestHoldUntil:

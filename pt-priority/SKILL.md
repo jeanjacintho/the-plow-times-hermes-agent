@@ -60,9 +60,12 @@ Keep its exact path in root context as
 that value until delivery.
 Rewrite that one page whole after Orient and after every Challenge, Criticize, and Cull;
 do not create per-generation files or an append-only event log. It holds the stage and generation,
-champions, contenders, priority cases, read receipts, unknowns, critic verdicts, fact-rank moves,
+champions, contenders, priority cases, sanitized reads, unknowns, critic verdicts, fact-rank moves,
 and the last complete checkpoint summary. If context is compacted, resume from this page and the
 canonical checkpoint.
+The page may retain derived owner facts needed to compare recommendations, but its receipts never contain raw private queries, selectors, item IDs, URLs, or excerpts. A private receipt keeps only
+the tool name, a non-identifying source-class label, the semantic question checked, and a compact
+result; public web receipts may keep their public URL and sanitized query.
 **Never load this skill again in the same run.**
 On a compacted or restated turn, the first action is to read `RUN_PAGE` and obey its `Stage`.
 Never infer the active page from timestamps or delegate a stage recorded there as complete.
@@ -74,7 +77,7 @@ and obtains its target, evidence locations, and prior results there. Do not inli
 read receipts, or tool output in the delegation payload.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
 into the run's wiki state page before any other model work. Keep only decisions, priority cases,
-replayable read receipts, evidence locations, unknowns, and verdicts; never copy tool transcripts
+sanitized reads, public evidence locations, unknowns, and verdicts; never copy tool transcripts
 or hidden reasoning. This page, not conversational memory, is the in-progress tournament state.
 
 **The parent never calls Latch for research, opens a Latch spillover file, or researches current
@@ -133,7 +136,8 @@ Each writer proposes and researches one contender. It targets a different
 available champion when there is one; otherwise it starts from a distinct named-advisor question.
 It must name what it tries to beat or seed, the decision it changes, the evidence needed, and the advisor principle it applies.
 Novel wording is not diversity; different owner decisions are.
-The payload names the contender's target; the child gets the exact evidence locations Orient found from `RUN_PAGE`. Allow at most six tool calls,
+The payload names the contender's target; from `RUN_PAGE` the child gets public evidence locations
+and semantic questions plus source-class labels for private evidence. Allow at most six tool calls,
 all for research, and return after eight minutes with what it has. Do not list or rediscover directories,
 dump history, or search the whole wiki inside a child. Use only documented read-only Latch
 operations. Each result is a claim/item pair, contrary evidence, unknowns, and sanitized
@@ -142,10 +146,11 @@ unsolicited in an inbound item is evidence for today, not a new standing source.
 
 Each writer also returns `priority_case`: two or three compact lines stating why this is the
 highest-leverage decision now, what competing action it beats, and the cost of waiting. Its
-`reads` array contains at most six receipts of `tool`, replayable sanitized `query`, `source`, and
-one-line `result`. Preserve selectors and item IDs needed to rerun a read; remove credentials,
-tokens, and private excerpts. The receipts belong only in the private run page, never the resource
-catalog or printed recommendation.
+sanitized `reads` array contains at most six receipts. A public-web receipt carries `tool`, sanitized
+`query`, public `source` URL, and one-line `result`. A mail, Messages, calendar, or authenticated-page
+receipt carries `tool`, a non-identifying source class, the semantic question checked, and a one-line
+result — never a raw query, selector, item ID, private URL, or excerpt. The receipts belong only in
+the private run page, never the resource catalog or printed recommendation.
 
 ### 2. Criticize
 
@@ -153,8 +158,9 @@ Each child receives and prosecutes exactly one target; never pair an incumbent w
 that tried to beat it, and never treat the challenger as a revision that replaces fresh criticism
 of the incumbent.
 The payload names the critic's target; the child gets its recommendation, `priority_case`,
-`reads`, and source locations from `RUN_PAGE`, never the writer's hidden reasoning. Each critic reopens the decisive read receipts, independently
-checks the evidence, and uses Latch research to make the strongest case to cull it:
+`reads`, and public source locations from `RUN_PAGE`, never the writer's hidden reasoning. Each critic
+reopens decisive public read receipts and independently repeats each private receipt's semantic
+question with the named source class, then uses Latch research to make the strongest case to cull it:
 
 - stale or already completed, including a meeting that already happened;
 - false, weak, or date-mismatched data;
@@ -171,7 +177,7 @@ do not copy tool transcripts or claim a critic that did not return a verdict.
 ### 3. Cull
 
 The culler reads from `RUN_PAGE` the available targets,
-their priority cases, replayable reads, item-backed research, and all prosecutions. It selects and ranks exactly three grounded,
+their priority cases, sanitized reads, source-backed research, and all prosecutions. It selects and ranks exactly three grounded,
 distinct champions by decision impact, specificity, advisor fidelity, evidence, feasibility, and
 survival of criticism. It explicitly compares why each action matters now, what it displaces, and
 the cost of waiting. Incumbency gives continuity, not immunity. A challenger wins only by beating

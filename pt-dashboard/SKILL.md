@@ -86,9 +86,9 @@ the mistake this spec exists to make unnecessary**, and such a job is
 invisible to this sweep forever (measured live: a hand-made
 `pt-daily-edition-2` sat in `jobs.json` with a schedule that had nothing to
 do with the hour the owner asked for, and no one but the owner removing it
-by hand would ever fix that). As housekeeping it also prunes old
-daily locks and notes of terminal topics from `/var/lib/hermes/pt/run/`,
-reporting failures without ever failing the run over a scratch file.
+by hand would ever fix that). Registration never deletes runtime locks or
+topic evidence; stale takeover belongs to `run_lock.py`, and evidence cleanup
+belongs to the producer that knows when its consumers are finished.
 
 Two refusals are inherited from `ld-dashboard` and are the whole reason this
 is a script and not a habit:

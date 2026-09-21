@@ -87,7 +87,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 sys.path.insert(
@@ -117,9 +117,6 @@ _EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
 # A focused paper at a section's deliver_at, named from the hour so two
 # sections at 12:30 share one job and a dropped hour is sweepable by name.
 _PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
-_LOCK_RE = re.compile(
-    r"^(?:daily\d*|paper-\d{4}|paper-workspace)-(\d{4}-\d{2}-\d{2})\.lock$"
-)
 WORKSPACE_LOCK = "paper-workspace"
 DEFAULT_LEAD_MINUTES = 0
 # Every acquirer of a lock uses one lifetime: the run itself plus
@@ -170,10 +167,10 @@ def daily_prompt(lock_name, live=False, hold_until=None, lead_minutes=0):
         f"(if that hour has already passed, post immediately; never wait until tomorrow)"
         if holding else ""
     )
+    preserve = "" if lock_name == "daily" and not live else " --preserve-priority"
     prepare = (
-        "/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py "
+        f"/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py{preserve} "
         "(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
-        if lock_name == "daily" and not live else ""
     )
     desks = (
         "run the priority tournament, then every other standing desk "
@@ -235,6 +232,8 @@ def paper_prompt(hour, lead_minutes=0):
         f"--name {WORKSPACE_LOCK}-<today's date in the owner's "
         f"zone> --stale-minutes {STALE_RUN_MINUTES + lead_minutes}; if its output is 'held', another paper owns "
         f"the workspace -- say NO_REPLY and stop. Then "
+        f"/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py --preserve-priority "
+        f"(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
         f"(delivered sections are yesterday's paper, not a skip). Run "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py check-paper "
@@ -704,41 +703,6 @@ def job_drift(job, spec):
     return False
 
 
-def prune_runtime(topics, home):
-    """Best-effort housekeeping of the paper's scratch space.
-
-    Removes daily locks older than today (a lock from a day that will never
-    fire again) and the notes directory of every terminal topic (delivered
-    one-offs and assignments, everything cancelled). Failures are reported,
-    never fatal: a stale scratch file is not worth refusing a registration
-    over, and the next run prunes again. `home` is the pt state directory.
-    """
-    run_dir = pathlib.Path(home) / "run"
-    if not run_dir.is_dir():
-        return []
-    removed = []
-    today = date.today().isoformat()
-    terminal = {
-        t["id"] for t in topics
-        if t["status"] == "cancelled"
-        or (t["kind"] in ("one_off", "assignment") and t["status"] == "delivered")
-    }
-    for entry in sorted(run_dir.iterdir()):
-        try:
-            lock_match = _LOCK_RE.fullmatch(entry.name)
-            if lock_match is not None:
-                stamp = lock_match.group(1)
-                if stamp < today:
-                    entry.unlink()
-                    removed.append(str(entry))
-            elif entry.is_dir() and entry.name in terminal:
-                shutil.rmtree(entry)
-                removed.append(str(entry))
-        except OSError as exc:
-            print(f"WARNING: could not prune {entry}: {exc!r}")
-    return removed
-
-
 def create_argv(job, env=None):
     argv = [HERMES, "cron", "create", job["schedule"], job["prompt"],
             "--name", job["name"], "--skill", job["skill"]]
@@ -797,9 +761,6 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
-
-    for path in prune_runtime(topics, topics_mod.home()):
-        print(f"pruned: {path}")
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)

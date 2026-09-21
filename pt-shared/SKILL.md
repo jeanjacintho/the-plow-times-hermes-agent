@@ -98,10 +98,11 @@ does not, and every run fails on the import.
   `/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name NAME [--stale-minutes N]`
   and the matching `.../run_lock.py release --name NAME`. Prints one word
   (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
-- `scripts/prepare_daily_run.py` — immediately after the daily lock is acquired,
-  archives prior dated, desk, topic, and chat-status scratch beside `run/` and prints
-  `ARCHIVED <path>` or `READY`. It preserves the live lock and setup evidence. The wiki is
-  delivered history; archived scratch is never today's completed work.
+- `scripts/prepare_daily_run.py` — immediately after any paper lock is acquired,
+  archives prior dated, desk, and chat-status scratch beside `run/` and prints `READY`.
+  Noncanonical papers pass `--preserve-priority`; every paper clears all other desks.
+  It preserves topic workspaces, the live lock, and setup evidence. The wiki is delivered
+  history; archived scratch is never today's completed work.
 - `references/config.example.json` — the config contract `pt_config_gate.py`
   enforces (including the optional `delivery.lead_minutes`, default 0, and
   optional `mail.configured`, default off)

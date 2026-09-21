@@ -173,18 +173,18 @@ class TestValidate:
         assert "priority.recommendations reuse an advisor quote" in render.validate(
             recommendation_edition(duplicated))
 
-    def test_complete_tournament_requires_three_generations(self):
-        failure = render.validate_tournament(
-            recommendation_edition(), tournament(generation=1)
-        )
-        assert "tournament needs at least 3 completed generations" in failure
-
-    def test_complete_tournament_requires_ranked_champions_to_match_card(self):
-        reversed_items = list(reversed(recommendations()))
-        failure = render.validate_tournament(
-            recommendation_edition(), tournament(items=reversed_items)
-        )
-        assert "tournament champions do not match the ranked recommendations" in failure
+    @pytest.mark.parametrize("checkpoint, failure", [
+        (tournament(generation=1), "tournament needs at least 3 completed generations"),
+        (tournament(items=list(reversed(recommendations()))),
+         "tournament champions do not match the ranked recommendations"),
+        (tournament(), None),
+    ])
+    def test_tournament_checkpoint_rules(self, checkpoint, failure):
+        result = render.validate_tournament(recommendation_edition(), checkpoint)
+        if failure is None:
+            assert result == ""
+        else:
+            assert failure in result
 
     def test_complete_tournament_owns_the_exact_priority_card(self):
         checkpoint = tournament()
@@ -196,11 +196,6 @@ class TestValidate:
         failure = render.validate_tournament(recommendation_edition(), checkpoint)
 
         assert "tournament priority does not match the printed recommendations" in failure
-
-    def test_complete_tournament_accepts_matching_third_checkpoint(self):
-        assert render.validate_tournament(
-            recommendation_edition(), tournament()
-        ) == ""
 
     def test_valid_is_silent(self):
         assert render.validate(edition()) == ""

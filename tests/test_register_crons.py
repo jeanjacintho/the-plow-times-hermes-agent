@@ -730,47 +730,6 @@ class TestDriftMain:
         assert not any("remove" in c and crons.DAILY_NAME in c for c in calls)
 
 
-class TestPrune:
-    def test_old_lock_pruned_today_kept(self, tmp_path):
-        run = tmp_path / "run"
-        run.mkdir()
-        old = run / "daily-2020-01-01.lock"
-        old.write_text("x")
-        from datetime import date
-        today = run / f"daily-{date.today().isoformat()}.lock"
-        today.write_text("x")
-        removed = crons.prune_runtime([], tmp_path)
-        assert str(old) in removed
-        assert not old.exists()
-        assert today.exists()
-
-    def test_old_paper_lock_pruned(self, tmp_path):
-        run = tmp_path / "run"
-        run.mkdir()
-        old = run / "paper-1230-2020-01-01.lock"
-        old.write_text("x")
-        from datetime import date
-        today = run / f"paper-1230-{date.today().isoformat()}.lock"
-        today.write_text("x")
-        extra = run / "daily2-2020-01-01.lock"
-        extra.write_text("x")
-        removed = crons.prune_runtime([], tmp_path)
-        assert str(old) in removed
-        assert str(extra) in removed
-        assert today.exists()
-
-    def test_terminal_topic_notes_pruned(self, tmp_path):
-        run = tmp_path / "run"
-        (run / "t_dead").mkdir(parents=True)
-        (run / "t_live").mkdir()
-        topics = [topic("t_dead", kind="assignment", status="delivered",
-                        run_on="2026-09-11"),
-                  topic("t_live", kind="section", status="pending")]
-        removed = crons.prune_runtime(topics, tmp_path)
-        assert str(run / "t_dead") in removed
-        assert not (run / "t_dead").exists()
-        assert (run / "t_live").exists()
-
 class TestShowDailyRecipe:
     """The on-demand copy runs the SAME recipe the 7am cron runs.
 
@@ -911,11 +870,16 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "paper-workspace-<today's date" in live
         assert "--stale-minutes 240 plus delivery.lead_minutes" in live
 
-    def test_only_the_canonical_scheduled_paper_archives_shared_scratch(self):
-        assert "prepare_daily_run.py" in crons.daily_prompt("daily")
-        assert "prepare_daily_run.py" not in crons.daily_prompt("daily2")
-        assert "prepare_daily_run.py" not in crons.daily_prompt("daily", live=True)
-        assert "prepare_daily_run.py" not in crons.paper_prompt("12:00")
+    def test_every_paper_clears_desk_scratch_and_only_canonical_clears_priority(self):
+        canonical = crons.daily_prompt("daily")
+        assert "prepare_daily_run.py" in canonical
+        assert "--preserve-priority" not in canonical
+        for prompt in (
+            crons.daily_prompt("daily2"),
+            crons.daily_prompt("daily", live=True),
+            crons.paper_prompt("12:00"),
+        ):
+            assert "prepare_daily_run.py --preserve-priority" in prompt
 
     def test_only_the_canonical_scheduled_paper_runs_priority(self):
         assert "run the priority tournament" in crons.daily_prompt("daily")
