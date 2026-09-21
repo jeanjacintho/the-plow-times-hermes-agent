@@ -23,8 +23,8 @@ then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
 web budget.
 Priority runs only in the canonical scheduled daily paper. Live, alternate, and focused papers
 reuse its atomic checkpoint or the honest gap card and start below at weather; they never run the
-tournament or write its state. The canonical run gives priority a reserved 150-minute window
-(ending earlier when the delivery cutoff requires it),
+tournament or write its state. The canonical run gives priority a reserved 150-minute window; delivery waits
+for its required third generation,
 and the global batch budget starts after priority completes. Never stop its tournament early to
 save time for weather, calendar, mail, sports, or news; those desks use the time that remains.
 Every canonical scheduled execution runs a fresh tournament. A delivered edition dated today is generation-zero

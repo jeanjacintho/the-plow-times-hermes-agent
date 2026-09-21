@@ -68,10 +68,10 @@ On a compacted or restated turn, the first action is to read `RUN_PAGE` and obey
 Never infer the active page from timestamps or delegate a stage recorded there as complete.
 
 Every child returns compact structured JSON with no narrative preface.
-**Delegate payloads are short pointers:** include only the exact `RUN_PAGE`, stage, generation,
-and target index or label. The child reads `RUN_PAGE` first and obtains its target, evidence
-locations, and prior results there. Do not inline the run state, read receipts, or tool output in
-the delegation payload.
+**Delegate payloads are short pointers:** include the exact `RUN_PAGE`, stage, generation, target
+index or label, and the concise stage procedure and result schema defined below. The child reads `RUN_PAGE` first
+and obtains its target, evidence locations, and prior results there. Do not inline the run state,
+read receipts, or tool output in the delegation payload.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
 into the run's wiki state page before any other model work. Keep only decisions, priority cases,
 replayable read receipts, evidence locations, unknowns, and verdicts; never copy tool transcripts
@@ -121,7 +121,7 @@ Run three writer-research children in parallel. Each proposes and researches one
 available champion when there is one; otherwise it starts from a distinct named-advisor question.
 It must name what it tries to beat or seed, the decision it changes, the evidence needed, and the advisor principle it applies.
 Novel wording is not diversity; different owner decisions are.
-Give each child the contender plus the exact evidence locations Orient already found; allow at most six tool calls,
+The payload names the contender's target; the child gets the exact evidence locations Orient found from `RUN_PAGE`. Allow at most six tool calls,
 all for research, and return after eight minutes with what it has. Do not list or rediscover directories,
 dump history, or search the whole wiki inside a child. Use only documented read-only Latch
 operations. Each result is a claim/item pair, contrary evidence, unknowns, and sanitized
@@ -142,8 +142,8 @@ research. With three inherited champions and three challengers, dispatch six ind
 Each child receives and prosecutes exactly one target; never pair an incumbent with the challenger
 that tried to beat it, and never treat the challenger as a revision that replaces fresh criticism
 of the incumbent. With fewer inherited champions, the critic count is exactly inherited plus three.
-Give critics the recommendation, `priority_case`, `reads`, and source locations, never
-the writer's hidden reasoning. Each critic reopens the decisive read receipts, independently
+The payload names the critic's target; the child gets its recommendation, `priority_case`,
+`reads`, and source locations from `RUN_PAGE`, never the writer's hidden reasoning. Each critic reopens the decisive read receipts, independently
 checks the evidence, and uses Latch research to make the strongest case to cull it:
 
 - stale or already completed, including a meeting that already happened;
@@ -160,7 +160,7 @@ do not copy tool transcripts or claim a critic that did not return a verdict.
 
 ### 3. Cull
 
-Every generation reaches Cull unless fewer than three fully criticized targets remain. One culler sees the available targets,
+Every generation reaches Cull unless fewer than three fully criticized targets remain. The culler reads from `RUN_PAGE` the available targets,
 their priority cases, replayable reads, item-backed research, and all prosecutions. It selects and ranks exactly three grounded,
 distinct champions by decision impact, specificity, advisor fidelity, evidence, feasibility, and
 survival of criticism. It explicitly compares why each action matters now, what it displaces, and
@@ -226,9 +226,9 @@ run-state proposal; never re-run Cull or apply another rank move.
 
 Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
 stop merely because a generation retained all incumbents. Record the Orient start time in
-`tournament.json`. Complete at least three generations when 90 minutes remain before the cutoff.
+`tournament.json`. Complete at least three generations.
 After generation two reaches Cull without an accepted generation-three checkpoint, Generation three is the next required action;
-later desks are prohibited. The time cutoff only decides whether to start generation four or later.
+later desks are prohibited. Delivery waits for generation three. The time cutoff only decides whether to start generation four or later.
 Every generation runs the same Challenge + research, Criticize, and Cull stages.
 Never run a separate polish generation or count rewriting as a generation.
 Increment `generation` only after that generation's Challenge, Research, Criticize, and Cull

@@ -796,13 +796,17 @@ class TestSkills:
             "Delegate payloads are short pointers",
             "reads `RUN_PAGE` first",
             "Do not inline the run state",
+            "concise stage procedure and result schema",
             "complete edition JSON document",
             "Generation three is the next required action",
+            "Delivery waits for generation three",
             "only decides whether to start generation four or later",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "reserved 150-minute window" in desks
+        assert "reserved 150-minute window; delivery waits" in desks
+        assert "ending earlier when the delivery cutoff requires it" not in desks
         assert "global batch budget starts after priority" in desks
         assert "Every canonical scheduled execution runs a fresh tournament" in desks
         assert "tournament.working.json" not in text + desks
