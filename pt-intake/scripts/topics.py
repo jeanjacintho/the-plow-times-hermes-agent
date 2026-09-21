@@ -254,7 +254,7 @@ def refuse_overfilled_paper(topics, addition):
 
 
 def cmd_check_paper(args):
-    """Refuse a legacy or newly merged roster that cannot fit one page."""
+    """Refuse a legacy or newly merged roster above the three-item contract."""
     if args.deliver_at != "main" and not DELIVER_AT_RE.fullmatch(args.deliver_at):
         sys.exit(f"error: --deliver-at {args.deliver_at!r} is not main or HH:MM")
     if args.main_hour is not None and not DELIVER_AT_RE.fullmatch(args.main_hour):

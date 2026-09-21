@@ -449,7 +449,7 @@ thing they name as a `section` topic via `pt-intake`'s writer
 (`topics.py add --kind section --depth quick`), in the order they say
 it — that order is the news desk's order. If they name more than three,
 take the first three and say the cap; the daily run researches every news
-section in one session and three is the one-page ceiling. Never invent a
+section in one session and three is the paper's news-roster ceiling. Never invent a
 section they did not ask for. Then, regardless of whether they named
 any:
 
