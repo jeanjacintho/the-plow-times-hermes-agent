@@ -754,7 +754,6 @@ class TestSkills:
             "at most six tool calls",
             "Do not list or rediscover directories",
             "150 minutes after Orient began",
-            "at most 1,200 characters",
             "after every delegate set returns",
             "Complete at least three generations",
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
@@ -764,6 +763,22 @@ class TestSkills:
             "The parent never calls Latch",
             "proposes and researches one contender",
             "claim a critic that did not return a verdict",
+            "projects/theplowtimes/runs/<run-datetime>/state.md",
+            "actual Orient invocation time",
+            "after Orient and after every Challenge, Criticize, and Cull",
+            "`priority_case`",
+            "`reads`",
+            "reopens the decisive read receipts",
+            "critic also returns its own `reads`",
+            "private research state, never printed",
+            "run page's `## Critic verdicts` section",
+            "one adjacent position",
+            "at most three existing entries",
+            "Only the final successful Cull of the run",
+            "no numeric score",
+            "only after the renderer succeeds and `tournament.json` is atomically published",
+            "retry only that wiki write",
+            "Never run a separate polish generation",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
@@ -771,29 +786,11 @@ class TestSkills:
         assert "global batch budget starts after priority" in desks
         assert "Every canonical scheduled execution runs a fresh tournament" in desks
         assert "tournament.working.json" not in text + desks
-
-    def test_priority_persists_replayable_research_and_ranks_facts(self):
-        text = (ROOT / "pt-priority" / "SKILL.md").read_text()
-        for clause in (
-            "projects/theplowtimes/runs/<run-datetime>/state.md",
-            "after Orient and after every Challenge, Criticize, and Cull",
-            "`priority_case`",
-            "`reads`",
-            "reopens the decisive read receipts",
-            "critic also returns its own `reads`",
-            "private research state, never printed",
-            "one adjacent position",
-            "at most three existing entries",
-            "Only the final successful Cull of the run",
-            "no numeric score",
-            "Never run a separate polish generation",
-        ):
-            assert clause in text
-
         qa = (ROOT / "pt-shared" / "assets" / "wiki" / "qa.md").read_text()
         assert "Rank is positional" in qa
         assert "one adjacent position" in qa
         assert "current sourced facts" in qa
+        assert "at most 1,200 characters" not in text
 
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"

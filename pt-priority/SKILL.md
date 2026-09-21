@@ -51,8 +51,8 @@ A delivered edition dated today is still generation zero on a replay, never proo
 tournament ran in the current cron session.
 
 Load this skill once during Orient. Preserve any canonical
-`/var/lib/hermes/pt/run/desk-priority/tournament.json` checkpoint. Name the run from its scheduled
-local start as `YYYY-MM-DDTHHMM` and create
+`/var/lib/hermes/pt/run/desk-priority/tournament.json` checkpoint. Name the run from its
+actual Orient invocation time as `YYYY-MM-DDTHHMM` and create
 `projects/theplowtimes/runs/<run-datetime>/state.md`. Copy the required OKF front matter shape from
 `qa.md`, with a run-specific title and description. The page is private research state, never printed.
 Rewrite that one page whole after Orient and after every Challenge, Criticize, and Cull;
@@ -62,7 +62,7 @@ and the last complete checkpoint summary. If context is compacted, resume from t
 canonical checkpoint.
 **Never load this skill again in the same run.**
 
-Every child returns compact structured JSON of at most 1,200 characters, with no narrative preface.
+Every child returns compact structured JSON with no narrative preface.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
 into the run's wiki state page before any other model work. Keep only decisions, priority cases,
 replayable read receipts, evidence locations, unknowns, and verdicts; never copy tool transcripts
@@ -121,8 +121,8 @@ checks the evidence, and uses Latch research to make the strongest case to cull 
 Each critic also returns its own `reads` in the writer receipt shape, plus checked claims, contrary
 evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
 It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, keep the honest unavailable card.
-After the critic set returns, preserve every returned verdict in the compact working array; do not
-copy tool transcripts or claim a critic that did not return a verdict.
+After the critic set returns, preserve every returned verdict in the run page's `## Critic verdicts` section;
+do not copy tool transcripts or claim a critic that did not return a verdict.
 
 ### 3. Cull
 
@@ -138,15 +138,15 @@ targets reach Cull, the culler returns exactly three; it may overrule every pros
 A recommendation without a supporting sourced quote is ineligible, not a slot to pad: its quoted
 words must support the recommendation's actual proposition, not merely come from the same advisor.
 
-The culler also ranks Open questions by decision impact and folds supported answers into Answered.
-Each Answered entry is a current sourced fact/FAQ answer with its question, as-of date, and source
-items or URLs; missing sources remain Open. New entries receive an initial position by relevance.
-For existing entries, rank is positional. Only the final successful Cull of the run may move
-at most three existing entries by one adjacent position, at most once per entry: `+1` swaps upward
-and `-1` swaps downward. There is no numeric score. Record each move and its evidence in the run
-page; without evidence, make no move. Keep no more than 20 entries total. Earlier culls propose
-changes in run state but do not rewrite Q&A. The final culler consolidates sanitized resource discoveries,
-checkpoints `pt/advisor.md`, and derives the card.
+The culler proposes Open-question ranks and supported answers only in run state. Each Answered entry
+is a current sourced fact/FAQ answer with its question, as-of date, and source items or URLs;
+missing sources remain Open. New entries receive an initial position by relevance. For existing
+entries, rank is positional. Only the final successful Cull of the run may propose moving
+at most three existing entries by one adjacent position, at most once per entry: `+1` swaps upward and
+`-1` swaps downward. There is no numeric score. Record each proposed move and its evidence in the
+run page; without evidence, propose no move. Keep no more than 20 entries total. Every Cull also
+records proposed sanitized resource discoveries in run state, but none rewrites Q&A or resources.
+The final culler checkpoints `pt/advisor.md` and derives the card.
 
 Each recommendation is (evidence carries the printed basis for company-specific premises):
 
@@ -179,6 +179,10 @@ Only after that exits zero, atomically move `tournament.candidate.json` over
 `tournament.json`, then refresh the run's wiki state from it. A failed gate leaves the previous
 checkpoint untouched and returns to Cull
 while time permits. Never split the card and tournament metadata across separate canonical files.
+Apply the final proposed Q&A and resource changes once, only after the renderer succeeds and `tournament.json` is atomically published.
+Re-read each whole page and fold owner edits into it
+immediately before writing. If either write fails, retry only that wiki write from the accepted
+run-state proposal; never re-run Cull or apply another rank move.
 
 ## Repeat and stop
 
