@@ -51,8 +51,11 @@ tournament ran in the current cron session.
 Load this skill once during Orient. Then write the compact working state to
 `/var/lib/hermes/pt/run/desk-priority/tournament.json`: generation number; each champion's
 headline, decision, evidence locations, critic summary, and rank; the ranked Open question IDs;
-and the current checkpoint path. Update it after every Cull. If context is compacted, resume from
-that file and the checkpoint. **Never load this skill again in the same run.**
+the current checkpoint path; and one compact receipt per completed generation:
+`{"generation":1,"inherited":3,"challengers":3,"critics":6}`. `inherited` is zero to three
+in generation one and exactly three later; `challengers` is always three; `critics` equals their
+sum. Update it after every Cull. If context is compacted, resume from that file and the checkpoint.
+**Never load this skill again in the same run.**
 
 Every child returns compact structured JSON of at most 1,200 characters, with no narrative preface.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
@@ -105,6 +108,9 @@ case to cull it:
 
 Each returns checked claims, contrary evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
 It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, keep the honest unavailable card.
+After the critic set returns, record its counts in the current generation's receipt. Counts are
+the whole receipt: do not copy child prose or tool history into it. Never claim a critic that did
+not return a verdict.
 
 ### 3. Cull
 
@@ -162,6 +168,8 @@ Increment `generation` only after that generation's Challenge, Research, Critici
 candidate gate all completed; changing the number is not a substitute for running those stages.
 Keep `champions` in the culler's printed rank order and make their headlines exactly match the
 three recommendations in `notes.json`. The final renderer checks all three conditions.
+It also checks a consecutive receipt for every generation and refuses delivery unless every
+inherited champion and challenger has its own returned critic verdict.
 After that, start another generation only when it can complete through criticism and Cull
 at least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began;
 otherwise keep the last fully criticized checkpoint for delivery. A later failure never erases

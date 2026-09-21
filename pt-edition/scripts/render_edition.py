@@ -396,6 +396,37 @@ def validate_tournament(edition, tournament):
     if tournament.get("stage") != expected_stage:
         failures.append("tournament is not at its completed gated checkpoint")
 
+    receipts = tournament.get("generations")
+    receipt_numbers = (
+        [receipt.get("generation") for receipt in receipts]
+        if isinstance(receipts, list) and all(isinstance(receipt, dict) for receipt in receipts)
+        else []
+    )
+    expected_numbers = list(range(1, generation + 1)) if isinstance(generation, int) and not isinstance(generation, bool) else []
+    if receipt_numbers != expected_numbers:
+        failures.append("tournament needs criticism receipts for every generation")
+    else:
+        for receipt in receipts:
+            number = receipt["generation"]
+            inherited = receipt.get("inherited")
+            challengers = receipt.get("challengers")
+            critics = receipt.get("critics")
+            valid_inherited = (
+                isinstance(inherited, int) and not isinstance(inherited, bool)
+                and 0 <= inherited <= 3
+                and (number == 1 or inherited == 3)
+            )
+            if (
+                not valid_inherited
+                or challengers != 3
+                or not isinstance(critics, int)
+                or isinstance(critics, bool)
+                or critics != inherited + challengers
+            ):
+                failures.append(
+                    f"generation {number} did not criticize every inherited champion and challenger"
+                )
+
     card_headlines = []
     if isinstance(edition, dict):
         for section in edition.get("sections", []):

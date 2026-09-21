@@ -759,6 +759,8 @@ class TestSkills:
             "dated today is still generation zero",
             "The parent never calls Latch",
             "proposes and researches one contender",
+            "one compact receipt per completed generation",
+            "Never claim a critic",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()

@@ -102,6 +102,15 @@ def tournament(generation=3, items=None, stage=None):
     return {
         "generation": generation,
         "stage": stage or f"generation_{generation}_complete_gate_passed_notes_written",
+        "generations": [
+            {
+                "generation": number,
+                "inherited": 0 if number == 1 else 3,
+                "challengers": 3,
+                "critics": 3 if number == 1 else 6,
+            }
+            for number in range(1, generation + 1)
+        ],
         "champions": [
             {"headline": item["headline"], "rank": rank}
             for rank, item in enumerate(items, 1)
@@ -176,6 +185,22 @@ class TestValidate:
             recommendation_edition(), tournament(items=reversed_items)
         )
         assert "tournament champions do not match the ranked recommendations" in failure
+
+    def test_complete_tournament_requires_a_criticism_receipt_for_every_generation(self):
+        checkpoint = tournament()
+        del checkpoint["generations"]
+
+        failure = render.validate_tournament(recommendation_edition(), checkpoint)
+
+        assert "tournament needs criticism receipts for every generation" in failure
+
+    def test_complete_tournament_requires_every_target_to_have_a_critic(self):
+        checkpoint = tournament()
+        checkpoint["generations"][1]["critics"] = 3
+
+        failure = render.validate_tournament(recommendation_edition(), checkpoint)
+
+        assert "generation 2 did not criticize every inherited champion and challenger" in failure
 
     def test_complete_tournament_accepts_matching_third_checkpoint(self):
         assert render.validate_tournament(
