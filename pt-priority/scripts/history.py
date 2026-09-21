@@ -3,17 +3,21 @@
 
 usage: history.py recent [--topic <topic_id>]
 
-Prints JSON, oldest first, for the 7 days before today, reading the edition
-pages record_edition.py writes (projects/theplowtimes/editions/<date>.md).
-Bare, it is the advisor's desk's own history: [{"date", "desk"}], the
-`priority` card each day carries. With `--topic`, it is one news section's:
+Prints JSON, oldest first, reading the edition pages record_edition.py writes
+(projects/theplowtimes/editions/<date>.md). Bare, it is the advisor's desk's
+own history: [{"date", "desk"}], the `priority` card each of the 7 days
+before today carries. With `--topic`, it is one news section's:
 [{"date", "headline", "printed": [{"claim", "url"}]}], what record_edition.py
-recorded under that topic id in the page's frontmatter, so the next pass
-knows which sources it has already spent and which claims it has already
-made -- a section with no memory reprints the same story every morning
-(issue #69).
-Today's own page is never history: a second edition for the same date would
-otherwise read the first back as "yesterday".
+recorded under that topic id in the page's frontmatter, for the 7 days
+through today -- so the next pass knows which sources it has already spent
+and which claims it has already made -- a section with no memory reprints
+the same story every morning (issue #69).
+The two windows differ on purpose. Today's own page is never the desk's
+history: a second edition the same date would otherwise read the first
+back as "yesterday". A topic's window reaches through today instead: the
+pass most likely to reprint this morning's section is an afternoon focused
+paper or a live copy later the same day, and today's page is exactly where
+that repeat would be caught.
 record_edition.py writes those pages only once a paper was delivered, so a card
 the owner never received is never history. A day with no page, or no card, is
 left out. When the Mac does not answer: `error: history unavailable — <why>`,
@@ -53,7 +57,7 @@ def _section(text, topic):
 
 def recent(wiki, today, topic=None):
     out = []
-    for back in range(DAYS, 0, -1):
+    for back in (range(DAYS, -1, -1) if topic else range(DAYS, 0, -1)):
         day = (today - timedelta(days=back)).isoformat()
         text = wiki.read(f"{EDITIONS}/{day}.md")
         entry = (_section(text, topic) if topic else _desk(text)) if text else None

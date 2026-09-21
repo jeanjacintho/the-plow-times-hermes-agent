@@ -66,6 +66,19 @@ class TestRecentTopic:
              "printed": [{"claim": "Low nine figures", "url": "https://tc.example/cognition"}]},
         ]
 
+    def test_todays_edition_is_in_topic_history_for_a_second_paper_the_same_day(self, mac):
+        # An afternoon focused paper or a live copy is the most likely thing
+        # to reprint this morning's section -- exactly what this history
+        # exists to stop -- so unlike the desk's, the topic window reaches
+        # through today's own page.
+        day_page(mac, "2026-09-19", sections={"t_9f2a": {
+            "headline": "This morning's headline",
+            "printed": [{"claim": "This morning's claim", "url": "https://a.example"}]}})
+        assert history.recent(Wiki(mac.call_tool), TODAY, topic="t_9f2a") == [
+            {"date": "2026-09-19", "headline": "This morning's headline",
+             "printed": [{"claim": "This morning's claim", "url": "https://a.example"}]},
+        ]
+
     def test_a_day_that_did_not_print_this_section_is_left_out(self, mac):
         day_page(mac, "2026-09-17", {"headline": "Close the pilot"})
         day_page(mac, "2026-09-18", sections={"t_0001": {"headline": "Another section", "printed": []}})
