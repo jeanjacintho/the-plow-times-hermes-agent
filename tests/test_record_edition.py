@@ -27,7 +27,8 @@ def pt_home(monkeypatch, tmp_path):
     monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
 
 
-def edition(tmp_path, headline="Close the Acme pilot", card=True, news=True):
+def edition(tmp_path, headline="Close the Acme pilot", card=True, news=True,
+            news_headline="The real firms", notes=None):
     sections = [
         {"kind": "section", "desk": "weather", "title": "Weather", "headline": "Rain",
          "body": "Rain in Sao Paulo.", "sources": ["https://weather.example"]},
@@ -39,13 +40,14 @@ def edition(tmp_path, headline="Close the Acme pilot", card=True, news=True):
         sections.append({"kind": "section", "desk": "priority", "headline": headline, "priority": CARD})
     if news:
         sections.append({"kind": "section", "topic_id": "t_9f2a", "desk": "news", "title": "The dollar",
-                         "headline": "The real firms", "body": "The real rose 1%.",
+                         "headline": news_headline, "body": "The real rose 1%.",
                          "sources": ["https://news.example/fx"]})
-        notes = tmp_path / "run" / "t_9f2a"
-        notes.mkdir(parents=True, exist_ok=True)
-        (notes / "notes.json").write_text(json.dumps({
+        notes_dir = tmp_path / "run" / "t_9f2a"
+        notes_dir.mkdir(parents=True, exist_ok=True)
+        (notes_dir / "notes.json").write_text(json.dumps({
             "topic_id": "t_9f2a",
-            "notes": [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx", "quote": "…"}],
+            "notes": notes if notes is not None else
+                     [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx", "quote": "…"}],
             "could_not_source": ["the central bank's comment"]}))
     run_dir = tmp_path / "run" / "daily-2026-09-19"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -143,25 +145,11 @@ class TestRecord:
         # headline; a later same-day edition like that must not blank a
         # headline an earlier edition already gave the section, and a
         # claim/url repeated between editions must not be recorded twice.
-        def write(run_name, headline, notes):
-            run_dir = tmp_path / "run" / run_name
-            run_dir.mkdir(parents=True, exist_ok=True)
-            notes_dir = tmp_path / "run" / "t_9f2a"
-            notes_dir.mkdir(parents=True, exist_ok=True)
-            (notes_dir / "notes.json").write_text(json.dumps({"topic_id": "t_9f2a", "notes": notes}))
-            sections = [{"kind": "section", "topic_id": "t_9f2a", "desk": "news", "title": "The dollar",
-                         "headline": headline, "body": "The real rose 1%.",
-                         "sources": ["https://news.example/fx"]}]
-            path = run_dir / "edition.json"
-            path.write_text(json.dumps({"date": "2026-09-19", "location": "Sao Paulo", "sections": sections}))
-            return path
-
         w = Wiki(mac.call_tool)
-        first = [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"}]
-        second = [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"},
-                  {"claim": "BRL steady by close", "url": "https://news.example/fx2"}]
-        rec.record(w, write("daily-2026-09-19", "The real firms", first), "cht_1", MORNING)
-        rec.record(w, write("daily2-2026-09-19", "", second), "cht_1", AFTERNOON)
+        second_notes = [{"claim": "BRL up 1% on Sep 18", "url": "https://news.example/fx"},
+                         {"claim": "BRL steady by close", "url": "https://news.example/fx2"}]
+        rec.record(w, edition(tmp_path, card=False), "cht_1", MORNING)
+        rec.record(w, edition(tmp_path, card=False, news_headline="", notes=second_notes), "cht_1", AFTERNOON)
         meta = split_page(day(mac))[0]
         assert meta["sections"]["t_9f2a"] == {
             "headline": "The real firms",
