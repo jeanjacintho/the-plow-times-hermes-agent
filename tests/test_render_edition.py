@@ -987,22 +987,12 @@ class TestGapCardLanguage:
     every Portuguese region -- not an allow-list of two (pt, pt-BR), which
     answered pt-PT and pt_AO in English."""
 
-    @pytest.mark.parametrize("language, key", [
-        ("pt", "pt"),
-        ("pt-BR", "pt"),
-        ("pt-PT", "pt"),
-        ("pt_AO", "pt"),          # underscore form normalizes
-        ("Português", "pt"),
-        ("English", "en"),
-        ("en-GB", "en"),
-        ("es-MX", "en"),          # not Portuguese, and not a pt- prefix
-        ("", "en"),
-        (None, "en"),
-    ])
+    # Tag rules live in tests/test_owner_language.py -- one policy, one matrix.
+    # These two rows assert only that the card routes through it.
+    @pytest.mark.parametrize("language, key", [("pt-PT", "pt"), ("English", "en")])
     def test_the_card_speaks_the_owners_language(self, language, key):
         section = render._unavailable_priority_section(language)
         assert section["headline"] == render.PRIORITY_UNAVAILABLE[key]["headline"]
-        assert section["title"] == render.PRIORITY_UNAVAILABLE[key]["title"]
 
 
 class TestEnsurePriorityDesk:

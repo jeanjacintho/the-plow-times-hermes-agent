@@ -53,6 +53,12 @@ does not, and every run fails on the import.
   (`connect()`, `LatchClient.call_tool` (one stateless request, pending
   handles settled), `LatchError`). A failure raises `LatchError`; the caller
   names what did not happen. The print leg and the wiki scripts both use it.
+  `missing_credential()` answers whether this install has the static DOMO_*
+  pair at all, before a caller commits to a session.
+- `scripts/owner_language.py` — `is_portuguese(language)`, the one place that
+  reads `owner.language` for repo-authored copy (the chat wait lines, the
+  priority gap card, the unavailable-paper notice). A library, not a flow
+  script: nothing invokes it, the pt-* scripts import it.
 - `scripts/wiki.py` — the paper's pages in the owner's wiki (`~/Plow/wiki`, plow-wiki):
   the root `projects/theplowtimes` (writer `theplowtimes`), the shared
   `entities/owner/goals.md`, the OKF page format, and `check()` = `wiki validate`

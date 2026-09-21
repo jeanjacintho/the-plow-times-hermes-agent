@@ -33,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import post_to_chat  # noqa: E402
+from owner_language import is_portuguese  # noqa: E402
 import setup_needed as _gate  # noqa: E402
 from bearer_http import post_json  # noqa: E402
 
@@ -59,11 +60,6 @@ BUSY_STILL = {
     "pt": "⏳ Ainda nisso — já já eu falo.",
     "en": "⏳ Still on it — back in a moment.",
 }
-
-
-def is_portuguese(language):
-    s = (language or "").lower().replace("_", "-")
-    return "portug" in s or s in {"pt", "pt-br"}
 
 
 def status_text(kind, language):

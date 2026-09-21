@@ -69,14 +69,11 @@ class TestPrinterGate:
     def test_configured_returns_exact_cups_name(self, tmp_path):
         assert pe.printer_name(str(_config(tmp_path, name="HP_LaserJet_4"))) == "HP_LaserJet_4"
 
+    # Tag rules live in tests/test_owner_language.py -- one policy, one matrix.
+    # These two rows assert only that the notice routes through it.
     @pytest.mark.parametrize("language, expected", [
-        (None, "paper is unavailable on this install"),
         ("en", "paper is unavailable on this install"),
-        ("pt-BR", "papel não está disponível nesta instalação"),
         ("pt-PT", "papel não está disponível nesta instalação"),
-        ("pt_AO", "papel não está disponível nesta instalação"),
-        ("Português", "papel não está disponível nesta instalação"),
-        ("es-MX", "paper is unavailable on this install"),
     ])
     def test_no_latch_credential_says_paper_is_unavailable_in_the_owners_language(
         self, tmp_path, monkeypatch, language, expected

@@ -33,6 +33,7 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
 from latch_mcp import LatchError, connect, finish_command, missing_credential
+from owner_language import is_portuguese
 
 PATH_RE = re.compile(
     r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.pdf(?:\.b64)?)"
@@ -68,12 +69,7 @@ def owner_language(config_path):
 
 def unavailable_line(blank, language):
     """`blank` is the unset variable's name; the sentence is the owner's."""
-    tag = (language or "").lower().replace("_", "-")
-    # Every pt-* region, not an allow-list of two: pt-PT and pt-AO are as
-    # Portuguese as pt-BR, and an allow-list silently answers them in English.
-    portuguese = tag == "pt" or tag.startswith("pt-") or "portug" in tag
-    key = "pt" if portuguese else "en"
-    return UNAVAILABLE[key].format(name=blank)
+    return UNAVAILABLE["pt" if is_portuguese(language) else "en"].format(name=blank)
 
 
 def printer_name(config_path):
