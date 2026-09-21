@@ -75,7 +75,8 @@ def recent(wiki, today, topic=None):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="What the advisor's desk printed lately.")
+    parser = argparse.ArgumentParser(
+        description="What this paper printed lately: the advisor desk's cards, or one news section's blocks.")
     sub = parser.add_subparsers(dest="cmd", required=True)
     recent_parser = sub.add_parser("recent")
     recent_parser.add_argument("--topic", help="a news section's topic id, instead of the desk's cards")

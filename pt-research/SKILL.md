@@ -129,9 +129,9 @@ hour's sections, never assignments.
 Two rules make a batch survivable in one session:
 
 - **Sections are always `quick`; assignments default `quick` too.** A section
-  is researched fresh every day, so depth there would multiply the run's wall
-  clock by the section count. Only an assignment the owner explicitly asked
-  to be "properly" done runs `deep`.
+  runs every day, so depth there would multiply the run's wall clock by the
+  section count. Only an assignment the owner explicitly asked to be
+  "properly" done runs `deep`.
 - **Standing desks run first, every paper batch, and they are not topics.**
   Follow `pt-research/references/desks.md` — the one roster of which desks
   run and in what order. Notes at `run/desk-<name>/notes.json`. Do not
