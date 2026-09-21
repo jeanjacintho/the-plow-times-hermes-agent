@@ -87,7 +87,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 sys.path.insert(
@@ -117,22 +117,20 @@ _EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
 # A focused paper at a section's deliver_at, named from the hour so two
 # sections at 12:30 share one job and a dropped hour is sweepable by name.
 _PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
-_LOCK_RE = re.compile(
-    r"^(?:daily\d*|paper-\d{4})-(\d{4}-\d{2}-\d{2})\.lock$"
-)
+WORKSPACE_LOCK = "paper-workspace"
 DEFAULT_LEAD_MINUTES = 0
 # Every acquirer of a lock uses one lifetime: the run itself plus
 # delivery.lead_minutes, since a scheduled run holds the lock through its early
-# start and the held POST. A live copy shares the `daily` lock, so a smaller
-# number would call the scheduled run dead and start a competing paper.
+# start and the held POST. A live copy shares the workspace lock, so a smaller
+# number could call the scheduled run dead and start a competing paper.
 STALE_RUN_MINUTES = 240
 
 SUBSCRIPTION_PROMPT = (
     "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
     "pt-edition writes edition.json, runs render_edition.py, and posts the PDF "
-    "only with post_to_chat.py --pdf (empty body, no chat transcript). When "
-    "the edition is out, post_to_chat.py reopens the topic for tomorrow's run "
-    "and stamps it; do not mark it yourself. Final "
+    "with post_to_chat.py --pdf plus its chat-only companion when present. "
+    "post_to_chat.py atomically records delivery and returns the subscription "
+    "to pending; do not mark it again. Final "
     "response is NO_REPLY so --deliver does not send the text a second time."
 )
 
@@ -140,13 +138,10 @@ SUBSCRIPTION_PROMPT = (
 def daily_prompt(lock_name, live=False, hold_until=None, lead_minutes=0):
     """The daily paper's run prompt, parametrized by its lock name.
 
-    lock_name is "daily" for the canonical slot and "daily2"/"daily3"/... for
-    an extra delivery time (delivery.extra_hours) -- each slot re-researches
-    and re-delivers the same paper independently, so each needs its own lock
-    or a second slot firing minutes after the first would read the first
-    slot's lock as "held" and silently skip the whole edition. It works in
-    one cron-fired session: acquire the run lock (two runs racing on the
-    SAME slot would deliver a hollow edition), research every active section
+    lock_name distinguishes the canonical slot ("daily") from extra delivery
+    times for archival only. Every paper shares one workspace lock because
+    their desk and topic scratch is shared. It works in one cron-fired session:
+    acquire the run lock, research every active section
     that belongs to the MAIN paper (no deliver_at, or deliver_at equal to
     delivery.hour in pt/config.json — not a section that owns another paper
     hour) and every assignment due today, compile one edition.json, render it,
@@ -158,8 +153,8 @@ def daily_prompt(lock_name, live=False, hold_until=None, lead_minutes=0):
     the PDF posted and print_edition.py was never invoked. It is inside
     post_to_chat.py now.
 
-    live marks the on-demand copy: it shares the daily lock, so it never races
-    the scheduled run, but it never writes pt-priority's page.
+    live marks the on-demand copy: it shares the workspace lock, so it never
+    races a scheduled run, but it never writes pt-priority's page.
 
     hold_until is the send clock (delivery.hour / extra hour). Cron may start
     earlier via lead_minutes; POST must still wait. A live copy never holds.
@@ -172,15 +167,32 @@ def daily_prompt(lock_name, live=False, hold_until=None, lead_minutes=0):
         f"(if that hour has already passed, post immediately; never wait until tomorrow)"
         if holding else ""
     )
+    preserve = "" if lock_name == "daily" and not live else " --preserve-priority"
+    prepare = (
+        f"/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py{preserve} "
+        "(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
+    )
+    desks = (
+        "run the priority tournament, then every other standing desk "
+        "pt-research/references/desks.md lists, in its order, "
+        if lock_name == "daily" and not live else
+        "do not run priority; reuse its atomic checkpoint or gap card, then run every other "
+        "standing desk pt-research/references/desks.md lists, starting with weather, "
+    )
     return (
         f"Run the daily edition now, in one session. First run "
         f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
-        f"--name {lock_name}-<today's date in the owner's "
-        f"zone> --stale-minutes {stale}; if its output is 'held', another run owns "
-        f"this slot -- say NO_REPLY and stop. Then "
+        f"--name {WORKSPACE_LOCK}-<today's date in the owner's "
+        f"zone> --stale-minutes {stale}; if its output is 'held', another paper owns "
+        f"the workspace -- say NO_REPLY and stop. Then "
+        f"{prepare}"
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
-        f"(delivered sections are yesterday's paper, not a skip). Then run pt-research: first "
-        f"every standing desk pt-research/references/desks.md lists, in its order, "
+        f"(delivered sections are yesterday's paper, not a skip). Run "
+        f"/var/lib/hermes/skills/pt-intake/scripts/topics.py check-paper "
+        f"--deliver-at main --as-of <today's YYYY-MM-DD>. If it refuses, repeat "
+        f"its named roster, run /var/lib/hermes/skills/pt-shared/scripts/run_lock.py "
+        f"release --name the same {WORKSPACE_LOCK}-<date>, and stop before research. "
+        f"Then run pt-research: first {desks}"
         f"then every active news section with no deliver_at (or deliver_at "
         f"equal to delivery.hour in pt/config.json — skip sections that belong "
         f"to another paper hour) and every assignment with run_on <= "
@@ -191,24 +203,24 @@ def daily_prompt(lock_name, live=False, hold_until=None, lead_minutes=0):
         f"or 'Paused for'. "
         f"Then run pt-edition for the batch -- it compiles edition.json from "
         f"those notes (each run/desk-* notes file as its own desk, then news), "
-        f"renders it (--pdf, then "
-        f"post_to_chat.py --pdf only per pt-edition/SKILL.md step 2{hold} -- do not skip the "
+        f"renders it (--pdf plus --companion, then "
+        f"post_to_chat.py --pdf with that companion per pt-edition/SKILL.md step 2{hold} -- do not skip the "
         f"PDF leg just because this is a rerun; do not pipe the chat text). "
         f"post_to_chat.py already runs print_edition.py when printer.configured "
         f"is true (best-effort: a print failure costs only the page, never the "
         f"chat edition, and never re-runs research). Do not invoke pt-print "
         f"yourself. "
-        f"Mark every assignment it carried delivered, but never a section or "
-        f"subscription (post_to_chat.py reopens and stamps them). Do not mark desks. "
+        f"post_to_chat.py already finalizes every carried topic; do not mark "
+        f"topics or desks after posting. "
         f"Release the lock "
         f"with /var/lib/hermes/skills/pt-shared/scripts/run_lock.py release "
-        f"--name the same {lock_name}-<date>. "
+        f"--name the same {WORKSPACE_LOCK}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     ) + (" This is a live copy: print today's advisor card as it stands, or the gap "
          "card, and make no advisor pass." if live else "")
 
 
-def paper_prompt(lock_name, hour, lead_minutes=0):
+def paper_prompt(hour, lead_minutes=0):
     """Run prompt for a focused paper at ``hour`` (a section deliver_at)."""
     hold = (
         f" with --hold-until {hour} so chat waits for that clock "
@@ -217,12 +229,19 @@ def paper_prompt(lock_name, hour, lead_minutes=0):
     return (
         f"Run the {hour} paper now, in one session. First run "
         f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
-        f"--name {lock_name}-<today's date in the owner's "
-        f"zone> --stale-minutes {STALE_RUN_MINUTES + lead_minutes}; if its output is 'held', another run owns "
-        f"this slot -- say NO_REPLY and stop. Then "
+        f"--name {WORKSPACE_LOCK}-<today's date in the owner's "
+        f"zone> --stale-minutes {STALE_RUN_MINUTES + lead_minutes}; if its output is 'held', another paper owns "
+        f"the workspace -- say NO_REPLY and stop. Then "
+        f"/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py --preserve-priority "
+        f"(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
-        f"(delivered sections are yesterday's paper, not a skip). Then run pt-research: first "
-        f"every standing desk pt-research/references/desks.md lists, in its order, "
+        f"(delivered sections are yesterday's paper, not a skip). Run "
+        f"/var/lib/hermes/skills/pt-intake/scripts/topics.py check-paper "
+        f"--deliver-at {hour}. If it refuses, repeat its named roster and stop before "
+        f"research only after running /var/lib/hermes/skills/pt-shared/scripts/run_lock.py "
+        f"release --name the same {WORKSPACE_LOCK}-<date>. Then run pt-research: first "
+        f"do not run priority; reuse its atomic checkpoint or gap card, then run every other "
+        f"standing desk pt-research/references/desks.md lists, starting with weather, "
         f"then ONLY active news sections whose deliver_at is {hour} "
         f"(read topics.json; do not research unscoped sections, sections of "
         f"another hour, or assignments). Write notes under run/<id>/ and "
@@ -230,16 +249,16 @@ def paper_prompt(lock_name, hour, lead_minutes=0):
         f"*.host). Never plow_browser_request without origins (needs origins); "
         f"never retry a host after NS_ERROR_UNKNOWN_HOST or 'Paused for'. "
         f"Then run pt-edition for that batch -- desks plus those "
-        f"news notes, renders it (--pdf, then post_to_chat.py --pdf only per "
+        f"news notes, renders it (--pdf plus --companion, then post_to_chat.py --pdf with that companion per "
         f"pt-edition/SKILL.md step 2{hold} -- do not pipe the chat text). "
         f"post_to_chat.py already runs print_edition.py when printer.configured "
         f"is true (best-effort: a print failure costs only the page, never the "
         f"chat edition, and never re-runs research). Do not invoke pt-print "
         f"yourself. "
-        f"Do not mark sections or subscriptions (post_to_chat.py reopens and "
-        f"stamps them), desks, or assignments. Release the lock "
+        f"post_to_chat.py already finalizes every carried topic; do not mark "
+        f"topics or desks after posting. Release the lock "
         f"with /var/lib/hermes/skills/pt-shared/scripts/run_lock.py release "
-        f"--name the same {lock_name}-<date>. "
+        f"--name the same {WORKSPACE_LOCK}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
 
@@ -503,14 +522,29 @@ def focused_paper_hours(topics, delivery_hour):
     return sorted(hours)
 
 
+def require_workspace_spacing(hours):
+    """Refuse paper starts whose shared-workspace windows can overlap."""
+    minimum_minutes = 180
+    for index, first in enumerate(hours):
+        first_hour, first_minute = _hour_minute(first)
+        first_total = first_hour * 60 + first_minute
+        for second in hours[index + 1:]:
+            second_hour, second_minute = _hour_minute(second)
+            distance = abs(first_total - (second_hour * 60 + second_minute))
+            if min(distance, 24 * 60 - distance) < minimum_minutes:
+                raise SystemExit(
+                    f"refusing to register: paper times {first} and {second} are less than "
+                    f"{minimum_minutes} minutes apart; their shared workspace can overlap."
+                )
+
+
 def paper_job(hour, lead_minutes, env=None):
     """One focused paper: desks plus sections whose deliver_at is this hour."""
     name = paper_job_name(hour)
-    lock_name = f"paper-{hour.replace(':', '')}"
     return {
         "name": name,
         "schedule": daily_schedule(hour, lead_minutes),
-        "prompt": paper_prompt(lock_name, hour, lead_minutes),
+        "prompt": paper_prompt(hour, lead_minutes),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
@@ -539,6 +573,8 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     job per subscription. lead_minutes is the nominal lead; each slot clamps
     it to its own owner-zone midnight.
     """
+    focused_hours = focused_paper_hours(topics, delivery_hour)
+    require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
     jobs = []
     container_tz = (os.environ if env is None else env).get("TZ")
 
@@ -550,7 +586,7 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
         for n, hour in enumerate(extra_hours, start=2):
             jobs.append(daily_job(hour, lead(hour), env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
-        for hour in focused_paper_hours(topics, delivery_hour):
+        for hour in focused_hours:
             jobs.append(paper_job(hour, lead(hour), env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
@@ -667,41 +703,6 @@ def job_drift(job, spec):
     return False
 
 
-def prune_runtime(topics, home):
-    """Best-effort housekeeping of the paper's scratch space.
-
-    Removes daily locks older than today (a lock from a day that will never
-    fire again) and the notes directory of every terminal topic (delivered
-    one-offs and assignments, everything cancelled). Failures are reported,
-    never fatal: a stale scratch file is not worth refusing a registration
-    over, and the next run prunes again. `home` is the pt state directory.
-    """
-    run_dir = pathlib.Path(home) / "run"
-    if not run_dir.is_dir():
-        return []
-    removed = []
-    today = date.today().isoformat()
-    terminal = {
-        t["id"] for t in topics
-        if t["status"] == "cancelled"
-        or (t["kind"] in ("one_off", "assignment") and t["status"] == "delivered")
-    }
-    for entry in sorted(run_dir.iterdir()):
-        try:
-            lock_match = _LOCK_RE.fullmatch(entry.name)
-            if lock_match is not None:
-                stamp = lock_match.group(1)
-                if stamp < today:
-                    entry.unlink()
-                    removed.append(str(entry))
-            elif entry.is_dir() and entry.name in terminal:
-                shutil.rmtree(entry)
-                removed.append(str(entry))
-        except OSError as exc:
-            print(f"WARNING: could not prune {entry}: {exc!r}")
-    return removed
-
-
 def create_argv(job, env=None):
     argv = [HERMES, "cron", "create", job["schedule"], job["prompt"],
             "--name", job["name"], "--skill", job["skill"]]
@@ -760,9 +761,6 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
-
-    for path in prune_runtime(topics, topics_mod.home()):
-        print(f"pruned: {path}")
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)

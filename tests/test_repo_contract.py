@@ -189,6 +189,7 @@ class TestSoul:
         # sections went unread: a one-off edition carries only its own topic.
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
         assert "not a topic" in intake, "the on-demand row is missing from the routing table"
+        assert "post_to_chat.py finalizes it" in intake
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "## On demand" in edition
         # It must POINT at the cron's own recipe, never restate it: a second
@@ -248,6 +249,7 @@ class TestSoul:
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "print_edition.py" in edition
         assert "call `pt-print`" in edition
+        assert "Do not mark topics after posting" in edition
 
         seal = ROOT / "pt-shared" / "scripts" / "seal_chat_session.py"
         assert seal.is_file()
@@ -345,7 +347,7 @@ class TestSoul:
         # wrapped python3, which tripped Hermes' /approve gate in a loop.
         # SKILL.md-only scanning misses this: the lock lives in
         # register_crons.py's printed recipe, not in a SKILL.md example.
-        skip = {"bearer_http.py", "sudoku.py"}  # imported, never invoked bare
+        skip = {"bearer_http.py"}  # imported, never invoked bare
         missing = []
         for path in sorted(ROOT.glob("pt-*/scripts/*.py")):
             if path.name in skip:
@@ -712,21 +714,80 @@ class TestSkills:
     def test_priority_desk_is_documented_and_wired(self):
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## Priority — first" in desks
+        assert "Complete this desk before opening the shared browser" in desks
+        assert "create the run's wiki state page" in desks
+        assert "never proof that today's desk is complete" in desks
         assert "run/desk-calendar/events.json" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
-        assert "run/desk-priority/notes.json" in skill
+        assert "run/desk-priority/tournament.json" in skill
         assert "`name` = `imessage`" in skill
         assert "**An event is its people,**" in skill
         assert "never infer a stage" not in desks
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "record_edition.py" in edition
-        assert "Skipping this desk is a bug" in desks
+        assert "Skipping this desk in the canonical scheduled paper is a bug" in desks
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "Only the canonical scheduled paper runs priority" in soul
+        assert "reuse its priority checkpoint or gap card and begin with weather" in soul
+        assert "Live copies and alternate daily reruns re-research the main roster" in soul
+        assert "Focused papers add only sections booked for their own hour" in soul
         assert "the founder" in skill
         assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "def ensure_priority_desk" in renderer
         assert "Never omit the slot" in edition
 
+    def test_soul_delegates_delivery_argv_to_the_edition_skill(self):
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "`pt-edition/SKILL.md` step 2" in soul
+        assert "Post the PDF with `post_to_chat.py --pdf`" not in soul
+
+    def test_priority_evolution_contract(self):
+        text = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        for clause in (
+            "Mechanical loop (authoritative)",
+            "Complete at least three generations",
+            "six independent critic children in one delegate set",
+            "A critic is a prosecutor, never a reviser",
+            "exactly three grounded",
+            "A recommendation without a supporting sourced quote is ineligible",
+            "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
+            "--tournament",
+            "rewrite every reference to the owner by name or role into direct reader voice",
+            "`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`",
+            "sanitized `reads`",
+            "reopens decisive public read receipts",
+            "never contain raw private queries, selectors, item IDs, URLs, or excerpts",
+            "only after the renderer succeeds and `tournament.json` is atomically published",
+        ):
+            assert clause in text
+        desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
+        assert "reserved 150-minute window" in desks
+        assert "reserved 150-minute window; delivery waits" in desks
+        assert "ending earlier when the delivery cutoff requires it" not in desks
+        assert "global batch budget starts after priority" in desks
+        assert "Every canonical scheduled execution runs a fresh tournament" in desks
+        assert "tournament.working.json" not in text + desks
+        assert "newest active run page" not in text
+        qa = (ROOT / "pt-shared" / "assets" / "wiki" / "qa.md").read_text()
+        assert "Rank is positional" in qa
+        assert "one adjacent position" in qa
+        assert "current sourced facts" in qa
+        assert "at most 1,200 characters" not in text
+
+    def test_bundled_advisors_are_one_named_markdown_file_each(self):
+        advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"
+        markdown = sorted(p.name for p in advisor_dir.glob("*.md") if p.name != "README.md")
+        assert markdown == ["patrick-salyer.md"]
+        assert not list(advisor_dir.glob("*-bank.json"))
+        priority = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "every `*.md` except `README.md`" in priority
+        assert "salyer-*" not in priority and "salyer-bank.json" not in priority
+        assert "owner advisor page" not in priority
+        overview = (ROOT / "pt-shared" / "assets" / "wiki" / "overview.md").read_text()
+        advisor_readme = (advisor_dir / "README.md").read_text()
+        assert "Add your own advisor" not in overview
+        assert "Owner-added advisors" not in advisor_readme
     def test_a_news_section_reads_back_what_it_printed(self):
         # A section researched with no memory of its own past editions prints
         # the same backgrounder every morning (issue #69). The instrument is
@@ -766,7 +827,7 @@ class TestSkills:
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
                      "record_owner_language.py", "reconcile_pt_skills.py",
-                     "seal_chat_session.py"):
+                     "seal_chat_session.py", "prepare_daily_run.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_record_setup_is_executable_and_referenced(self):
@@ -794,13 +855,9 @@ class TestSkills:
         # the page. The renderer fills these; the template must keep them.
         template = (ROOT / "pt-edition" / "template.html").read_text()
         for slot in ("MASTHEAD", "DATE", "LOCATION", "LEAD", "PRIORITY_BLOCK",
-                     "WEATHER_EAR", "DESKS_INLINE", "SECTIONS", "SUDOKU"):
+                     "WEATHER_EAR", "NEWS_PAIR", "CALENDAR_RAIL"):
             assert "{{" + slot + "}}" in template, f"template lost {{{{{slot}}}}}"
-        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
-        for dead in ("{{PAGE_CLASS}}", "{{PRIORITY}}", "{{WEATHER}}",
-                     "{{CALENDAR}}", "{{MAIL}}", "{{SPORTS}}", "{{SIDEBAR}}"):
-            assert dead not in template
-            assert f'.replace("{dead}"' not in renderer
+        assert "{{SUDOKU}}" not in template
 
     def test_template_has_a_newspaper_front_page(self):
         # Measured live 2026-09-18: the page read as a newsletter, not a
@@ -813,19 +870,20 @@ class TestSkills:
         assert "dropcap" in template
         assert "border-image" not in template  # no fake photo frames
         assert "masthead-row" in template
-        assert "ear-box" in template
+        assert "Every claim" not in template
         # The priority card's heading is model-written (owner.language),
         # not a hardcoded English/Portuguese string.
         assert "What should I prioritize today?" not in template
         assert "O que devo priorizar hoje?" not in template
         assert "PRIORITY_BLOCK" in template
         assert "kicker" in template
-        assert "desks-row" in template
+        assert "calendar-rail" in template
+        assert "news-pair" in template
         assert "break-inside: avoid" in template
-        assert "news-well" in template
-        # Standing desks sit under the priority pack, not under the lead.
-        assert template.index("{{PRIORITY_BLOCK}}") < template.index("{{DESKS_INLINE}}")
-        assert template.index("{{DESKS_INLINE}}") < template.index("{{LEAD}}")
+        # A long localized focus title must be a horizontal bar. Making it
+        # a narrow table cell stacked the English title into five lines and
+        # turned the card into a black vertical slab in the real PDF.
+        assert ".section--priority > h2 {\n    display: block;" in template
         # Never display:none an element that gets a background from
         # another rule -- WeasyPrint 62.3 paints the background anyway
         # (measured: an empty black stripe where the "hidden" h2 was).
@@ -845,15 +903,19 @@ class TestSkills:
             "Delattre",
             "McDonald",
             "SW Blumenau",
-            "Patrick Salyer",
             "$1-10M",
             "Blueprint",
         ):
             assert needle not in blob, needle
-        for name in ("edition-page-1.jpg", "edition-page-2.jpg"):
-            jpg = ROOT / "index" / name
-            assert jpg.is_file() and jpg.stat().st_size > 0, name
+        jpg = ROOT / "index" / "edition-page-1.jpg"
+        assert jpg.is_file() and jpg.stat().st_size > 0
+        assert not (ROOT / "index" / "edition-page-2.jpg").exists()
         assert not (ROOT / "index" / "edition-page-3.jpg").exists()
+
+    def test_recorder_has_only_the_current_recommendation_schema(self):
+        recorder = (ROOT / "pt-edition" / "scripts" / "record_edition.py").read_text()
+        assert "CARD_LINES" not in recorder
+        assert 'card.get("why")' not in recorder
 
     def test_cross_skill_imports_resolve(self):
         # register_crons.py imports topics from pt-intake/scripts at run time;
@@ -1000,6 +1062,8 @@ class TestDeployment:
         # enough; the answer is both, and a probe that proves both.
         assert "--python /opt/hermes/.venv/bin/python3" in text
         assert "--python /usr/bin/python3" in text
+        assert text.count('"PyYAML==') == 2
+        assert "import yaml" in text
         # The probe must exercise the plain shell AND the login shell: each
         # one alone has already shipped a broken PDF leg.
         assert "bash -lc" in text, "the build probe does not test a login shell"

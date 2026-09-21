@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import load_module
-from wiki import GOALS, OVERVIEW, QA, ROOT, SCHEMA, Wiki
+from wiki import GOALS, OVERVIEW, QA, RESOURCES, ROOT, SCHEMA, Wiki
 
 ws = load_module("wiki_setup", "pt-shared/scripts/wiki_setup.py")
 
@@ -62,7 +62,17 @@ class TestEnsure:
         assert "## Goals" in (wiki_dir(mac) / GOALS).read_text()
         qa = (wiki_dir(mac) / QA).read_text()
         assert "type: Synthesis" in qa and "## Open" in qa and "## Answered" in qa
+        resources = (wiki_dir(mac) / RESOURCES).read_text()
+        assert "## Read capabilities" in resources and "## Sources" in resources
         assert mac.wiki("validate")["exit_code"] == 0
+
+    def test_desk_setup_never_overwrites_the_resource_catalog(self, mac):
+        w = Wiki(mac.call_tool)
+        ws.ensure(w, "cht_1", desk=True)
+        path = wiki_dir(mac) / RESOURCES
+        path.write_text(path.read_text() + "\n- owner edit\n")
+        ws.ensure(w, "cht_1", desk=True)
+        assert path.read_text().endswith("- owner edit\n")
 
     def test_an_old_install_carries_its_notes_over(self, mac):
         old_notes = mac.home / "Plow" / "prioritization.md"

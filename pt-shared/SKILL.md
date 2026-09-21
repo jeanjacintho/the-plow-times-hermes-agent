@@ -66,8 +66,8 @@ does not, and every run fails on the import.
   `error: wiki not ready — …` exits non-zero. **This bullet is the contract.**
 - `assets/wiki/` — the seeds `wiki_setup.py` writes: the root's schema (fields and the
   Editions / Your advisors tables), the paper's page, the goals page, the desk's Q&A.
-- `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF (empty
-  body) to the owner's home channel, or the chat text if there is no PDF.
+- `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF plus its
+  chat-only mail/sports companion when present, or chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
   run file stays `edition.pdf` on disk). `--hold-until HH:MM` waits for
   that clock before posting (scheduled papers; a live copy omits it). A successful `--pdf` POST stamps
@@ -101,6 +101,11 @@ does not, and every run fails on the import.
   `/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name NAME [--stale-minutes N]`
   and the matching `.../run_lock.py release --name NAME`. Prints one word
   (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
+- `scripts/prepare_daily_run.py` — immediately after any paper lock is acquired,
+  archives prior dated, desk, and chat-status scratch beside `run/` and prints `READY`.
+  Noncanonical papers pass `--preserve-priority`; every paper clears all other desks.
+  It preserves topic workspaces, the live lock, and setup evidence. The wiki is delivered
+  history; archived scratch is never today's completed work.
 - `references/config.example.json` — the config contract `pt_config_gate.py`
   enforces (including the optional `delivery.lead_minutes`, default 0, and
   optional `mail.configured`, default off)

@@ -23,8 +23,9 @@ The daily schedule is computed in minutes, so `00:00 − 0min` is `0 0 * * *`
 
 Every row still carries `--deliver plow_chat:${PLOW_HOME_CHANNEL}` (an
 unset or blank `PLOW_HOME_CHANNEL` refuses the registration by name). The
-edition itself is posted mid-run as the PDF only (`post_to_chat.py --pdf`,
-empty body). Scheduled papers add `--hold-until` at that job's hour so a
+edition itself is posted mid-run as the PDF plus any chat-only mail/sports
+companion (`post_to_chat.py --pdf --text-file`). Scheduled papers add
+`--hold-until` at that job's hour so a
 recipe that finished early does not send before the clock; a live copy
 omits it. The job's final response is `NO_REPLY` so that `--deliver`
 does not also send the research transcript. An empty target is a chat
@@ -85,9 +86,9 @@ the mistake this spec exists to make unnecessary**, and such a job is
 invisible to this sweep forever (measured live: a hand-made
 `pt-daily-edition-2` sat in `jobs.json` with a schedule that had nothing to
 do with the hour the owner asked for, and no one but the owner removing it
-by hand would ever fix that). As housekeeping it also prunes old
-daily locks and notes of terminal topics from `/var/lib/hermes/pt/run/`,
-reporting failures without ever failing the run over a scratch file.
+by hand would ever fix that). Registration never deletes runtime locks or
+topic evidence; stale takeover belongs to `run_lock.py`, and evidence cleanup
+belongs to the producer that knows when its consumers are finished.
 
 Two refusals are inherited from `ld-dashboard` and are the whole reason this
 is a script and not a habit:

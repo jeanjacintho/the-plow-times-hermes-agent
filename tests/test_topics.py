@@ -1,6 +1,7 @@
 """topics.py -- the single validated writer for the topic store."""
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import pathlib
@@ -16,11 +17,27 @@ topics = load_module("topics", "pt-intake/scripts/topics.py")
 @pytest.fixture
 def pt_home(tmp_path, monkeypatch):
     monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
-    return tmp_path / "pt"
+    pt = tmp_path / "pt"
+    pt.mkdir()
+    (pt / "config.json").write_text(json.dumps({"delivery": {"hour": "07:00"}}))
+    return pt
 
 
 def read_store(pt_home):
     return json.loads((pt_home / "topics.json").read_text())["topics"]
+
+
+def test_mutating_commands_hold_the_topic_store_lock(pt_home, monkeypatch):
+    def assert_locked(_args):
+        with open(pt_home / "topics.lock", "a") as second_handle:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(second_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return 0
+
+    monkeypatch.setattr(topics, "cmd_add", assert_locked)
+    assert topics.main([
+        "add", "--text", "x", "--kind", "one_off", "--depth", "quick",
+    ]) == 0
 
 
 class TestAdd:
@@ -142,19 +159,16 @@ class TestResolve:
 
 class TestBrokenStore:
     def test_garbage_refuses_to_read_as_empty(self, pt_home):
-        pt_home.mkdir(parents=True)
         (pt_home / "topics.json").write_text("garbage")
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
 
     def test_wrong_shape_refuses(self, pt_home):
-        pt_home.mkdir(parents=True)
         (pt_home / "topics.json").write_text(json.dumps({"topics": "nope"}))
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
 
     def test_idless_topic_refuses(self, pt_home):
-        pt_home.mkdir(parents=True)
         (pt_home / "topics.json").write_text(json.dumps({"topics": [{"nope": 1}]}))
         with pytest.raises(SystemExit, match="refusing"):
             topics.main(["list"])
@@ -207,6 +221,32 @@ class TestSections:
             topics.main(["add", "--text", "clima", "--kind", "section",
                          "--depth", "quick", "--run-on", "2026-09-11"])
 
+    def test_fourth_section_on_same_paper_is_refused(self, pt_home):
+        for text in ("AI", "Formula 1", "markets"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["add", "--text", "startups", "--kind", "section",
+                         "--depth", "quick"])
+
+    def test_each_focused_paper_has_its_own_three_item_roster(self, pt_home):
+        for hour in ("12:30", "18:00"):
+            for index in range(3):
+                topics.main(["add", "--text", f"{hour} story {index}",
+                             "--kind", "section", "--depth", "quick",
+                             "--deliver-at", hour])
+        assert len(read_store(pt_home)) == 6
+
+    def test_explicit_daily_hour_shares_the_main_roster(self, pt_home):
+        for text in ("AI", "Formula 1"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        topics.main(["add", "--text", "markets", "--kind", "section",
+                     "--depth", "quick", "--deliver-at", "07:00"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["add", "--text", "startups", "--kind", "section",
+                         "--depth", "quick"])
+
 
 class TestAssignments:
     def add(self, pt_home, run_on="2026-09-11"):
@@ -252,6 +292,57 @@ class TestAssignments:
         topics.main(["cancel", topic["id"]])
         (stored,) = read_store(pt_home)
         assert stored["status"] == "cancelled"
+
+    def test_assignment_cannot_overfill_main_paper(self, pt_home):
+        for text in ("AI", "Formula 1", "markets"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            self.add(pt_home)
+
+    def test_main_section_cannot_overfill_day_with_assignment(self, pt_home):
+        self.add(pt_home)
+        for text in ("AI", "Formula 1"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["add", "--text", "markets", "--kind", "section",
+                         "--depth", "quick"])
+
+    def test_assignments_for_earlier_dates_count_when_later_one_is_added(self, pt_home):
+        topics.main(["add", "--text", "AI", "--kind", "section",
+                     "--depth", "quick"])
+        self.add(pt_home, run_on="2026-09-10")
+        self.add(pt_home, run_on="2026-09-11")
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            self.add(pt_home, run_on="2026-09-12")
+
+
+class TestCheckPaper:
+    def test_names_every_item_in_legacy_overfill(self, pt_home):
+        legacy = [
+            {"id": f"t_000{i}", "text": text, "kind": "section",
+             "status": "pending", "deliver_at": None}
+            for i, text in enumerate(("AI", "markets", "startups", "Formula 1"))
+        ]
+        (pt_home / "topics.json").write_text(json.dumps({"topics": legacy}))
+        with pytest.raises(SystemExit) as exc:
+            topics.main(["check-paper", "--deliver-at", "main",
+                         "--as-of", "2026-09-12"])
+        message = str(exc.value)
+        assert "more than 3 news items" in message
+        assert all(item["text"] in message for item in legacy)
+
+    def test_new_main_hour_is_checked_before_it_merges_rosters(self, pt_home):
+        for text in ("AI", "markets"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick"])
+        for text in ("startups", "Formula 1"):
+            topics.main(["add", "--text", text, "--kind", "section",
+                         "--depth", "quick", "--deliver-at", "12:00"])
+        with pytest.raises(SystemExit, match="more than 3 news items"):
+            topics.main(["check-paper", "--deliver-at", "main",
+                         "--main-hour", "12:00"])
 
 
 class TestSectionsDoNotDuplicate:
@@ -348,29 +439,12 @@ class TestReopenSections:
         assert by_id[stop]["status"] == "cancelled"
 
 
-class TestReopenStampsEdition:
+class TestStartupReopen:
     def add_running(self, kind, pt_home):
         topics.main(["add", "--text", "x", "--kind", kind, "--depth", "deep"])
         tid = read_store(pt_home)[-1]["id"]
         topics.main(["mark", tid, "--status", "running"])
         return tid
-
-    @pytest.mark.parametrize("kind", ["section", "subscription"])
-    def test_evergreen_delivery_stamps_last_edition(self, kind, pt_home, capsys):
-        tid = self.add_running(kind, pt_home)
-        assert topics.reopen_evergreen(delivered=[tid]) == [tid]
-        (topic,) = read_store(pt_home)
-        assert topic["status"] == "pending"
-        assert topic["last_edition_at"] is not None
-
-    def test_delivery_stamps_a_carried_topic_another_startup_already_reset(self, pt_home, capsys):
-        # Paper B's startup recovery reset paper A's running topic to pending;
-        # A then ships it. A's finalizer must still record the delivery.
-        tid = self.add_running("section", pt_home)
-        topics.reopen_evergreen()
-        assert read_store(pt_home)[0]["last_edition_at"] is None
-        topics.reopen_evergreen(delivered=[tid])
-        assert read_store(pt_home)[0]["last_edition_at"] is not None
 
     def test_startup_reopen_of_a_dead_run_does_not_stamp(self, pt_home, capsys):
         self.add_running("section", pt_home)
@@ -394,8 +468,39 @@ class TestConcurrentWriters:
         script = str(pathlib.Path(topics.__file__))
         env = {**os.environ, "PT_HOME": str(pt_home)}
         procs = [subprocess.Popen([sys.executable, script, "add", "--text", f"t{i}",
-                                   "--kind", "section", "--depth", "quick"],
+                                   "--kind", "one_off", "--depth", "quick"],
                                   env=env, stdout=subprocess.DEVNULL)
                  for i in range(8)]
         assert all(p.wait() == 0 for p in procs)
         assert len(read_store(pt_home)) == 8
+
+
+class TestFinalizeEdition:
+    def test_stamps_only_carried_topics_and_reopens_recurring_ones(
+        self, pt_home, tmp_path, capsys
+    ):
+        topics.main(["add", "--text", "AI", "--kind", "subscription", "--depth", "deep"])
+        topics.main(["add", "--text", "other", "--kind", "subscription", "--depth", "deep"])
+        topics.main([
+            "add", "--text", "brief", "--kind", "assignment", "--depth", "quick",
+            "--run-on", "2026-09-21",
+        ])
+        carried, other, assignment = (t["id"] for t in read_store(pt_home))
+        for tid in (carried, other, assignment):
+            topics.main(["mark", tid, "--status", "running"])
+        edition = tmp_path / "edition.json"
+        edition.write_text(json.dumps({"sections": [
+            {"topic_id": carried}, {"desk": "weather"}, {"topic_id": assignment},
+        ]}))
+        capsys.readouterr()
+
+        topics.main([
+            "finalize-edition", str(edition), "--at", "2026-09-21T08:31:00-07:00",
+        ])
+
+        by_id = {t["id"]: t for t in read_store(pt_home)}
+        assert by_id[carried]["status"] == "pending"
+        assert by_id[carried]["last_edition_at"] == "2026-09-21T08:31:00-07:00"
+        assert by_id[assignment]["status"] == "delivered"
+        assert by_id[assignment]["last_edition_at"] == "2026-09-21T08:31:00-07:00"
+        assert by_id[other]["status"] == "running"

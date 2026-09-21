@@ -21,14 +21,14 @@ Subcommands:
   cancel   <id>            any topic the owner says stop on
   mark     <id> --status {pending,running,delivered} [--at ISO8601]
   list     [--kind K]      prints the topics array as JSON
-  reopen-sections [--delivered ID ...]
-                           every section/subscription that is delivered or
+  check-paper --deliver-at {main,HH:MM} [--as-of YYYY-MM-DD]
+                           validates one paper's three-item news roster
+  finalize-edition <edition.json> [--at ISO8601]
+                           stamps only carried topics after a successful post
+  reopen-sections          every section/subscription that is delivered or
                            running becomes pending (a paper about to run;
                            measured live, delivered sections were skipped
-                           and the next edition had desks only). With
-                           --delivered, passed only once the chat POST
-                           succeeded, only those topics are reopened and
-                           stamped last_edition_at; nothing else is touched
+                           and the next edition had desks only)
 
 `--run-on` is the date a `section`/`assignment` belongs to the paper:
 required for `assignment` (the one day its result appears) and refused for
@@ -61,13 +61,13 @@ Status transitions (design doc §3.3):
 from __future__ import annotations
 
 import argparse
-import contextlib
 import fcntl
 import json
 import os
 import pathlib
 import re
 import sys
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 
 TOPICS_FILE = "topics.json"
@@ -77,6 +77,8 @@ STATUSES = ("pending", "running", "delivered", "cancelled")
 ID_RE = re.compile(r"^t_[0-9a-f]{4}$")
 RUN_ON_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DELIVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+MAX_NEWS_ITEMS = 3
+MUTATING_COMMANDS = {"add", "cancel", "mark", "finalize-edition", "reopen-sections"}
 
 
 def home():
@@ -87,23 +89,18 @@ def topics_path():
     return home() / TOPICS_FILE
 
 
+@contextmanager
+def mutation_lock():
+    """Serialize each topic store read/validate/write transaction."""
+    path = home() / "topics.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        yield
+
+
 def now_iso():
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
-
-
-@contextlib.contextmanager
-def store_lock():
-    """Hold one lock across a whole load -> mutate -> replace.
-
-    Independently scheduled papers run these commands concurrently; without
-    it each loads the same snapshot and the later replace silently undoes the
-    earlier one's stamp, status, or an owner cancellation.
-    """
-    path = topics_path().with_suffix(".json.lock")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        yield
 
 
 def load_topics():
@@ -202,6 +199,84 @@ def checked_deliver_at(args):
     return raw
 
 
+def paper_slot(topic, main_hour=None):
+    """Return the paper roster a section belongs to."""
+    deliver_at = topic.get("deliver_at")
+    if deliver_at is None:
+        return "main"
+    if main_hour is None:
+        config = json.loads((home() / "config.json").read_text())
+        main_hour = config["delivery"]["hour"]
+    return "main" if deliver_at == main_hour else deliver_at
+
+
+def paper_items(topics, slot, *, main_hour=None, as_of=None):
+    """Select the news roster for one paper; all callers share this rule."""
+    items = [
+        topic for topic in topics
+        if topic.get("kind") == "section"
+        and topic.get("status") != "cancelled"
+        and paper_slot(topic, main_hour) == slot
+    ]
+    if slot == "main":
+        items += [
+            topic for topic in topics
+            if topic.get("kind") == "assignment"
+            and topic.get("status") in ("pending", "running")
+            and (as_of is None or topic.get("run_on", "") <= as_of)
+        ]
+    return items
+
+
+def refuse_if_overfilled(items, label):
+    if len(items) <= MAX_NEWS_ITEMS:
+        return
+    names = ", ".join(topic.get("text", "") for topic in items)
+    sys.exit(
+        f"error: {label} has more than {MAX_NEWS_ITEMS} news items: {names} "
+        f"-- drop one before continuing"
+    )
+
+
+def refuse_overfilled_paper(topics, addition):
+    """Keep every printed paper within the renderer's three-story contract."""
+    if addition["kind"] not in ("section", "assignment"):
+        return
+    candidates = [*topics, addition]
+    if addition["kind"] == "assignment":
+        carried = paper_items(candidates, "main", as_of=addition["run_on"])
+        label = f"main paper on {addition['run_on']}"
+    else:
+        slot = paper_slot(addition)
+        carried = paper_items(candidates, slot)
+        label = "main paper" if slot == "main" else f"{slot} paper"
+    refuse_if_overfilled(carried, label)
+
+
+def cmd_check_paper(args):
+    """Refuse a legacy or newly merged roster above the three-item contract."""
+    if args.deliver_at != "main" and not DELIVER_AT_RE.fullmatch(args.deliver_at):
+        sys.exit(f"error: --deliver-at {args.deliver_at!r} is not main or HH:MM")
+    if args.main_hour is not None and not DELIVER_AT_RE.fullmatch(args.main_hour):
+        sys.exit(f"error: --main-hour {args.main_hour!r} is not HH:MM")
+    if args.as_of is not None:
+        if not RUN_ON_RE.fullmatch(args.as_of):
+            sys.exit(f"error: --as-of {args.as_of!r} is not YYYY-MM-DD")
+        try:
+            date.fromisoformat(args.as_of)
+        except ValueError:
+            sys.exit(f"error: --as-of {args.as_of!r} is not a real date")
+    items = paper_items(
+        load_topics(), args.deliver_at,
+        main_hour=args.main_hour, as_of=args.as_of,
+    )
+    label = "main paper" if args.deliver_at == "main" else f"{args.deliver_at} paper"
+    refuse_if_overfilled(items, label)
+    print(json.dumps({"paper": args.deliver_at, "news_items": len(items),
+                      "topics": [topic["text"] for topic in items]}))
+    return 0
+
+
 def cmd_add(args):
     topics = load_topics()
     run_on = checked_run_on(args)
@@ -251,6 +326,7 @@ def cmd_add(args):
                               "text": existing.get("text"),
                               "status": existing.get("status")}))
             return 0
+    refuse_overfilled_paper(topics, topic)
     topics.append(topic)
     save_topics(topics)
     print(json.dumps({"added": topic["id"], "kind": topic["kind"],
@@ -318,19 +394,12 @@ EVERGREEN = ("section", "subscription")
 REOPEN_FROM = ("delivered", "running")
 
 
-def reopen_evergreen(topic_list=None, delivered=None):
+def reopen_evergreen(topic_list=None):
     """Put evergreen topics back on the next paper's research list.
 
     One-offs and assignments stay delivered. Cancelled stays cancelled.
-    delivered=[ids] is the moment those topics' edition shipped (post_to_chat,
-    after the POST succeeded): only they are reopened and stamped, the one
-    writer of last_edition_at for these kinds, so an overlapping paper's
-    running topics are left alone. A carried topic that another paper's
-    startup recovery already reset to pending is stamped too: it shipped.
-    Without it (startup recovery) every such
-    topic is reopened and none is stamped: a run that died leaves a topic
-    running, and that is not a delivery. A topic already marked delivered
-    keeps the stamp that mark wrote.
+    This is startup recovery only: a run that died leaves a topic running,
+    and reopening it is not a delivery, so this function never stamps it.
     """
     owned = topic_list is None
     topics = load_topics() if owned else topic_list
@@ -338,12 +407,8 @@ def reopen_evergreen(topic_list=None, delivered=None):
     for topic in topics:
         if topic.get("kind") not in EVERGREEN:
             continue
-        if topic.get("status") not in REOPEN_FROM + (("pending",) if delivered else ()):
+        if topic.get("status") not in REOPEN_FROM:
             continue
-        if delivered is not None and topic["id"] not in delivered:
-            continue
-        if delivered is not None and topic["status"] != "delivered":
-            topic["last_edition_at"] = now_iso()
         topic["status"] = "pending"
         topic["scheduled_for"] = None
         reopened.append(topic["id"])
@@ -353,8 +418,40 @@ def reopen_evergreen(topic_list=None, delivered=None):
 
 
 def cmd_reopen_sections(args):
-    reopened = reopen_evergreen(delivered=args.delivered)
+    reopened = reopen_evergreen()
     print(json.dumps({"reopened": reopened}))
+    return 0
+
+
+def cmd_finalize_edition(args):
+    """Atomically stamp exactly the topics carried by a posted edition."""
+    path = pathlib.Path(args.edition_json)
+    try:
+        edition = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        sys.exit(f"error: {path} cannot be read as edition JSON ({exc!r})")
+    sections = edition.get("sections") if isinstance(edition, dict) else None
+    if not isinstance(sections, list):
+        sys.exit(f"error: {path} has no sections list")
+    ids = list(dict.fromkeys(
+        section.get("topic_id") for section in sections
+        if isinstance(section, dict) and section.get("topic_id")
+    ))
+    topics = load_topics()
+    stamp = args.at or now_iso()
+    finalized, skipped = [], []
+    for topic_id in ids:
+        topic = find_topic(topics, topic_id)
+        if topic["status"] == "cancelled":
+            skipped.append(topic_id)
+            continue
+        topic["last_edition_at"] = stamp
+        topic["status"] = "pending" if topic["kind"] in EVERGREEN else "delivered"
+        if topic["status"] == "pending":
+            topic["scheduled_for"] = None
+        finalized.append({"id": topic_id, "status": topic["status"]})
+    save_topics(topics)
+    print(json.dumps({"finalized": finalized, "cancelled": skipped}))
     return 0
 
 
@@ -390,17 +487,33 @@ def main(argv=None):
     p_list.add_argument("--kind", choices=KINDS, default=None)
     p_list.set_defaults(func=cmd_list)
 
+    p_check = sub.add_parser(
+        "check-paper", help="refuse a paper roster with more than three news items",
+    )
+    p_check.add_argument("--deliver-at", required=True,
+                         help="main or the focused paper's HH:MM")
+    p_check.add_argument("--as-of", default=None,
+                         help="YYYY-MM-DD; include assignments due by this day")
+    p_check.add_argument("--main-hour", default=None,
+                         help="prospective HH:MM when validating a setting change")
+    p_check.set_defaults(func=cmd_check_paper)
+
     p_reopen = sub.add_parser(
         "reopen-sections",
         help="pending every delivered/running section and subscription",
     )
-    p_reopen.add_argument("--delivered", nargs="+", metavar="ID", default=None,
-                          help="reopen and stamp only these topics (a paper just delivered)")
     p_reopen.set_defaults(func=cmd_reopen_sections)
 
+    p_finalize = sub.add_parser(
+        "finalize-edition", help="stamp the topics carried by a posted edition",
+    )
+    p_finalize.add_argument("edition_json")
+    p_finalize.add_argument("--at", default=None, help="ISO8601 edition timestamp")
+    p_finalize.set_defaults(func=cmd_finalize_edition)
+
     args = parser.parse_args(argv)
-    if args.command in ("add", "cancel", "mark", "reopen-sections"):
-        with store_lock():
+    if args.command in MUTATING_COMMANDS:
+        with mutation_lock():
             return args.func(args)
     return args.func(args)
 

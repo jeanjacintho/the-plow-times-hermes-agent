@@ -1,6 +1,6 @@
 ---
 name: pt-edition
-description: Compile one or more topics' research notes into edition.json, render it with render_edition.py into the PDF, post the PDF only via post_to_chat.py (which also runs print_edition.py when a printer is configured), end the turn with NO_REPLY, and mark the topics it carried. Runs in the cron-fired session after pt-research.
+description: Compile one or more topics' research notes into edition.json, render the Letter PDF plus any chat-only desk companion, and post them via post_to_chat.py, which finalizes carried topics and prints when configured. Runs in the cron-fired session after pt-research.
 ---
 
 # pt-edition — notes become the edition
@@ -83,11 +83,6 @@ HTML.** Hand-write `edition.json` under the run directory:
 }
 ```
 
-- **Never write a Sudoku into `edition.json`.** The renderer always
-  generates and verifies one Easy or Medium puzzle from `scripts/sudoku.py`,
-  seeded on `date`, and fills `{{SUDOKU}}`. There is no JSON field for it;
-  a grid the model authored would be the one thing this page cannot afford
-  to get wrong.
 - **`topic_id` is mandatory per section** — the delivery step marks each
   topic from it. Without it, marking depends on session memory, which SOUL.md
   forbids. `run_on` is required for an assignment.
@@ -113,41 +108,31 @@ HTML.** Hand-write `edition.json` under the run directory:
   the reader's words ("your calendar", never a file or a path). On the
   priority desk those lines were the paper's own plumbing ("Sources:
   priority desk"), so the renderer drops them there. Weather on the
-  printed page is the masthead ear (icon and high/low, or the named miss
-  when research failed and there is no forecast); it has no sources
-  line. The chat edition still prints weather sources and gaps.
-- **`desk` is the newspaper department.** `"weather"` draws
-  `{{WEATHER_EAR}}` from today's `forecast` (or the named miss, or the
-  plain ear when there is no weather desk). `"calendar"`, `"mail"` and `"sports"`
-  share `{{DESKS_INLINE}}`. `"priority"` is `{{PRIORITY_BLOCK}}`.
-  `"news"` (the default) is `{{LEAD}}` then `{{SECTIONS}}`. Same
-  title / headline / body / sources shape in the JSON; the priority
-  desk carries `sources: []`.
+  printed page is the masthead ear (a vendored Atlas icon and high/low, or
+  the named miss when research failed); it has no sources line. The chat
+  edition still prints weather sources and gaps.
+- **`desk` is the newspaper department.** At the front of the printed paper,
+  weather occupies the masthead ear, priority occupies the founder-focus
+  band, calendar occupies the sole right rail, and news occupies the main
+  well. The longest news body leads at full width; article order breaks ties
+  and otherwise preserves the pair below it. Mail and sports remain in the
+  chat edition but do not consume print space. Every desk keeps the same title / headline /
+  body / sources shape; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
-  `run/desk-priority/notes.json` without rewriting.** The printed card
-  already talks to the reader; do not turn it into a memo about "the
-  founder". When present it
-  replaces the prose body on the printed page (`skip_body`); `headline` is
-  the day's priority, one action in at most 120 characters, and `body` is
-  the first step in prose for the chat edition. Shape: `why` (1–3 objects
-  with `text` and `source_label`, and optionally `url` and `quote`: `url` is a
-  post in `pt-setup/assets/advisors/salyer-bank.json` (one `{url, title,
-  date, entries}` record per post), `source_label` is its exact `title`,
-  and `quote` is verbatim from one of its `entries`, at most 25 words; the
-  card prints it in quotation marks with the title linked),
-  `first_step`, optional `not_today` (at most two strings), `questions`
-  (at most three strings, printed first), and optional `stage_label`,
-  `stage_why`, `yesterday`, `week`, `draft` (non-blank strings), `who`
-  (at most three strings) and `today` (at most four `{"time", "title",
-  "note"}`, where `time` is the printed start such as "10:00", or null
-  for an all-day event).
+  `run/desk-priority/tournament.json` without rewriting.** The printed card
+  already talks to the reader. When present it replaces the section prose on print. Shape:
+  `recommendations` is exactly three ranked objects, each with non-blank `headline`, `body`,
+  `first_step`, `evidence` (one to three `{claim, source, url?}` items), and
+  `advisor: {name, quote, url}`; `body` is at most 1,024 characters and every present `url`
+  is HTTP(S). `questions` is zero to three non-blank strings. The advisor desk owns all semantic
+  judgment; the renderer enforces only shape, length, URL form, escaping, and layout.
 - **`forecast` is optional, weather-only, and drawn — not written.** Exactly
-  one day object: `day` (short label, e.g. "Tue"), `date` (e.g. "17/05"),
-  `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`, `rain`, `storm`,
-  `snow` — the renderer draws a fixed monochrome icon for each key, so
-  anything else fails the gate), and `high`/`low` (numbers, the units come
-  from the template, not the JSON) — deliberately temperatures and the
-  icon only, nothing else; wind/humidity/precip were tried and dropped so
+  one day object: `day` (short label, e.g. "Tue"), `date` (e.g.
+  "17/05"), `icon` (exactly one of `sun`, `partly-cloudy`, `cloud`,
+  `rain`, `storm`, `snow` — the renderer draws a vendored monochrome icon
+  for each key, so anything else fails the gate), and `high`/`low`
+  (numbers, the units come from the template, not the JSON) — deliberately
+  temperatures and the icon only, nothing else; wind/humidity/precip
   the ear stays readable at a glance. That one day is `{{WEATHER_EAR}}`.
   Extra days are not in the schema and do not reach chat. Leave `forecast`
   out only when today's icon + high/low could not be sourced, and let
@@ -159,9 +144,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   pick the one that actually matches the event (a call is `call`, not
   `meeting`; a standing reminder like "dentist at 3pm" is `reminder`;
   anything that doesn't fit the other four is `note`, never guessed as
-  `meeting` to avoid picking). The printed strip shows at most six
-  events (issue #7: a taller calendar box jumped the whole desks row
-  to the next page); list every event in `schedule` anyway — that list
+  `meeting` to avoid picking). The printed calendar rail shows at most six
+  events; list every event in `schedule` anyway — that list
   is the calendar source of truth, and the chat edition serializes it
   in full. Extra rows are dropped only in print. `messages` is a non-empty list of
   `{ "sender", "subject" }` — no icon field, since every letter draws
@@ -209,8 +193,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   (measured live: two real appointments, empty `events.json` after a
   failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
-  it from `run/desk-priority/notes.json` without rewriting. If those notes
-  are missing or say `"status": "unavailable"`, or the **As of** date in
+  its `priority` object from `run/desk-priority/tournament.json` without rewriting. If that
+  complete checkpoint is missing, or the **As of** date in
   `pt/advisor.md` is not today, leave the section out of
   `edition.json`: `render_edition.py` then fills the slot with its honest
   gap card. Never omit the slot any other way. Mail only when
@@ -226,6 +210,10 @@ HTML.** Hand-write `edition.json` under the run directory:
   compile a main-paper section into a noon paper, or the reverse. Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
+- **Let the Letter PDF paginate naturally.** Include no more than three news
+  articles. The renderer keeps every included word and may use a second page
+  instead of shrinking readable type; it never truncates or silently drops a
+  fourth article. Never hand-split copy.
 - **A desk's notes file must be dated for today's edition.** A desk that
   fails to gather leaves the previous day's `run/desk-*/notes.json` /
   `events.json` in place. `render_edition.py` refuses an edition that carries a standing desk when any
@@ -246,9 +234,9 @@ HTML.** Hand-write `edition.json` under the run directory:
 - **`location` is this run's city** from the Latch location step, a string,
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
-- **`layout` is optional, `"main"` (the default) or `"sidebar"`.** Only news
-  blocks honor it — a news story the owner wanted as a boxed panel. Standing
-  desks ignore it; the renderer already puts them on the rail.
+- **`layout` remains accepted for compatibility**, but the fixed newspaper
+  template makes the longest news body the lead; article order breaks ties
+  and otherwise preserves the remaining pair.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest
   sentence ("nothing to report this time"), and what was tried.
@@ -282,13 +270,22 @@ transcript after it is the wall of text they did not ask for.
    complete command, printer or not; **copy it and change only the
    paths.** Do not add flags that are not here:
 
-       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --pdf run/<id>/edition.pdf
+       /var/lib/hermes/skills/pt-edition/scripts/render_edition.py <edition.json> --tournament /var/lib/hermes/pt/run/desk-priority/tournament.json --pdf run/<id>/edition.pdf --companion run/<id>/edition.companion.txt
 
    The printed page is this same PDF. `--chat PATH` is optional and takes
    a path when used; the chat transcript is not posted, so you normally
    leave it out entirely.
 
-   **Then check that `run/<id>/edition.pdf` actually exists before step 2.**
+   For an edition carrying `priority.recommendations`, `--tournament` is the delivery gate, not an
+   optional decoration. It refuses fewer than three completed generations, an unfinished
+   checkpoint, or a card that differs from the checkpoint. Topic-only editions and the honest
+   unavailable-card fallback have no recommendations, so this flag does not require a tournament
+   for them. Return to the priority tournament and run a missing generation; never edit its
+   generation number merely to satisfy the gate.
+
+   **Continue only when the renderer exits zero and
+   `run/<id>/edition.pdf` exists.** The renderer removes an old target before
+   trying, so a refusal can never leave yesterday's PDF looking successful.
    If it does not, read the renderer's own stderr and act on which failure
    it was:
 
@@ -309,13 +306,14 @@ transcript after it is the wall of text they did not ask for.
    text. The owner had asked for a copy of the paper and got a wall of
    text, on a machine where weasyprint 62.3 was installed and working.
 2. **Send the PDF yourself, by running `post_to_chat.py --pdf`, instead of
-   returning the transcript as your final response.** The owner asked for
-   the newspaper file, not the file plus the chat dump. `post_to_chat.py`
-   with `--pdf` posts an empty body and the attachment — the same envelope
-   plow-chat-platform uses for photo-only sends. Do not pipe
-   `edition.chat.txt` into it:
+   returning the transcript as your final response.** If the renderer wrote
+   `edition.companion.txt`, it contains only the mail/sports desks omitted
+   from print; include it with `--text-file`. This is not the full chat dump:
 
-       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --filename The-Founder-Times-<date>.pdf
+       /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --pdf run/<id>/edition.pdf --text-file run/<id>/edition.companion.txt --filename The-Founder-Times-<date>.pdf
+
+   When no companion file exists, omit only `--text-file`; the PDF posts with
+   an empty body, the same envelope used for attachment-only sends.
 
    A **scheduled** paper's cron prompt adds `--hold-until HH:MM` (that job's
    delivery hour). Honor it: the script sleeps until that clock in `TZ`, and
@@ -346,9 +344,10 @@ transcript after it is the wall of text they did not ask for.
    **`post_to_chat.py` also records the edition in the owner's wiki itself**,
    the same way it already prints: after either a successful `--pdf` or
    `--text-file` POST, it runs `record_edition.py` on the sibling
-   `edition.json`, best-effort — whatever it prints, the delivery and the
-   marks below already stand, it is never retried, and nothing about it goes
-   to the owner. This is no longer a step you run.
+   `edition.json`. The delivery already stands, but a recorder failure exits
+   non-zero after every finalizer and names the one recovery command:
+   `record_edition.py <edition.json>; do not repost`. Run that command once;
+   never resend the PDF. This is no longer a normal step you run.
 
    A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
    (you do not have to run that script yourself). When this turn ends, the
@@ -364,29 +363,19 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Mark every one-off and assignment the edition carried** from its `topic_id`:
-   `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
-   only after the chat leg is out — a delivered mark on an undelivered
-   edition is how a silent gap looks like a working paper. Both stay
-   `delivered` (terminal). **Never mark a section or subscription:**
-   the chat leg's seal already sent them back to `pending` for tomorrow's
-   paper and stamped `last_edition_at`, so a mark would be refused.
-   - A `topics.py mark` that **refuses because the topic was cancelled while
-     the run worked is expected, not an error**: the owner said stop at 6h20;
-     the edition already left without it. Report it and carry on — do not
-     crash the delivery over a valid cancellation.
-   - **Never mark a standing desk.** Weather, calendar, mail and sports
-     have no topic id on purpose.
+3. **Do not mark topics after posting.** On the successful POST boundary,
+   `post_to_chat.py` atomically stamps only the `topic_id`s carried by its sibling
+   `edition.json`: one-offs and assignments become `delivered`; sections and
+   subscriptions record `last_edition_at` and become `pending`. Cancelled topics
+   remain cancelled. Weather, calendar, mail and sports have no topic id.
 
 ## Repo note — the edition gate
 
 The renderer validates `edition.json` structurally before emitting anything
 (the same discipline `pt_config_gate.py` holds for the config): a bad shape
 exits non-zero with the failing field named. Page rules then refuse the
-priority card the same way: its own words (not `who`, `draft`, an event title
-or a quote) name no file or path and never the reader in the third person
-("the founder", "the CEO", "the owner", "o fundador" and the like); its
-headline is one action (no second sentence, ` then ` or ` + `) in at most 120
-characters; and a `why` with `url` or `quote` matches the advisor bank. Other
-desks get the structural gate only. A run that cannot render says so
+priority card the same way: its own recommendation prose names no file or path and never labels
+the reader in the third person ("the founder", "the CEO", "the owner", "o fundador" and the
+like). Content ranking and quote selection belong to the advisor desk, not this deterministic
+gate. Other desks get the structural gate only. A run that cannot render says so
 and waits for the next cycle — it does not ship a half page.

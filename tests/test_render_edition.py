@@ -2,36 +2,61 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 
 import pytest
 
 from conftest import ROOT, load_module
 
 render = load_module("render_edition", "pt-edition/scripts/render_edition.py")
-SHIPPED_BANK = render.BANK
-BANK_POST = {
-    "url": "https://advisor.example/talk", "title": "Talk To Customers", "date": "2026-01-01",
-    "entries": [{"id": "talk#1", "quote": "Don’t build before you’ve talked to ten customers. Then build less.",
-                 "advice": "Interview customers first.", "situations": ["customer-discovery"],
-                 "stages": ["discovery"]}],
+RECOMMENDATION = {
+    "headline": "Put retention at the center of Monday's investor conversation",
+    "body": "Lead with the segment that returns, what those users repeatedly ask the product to do, and the milestone this round buys.",
+    "evidence": [
+        {"claim": "Returning users repeat the same workflow", "source": "Weekly retention note", "url": "https://example.com/retention"},
+    ],
+    "first_step": "Draft the three-slide spine: retention, repeated use, and the runway milestone.",
+    "advisor": {"name": "Patrick Salyer", "quote": "Forget the naming (seed / A / B).", "url": "https://example.com/advisor/one"},
 }
-BANKED = {"text": "Three discovery calls this week", "source_label": "Talk To Customers",
-          "url": BANK_POST["url"], "quote": "Don’t build before you’ve talked to ten customers."}
+ADVISOR_WORDS = (
+    "Forget the naming (seed / A / B).",
+    "Raise the right amount of money to hit the milestones that unlock the next stage.",
+    "You'll know you're on the right track when you have referenceable customers.",
+)
+ADVISOR_URLS = tuple(f"https://example.com/advisor/{name}" for name in ("one", "two", "three"))
 
 
-@pytest.fixture
-def synthetic_bank(tmp_path, monkeypatch):
-    path = tmp_path / "bank.json"
-    path.write_text(json.dumps([BANK_POST]), encoding="utf-8")
-    monkeypatch.setattr(render, "BANK", path)
+@pytest.fixture(autouse=True)
+def synthetic_advisors(tmp_path, monkeypatch):
+    advisor_dir = tmp_path / "advisors"
+    advisor_dir.mkdir()
+    (advisor_dir / "patrick-salyer.md").write_text(
+        "---\nadvisor: Patrick Salyer\nsources:\n"
+        + "".join(f"  - {url}\n" for url in ADVISOR_URLS)
+        + "---\n## Framework\nFramework prose is not a quotation.\n## Sourced words\n"
+        + "\n".join(
+            f"- “{quote}” — [Source]({url})"
+            for quote, url in zip(ADVISOR_WORDS, ADVISOR_URLS)
+        ) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(render, "ADVISORS", advisor_dir, raising=False)
 
 
+def recommendations(headline=RECOMMENDATION["headline"]):
+    return [
+        {**RECOMMENDATION, "headline": f"{headline} — {rank}",
+         "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[rank - 1],
+                     "url": ADVISOR_URLS[rank - 1]}}
+        for rank in range(1, 4)
+    ]
 def edition_with_priority_and_weather():
     return edition(sections=[
         {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []},
         {"kind": "section", "title": "Your #1 priority today", "desk": "priority",
          "headline": "Close the seed extension", "body": "Send the deck",
-         "priority": {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"},
+         "priority": {"recommendations": recommendations(), "questions": []},
          "sources": []},
     ])
 
@@ -40,10 +65,19 @@ EVENT = {"time": "10:00", "title": "Customer call: Dana", "note": "Go in with: w
 
 
 def priority_edition(headline="Book 3 customer calls by Friday", sources=(), **fields):
-    p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x", **fields}
+    p = {"recommendations": recommendations(headline),
+         "questions": fields.pop("questions", []), **fields}
     return edition(sections=[{"kind": "section", "title": "P", "desk": "priority",
                               "headline": headline, "body": "b", "priority": p,
                               "sources": list(sources)}])
+
+
+def recommendation_edition(items=None, questions=None):
+    priority = {"recommendations": items if items is not None else recommendations(),
+                "questions": questions or []}
+    return edition(sections=[{"kind": "section", "title": "Advisor", "desk": "priority",
+                              "body": "Today's recommendations.", "priority": priority,
+                              "sources": []}])
 
 
 def edition(**overrides):
@@ -69,7 +103,112 @@ def write(tmp_path, data):
     return path
 
 
+def tournament(generation=3, items=None, stage=None):
+    items = items if items is not None else recommendations()
+    return {
+        "date": "2026-09-11",
+        "generation": generation,
+        "stage": stage or f"generation_{generation}_complete_gate_passed_checkpoint_written",
+        "priority": {"recommendations": items, "questions": []},
+        "champions": [
+            {"headline": item["headline"], "rank": rank}
+            for rank, item in enumerate(items, 1)
+        ],
+    }
+
+
 class TestValidate:
+    @pytest.mark.parametrize("recommendations,failure", [
+        ([], "priority.recommendations needs exactly 3 items"),
+        ([RECOMMENDATION], "priority.recommendations needs exactly 3 items"),
+        ([RECOMMENDATION] * 4, "priority.recommendations needs exactly 3 items"),
+        (["call customers"] * 3, "priority.recommendations[0] is not an object"),
+        ([{**RECOMMENDATION, "body": "x" * 1025}] * 3, "priority.recommendations[0].body is over 1024 characters"),
+        ([{**RECOMMENDATION, "evidence": []}] * 3, "priority.recommendations[0].evidence needs 1 to 3 items"),
+        ([{**RECOMMENDATION, "evidence": [{"claim": "x", "source": "y", "url": "file:///tmp/x"}]}] * 3,
+         "priority.recommendations[0].evidence[0].url is not an http(s) URL"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "quote": "Invented words."}}] * 3,
+         "priority.recommendations[0].advisor.quote is not in the named advisor file"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "url": ADVISOR_URLS[1]}}] * 3,
+         "priority.recommendations[0].advisor.url does not match its sourced words entry"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "quote": "Framework prose is not a quotation."}}] * 3,
+         "priority.recommendations[0].advisor.quote is not in the named advisor file"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "name": "Unknown Advisor"}}] * 3,
+         "priority.recommendations[0].advisor.name has no named advisor file"),
+    ])
+    def test_recommendation_rules(self, recommendations, failure):
+        assert failure in render.validate(recommendation_edition(recommendations))
+
+    def test_ranked_recommendations_render_escaped_paper_prose(self):
+        second = {**RECOMMENDATION, "headline": "Interview <three> users", "body": "First paragraph.\n\nSecond & final.", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[1], "url": ADVISOR_URLS[1]}}
+        third = {**RECOMMENDATION, "headline": "Ship the proof", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[2], "url": ADVISOR_URLS[2]}}
+        page = recommendation_edition([RECOMMENDATION, second, third], ["Q4 — What changed?"])
+        assert render.validate(page) == ""
+        output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        assert '<div class="priority-grid">' in output
+        assert output.count('<article class="priority-rec') == 3
+        assert '<p class="priority-rank">1</p><h2>Put retention at the center' in output
+        assert '<p class="priority-rank">2</p><h2>Interview &lt;three&gt; users</h2>' in output
+        assert "Second &amp; final." in output
+        assert "FIRST STEP" in output and "Patrick Salyer" in output
+        assert "Returning users repeat the same workflow" in output
+        assert 'href="https://example.com/retention"' in output
+
+    def test_closest_length_pair_sits_below_the_full_width_outlier(self):
+        items = recommendations()
+        items[0] = {**items[0], "headline": "Short outlier", "body": "Brief."}
+        items[1] = {**items[1], "headline": "Similar card two", "body": "A" * 300}
+        items[2] = {**items[2], "headline": "Similar card three", "body": "B" * 305}
+
+        output = render.priority_block({"recommendations": items, "questions": []})
+
+        feature_at = output.index('<div class="priority-feature">')
+        pair_at = output.index('<div class="priority-pair">')
+        assert feature_at < output.index("Short outlier") < pair_at
+        assert pair_at < output.index("Similar card two") < output.index("Similar card three")
+        assert output.count('class="priority-rec priority-rec--wide"') == 1
+
+    def test_recommendations_cannot_reuse_one_advisor_quote(self):
+        duplicated = [{**item, "advisor": RECOMMENDATION["advisor"]}
+                      for item in recommendations()]
+        assert "priority.recommendations reuse an advisor quote" in render.validate(
+            recommendation_edition(duplicated))
+
+    @pytest.mark.parametrize("checkpoint, failure", [
+        (tournament(generation=1), "tournament needs at least 3 completed generations"),
+        (tournament(items=list(reversed(recommendations()))),
+         "tournament champions do not match the ranked recommendations"),
+        (tournament(), None),
+    ])
+    def test_tournament_checkpoint_rules(self, checkpoint, failure):
+        result = render.validate_tournament(recommendation_edition(), checkpoint)
+        if failure is None:
+            assert result == ""
+        else:
+            assert failure in result
+
+    @pytest.mark.parametrize("date", [None, "2026-09-10"])
+    def test_tournament_date_must_match_edition(self, date):
+        checkpoint = tournament()
+        if date is None:
+            checkpoint.pop("date")
+        else:
+            checkpoint["date"] = date
+        assert "tournament date does not match edition date" in (
+            render.validate_tournament(recommendation_edition(), checkpoint)
+        )
+
+    def test_complete_tournament_owns_the_exact_priority_card(self):
+        checkpoint = tournament()
+        checkpoint["priority"]["recommendations"][0] = {
+            **checkpoint["priority"]["recommendations"][0],
+            "body": "Different copy from the edition.",
+        }
+
+        failure = render.validate_tournament(recommendation_edition(), checkpoint)
+
+        assert "tournament priority does not match the printed recommendations" in failure
+
     def test_valid_is_silent(self):
         assert render.validate(edition()) == ""
 
@@ -94,6 +233,13 @@ class TestValidate:
         bad = edition(sections=[{"kind": "assignment", "title": "x", "body": "y"}])
         assert "run_on is required" in render.validate(bad)
 
+    @pytest.mark.parametrize("section", [
+        {"kind": "section", "desk": "news", "title": "x", "body": "y"},
+        {"kind": "assignment", "run_on": "2026-09-21", "title": "x", "body": "y"},
+    ])
+    def test_carried_news_requires_topic_id(self, section):
+        assert "topic_id is required" in render.validate(edition(sections=[section]))
+
     def test_sources_must_be_strings(self):
         bad = edition(sections=[{"kind": "section", "title": "x", "body": "y",
                                  "sources": [1, 2]}])
@@ -117,6 +263,15 @@ class TestValidate:
 
     def test_desk_optional(self):
         assert render.validate(edition()) == ""
+
+    def test_more_than_three_news_articles_is_refused(self):
+        stories = [{
+            "kind": "section", "title": f"Story {i}", "desk": "news",
+            "body": f"Body {i}.", "sources": [],
+        } for i in range(4)]
+        assert "edition has more than 3 news articles" in render.validate(
+            edition(sections=stories)
+        )
         assert render.validate(edition(sections=[{
             "kind": "section", "title": "x", "body": "y", "desk": "weather",
         }])) == ""
@@ -128,7 +283,7 @@ class TestValidate:
     def test_layout_optional(self):
         assert render.validate(edition()) == ""
         assert render.validate(edition(sections=[{
-            "kind": "section", "title": "x", "body": "y", "layout": "sidebar",
+            "kind": "section", "topic_id": "t_8c1d", "title": "x", "body": "y", "layout": "sidebar",
         }])) == ""
 
     def test_headline_must_be_a_string_when_present(self):
@@ -203,46 +358,13 @@ class TestValidate:
         }])
         assert "priority is only valid on the priority desk" in render.validate(edition_data)
 
-    def test_priority_why_must_have_one_to_three_sourced_items(self):
-        p = {"why": [], "first_step": "Send the deck"}
-        assert "priority.why needs 1 to 3 items" in render.validate(edition(sections=[{
-            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-        }]))
-        p = {"why": [{"text": "t"}], "first_step": "Send the deck"}
-        assert "priority.why[0].source_label is blank" in render.validate(edition(sections=[{
-            "kind": "section", "title": "P", "desk": "priority", "body": "b", "priority": p,
-        }]))
-
-    @pytest.mark.parametrize("why, printed", [
-        ({"text": "Q3 goal: raise $1.5M by Sep 30", "source_label": "your file, Goals"},
-         'Q3 goal: raise $1.5M by Sep 30 <span class="src">— your file, Goals</span>'),
-        (BANKED, "Three discovery calls this week “Don’t build before you’ve talked to ten "
-                 'customers.” <span class="src">— <a href="https://advisor.example/talk">'
-                 "Talk To Customers</a></span>"),
-    ])
-    def test_priority_renders_headline_why_and_first_step(self, why, printed):
-        p = {"why": [why], "first_step": "Send the deck"}
-        html = render.render_html(edition(sections=[{
-            "kind": "section", "title": "Your #1 priority today", "desk": "priority",
-            "headline": "Close the seed extension", "body": "Send the deck", "priority": p,
-            "sources": [],
-        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
-        assert "Close the seed extension" in html
-        assert printed in html
-        assert "Send the deck" in html
-        assert "<script" not in html.lower()
-
     def test_priority_title_is_the_desk_title_not_python_text(self):
-        html = render.render_html(edition(sections=[{
-            "kind": "section", "title": "O que devo priorizar hoje?", "desk": "priority",
-            "headline": "Close the seed extension", "body": "Send the deck",
-            "priority": {"why": [{"text": "t", "source_label": "calendar"}],
-                         "first_step": "x"},
-            "sources": [],
-        }]), render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
+        data = recommendation_edition()
+        data["sections"][0]["title"] = "O que devo priorizar hoje?"
+        html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
         assert "O que devo priorizar hoje?" in html
         assert "priority-wrap" in html
-        assert "Close the seed extension" in html
+        assert "Put retention at the center" in html
 
     def test_priority_title_empty_without_a_priority_desk(self):
         html = render.render_html(edition(), render.DEFAULT_MASTHEAD,
@@ -273,157 +395,46 @@ class TestValidate:
         assert "dropcap" in html
         assert "<p>" in html
 
-    @pytest.mark.parametrize("count, pairs, lone", [(7, 3, False), (4, 1, True)])
-    def test_news_well_pairs_stories_without_dropping_a_lone_leftover(
-            self, count, pairs, lone):
+    def test_three_news_articles_render_as_one_lead_above_a_pair(self):
         sections = [{
             "kind": "section", "title": f"Story {i}", "desk": "news",
             "body": f"Body {i}.", "sources": [],
-        } for i in range(count)]
+        } for i in range(3)]
         html = render.render_html(edition(sections=sections),
                                   render.DEFAULT_MASTHEAD,
-                                  "{{SECTIONS}}")
-        leftover = count - 1
-        assert html.count('class="news-cols"') == pairs
-        assert html.count('class="news-col"') == pairs * 2
-        assert html.count("<article") == leftover
-        assert all(f"Story {i}" in html for i in range(1, count))
-        first_row = html.split('class="news-cols"', 1)[1]
-        left, right = first_row.split('class="news-col"')[1:3]
-        assert "Story 1" in left and "Story 2" not in left
-        assert "Story 2" in right
-        if lone:
-            assert html.rfind(f"Story {count - 1}") > html.rfind('class="news-cols"')
+                                  "<main>{{LEAD}}</main>{{NEWS_PAIR}}")
+        lead, pair = html.split("</main>", 1)
+        assert "Story 0" in lead
+        assert "Story 1" not in lead and "Story 2" not in lead
+        assert '<div class="news-pair">' in pair
+        assert pair.count('<div class="news-pair-cell">') == 2
+        assert pair.count("Story 1") == 1 and pair.count("Story 2") == 1
 
-    def test_desks_render_as_a_boxed_teaser_row(self):
+    def test_calendar_rail_is_the_only_printed_event_owner(self):
+        priority = {"recommendations": recommendations(), "questions": []}
         html = render.render_html(edition(sections=[
+            {"kind": "section", "title": "Focus", "desk": "priority",
+             "headline": "Prepare the call", "body": "Call the customer",
+             "priority": priority, "sources": []},
             {"kind": "section", "title": "Agenda", "desk": "calendar",
-             "body": "c", "sources": []},
-            {"kind": "section", "title": "Correio", "desk": "mail",
-             "body": "m", "sources": []},
-        ]), render.DEFAULT_MASTHEAD, "{{DESKS_INLINE}}")
-        assert '<div class="desks-row">' in html
-        assert html.count('<div class="desks-cell">') == 2
-
-    @pytest.mark.parametrize("field, value, failure", [
-        ("stage_label", " ", "priority.stage_label is blank"),
-        ("stage_why", "", "priority.stage_why is blank"),
-        ("yesterday", 3, "priority.yesterday is blank"),
-        ("week", "  ", "priority.week is blank"),
-        ("draft", ["Hey Raj"], "priority.draft is blank"),
-        ("not_today", ["a", "b", "c"], "priority.not_today has more than 2 items"),
-        ("not_today", [" "], "priority.not_today is not a list of non-blank strings"),
-        ("who", "Raj", "priority.who is not a list of non-blank strings"),
-        ("who", ["a", "b", "c", "d"], "priority.who has more than 3 items"),
-        ("questions", ["a", "b", "c", "d"], "priority.questions has more than 3 items"),
-        ("questions", [" "], "priority.questions is not a list of non-blank strings"),
-        ("questions", ["Q4 — Is prioritization.md current?"],
-         "priority.questions[0] prints a file path or name ('prioritization.md')"),
-        ("today", EVENT, "priority.today is not a list"),
-        ("today", [EVENT] * 5, "priority.today has more than 4 items"),
-        ("today", ["10:00 call"], "priority.today[0] is not an object"),
-        ("today", [{**EVENT, "time": ""}], "priority.today[0].time is blank"),
-        ("today", [{**EVENT, "title": " "}], "priority.today[0].title is blank"),
-        ("today", [{"time": None, "title": "Call"}], "priority.today[0].note is blank"),
-        # A why citing the advisor bank quotes it verbatim, under the post's title.
-        ("why", [BANKED], None),
-        ("why", [{**BANKED, "quote": "Don't build before\n you've  talked to ten customers."}], None),
-        ("why", [{**BANKED, "quote": None}], None),
-        ("why", [{**BANKED, "quote": "Build before you talk to customers."}],
-         "priority.why[0].quote is not verbatim from the bank entry at its url"),
-        ("why", [{**BANKED, "quote": " ".join(["ten"] * 26)}], "priority.why[0].quote is over 25 words"),
-        ("why", [{**BANKED, "url": "https://elsewhere.example/post"}],
-         "priority.why[0].url is not in the advisor bank"),
-        ("why", [{**BANKED, "source_label": "Another Post"}],
-         "priority.why[0].source_label is not the bank title for its url"),
-        ("why", [{**BANKED, "url": " "}], "priority.why[0].url is blank"),
-        # One action, at most 120 chars.
-        ("headline", "Raise $1.5M from Acme Corp. by Oct. 15 with Dr. Lee", None),
-        ("headline", "Ligue para a Dra. Silva às 5 p.m. Friday", None),
-        ("headline", "x" * 121, "sections[0].headline is over 120 chars"),
-        ("headline", "Call Sam. Send the deck", "sections[0].headline carries more than one action"),
-        ("headline", "Call Dana; send the deck", "sections[0].headline carries more than one action"),
-        ("headline", "Call Dana then send the deck", "sections[0].headline carries more than one action"),
-        ("headline", "Call Dana + send the deck", "sections[0].headline carries more than one action"),
-        # No plumbing, and the card talks to the reader -- other people's words excepted.
-        ("stage_why", "Your prioritization.md says discovery",
-         "priority.stage_why prints a file path or name ('prioritization.md')"),
-        ("today", [{**EVENT, "note": "From ~/Plow/goals"}], "priority.today[0].note prints a file path"),
-        ("week", "Investor pipeline: 3 calls booked", None),
-        ("first_step", "The founder should call Dana", "priority.first_step calls the reader 'The founder'"),
-        ("not_today", ["O fundador deve contratar"], "priority.not_today[0] calls the reader 'O fundador'"),
-        ("today", [{**EVENT, "title": "Pipeline review with the CEO"}], None),
-        ("who", ["Dana — the CEO at Acme, sent notes"], None),
-        ("draft", "Hi Dana, the founder of Acme here.", None),
-    ])
-    def test_priority_field_rules(self, synthetic_bank, field, value, failure):
-        failures = render.validate(priority_edition(**{field: value}))
-        assert (failure in failures) if failure else failures == ""
-
-    def test_priority_renders_every_field_escaped_in_page_order(self):
-        data = priority_edition(
-            yesterday="1 booked (Dana <Acme>)", stage_label="Discovery",
-            stage_why="No revenue yet & you still sell alone",
-            today=[EVENT, {"time": None, "title": "Write the memo", "note": "Keep it short"}],
-            week="Customer conversations: 2. The bar is tens.",
-            who=["Raj — replied to the launch post", "Priya — trial user since Sep 9"],
-            draft='Hey Raj, 20 minutes this week? "Tue" works.',
-            not_today=["Hire a sales team"],
-            questions=["Q2 — Do you keep a page with weekly numbers?"],
-        )
-        assert render.validate(data) == ""
-        html = render.render_html(data, render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
-        order = [
-            "<h3>QUESTIONS · “Q2: …”", "Q2 — Do you keep a page with weekly numbers?",
-            "<h3>YESTERDAY</h3>", "1 booked (Dana &lt;Acme&gt;)",
-            "STAGE · Discovery", "No revenue yet &amp; you still sell alone",
-            "Book 3 customer calls by Friday", '<p class="priority-step">x</p>',
-            "<h3>WHO</h3>", "Raj — replied", "Priya — trial user",
-            "<h3>DRAFT</h3>", "Hey Raj, 20 minutes this week? &quot;Tue&quot;",
-            "<h3>TODAY</h3>", "10:00", "Customer call: Dana", "Go in with: what they use today",
-            "Write the memo", "<h3>THIS WEEK</h3>", "Customer conversations: 2.",
-            "<h3>NOT TODAY</h3>", "Hire a sales team",
-        ]
-        positions = [html.index(text) for text in order]
-        assert positions == sorted(positions)
-        assert "priority-pack" in html
-        assert html.index("priority-focus") < html.index("priority-rail")
-
-    def test_priority_headings_follow_owner_language(self):
-        data = priority_edition(
-            yesterday="1 booked", stage_label="Discovery",
-            today=[EVENT], week="pipeline", who=["Raj"], draft="Hi Raj",
-            not_today=["Hire"], questions=["Você tem a meta desta semana?"],
-        )
-        html = render.render_html(
-            data, render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}",
-            language="Portuguese",
-        )
-        for english, portuguese in (
-            ("<h3>QUESTIONS · “Q2: …”", "<h3>PERGUNTAS</h3>"),
-            ("<h3>YESTERDAY</h3>", "<h3>ONTEM</h3>"),
-            ("STAGE ·", "ESTÁGIO ·"),
-            ("<h3>WHO</h3>", "<h3>QUEM</h3>"),
-            ("<h3>DRAFT</h3>", "<h3>RASCUNHO</h3>"),
-            ("<h3>TODAY</h3>", "<h3>HOJE</h3>"),
-            ("<h3>THIS WEEK</h3>", "<h3>ESTA SEMANA</h3>"),
-            ("<h3>NOT TODAY</h3>", "<h3>NÃO HOJE</h3>"),
-        ):
-            assert portuguese in html, portuguese
-            assert english not in html, english
-        english = render.render_html(
-            data, render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}")
-        assert "<h3>YESTERDAY</h3>" in english
-        assert "<h3>ONTEM</h3>" not in english
+             "headline": "One call", "body": "10:00 Customer call: Dana",
+             "schedule": [{"time": "10:00", "title": "Customer call: Dana",
+                            "icon": "call"}], "sources": ["Calendar.app"]},
+        ]), render.DEFAULT_MASTHEAD,
+            "{{PRIORITY_BLOCK}}<aside class=\"calendar-rail\">{{CALENDAR_RAIL}}</aside>")
+        assert html.count("Customer call: Dana") == 1
+        assert "<h3>TODAY</h3>" not in html
+        assert html.count('class="calendar-rail"') == 1
+        assert html.count("section--calendar") == 1
 
     def test_priority_is_the_first_section_on_the_page(self):
         html = render.render_html(edition(sections=[
             {"kind": "section", "title": "News", "desk": "news", "body": "n", "sources": []},
             {"kind": "section", "title": "Weather", "desk": "weather", "body": "w", "sources": []},
-            {"kind": "section", "title": "P", "desk": "priority", "body": "p", "sources": []},
-        ]), render.DEFAULT_MASTHEAD, "{{PRIORITY_BLOCK}}{{LEAD}}")
-        assert html.index("section--priority") < html.index("News")
-        assert "section--weather" not in html
+            {"kind": "section", "title": "P", "desk": "priority", "body": "p",
+             "priority": {"recommendations": recommendations(), "questions": []}, "sources": []},
+        ]), render.DEFAULT_MASTHEAD, "{{PRIORITY}}{{WEATHER}}{{LEAD}}")
+        assert html.index("section--priority") < html.index("section--weather")
 
     def test_priority_renders_exactly_once(self):
         html = render.render_html(
@@ -440,18 +451,29 @@ class TestValidate:
             "{{LEAD}}{{PRIORITY_BLOCK}}",
         )
         assert "Nothing to report this time." not in html
-        assert "Close the seed extension" in html
+        assert "Put retention at the center" in html
         assert html.count("<article") >= 1
         assert "{{LEAD}}" not in html
       
 
     def test_chat_edition_keeps_the_priority_body(self):
-        p = {"why": [{"text": "t", "source_label": "calendar"}], "first_step": "x"}
+        p = {"recommendations": recommendations(), "questions": []}
         text = render.render_chat(edition(sections=[{
             "kind": "section", "title": "P", "desk": "priority", "body": "Send the deck",
             "priority": p, "sources": [],
         }]), render.DEFAULT_MASTHEAD)
-        assert "Send the deck" in text
+        assert "Send the deck" not in text
+        for rank in range(1, 4):
+            assert f"{rank}. Put retention" in text
+        assert "• Returning users repeat the same workflow — Weekly retention note" in text
+        assert "→ Draft the three-slide spine" in text
+        assert "“Forget the naming (seed / A / B).” — Patrick Salyer" in text
+
+    def test_chat_priority_includes_ranked_questions(self):
+        text = render.render_chat(recommendation_edition(questions=["Q4 — What changed?"]),
+                                  render.DEFAULT_MASTHEAD)
+        assert "? Q4 — What changed?" in text
+        assert "Evidence" not in text and "First step" not in text and "Questions for you" not in text
 
 
 class TestMasthead:
@@ -473,33 +495,6 @@ class TestMasthead:
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, template)
         assert render.DEFAULT_MASTHEAD in page
         assert "inspired by Mayfield" in page
-
-    def test_inside_pages_carry_a_running_folio(self):
-        # Page 1 keeps the nameplate; later sheets get a slim running
-        # head (paper / city / volume) via CSS Paged Media, not a
-        # second masthead in the body flow.
-        template = (ROOT / "pt-edition" / "template.html").read_text()
-        page = render.render_html(
-            edition(location="Sao Paulo"), render.DEFAULT_MASTHEAD, template,
-        )
-        assert 'class="masthead-row"' in page
-        assert 'class="running-folio"' in page
-        assert 'class="running-folio-line"' in page
-        assert "position: running(running-folio)" in page
-        assert "content: element(running-folio)" in page
-        assert "@page :first" in page
-        # The 12mm gutter is unprintable; the running folio and the
-        # page counter live in extra top/bottom margin, not in that band.
-        assert "margin-left: 12mm" in page and "margin-right: 12mm" in page
-        assert "margin-top: 12mm" in page
-        assert "vertical-align: top" in page
-        assert "padding: 0 2px 6mm" in page
-        folio = page.split('class="running-folio-line"', 1)[1].split("</div>", 1)[0]
-        assert f'class="meta-left">{render.DEFAULT_MASTHEAD}</span>' in folio
-        assert 'class="meta-center">Sao Paulo</span>' in folio
-        assert "Vol. 1" in folio
-        assert "Sep 11, 2026" not in folio
-
 
 class TestChat:
     def test_header_and_section(self):
@@ -825,25 +820,58 @@ class TestHtml:
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{LEAD}}")
         assert 'href="https://example.com/weather"' in page
 
-    def test_sudoku_is_a_table_not_authored_json(self):
-        page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{SUDOKU}}")
-        assert '<table class="sk-grid">' in page
-        assert page.count("<tr>") == 9
-        assert "Sudoku" in page
-        assert "<div class=\"sk-grid\">" not in page
-
-    def test_sudoku_omits_the_page_rather_than_crash_the_paper(self, monkeypatch):
-        def boom(*_args, **_kwargs):
-            raise RuntimeError("generator failed")
-
-        monkeypatch.setattr(render.sudoku, "generate_puzzle", boom)
+    def test_legacy_sudoku_placeholder_is_consumed_without_a_puzzle(self):
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "X{{SUDOKU}}Y")
         assert page == "XY"
 
-    def test_chat_edition_has_no_sudoku_grid(self):
-        text = render.render_chat(edition(), render.DEFAULT_MASTHEAD)
-        assert "<table" not in text
-        assert "sk-grid" not in text
+    def test_dynamic_placeholder_text_is_not_re_evaluated(self):
+        page = render.render_html(edition(sections=[
+            {"kind": "section", "topic_id": "t_8c1d", "title": "Lead", "desk": "news",
+             "body": "Literal {{MAIL}} marker.", "sources": []},
+            {"kind": "section", "title": "Letters", "desk": "mail",
+             "body": "Private inbox metadata.", "sources": []},
+        ]), render.DEFAULT_MASTHEAD, "{{LEAD}}|{{MAIL}}")
+        assert page.count("Private inbox metadata.") == 1
+        assert "{{MAIL}} marker." in page
+
+    def test_longest_news_story_is_the_lead(self):
+        data = edition(sections=[
+            {"kind": "section", "title": "Short first", "desk": "news",
+             "body": "Brief.", "sources": []},
+            {"kind": "section", "title": "Longest second", "desk": "news",
+             "body": "This story has enough detail to be the longest of the three.",
+             "sources": []},
+            {"kind": "section", "title": "Short third", "desk": "news",
+             "body": "Also brief.", "sources": []},
+        ])
+        page = render.render_html(
+            data, render.DEFAULT_MASTHEAD, "<main>{{LEAD}}</main><aside>{{NEWS_PAIR}}</aside>",
+        )
+        lead, pair = page.split("</main><aside>")
+        assert "Longest second" in lead
+        assert "Short first" in pair
+        assert "Short third" in pair
+
+    def test_pdf_writes_all_rendered_pages(self, tmp_path, monkeypatch):
+        written = []
+
+        class FakeDocument:
+            pages = [object(), object()]
+
+            def write_pdf(self, path):
+                written.append(path)
+
+        class FakeHTML:
+            def __init__(self, *, string):
+                self.string = string
+
+            def render(self):
+                return FakeDocument()
+
+        monkeypatch.setitem(sys.modules, "weasyprint", types.SimpleNamespace(HTML=FakeHTML))
+        path = tmp_path / "edition.pdf"
+        render.write_pdf("<p>two pages</p>", path)
+        assert written == [str(path)]
 
 
 class TestMain:
@@ -858,14 +886,52 @@ class TestMain:
         render.main([str(path), "--chat", str(out)])
         assert "Weather in Sao Paulo" in out.read_text()
 
+    def test_writes_chat_only_desk_companion(self, tmp_path):
+        path = write(tmp_path, edition(sections=[
+            {"kind": "section", "topic_id": "t_8c1d", "title": "Lead", "desk": "news",
+             "body": "Printed.", "sources": []},
+            {"kind": "section", "title": "Letters", "desk": "mail",
+             "body": "Inbox summary.", "sources": []},
+            {"kind": "section", "title": "Scores", "desk": "sports",
+             "body": "Final score.", "sources": []},
+        ]))
+        out = tmp_path / "edition.companion.txt"
+        render.main([str(path), "--companion", str(out)])
+        assert "Inbox summary." in out.read_text()
+        assert "Final score." in out.read_text()
+        assert "Printed." not in out.read_text()
+
+    def test_no_chat_only_desks_remove_a_stale_companion(self, tmp_path):
+        path = write(tmp_path, edition(sections=[
+            {"kind": "section", "topic_id": "t_8c1d", "title": "Lead", "desk": "news",
+             "body": "Printed.", "sources": []},
+        ]))
+        out = tmp_path / "edition.companion.txt"
+        out.write_text("old private desk")
+        render.main([str(path), "--companion", str(out)])
+        assert not out.exists()
+
     def test_writes_html(self, tmp_path):
         path = write(tmp_path, edition())
         out = tmp_path / "edition.html"
         render.main([str(path), "--html", str(out)])
         html = out.read_text()
         assert "Weather in Sao Paulo" in html
-        assert '<table class="sk-grid">' in html
-        assert "Sudoku" in html
+        assert "Sudoku" not in html
+
+    def test_tournament_flag_blocks_an_early_priority_checkpoint(self, tmp_path):
+        path = write(tmp_path, recommendation_edition())
+        tournament_path = tmp_path / "tournament.json"
+        tournament_path.write_text(json.dumps(tournament(generation=1)))
+        with pytest.raises(SystemExit, match="at least 3 completed generations"):
+            render.main([str(path), "--tournament", str(tournament_path)])
+
+    def test_tournament_flag_does_not_block_an_edition_without_recommendations(self, tmp_path):
+        path = write(tmp_path, edition())
+
+        assert render.main([
+            str(path), "--tournament", str(tmp_path / "missing-tournament.json")
+        ]) == 0
 
     @pytest.mark.parametrize("data, named", [
         ({"date": "x", "sections": []}, "date is not a strict YYYY-MM-DD string"),
@@ -914,16 +980,6 @@ def _paper_with_desk_file(tmp_path, ed, fields):
     path = run / "paper" / "edition.json"
     path.write_text(json.dumps(ed), encoding="utf-8")
     return path
-
-
-class TestAdvisorBank:
-    def test_shipped_bank_shape(self):
-        posts = json.loads(SHIPPED_BANK.read_text(encoding="utf-8"))
-        entries = [entry for post in posts for entry in post["entries"]]
-        assert all(len(e["quote"].split()) <= render.QUOTE_MAX_WORDS for e in entries)
-        assert len({e["id"] for e in entries}) == len(entries)
-        assert len({p["url"] for p in posts}) == len(posts)
-        assert all(p["url"].startswith("https://") for p in posts)
 
 
 class TestEnsurePriorityDesk:

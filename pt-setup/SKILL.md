@@ -135,8 +135,11 @@ of "HH:MM" strings alongside `delivery.hour` — convert each with
 `convert_delivery.py` using the stored `owner.timezone`, never by asking
 the zone again), **turning the letters desk
 on or off** (`mail.configured`), or a new printer is a
-one-line conversation that updates `pt/config.json` directly, re-runs the
-gate, and then re-runs
+one-line conversation that updates `pt/config.json` directly. Before writing
+a different `delivery.hour`, convert it, then run `topics.py check-paper
+--deliver-at main --main-hour <converted HH:MM>`; if it refuses, name its
+roster and leave the setting unchanged. After a valid change, re-run the gate
+and then re-run
 `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so the
 new schedule exists now — not an interview from the top, and **never a
 hand-registered `hermes cron create`**: a cron job that name doesn't
@@ -444,9 +447,9 @@ English:
 **4b. On their next message** (including "nothing" / "skip"), take each
 thing they name as a `section` topic via `pt-intake`'s writer
 (`topics.py add --kind section --depth quick`), in the order they say
-it — that order is the news desk's order. If they name more than eight,
-take the first eight and say the cap; the daily run researches every news
-section in one session and eight is the honest ceiling. Never invent a
+it — that order is the news desk's order. If they name more than three,
+take the first three and say the cap; the daily run researches every news
+section in one session and three is the paper's news-roster ceiling. Never invent a
 section they did not ask for. Then, regardless of whether they named
 any:
 

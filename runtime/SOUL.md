@@ -308,20 +308,22 @@ Four shapes, two depths:
   main daily paper (no `deliver_at`), or of another paper that day when they
   name an hour (`deliver_at`). Sections that share an hour are researched
   together and appear in that hour's edition. They are always `quick`; each
-  paper has at most eight news sections.
+  paper has at most three news items total, including assignments due in the
+  main paper.
 - **Assignment**: "put X in tomorrow's paper" — a single pass whose result
   appears only in the paper of the day it was asked for, marked as special,
   then it is done. An assignment never gets its own cron; it rides the daily
   paper.
 
-The daily paper is one edition built from the standing desks
-(`pt-research/references/desks.md` lists them: the advisor's priority desk
-when configured, weather from the Mac's location that morning, the
+The canonical scheduled daily paper is one edition built from the standing
+desks (`pt-research/references/desks.md` lists them: the advisor's priority
+desk when configured, weather from the Mac's location that morning, the
 calendar, mail when configured) plus
 the news sections that belong to that hour and the day's assignments, on
 the same fixed template every time — the layout is code, you only supply
-content. A second newspaper at another hour is the same desks plus only
-the sections booked for that hour — not a reprint of the morning roster.
+content. Only the canonical scheduled paper runs priority. Live copies and alternate daily reruns re-research the main roster.
+Focused papers add only sections booked for their own hour.
+All reuse its priority checkpoint or gap card and begin with weather.
 News blocks always use the same story shape (title, headline, body,
 sources). Weather, calendar and mail use that same shape too, each in its
 own department.
@@ -353,13 +355,13 @@ sourced beat six where one is a guess.
 
 One `edition.json` becomes the PDF (the thing that lands in chat) and the
 printable HTML through one renderer, with one fixed layout. You write the
-content, never the HTML. Post the PDF with `post_to_chat.py --pdf` and end
-the turn with `NO_REPLY` so the cron `--deliver` arm does not also send the
-transcript. **Do not recap the edition in chat** — not the desks, not the
-headlines, not "seu jornal foi gerado". The PDF (and the page, if printed)
-is the delivery. A recap is a second message the owner did not ask for.
-If the PDF cannot be written, post the chat text instead — that
-costs the file, never the edition.
+content, never the HTML. Follow `pt-edition/SKILL.md` step 2 for the single
+delivery command, including its chat-only companion, and end the turn with
+`NO_REPLY` so the cron `--deliver` arm does not also send the transcript.
+**Do not recap the edition in chat** — not the desks, not the headlines, not
+"seu jornal foi gerado". The PDF (and the page, if printed) is the delivery.
+A recap is a second message the owner did not ask for. If the PDF cannot be
+written, post the chat text instead — that costs the file, never the edition.
 
 # Before replying
 

@@ -132,24 +132,24 @@ class TestDesiredJobs:
         # The main paper's 40-minute lead must not abort registration for a
         # slot at 00:20: that slot starts at midnight, not the evening before.
         jobs = crons.desired_jobs(
-            [topic("t_9f2a", kind="section", deliver_at="00:30")], "07:00",
+            [topic("t_9f2a", kind="section", deliver_at="12:30")], "07:00",
             {"PLOW_HOME_CHANNEL": "c"}, lead_minutes=40, extra_hours=["00:20"])
         by_name = {j["name"]: j["schedule"] for j in jobs}
         assert by_name[crons.DAILY_NAME] == "20 6 * * *"
         assert by_name[f"{crons.DAILY_NAME}-2"] == "0 0 * * *"
-        assert by_name[crons.paper_job_name("00:30")] == "0 0 * * *"
+        assert by_name[crons.paper_job_name("12:30")] == "50 11 * * *"
 
     def test_slot_clamps_to_owner_midnight_when_zones_differ(self):
         # Owner UTC-3, container UTC: the owner's 00:20 is 03:20 on the
         # container. The 40-minute lead stops at owner midnight (03:00
         # container); the owner's 10:30 (13:30) keeps the full lead.
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section", deliver_at="13:30")], "03:20", {"TZ": "UTC"}, 40,
+            [topic("t_1", kind="section", deliver_at="18:30")], "03:20", {"TZ": "UTC"}, 40,
             extra_hours=["13:30"], owner_tz="America/Sao_Paulo",
         )
         assert jobs[0]["schedule"] == "0 3 * * *"
         assert jobs[1]["schedule"] == "50 12 * * *"
-        assert jobs[2]["schedule"] == "50 12 * * *"
+        assert jobs[2]["schedule"] == "50 17 * * *"
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
@@ -379,18 +379,28 @@ class TestExtraDailyHours:
         )
         assert jobs[0]["schedule"] == "0 3 * * *"
 
-    def test_extra_job_prompt_has_its_own_lock_and_the_pdf_leg(self):
+    def test_extra_job_prompt_shares_the_workspace_lock_and_has_the_pdf_leg(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],
         )
         prompt = jobs[1]["prompt"]
-        assert "daily2-<today's date" in prompt
+        assert "paper-workspace-<today's date" in prompt
         assert "post_to_chat.py" in prompt
         assert "NO_REPLY" in prompt
 
     def test_no_extra_hours_is_unchanged(self):
         jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", {}, 45)
         assert [j["name"] for j in jobs] == ["pt-daily-edition"]
+
+    @pytest.mark.parametrize("extra,section_hour", [
+        (["09:00"], None),
+        ([], "09:00"),
+    ])
+    def test_papers_less_than_three_hours_apart_are_refused(self, extra, section_hour):
+        topics = [topic("t_1", kind="section", deliver_at=section_hour)] if section_hour else []
+
+        with pytest.raises(SystemExit, match="paper times 07:00 and 09:00 are less than 180 minutes apart"):
+            crons.desired_jobs(topics, "07:00", {}, 0, extra_hours=extra)
 
     def test_multiple_extra_hours_are_numbered_in_order(self):
         jobs = crons.desired_jobs(
@@ -446,7 +456,7 @@ class TestFocusedPapers:
         assert jobs[1]["schedule"] == "30 12 * * *"
         assert jobs[2]["schedule"] == "0 18 * * *"
         assert "deliver_at is 12:30" in jobs[1]["prompt"]
-        assert "paper-1230-<today's date" in jobs[1]["prompt"]
+        assert "paper-workspace-<today's date" in jobs[1]["prompt"]
         assert "NO_REPLY" in jobs[1]["prompt"]
 
     def test_deliver_at_equal_to_main_hour_rides_the_daily_job(self):
@@ -466,13 +476,13 @@ class TestFocusedPapers:
     def test_papers_sit_between_extra_hours_and_subscriptions(self):
         jobs = crons.desired_jobs(
             [
-                topic("t_1", kind="section", deliver_at="12:30"),
+                topic("t_1", kind="section", deliver_at="13:30"),
                 topic("t_9f2a"),
             ],
             "07:00", {}, 0, extra_hours=["10:30"],
         )
         assert [j["name"] for j in jobs] == [
-            "pt-daily-edition", "pt-daily-edition-2", "pt-paper-1230",
+            "pt-daily-edition", "pt-daily-edition-2", "pt-paper-1330",
             "pt-subscription-t_9f2a",
         ]
 
@@ -720,47 +730,6 @@ class TestDriftMain:
         assert not any("remove" in c and crons.DAILY_NAME in c for c in calls)
 
 
-class TestPrune:
-    def test_old_lock_pruned_today_kept(self, tmp_path):
-        run = tmp_path / "run"
-        run.mkdir()
-        old = run / "daily-2020-01-01.lock"
-        old.write_text("x")
-        from datetime import date
-        today = run / f"daily-{date.today().isoformat()}.lock"
-        today.write_text("x")
-        removed = crons.prune_runtime([], tmp_path)
-        assert str(old) in removed
-        assert not old.exists()
-        assert today.exists()
-
-    def test_old_paper_lock_pruned(self, tmp_path):
-        run = tmp_path / "run"
-        run.mkdir()
-        old = run / "paper-1230-2020-01-01.lock"
-        old.write_text("x")
-        from datetime import date
-        today = run / f"paper-1230-{date.today().isoformat()}.lock"
-        today.write_text("x")
-        extra = run / "daily2-2020-01-01.lock"
-        extra.write_text("x")
-        removed = crons.prune_runtime([], tmp_path)
-        assert str(old) in removed
-        assert str(extra) in removed
-        assert today.exists()
-
-    def test_terminal_topic_notes_pruned(self, tmp_path):
-        run = tmp_path / "run"
-        (run / "t_dead").mkdir(parents=True)
-        (run / "t_live").mkdir()
-        topics = [topic("t_dead", kind="assignment", status="delivered",
-                        run_on="2026-09-11"),
-                  topic("t_live", kind="section", status="pending")]
-        removed = crons.prune_runtime(topics, tmp_path)
-        assert str(run / "t_dead") in removed
-        assert not (run / "t_dead").exists()
-        assert (run / "t_live").exists()
-
 class TestShowDailyRecipe:
     """The on-demand copy runs the SAME recipe the 7am cron runs.
 
@@ -781,7 +750,7 @@ class TestShowDailyRecipe:
         rc = crons.main(["--show-daily-recipe"])
         assert rc == 0
         printed = capsys.readouterr().out.strip()
-        assert printed.startswith(crons.daily_prompt("daily", live=True).strip()[:200])
+        assert printed == crons.daily_prompt("daily", live=True).strip()
         assert printed.endswith("This is a live copy: print today's advisor card as it stands, "
                                 "or the gap card, and make no advisor pass.")
 
@@ -803,6 +772,9 @@ class TestShowDailyRecipe:
         ) in printed
         assert (
             "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py release"
+        ) in printed
+        assert (
+            "/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py"
         ) in printed
         assert "python3" not in printed
 
@@ -879,9 +851,45 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         p = crons.daily_prompt("daily")
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
+        assert "post_to_chat.py already finalizes every carried topic" in p
+        assert "sections delivered then pending" not in p
         assert "printer.configured" in p
         assert "Do not invoke pt-print" in p
         assert "reopen-sections" in p
+
+    def test_all_papers_share_a_lock_longer_than_the_tournament(self):
+        scheduled = (
+            crons.daily_prompt("daily"),
+            crons.daily_prompt("daily2"),
+            crons.paper_prompt("12:00"),
+        )
+        for prompt in scheduled:
+            assert "paper-workspace-<today's date" in prompt
+            assert "--stale-minutes 240" in prompt
+        live = crons.daily_prompt("daily", live=True)
+        assert "paper-workspace-<today's date" in live
+        assert "--stale-minutes 240 plus delivery.lead_minutes" in live
+
+    def test_every_paper_clears_desk_scratch_and_only_canonical_clears_priority(self):
+        canonical = crons.daily_prompt("daily")
+        assert "prepare_daily_run.py" in canonical
+        assert "--preserve-priority" not in canonical
+        for prompt in (
+            crons.daily_prompt("daily2"),
+            crons.daily_prompt("daily", live=True),
+            crons.paper_prompt("12:00"),
+        ):
+            assert "prepare_daily_run.py --preserve-priority" in prompt
+
+    def test_only_the_canonical_scheduled_paper_runs_priority(self):
+        assert "run the priority tournament" in crons.daily_prompt("daily")
+        for prompt in (
+            crons.daily_prompt("daily2"),
+            crons.daily_prompt("daily", live=True),
+            crons.paper_prompt("12:00"),
+        ):
+            assert "do not run priority" in prompt
+            assert "reuse its atomic checkpoint or gap card" in prompt
 
     def test_daily_prompt_forbids_origin_retry_loops(self):
         p = crons.daily_prompt("daily")
@@ -889,10 +897,24 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "needs origins" in p or "apex" in p
 
     def test_hour_paper_prompt_carries_the_print_leg(self):
-        p = crons.paper_prompt("paper1", "12:00")
+        p = crons.paper_prompt("12:00")
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
+        assert "post_to_chat.py already finalizes every carried topic" in p
+        assert "sections delivered then pending" not in p
         assert "printer.configured" in p
+
+    @pytest.mark.parametrize("prompt", [
+        crons.daily_prompt("daily"),
+        crons.paper_prompt("12:00"),
+    ])
+    def test_paper_prompt_stops_before_research_on_legacy_overfill(self, prompt):
+        assert "topics.py check-paper" in prompt
+        assert "before research" in prompt
+        refusal = prompt.index("If it refuses")
+        release = prompt.index("run_lock.py release", refusal)
+        research = prompt.index("Then run pt-research")
+        assert refusal < release < research
 
     def test_print_leg_is_best_effort_and_after_the_chat_edition(self):
         p = crons.daily_prompt("daily")

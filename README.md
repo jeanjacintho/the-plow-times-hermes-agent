@@ -6,15 +6,18 @@ A [Hermes](https://howto.plow.co/hermes) agent on [Plow Chat](https://howto.plow
 
 ## What it is
 
-The product is a **page**. It can open with **what Patrick Salyer would tell
-you** after watching your last day, learned from your Mac, then weather,
-calendar, optional mail, and the stories you told it to cover, laid out as a
-newspaper and sent to a printer on your Mac when one is there. The same edition can land as a PDF in the chat
-if you would rather not print.
+The product is a **compact Letter paper**. It can open with **what Patrick Salyer
+would tell you** after watching your last day, learned from your Mac, then
+weather, one calendar rail, and up to three stories you told it to cover. The
+longest story leads; the other two sit side by side. Readability wins over an
+artificial page limit, so a dense edition may continue onto a second sheet. It goes to a
+printer on your Mac when one is there, and the same edition can land as a PDF
+in chat. Mail and sports stay available in the chat edition and research
+context, but do not compete for space on the printed page.
 
 You do not fill a profile. The first message is the paper: what time it should arrive. It learns your timezone from where the Mac is; it does not interview you for a name.
 
-Research runs on **your** browser, through [Latch](https://howto.plow.co/latch). Every claim in the edition carries a source. If a page cannot be read, the paper says so — it does not invent the paragraph.
+Research runs on **your** browser, through [Latch](https://howto.plow.co/latch). If a page cannot be read, the paper says so — it does not invent the paragraph.
 
 What it learns and prints goes into your wiki at `~/Plow/wiki` (Latch's Obsidian-style wiki): a page for each paper that carried the advisor's card or one of your own sections, with its sources (never your mail, calendar or weather), your goals, and the advisor's notes on your company. Open it in Obsidian; edit anything.
 
@@ -22,16 +25,14 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
 
 ## What goes in the paper
 
-- **Standing desks** you can keep every day: the advisor's desk (your stage,
-  one focus with the people and a draft, and what not to do, read from your
-  mail, messages and calendar; there is no template to fill in, and you steer
-  it by texting corrections), weather, calendar, mail. The advisor's desk thinks
-  for about 40 minutes per pass, so a setup with that desk on writes
-  `delivery.lead_minutes` 40 (registration clamps it per slot, so no run
-  starts before midnight of its delivery day in the owner's zone).
-  Cron starts then; chat still waits for `delivery.hour`
-  (`post_to_chat.py --hold-until`). A live copy posts as soon as it is
-  ready. You can still set `lead_minutes` by hand.
+- **Printed desks** kept at the front of the paper: the advisor's desk (three ranked,
+  sourced recommendation essays challenged by independent critics using your
+  mail, messages, calendar and owner-named sources; there is no template to fill
+  in, and you steer it by texting answers and corrections), weather, and one
+  calendar rail. Mail and sports remain chat-only. The advisor's desk uses
+  the configured overnight window, so set `delivery.lead_minutes`; registration
+  clamps each paper's start to midnight of its delivery day, and the PDF waits
+  for the delivery hour before posting.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.
 - **One day’s assignment** (“put the iPhone price in tomorrow’s paper”).
 - **A one-off** you want once, on a short budget, without it becoming a standing section.

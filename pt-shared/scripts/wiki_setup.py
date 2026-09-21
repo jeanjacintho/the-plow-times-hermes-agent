@@ -29,7 +29,7 @@ from pathlib import Path
 
 from bearer_http import require
 from latch_mcp import LatchError
-from wiki import GOALS, OVERVIEW, QA, ROOT, SCHEMA, WIKI, WRITER, connect, join_page, split_page
+from wiki import GOALS, OVERVIEW, QA, RESOURCES, ROOT, SCHEMA, WIKI, WRITER, connect, join_page, split_page
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets" / "wiki"
 LEGACY_NOTES = "~/Plow/prioritization.md"
@@ -61,6 +61,7 @@ def ensure(wiki, chat, desk=False):
     if desk:
         did += _seed(wiki, GOALS, "goals.md", chat, lambda: wiki.read_path(LEGACY_NOTES))
         did += _seed(wiki, QA, "qa.md", chat)
+        did += _seed(wiki, RESOURCES, "resources.md", chat)
     toml = wiki.read("wiki.toml")  # again after the seeds' calls: append to what is there now
     if ROOT not in tomllib.loads(toml).get("roots", {}):
         wiki.write("wiki.toml", f'{toml.rstrip()}\n\n[roots."{ROOT}"]\nwriter = "{WRITER}"\n')
