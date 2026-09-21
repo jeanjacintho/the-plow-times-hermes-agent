@@ -62,3 +62,35 @@ A printer that fails on every run is a config problem, not a print problem:
 after the second consecutive failed run on a subscription, say the printer
 may need re-probing (the pt-setup changing-one-setting path), once, and stop
 mentioning it until the owner does something.
+
+## When paper is unavailable on this install
+
+One failure is not a failure to retry. `print_edition.py` reaches the Mac
+with a static Latch credential (`DOMO_DEVICE_UID`, `DOMO_MCP_TOKEN`), and
+creating one is a self-hosted setup step — nothing performs it on a hosted
+agent. Those installs cannot print, ever, and the script says so in the
+line it exits with:
+
+    page not printed — DOMO_DEVICE_UID is not set, so paper is unavailable
+    on this install; nothing to fix on your Mac
+
+`post_to_chat.py` posts that line as-is; the wording is what keeps it out
+of the retry promise (`TERMINAL_FAILURES`). If the owner then asks how to
+fix it, the answer is that the paper cannot print on this install and the
+chat edition is the whole delivery. Three answers this is **not**:
+
+- not "a momentary hiccup" and not "the next run will pick it back up" —
+  an unset variable never becomes set on its own, so a self-heal promise
+  is one the paper breaks the next morning and every morning after,
+- not their Latch pairing and not something to relink in a dashboard. The
+  pairing is almost certainly fine; the credential this script needs is a
+  different thing entirely, and sending them to go fix a healthy pairing
+  costs them a round trip and finds nothing,
+- not an environment variable for the owner to edit. They have no shell in
+  a hosted agent, and telling them to edit one is telling them to do the
+  impossible.
+
+Say it once, plainly, and do not raise it again until they do. Never report
+the state of a layer you did not check as evidence about the one that
+broke: "your Mac is connected fine" answers a question nobody asked when
+the credential is what is missing.

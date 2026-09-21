@@ -48,6 +48,31 @@ class TestSoul:
         n, limit = check.check(ROOT)
         assert n <= limit, f"SOUL.md is {n} chars; Hermes truncates above {limit}"
 
+    def test_soul_forbids_reading_the_agents_own_env_file(self):
+        # Measured live: asked why a page had not printed, a session reached
+        # for execute_code three times to read /var/lib/hermes/.env (once via
+        # read_file, twice via terminal cat) and put the raw /approve prompt
+        # in front of the owner each time. That file is the agent's own
+        # credential store -- an approval would have printed credentials into
+        # the chat transcript. The rule has to name the path, because the
+        # existing never-improvise prose did not.
+        text = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "/var/lib/hermes/.env" in text
+        assert "Never read" in text
+
+    def test_print_skill_answers_a_missing_latch_credential_honestly(self):
+        # The failure is permanent, so the three answers a live run actually
+        # gave -- momentary hiccup, relink Latch in the dashboard, edit an env
+        # var -- are each wrong, and the skill has to say so by name.
+        text = (ROOT / "pt-print" / "SKILL.md").read_text()
+        assert "paper is unavailable" in text
+        assert "momentary hiccup" in text
+        assert "relink" in text
+        # post_to_chat.py keys the retry promise off this wording; if the
+        # skill and the marker drift, the promise comes back.
+        post = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
+        assert "paper is unavailable" in post
+
     def test_setup_opener_does_not_ask_timezone(self):
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert "A que horas quer o jornal da manhã?" in text
