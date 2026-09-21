@@ -346,12 +346,12 @@ class TestExtraDailyHours:
         assert jobs[1]["skill"] == "pt-research"
         assert jobs[1]["deliver"] == crons.DELIVER_TARGET
 
-    def test_extra_job_prompt_has_its_own_lock_and_the_pdf_leg(self):
+    def test_extra_job_prompt_shares_the_workspace_lock_and_has_the_pdf_leg(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],
         )
         prompt = jobs[1]["prompt"]
-        assert "daily2-<today's date" in prompt
+        assert "paper-workspace-<today's date" in prompt
         assert "post_to_chat.py" in prompt
         assert "NO_REPLY" in prompt
 
@@ -413,7 +413,7 @@ class TestFocusedPapers:
         assert jobs[1]["schedule"] == "30 12 * * *"
         assert jobs[2]["schedule"] == "0 18 * * *"
         assert "deliver_at is 12:30" in jobs[1]["prompt"]
-        assert "paper-1230-<today's date" in jobs[1]["prompt"]
+        assert "paper-workspace-<today's date" in jobs[1]["prompt"]
         assert "NO_REPLY" in jobs[1]["prompt"]
 
     def test_deliver_at_equal_to_main_hour_rides_the_daily_job(self):
@@ -748,7 +748,7 @@ class TestShowDailyRecipe:
         rc = crons.main(["--show-daily-recipe"])
         assert rc == 0
         printed = capsys.readouterr().out.strip()
-        assert printed.startswith(crons.daily_prompt("daily").strip())
+        assert printed == crons.daily_prompt("daily", live=True).strip()
         assert printed.endswith("This is a live copy: print today's advisor card as it stands, "
                                 "or the gap card, and make no advisor pass.")
 
@@ -815,6 +815,23 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "printer.configured" in p
         assert "Do not invoke pt-print" in p
         assert "reopen-sections" in p
+
+    def test_all_papers_share_a_lock_longer_than_the_tournament(self):
+        prompts = (
+            crons.daily_prompt("daily"),
+            crons.daily_prompt("daily2"),
+            crons.daily_prompt("daily", live=True),
+            crons.paper_prompt("paper-1200", "12:00"),
+        )
+        for prompt in prompts:
+            assert "paper-workspace-<today's date" in prompt
+            assert "--stale-minutes 180" in prompt
+
+    def test_only_the_canonical_scheduled_paper_archives_shared_scratch(self):
+        assert "prepare_daily_run.py" in crons.daily_prompt("daily")
+        assert "prepare_daily_run.py" not in crons.daily_prompt("daily2")
+        assert "prepare_daily_run.py" not in crons.daily_prompt("daily", live=True)
+        assert "prepare_daily_run.py" not in crons.paper_prompt("paper-1200", "12:00")
 
     def test_daily_prompt_forbids_origin_retry_loops(self):
         p = crons.daily_prompt("daily")

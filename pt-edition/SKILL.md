@@ -119,7 +119,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   chat edition but do not consume print space. Every desk keeps the same title / headline /
   body / sources shape; the priority desk carries `sources: []`.
 - **`priority` is optional, priority-desk-only, and copied from
-  `run/desk-priority/notes.json` without rewriting.** The printed card
+  `run/desk-priority/tournament.json` without rewriting.** The printed card
   already talks to the reader. When present it replaces the section prose on print. Shape:
   `recommendations` is exactly three ranked objects, each with non-blank `headline`, `body`,
   `first_step`, `evidence` (one to three `{claim, source, url?}` items), and
@@ -193,8 +193,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   (measured live: two real appointments, empty `events.json` after a
   failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
-  it from `run/desk-priority/notes.json` without rewriting. If those notes
-  are missing or say `"status": "unavailable"`, or the **As of** date in
+  its `priority` object from `run/desk-priority/tournament.json` without rewriting. If that
+  complete checkpoint is missing, or the **As of** date in
   `pt/advisor.md` is not today, leave the section out of
   `edition.json`: `render_edition.py` then fills the slot with its honest
   gap card. Never omit the slot any other way. Mail only when
@@ -259,10 +259,12 @@ transcript after it is the wall of text they did not ask for.
    a path when used; the chat transcript is not posted, so you normally
    leave it out entirely.
 
-   `--tournament` is the delivery gate, not an optional decoration. It refuses fewer than three
-   completed generations, an unfinished checkpoint, or champions whose ranked headlines do not
-   match the three printed recommendations. Return to the priority tournament and run the missing
-   generation; never edit its generation number merely to satisfy the gate.
+   For an edition carrying `priority.recommendations`, `--tournament` is the delivery gate, not an
+   optional decoration. It refuses fewer than three completed generations, an unfinished
+   checkpoint, or a card that differs from the checkpoint. Topic-only editions and the honest
+   unavailable-card fallback have no recommendations, so this flag does not require a tournament
+   for them. Return to the priority tournament and run a missing generation; never edit its
+   generation number merely to satisfy the gate.
 
    **Continue only when the renderer exits zero and
    `run/<id>/edition.pdf` exists.** The renderer removes an old target before

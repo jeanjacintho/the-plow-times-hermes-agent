@@ -389,7 +389,7 @@ def validate_tournament(edition, tournament):
     if not isinstance(generation, int) or isinstance(generation, bool) or generation < 3:
         failures.append("tournament needs at least 3 completed generations")
     expected_stage = (
-        f"generation_{generation}_complete_gate_passed_notes_written"
+        f"generation_{generation}_complete_gate_passed_checkpoint_written"
         if isinstance(generation, int) and not isinstance(generation, bool)
         else None
     )
@@ -427,6 +427,7 @@ def validate_tournament(edition, tournament):
                     f"generation {number} did not criticize every inherited champion and challenger"
                 )
 
+    card_priority = None
     card_headlines = []
     if isinstance(edition, dict):
         for section in edition.get("sections", []):
@@ -434,6 +435,7 @@ def validate_tournament(edition, tournament):
                 continue
             priority = section.get("priority")
             if isinstance(priority, dict) and isinstance(priority.get("recommendations"), list):
+                card_priority = priority
                 card_headlines = [
                     item.get("headline") for item in priority["recommendations"]
                     if isinstance(item, dict)
@@ -450,6 +452,8 @@ def validate_tournament(edition, tournament):
         champion_headlines = [item.get("headline") for item in ranked]
     if len(card_headlines) != 3 or champion_headlines != card_headlines:
         failures.append("tournament champions do not match the ranked recommendations")
+    if tournament.get("priority") != card_priority:
+        failures.append("tournament priority does not match the printed recommendations")
 
     return "; ".join(failures)
 
@@ -1303,7 +1307,14 @@ def main(argv=None):
     failures = validate(edition)
     if failures:
         sys.exit(f"error: invalid edition.json: {failures}")
-    if args.tournament:
+    has_recommendations = any(
+        isinstance(section, dict)
+        and section.get("desk") == "priority"
+        and isinstance(section.get("priority"), dict)
+        and bool(section["priority"].get("recommendations"))
+        for section in edition.get("sections", [])
+    )
+    if args.tournament and has_recommendations:
         tournament = _load_json_file(args.tournament)
         failures = validate_tournament(edition, tournament)
         if failures:

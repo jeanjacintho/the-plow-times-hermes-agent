@@ -6,7 +6,7 @@ description: The advisor desk evolves three researched recommendations through i
 # pt-priority: an overnight tournament for the advice that matters most
 
 The daily run is the only writer. It owns `/var/lib/hermes/pt/advisor.md`,
-`run/desk-priority/notes.json`, and these Mac wiki pages:
+`run/desk-priority/tournament.json`, and these Mac wiki pages:
 
 - `~/Plow/wiki/projects/theplowtimes/qa.md`: ranked `## Open` and `## Answered` entries,
   each identified as `Q<n>`, at most 20 total.
@@ -17,7 +17,7 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 
 ## Invariants
 
-- **One writer.** Only the canonical run holding `daily-<date>` writes the page, Q&A, resource
+- **One writer.** Only the canonical scheduled run holding `paper-workspace-<date>` writes the page, Q&A, resource
   catalog, and card. A live copy or alternate paper writes none of them.
 - **Read-only research.** Latch may read through documented installed skills and native read
   interfaces. Never send, create, edit, respond, delete, approve, or invoke a mutating operation.
@@ -48,18 +48,19 @@ the rollback checkpoint.
 A delivered edition dated today is still generation zero on a replay, never proof that the
 tournament ran in the current cron session.
 
-Load this skill once during Orient. Then write the compact working state to
-`/var/lib/hermes/pt/run/desk-priority/tournament.json`: generation number; each champion's
-headline, decision, evidence locations, critic summary, and rank; the ranked Open question IDs;
-the current checkpoint path; and one compact receipt per completed generation:
+Load this skill once during Orient. Preserve any canonical
+`/var/lib/hermes/pt/run/desk-priority/tournament.json` checkpoint, and write in-progress state to
+`tournament.working.json`. A complete checkpoint contains the canonical `priority` card;
+generation number; each champion's headline, decision, evidence locations, critic summary, and
+rank; the ranked Open question IDs; and one compact receipt per completed generation:
 `{"generation":1,"inherited":3,"challengers":3,"critics":6}`. `inherited` is zero to three
 in generation one and exactly three later; `challengers` is always three; `critics` equals their
-sum. Update it after every Cull. If context is compacted, resume from that file and the checkpoint.
+sum. If context is compacted, resume from the working file and canonical checkpoint.
 **Never load this skill again in the same run.**
 
 Every child returns compact structured JSON of at most 1,200 characters, with no narrative preface.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
-into `tournament.json` before any other tool call or model work. Keep an in-progress `working`
+into `tournament.working.json` before any other tool call or model work. Keep an in-progress `working`
 array with only decisions, evidence locations, unknowns, and verdicts; never copy tool transcripts
 or hidden reasoning. This file, not conversational memory, is the tournament state.
 
@@ -144,20 +145,22 @@ the quote. The card is:
 {"desk":"priority","status":"ok","priority":{"recommendations":[…],"questions":["Q<n> — …"]}}
 ```
 
-Write the candidate to `/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json` and
-copy its `priority` object into the priority section of
-`/var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json`.
-Never write `notes.json` directly. Run the normal renderer
-gate:
+Write the complete candidate checkpoint to
+`/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json` and copy its
+`priority` object into the priority section of
+`/var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json`. Run the normal renderer gate
+against those two views of the same candidate:
+the checkpoint `stage` is exactly
+`generation_<n>_complete_gate_passed_checkpoint_written`, with `<n>` equal to `generation`.
 
 ```sh
-/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json --chat /var/lib/hermes/pt/run/desk-priority/card-check.txt
+/var/lib/hermes/skills/pt-edition/scripts/render_edition.py /var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json --tournament /var/lib/hermes/pt/run/desk-priority/tournament.candidate.json --chat /var/lib/hermes/pt/run/desk-priority/card-check.txt
 ```
 
-Only after that exits zero, atomically move
-`/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json` to
-`/var/lib/hermes/pt/run/desk-priority/notes.json`, then update `tournament.json`. A failed gate
-leaves the previous checkpoint untouched and returns to Cull while time permits.
+Only after that exits zero, atomically move `tournament.candidate.json` over
+`tournament.json`, then refresh `tournament.working.json` from it. A failed gate leaves the
+previous checkpoint untouched and returns to Cull
+while time permits. Never split the card and tournament metadata across separate canonical files.
 
 ## Repeat and stop
 
@@ -167,7 +170,8 @@ stop merely because a generation retained all incumbents. Record the Orient star
 Increment `generation` only after that generation's Challenge, Research, Criticize, Cull, and
 candidate gate all completed; changing the number is not a substitute for running those stages.
 Keep `champions` in the culler's printed rank order and make their headlines exactly match the
-three recommendations in `notes.json`. The final renderer checks all three conditions.
+three recommendations in `tournament.json`'s `priority` object. The final renderer checks all
+three conditions and exact card equality.
 It also checks a consecutive receipt for every generation and refuses delivery unless every
 inherited champion and challenger has its own returned critic verdict.
 After that, start another generation only when it can complete through criticism and Cull

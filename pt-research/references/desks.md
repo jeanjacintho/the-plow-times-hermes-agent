@@ -4,7 +4,7 @@ These are not topics. They are fixed newspaper departments, run in this
 file's order. The daily run always fills weather and calendar. Priority
 runs only when `pt/config.json` has `"priority": { "configured": true }`.
 Mail joins only when it has `"mail": { "configured": true }`; sports
-joins only when it has `"sports": { "configured": true }`. Notes go under
+joins only when it has `"sports": { "configured": true }`. Ordinary desk notes go under
 `/var/lib/hermes/pt/run/desk-<name>/notes.json` (same shape as a topic
 notes file, `topic_id` omitted). pt-edition compiles them with
 `"desk": "priority"|"weather"|"calendar"|"mail"|"sports"`. Never mark them in topics.py.
@@ -17,9 +17,8 @@ Every Latch call is the same two tools the print path uses:
 ## Priority — first, when configured
 
 Before every desk below: run `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk`,
-then load `pt-priority` and follow it. `pt-priority` alone writes
-`run/desk-priority/notes.json`, stub included, so an `error:` line means go on to the next desk
-and leave that file as today's passes left it. It reads the owner's sources itself and spends no
+then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
+`run/desk-priority/tournament.json` checkpoint. It reads the owner's sources itself and spends no
 web budget.
 Priority has a reserved 150-minute window (ending earlier when the delivery cutoff requires it),
 and the global batch budget starts after priority completes. Never stop its tournament early to
@@ -27,11 +26,12 @@ save time for weather, calendar, mail, sports, or news; those desks use the time
 Every cron execution runs a fresh tournament. A delivered edition dated today is generation-zero
 input on a same-day replay, never evidence that the current execution completed priority.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
-or news. Immediately after loading `pt-priority`, Orient and create `tournament.json` before any later-desk work.
-After compaction, that file is the progress marker: resume it and its checkpoint.
-An older `notes.json` without today's tournament state is generation-zero input, never proof that today's desk is complete.
+or news. Immediately after loading `pt-priority`, Orient and create `tournament.working.json`
+before any later-desk work. After compaction, resume that progress file alongside the last atomic
+`tournament.json` deliverable checkpoint.
+An older delivered card is generation-zero input, never proof that today's desk is complete.
 **Skipping this desk is a bug, not a shortcut**: `render_edition.py`'s gap card for a
-missing `run/desk-priority/notes.json` is the backstop, not the plan.
+missing complete tournament checkpoint is the backstop, not the plan.
 
 ## 1. Location, then weather — every daily run
 

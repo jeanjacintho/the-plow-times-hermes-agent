@@ -101,7 +101,8 @@ def tournament(generation=3, items=None, stage=None):
     items = items if items is not None else recommendations()
     return {
         "generation": generation,
-        "stage": stage or f"generation_{generation}_complete_gate_passed_notes_written",
+        "stage": stage or f"generation_{generation}_complete_gate_passed_checkpoint_written",
+        "priority": {"recommendations": items, "questions": []},
         "generations": [
             {
                 "generation": number,
@@ -185,6 +186,17 @@ class TestValidate:
             recommendation_edition(), tournament(items=reversed_items)
         )
         assert "tournament champions do not match the ranked recommendations" in failure
+
+    def test_complete_tournament_owns_the_exact_priority_card(self):
+        checkpoint = tournament()
+        checkpoint["priority"]["recommendations"][0] = {
+            **checkpoint["priority"]["recommendations"][0],
+            "body": "Different copy from the edition.",
+        }
+
+        failure = render.validate_tournament(recommendation_edition(), checkpoint)
+
+        assert "tournament priority does not match the printed recommendations" in failure
 
     def test_complete_tournament_requires_a_criticism_receipt_for_every_generation(self):
         checkpoint = tournament()
@@ -916,6 +928,13 @@ class TestMain:
         tournament_path.write_text(json.dumps(tournament(generation=1)))
         with pytest.raises(SystemExit, match="at least 3 completed generations"):
             render.main([str(path), "--tournament", str(tournament_path)])
+
+    def test_tournament_flag_does_not_block_an_edition_without_recommendations(self, tmp_path):
+        path = write(tmp_path, edition())
+
+        assert render.main([
+            str(path), "--tournament", str(tmp_path / "missing-tournament.json")
+        ]) == 0
 
     @pytest.mark.parametrize("data, named", [
         ({"date": "x", "sections": []}, "date is not a strict YYYY-MM-DD string"),

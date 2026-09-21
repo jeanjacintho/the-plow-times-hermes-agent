@@ -713,11 +713,11 @@ class TestSkills:
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "## Priority — first" in desks
         assert "Complete this desk before opening the shared browser" in desks
-        assert "create `tournament.json` before any later-desk work" in desks
+        assert "create `tournament.working.json`" in desks
         assert "never proof that today's desk is complete" in desks
         assert "run/desk-calendar/events.json" in desks
         skill = (ROOT / "pt-priority" / "SKILL.md").read_text()
-        assert "run/desk-priority/notes.json" in skill
+        assert "run/desk-priority/tournament.json" in skill
         assert "`name` = `imessage`" in skill
         assert "**An event is its people,**" in skill
         assert "never infer a stage" not in desks
@@ -745,7 +745,8 @@ class TestSkills:
             "Never load this skill again",
             "A critic's verdict is evidence, not an elimination vote",
             "Never say fewer is fine",
-            "Never write `notes.json` directly",
+            "Never split the card and tournament metadata",
+            "generation_<n>_complete_gate_passed_checkpoint_written",
             "An inherited champion without fresh criticism invalidates the generation",
             "at most six tool calls",
             "Do not list or rediscover directories",
@@ -753,7 +754,7 @@ class TestSkills:
             "at most 1,200 characters",
             "after every delegate set returns",
             "Complete at least three generations",
-            "/var/lib/hermes/pt/run/desk-priority/priority-notes.candidate.json",
+            "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
             "A recommendation without a supporting sourced quote is ineligible",
             "global paper budget does not shorten",
             "dated today is still generation zero",
