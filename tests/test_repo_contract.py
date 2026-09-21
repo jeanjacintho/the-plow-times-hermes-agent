@@ -769,7 +769,7 @@ class TestSkills:
             "proposes and researches one contender",
             "claim a critic that did not return a verdict",
             "projects/theplowtimes/runs/<run-datetime>/state.md",
-            "`RUN_PAGE=projects/theplowtimes/runs/<run-datetime>/state.md`",
+            "`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`",
             "Never infer the active page from timestamps",
             "actual Orient invocation time",
             "after Orient and after every Challenge, Criticize, and Cull",

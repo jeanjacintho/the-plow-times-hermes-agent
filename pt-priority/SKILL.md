@@ -56,7 +56,7 @@ actual Orient invocation time as `YYYY-MM-DDTHHMM` and create
 `projects/theplowtimes/runs/<run-datetime>/state.md`. Copy the required OKF front matter shape from
 `qa.md`, with a run-specific title and description. The page is private research state, never printed.
 Keep its exact path in root context as
-`RUN_PAGE=projects/theplowtimes/runs/<run-datetime>/state.md`; every compaction handoff preserves
+`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`; every compaction handoff preserves
 that value until delivery.
 Rewrite that one page whole after Orient and after every Challenge, Criticize, and Cull;
 do not create per-generation files or an append-only event log. It holds the stage and generation,
