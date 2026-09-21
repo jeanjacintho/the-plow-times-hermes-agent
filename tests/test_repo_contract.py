@@ -724,6 +724,9 @@ class TestSkills:
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "record_edition.py" in edition
         assert "Skipping this desk in the canonical scheduled paper is a bug" in desks
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "Only the canonical scheduled paper runs priority" in soul
+        assert "reuse its priority checkpoint or gap card and begin with weather" in soul
         assert "the founder" in skill
         assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
