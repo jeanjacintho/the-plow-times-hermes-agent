@@ -1,6 +1,7 @@
 """history.py: what the advisor's desk printed lately, read back from the wiki."""
 from __future__ import annotations
 
+import json
 from datetime import date
 
 import pytest
@@ -12,11 +13,16 @@ history = load_module("history", "pt-priority/scripts/history.py")
 TODAY = date(2026, 9, 19)
 
 
-def day_page(mac, day, card=None):
+def day_page(mac, day, card=None, sections=()):
     path = mac.home / "Plow" / "wiki" / EDITIONS / f"{day}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     meta = {"type": "Edition", "date": day, **({"priority": card} if card else {})}
-    path.write_text(join_page(meta, f"# The Founder Times, {day}\n"))
+    body = [f"# The Founder Times, {day}"]
+    for topic, headline, claims in sections:
+        body += ["", "## 06:04 edition", "", f"### {topic}'s section",
+                 f"<!-- section {topic} -->", "", f"**{headline}**", "", "Prose body.", ""]
+        body += [f"- {claim} ({url})" for claim, url in claims]
+    path.write_text(join_page(meta, "\n".join(body) + "\n"))
 
 
 class TestRecent:
@@ -46,6 +52,46 @@ class TestRecent:
         assert history.recent(Wiki(mac.call_tool), TODAY) == []
 
 
+class TestRecentTopic:
+    def test_what_this_section_printed_oldest_first_with_its_sources(self, mac):
+        day_page(mac, "2026-09-17", sections=[
+            ("t_9f2a", "Apple approved Poke", [("Poke went live in June", "https://tc.example/poke")])])
+        day_page(mac, "2026-09-18", sections=[
+            ("t_9f2a", "Cognition bought Poke", [("Low nine figures", "https://tc.example/cognition")]),
+            ("t_0001", "Another section", [("Unrelated", "https://other.example")])])
+        assert history.recent(Wiki(mac.call_tool), TODAY, topic="t_9f2a") == [
+            {"date": "2026-09-17", "headline": "Apple approved Poke",
+             "printed": [{"claim": "Poke went live in June", "url": "https://tc.example/poke"}]},
+            {"date": "2026-09-18", "headline": "Cognition bought Poke",
+             "printed": [{"claim": "Low nine figures", "url": "https://tc.example/cognition"}]},
+        ]
+
+    def test_a_day_that_did_not_print_this_section_is_left_out(self, mac):
+        day_page(mac, "2026-09-17", {"headline": "Close the pilot"})
+        day_page(mac, "2026-09-18", sections=[("t_0001", "Another section", [])])
+        assert history.recent(Wiki(mac.call_tool), TODAY, topic="t_9f2a") == []
+
+    def test_both_of_a_days_editions_count_as_printed(self, mac):
+        # A focused paper and the daily one both carry the section; the second
+        # pass must see the first's sources as spent, not only the last block's.
+        day_page(mac, "2026-09-18", sections=[
+            ("t_9f2a", "Morning", [("First", "https://a.example")]),
+            ("t_9f2a", "Afternoon", [("Second", "https://b.example")])])
+        assert history.recent(Wiki(mac.call_tool), TODAY, topic="t_9f2a") == [
+            {"date": "2026-09-18", "headline": "Afternoon",
+             "printed": [{"claim": "First", "url": "https://a.example"},
+                         {"claim": "Second", "url": "https://b.example"}]},
+        ]
+
+    def test_the_desks_own_history_is_unchanged(self, mac):
+        # The priority desk's reader must not notice this flag exists.
+        day_page(mac, "2026-09-18", {"headline": "Close the pilot"},
+                 sections=[("t_9f2a", "The dollar", [("BRL up", "https://fx.example")])])
+        assert history.recent(Wiki(mac.call_tool), TODAY) == [
+            {"date": "2026-09-18", "desk": {"headline": "Close the pilot"}},
+        ]
+
+
 class TestCli:
     def test_an_unreachable_mac_is_an_error(self, mac, monkeypatch):
         mac.asleep = True
@@ -67,3 +113,14 @@ class TestCli:
         with pytest.raises(SystemExit) as exc:
             history.main(["recent"])
         assert str(exc.value).startswith("error: history unavailable — ")
+
+    def test_the_topic_flag_prints_that_sections_blocks(self, mac, monkeypatch, capsys):
+        day_page(mac, "2026-09-18", sections=[
+            ("t_9f2a", "Cognition bought Poke", [("Low nine figures", "https://tc.example/x")])])
+        monkeypatch.setattr(history, "connect", lambda: Wiki(mac.call_tool))
+        monkeypatch.setattr(history, "owner_today", lambda: TODAY)
+        history.main(["recent", "--topic", "t_9f2a"])
+        assert json.loads(capsys.readouterr().out) == [
+            {"date": "2026-09-18", "headline": "Cognition bought Poke",
+             "printed": [{"claim": "Low nine figures", "url": "https://tc.example/x"}]},
+        ]
