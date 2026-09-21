@@ -59,6 +59,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import setup_needed as _gate  # noqa: E402 -- sibling script; reuse draft_line
+from latch_mcp import missing_credential  # noqa: E402 -- sibling script
 
 DEFAULT_CONFIG = "/var/lib/hermes/pt/config.json"
 # The order pt-setup/SKILL.md's questions are asked in, plus the close step.
@@ -103,6 +104,28 @@ def apply_pairs(draft, pairs):
         key, _, raw_value = pair.partition("=")
         _set_dotted(draft, key.strip(), _coerce(raw_value))
     return draft
+
+
+def refuse_unprintable_printer(draft):
+    """Downgrade printer.configured when this install cannot print at all.
+
+    The print leg needs a static DOMO_* credential, and creating one is a
+    self-hosted setup step nothing performs on a hosted agent (#74). Recording
+    the printer as configured on such an install does not produce a page -- it
+    produces a failure line on every delivery, forever. So the answer is
+    recorded honestly instead, and the interview still advances: "configured"
+    is a question about whether paper can be delivered, not about whether the
+    owner owns a printer. Returns the blank variable's name, or None.
+    """
+    printer = draft.get("printer")
+    if not (isinstance(printer, dict) and printer.get("configured") is True):
+        return None
+    blank = missing_credential()
+    if not blank:
+        return None
+    printer["configured"] = False
+    printer.pop("name", None)
+    return blank
 
 
 def next_question(draft):
@@ -170,8 +193,14 @@ def main(argv=None):
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    unprintable = refuse_unprintable_printer(draft)
     draft_path.parent.mkdir(parents=True, exist_ok=True)
     draft_path.write_text(json.dumps(draft, indent=2) + "\n", encoding="utf-8")
+    if unprintable:
+        print(
+            f"PRINTER:unavailable {unprintable} is not set, so this install "
+            "cannot print; recorded as not configured"
+        )
     print(_gate.draft_line(config_path))
     print(f"NEXT_QUESTION={next_question(draft)}")
     return 0
