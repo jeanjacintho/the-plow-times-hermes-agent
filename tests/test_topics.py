@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import fcntl
 import json
+import os
+import pathlib
 import re
 
 import pytest
@@ -435,3 +437,56 @@ class TestReopenSections:
         by_id = {t["id"]: t for t in read_store(pt_home)}
         assert by_id[read_store(pt_home)[0]["id"]]["status"] == "pending"
         assert by_id[stop]["status"] == "cancelled"
+
+
+class TestReopenStampsEdition:
+    def add_running(self, kind, pt_home):
+        topics.main(["add", "--text", "x", "--kind", kind, "--depth", "deep"])
+        tid = read_store(pt_home)[-1]["id"]
+        topics.main(["mark", tid, "--status", "running"])
+        return tid
+
+    @pytest.mark.parametrize("kind", ["section", "subscription"])
+    def test_evergreen_delivery_stamps_last_edition(self, kind, pt_home, capsys):
+        tid = self.add_running(kind, pt_home)
+        assert topics.reopen_evergreen(delivered=[tid]) == [tid]
+        (topic,) = read_store(pt_home)
+        assert topic["status"] == "pending"
+        assert topic["last_edition_at"] is not None
+
+    def test_delivery_stamps_a_carried_topic_another_startup_already_reset(self, pt_home, capsys):
+        # Paper B's startup recovery reset paper A's running topic to pending;
+        # A then ships it. A's finalizer must still record the delivery.
+        tid = self.add_running("section", pt_home)
+        topics.reopen_evergreen()
+        assert read_store(pt_home)[0]["last_edition_at"] is None
+        topics.reopen_evergreen(delivered=[tid])
+        assert read_store(pt_home)[0]["last_edition_at"] is not None
+
+    def test_startup_reopen_of_a_dead_run_does_not_stamp(self, pt_home, capsys):
+        self.add_running("section", pt_home)
+        topics.reopen_evergreen()
+        (topic,) = read_store(pt_home)
+        assert topic["status"] == "pending"
+        assert topic["last_edition_at"] is None
+
+    def test_already_delivered_keeps_its_stamp(self, pt_home, capsys):
+        tid = self.add_running("section", pt_home)
+        topics.main(["mark", tid, "--status", "delivered", "--at", "2026-01-01T00:00:00Z"])
+        topics.reopen_evergreen()
+        assert read_store(pt_home)[0]["last_edition_at"] == "2026-01-01T00:00:00Z"
+
+
+class TestConcurrentWriters:
+    def test_parallel_adds_all_land(self, pt_home):
+        # Each add is its own process, as two cron-fired papers would be. Without
+        # the store lock they load the same snapshot and lose each other's topic.
+        import subprocess, sys
+        script = str(pathlib.Path(topics.__file__))
+        env = {**os.environ, "PT_HOME": str(pt_home)}
+        procs = [subprocess.Popen([sys.executable, script, "add", "--text", f"t{i}",
+                                   "--kind", "one_off", "--depth", "quick"],
+                                  env=env, stdout=subprocess.DEVNULL)
+                 for i in range(8)]
+        assert all(p.wait() == 0 for p in procs)
+        assert len(read_store(pt_home)) == 8

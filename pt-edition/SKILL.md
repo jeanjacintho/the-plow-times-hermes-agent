@@ -214,6 +214,23 @@ HTML.** Hand-write `edition.json` under the run directory:
   articles. The renderer keeps every included word and may use a second page
   instead of shrinking readable type; it never truncates or silently drops a
   fourth article. Never hand-split copy.
+- **A desk's notes file must be dated for today's edition.** A desk that
+  fails to gather leaves the previous day's `run/desk-*/notes.json` /
+  `events.json` in place. `render_edition.py` refuses an edition that carries a standing desk when any
+  such file's `date` is missing or not the edition's `date`; re-run that
+  desk, or delete its stale files. A news-only edition (a one-topic
+  subscription) renders no standing desk, so leftover desk files are not
+  checked and need no action. Weather and calendar are mandatory
+  departments: after deleting, compile an honest failed-gather section, never
+  drop them. Only an optional desk (mail, sports, priority) may be dropped as
+  a logged miss. While the edition still carries a standing desk, the check reads
+  all the files, so dropping one desk's section without deleting its files
+  still refuses.
+- **Pagination is the renderer's job.** News that does not fit one Letter
+  sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
+  Each boxed desk stays whole; if the rail itself overflows, the next desk
+  starts on the following page. The priority card may continue onto page 2.
+  Never hand-split copy across pages.
 - **`location` is this run's city** from the Latch location step, a string,
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
@@ -298,6 +315,11 @@ transcript after it is the wall of text they did not ask for.
    When no companion file exists, omit only `--text-file`; the PDF posts with
    an empty body, the same envelope used for attachment-only sends.
 
+   A **scheduled** paper's cron prompt adds `--hold-until HH:MM` (that job's
+   delivery hour). Honor it: the script sleeps until that clock in `TZ`, and
+   if the hour has already passed it posts immediately (never until tomorrow).
+   A **live copy** must omit `--hold-until`.
+
    Omit `--pdf` **only** when step 1 established that weasyprint is
    genuinely absent — never because your own command failed. In that one
    case the text leg is also a complete command, with no shell redirect:
@@ -340,12 +362,13 @@ transcript after it is the wall of text they did not ask for.
    would send the text a second time (or as a second message). `NO_REPLY`
    is the token the gateway already treats as silence. Never return the
    renderer’s chat output as the turn’s last line once the PDF has posted.
-3. **Mark every topic the edition carried** from its `topic_id`:
+3. **Mark every one-off and assignment the edition carried** from its `topic_id`:
    `/var/lib/hermes/skills/pt-intake/scripts/topics.py mark <id> --status delivered`. Do this
    only after the chat leg is out — a delivered mark on an undelivered
-   edition is how a silent gap looks like a working paper. A section then
-   goes back to `pending` for tomorrow's paper. An assignment stays
-   `delivered` (terminal).
+   edition is how a silent gap looks like a working paper. Both stay
+   `delivered` (terminal). **Never mark a section or subscription:**
+   the chat leg's seal already sent them back to `pending` for tomorrow's
+   paper and stamped `last_edition_at`, so a mark would be refused.
    - A `topics.py mark` that **refuses because the topic was cancelled while
      the run worked is expected, not an error**: the owner said stop at 6h20;
      the edition already left without it. Report it and carry on — do not

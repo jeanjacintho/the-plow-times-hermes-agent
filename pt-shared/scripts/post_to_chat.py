@@ -32,6 +32,10 @@ BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
 attachment_uids) and optionally sends the companion as its body. After a successful POST, three
+attachment_uids) and optionally sends the companion as its body.
+`--hold-until HH:MM` waits until
+that clock in TZ before posting; if it has already passed, posts now.
+After a successful POST, three
 finalizers run independently and best-effort: seal (and reopen today's
 sections), print via print_edition.py when configured, and record via
 record_edition.py (`--pdf` and `--text-file` both) on the sibling
@@ -42,10 +46,15 @@ never sends.
 from __future__ import annotations
 
 import argparse
+import json
 import mimetypes
 import os
+import re
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from bearer_http import post_json, post_json_read, put_bytes, require
 
@@ -63,6 +72,43 @@ RECORD_SCRIPT = (
     / "scripts"
     / "record_edition.py"
 )
+
+
+HOLD_UNTIL_RE = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d")
+
+
+def _hold_zone():
+    name = os.environ.get("TZ") or "UTC"
+    return ZoneInfo(name)
+
+
+def seconds_until_hhmm(hhmm, now=None):
+    """Seconds from now until today's HH:MM in TZ; 0 if that clock has passed.
+
+    Never wraps to tomorrow: a late paper posts immediately rather than
+    sitting until the next day's hour.
+    """
+    if not isinstance(hhmm, str) or not HOLD_UNTIL_RE.fullmatch(hhmm):
+        sys.exit(f"error: --hold-until is not HH:MM: {hhmm!r}")
+    tz = _hold_zone()
+    now = now or datetime.now(tz)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=tz)
+    else:
+        now = now.astimezone(tz)
+    hour, minute = map(int, hhmm.split(":"))
+    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    # Absolute instants: same-zone datetime subtraction is wall-clock and
+    # is an hour off across a DST change.
+    remaining = target.timestamp() - now.timestamp()
+    return max(0.0, remaining)
+
+
+def hold_until(hhmm, sleep=time.sleep, now=None):
+    """Block until HH:MM today, or return immediately if that hour is past."""
+    remaining = seconds_until_hhmm(hhmm, now=now)
+    if remaining > 0:
+        sleep(remaining)
 
 
 def resolve_chat():
@@ -110,7 +156,7 @@ def attachment_filename(pdf_path, override=None):
     return name
 
 
-def after_posted(stamp=None):
+def after_posted(stamp=None, posted_path=None):
     """The PDF is out; the next owner message must not re-read this turn.
 
     A dry-run never calls this. Marks the stamp delivered so the gateway
@@ -127,13 +173,29 @@ def after_posted(stamp=None):
         platform=prev.get("platform") or "",
         delivered=True,
     )
-    return f"sealed; {reopen_sections_after_paper()}"
+    return f"sealed; {reopen_sections_after_paper(delivered_topic_ids(posted_path))}"
 
 
-def reopen_sections_after_paper():
-    """Sections must be pending for the next paper. The model often marks
-    delivered and stops; the next on-demand copy then ships desks only.
+def delivered_topic_ids(posted_path):
+    """The topic ids the just-posted edition.json carried; [] if unreadable.
+
+    posted_path is the PDF or the text file: the edition.json is its sibling.
     """
+    if not posted_path:
+        return []
+    try:
+        edition = json.loads((Path(posted_path).resolve().parent / "edition.json").read_text(encoding="utf-8"))
+        return sorted({s["topic_id"] for s in edition["sections"] if s.get("topic_id")})
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return []
+
+
+def reopen_sections_after_paper(ids):
+    """The topics this paper carried go back to pending, stamped delivered.
+    Scoped to them: another paper's running topics are not this one's.
+    """
+    if not ids:
+        return "REOPEN:none"
     intake = Path("/var/lib/hermes/skills/pt-intake/scripts/topics.py")
     if not intake.is_file():
         intake = Path(__file__).resolve().parent.parent.parent / "pt-intake" / "scripts" / "topics.py"
@@ -142,7 +204,7 @@ def reopen_sections_after_paper():
     import subprocess
 
     proc = subprocess.run(
-        [sys.executable, str(intake), "reopen-sections"],
+        [sys.executable, str(intake), "reopen-sections", "--delivered", *ids],
         capture_output=True,
         text=True,
     )
@@ -175,7 +237,7 @@ def run_print_edition(pdf_path, config_path):
     )
     blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
     if proc.returncode != 0:
-        if "page not printed" in blob:
+        if "page not printed" in blob or "page may not have printed" in blob:
             return blob
         return f"page not printed — {blob or proc.returncode}"
     return blob
@@ -244,7 +306,9 @@ def print_failure_line(result):
     if line is None:
         return None
     line = line.removeprefix("error: ")[:200]
-    return line if "next scheduled run retries" in line else line + "; next scheduled run retries"
+    if "outcome unknown" in line or "next scheduled run retries" in line:
+        return line  # unknown: a retry promise could mean a second copy
+    return line + "; next scheduled run retries"
 
 
 def compose_payload(text, attachment_uid=None):
@@ -303,6 +367,11 @@ def main():
     parser.add_argument(
         "--dry-run", action="store_true", help="print the request instead of sending it"
     )
+    parser.add_argument(
+        "--hold-until", default=None, metavar="HH:MM",
+        help="wait until this clock in TZ before posting; if it has already "
+             "passed, post immediately (scheduled papers only)",
+    )
     args = parser.parse_args()
 
     base, uid, token = resolve_chat()
@@ -327,6 +396,9 @@ def main():
         )
         return
 
+    if args.hold_until:
+        hold_until(args.hold_until)
+
     attachment_uid = None
     if args.pdf:
         attachment_uid = declare_and_upload(
@@ -335,7 +407,7 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    print(_best_effort(after_posted, (), "chat session not sealed"))
+    print(_best_effort(after_posted, (None, args.pdf or args.text_file), "chat session not sealed"))
     if args.pdf:
         suffix = " + companion" if text else " only"
         print(f"chat edition posted (pdf{suffix}) {args.pdf}")

@@ -32,7 +32,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
-from latch_mcp import LatchError, connect
+from latch_mcp import LatchError, connect, finish_command
 
 PATH_RE = re.compile(
     r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.pdf(?:\.b64)?)"
@@ -118,22 +118,14 @@ def is_bfd(parsed):
     return "bad file descriptor" in blob.lower()
 
 
-def require_lp_ok(parsed):
-    if isinstance(parsed, dict) and "exit_code" in parsed:
-        if parsed["exit_code"] not in (0, "0"):
-            sys.exit(
-                f"error: page not printed — lp {parsed['exit_code']}: "
-                f"{parsed.get('output', parsed)}"
-            )
-        return
-    output = ""
-    if isinstance(parsed, dict):
-        output = str(parsed.get("output") or parsed.get("raw") or "")
-    else:
-        output = str(parsed)
-    lowered = output.lower()
-    if "bad file descriptor" in lowered or lowered.startswith("lp:"):
-        sys.exit(f"error: page not printed — lp {output}")
+def require_exit_zero(call_tool, result, step):
+    """The finished run's exit_code must be 0; anything else is no page (issue #35)."""
+    result = finish_command(call_tool, result, step)
+    if result["exit_code"] not in (0, "0"):
+        sys.exit(
+            f"error: page not printed — {step} {result['exit_code']}: "
+            f"{result.get('output', result)}"
+        )
 
 
 def ship(pdf_path, printer, date, call_tool):
@@ -155,11 +147,7 @@ def ship(pdf_path, printer, date, call_tool):
             "goal": "Decode the edition PDF on the owner's Mac",
         },
     )
-    if isinstance(decoded, dict) and decoded.get("exit_code") not in (0, "0", None):
-        sys.exit(
-            f"error: page not printed — base64 {decoded.get('exit_code')}: "
-            f"{decoded.get('output', decoded)}"
-        )
+    require_exit_zero(call_tool, decoded, "base64")
     lp = call_tool(
         "plow_run_command",
         {
@@ -169,6 +157,7 @@ def ship(pdf_path, printer, date, call_tool):
             "goal": "Print today's Founder Times edition",
         },
     )
+    lp = finish_command(call_tool, lp, "lp")  # a running lp can still fail with BFD
     if is_bfd(lp):
         cmd = f"lp -d {shlex.quote(printer)} {shlex.quote(abs_pdf)}"
         lp = call_tool(
@@ -179,7 +168,7 @@ def ship(pdf_path, printer, date, call_tool):
                 "goal": "Print today's Founder Times edition (sandboxed lp failed)",
             },
         )
-    require_lp_ok(lp)
+    require_exit_zero(call_tool, lp, "lp")
 
 
 def main(argv=None):

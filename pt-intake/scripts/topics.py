@@ -23,10 +23,14 @@ Subcommands:
   list     [--kind K]      prints the topics array as JSON
   check-paper --deliver-at {main,HH:MM} [--as-of YYYY-MM-DD]
                            validates one paper's three-item news roster
-  reopen-sections          every section/subscription that is delivered or
+  reopen-sections [--delivered ID ...]
+                           every section/subscription that is delivered or
                            running becomes pending (a paper about to run;
                            measured live, delivered sections were skipped
-                           and the next edition had desks only)
+                           and the next edition had desks only). With
+                           --delivered, passed only once the chat POST
+                           succeeded, only those topics are reopened and
+                           stamped last_edition_at; nothing else is touched
 
 `--run-on` is the date a `section`/`assignment` belongs to the paper:
 required for `assignment` (the one day its result appears) and refused for
@@ -392,10 +396,19 @@ EVERGREEN = ("section", "subscription")
 REOPEN_FROM = ("delivered", "running")
 
 
-def reopen_evergreen(topic_list=None):
+def reopen_evergreen(topic_list=None, delivered=None):
     """Put evergreen topics back on the next paper's research list.
 
     One-offs and assignments stay delivered. Cancelled stays cancelled.
+    delivered=[ids] is the moment those topics' edition shipped (post_to_chat,
+    after the POST succeeded): only they are reopened and stamped, the one
+    writer of last_edition_at for these kinds, so an overlapping paper's
+    running topics are left alone. A carried topic that another paper's
+    startup recovery already reset to pending is stamped too: it shipped.
+    Without it (startup recovery) every such
+    topic is reopened and none is stamped: a run that died leaves a topic
+    running, and that is not a delivery. A topic already marked delivered
+    keeps the stamp that mark wrote.
     """
     owned = topic_list is None
     topics = load_topics() if owned else topic_list
@@ -403,8 +416,12 @@ def reopen_evergreen(topic_list=None):
     for topic in topics:
         if topic.get("kind") not in EVERGREEN:
             continue
-        if topic.get("status") not in REOPEN_FROM:
+        if topic.get("status") not in REOPEN_FROM + (("pending",) if delivered else ()):
             continue
+        if delivered is not None and topic["id"] not in delivered:
+            continue
+        if delivered is not None and topic["status"] != "delivered":
+            topic["last_edition_at"] = now_iso()
         topic["status"] = "pending"
         topic["scheduled_for"] = None
         reopened.append(topic["id"])
@@ -414,7 +431,7 @@ def reopen_evergreen(topic_list=None):
 
 
 def cmd_reopen_sections(args):
-    reopened = reopen_evergreen()
+    reopened = reopen_evergreen(delivered=args.delivered)
     print(json.dumps({"reopened": reopened}))
     return 0
 
@@ -466,6 +483,8 @@ def main(argv=None):
         "reopen-sections",
         help="pending every delivered/running section and subscription",
     )
+    p_reopen.add_argument("--delivered", nargs="+", metavar="ID", default=None,
+                          help="reopen and stamp only these topics (a paper just delivered)")
     p_reopen.set_defaults(func=cmd_reopen_sections)
 
     args = parser.parse_args(argv)

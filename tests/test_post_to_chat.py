@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import json
+import types
 import subprocess
 import sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -58,11 +61,24 @@ class TestComposePayload:
         intake = load_module("topics_reopen", "pt-intake/scripts/topics.py")
         intake.main(["add", "--text", "AI", "--kind", "section", "--depth", "quick"])
         tid = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["id"]
+        intake.main(["add", "--text", "F1", "--kind", "section", "--depth", "quick"])
+        other = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][1]["id"]
         intake.main(["mark", tid, "--status", "running"])
-        intake.main(["mark", tid, "--status", "delivered"])
-        post.after_posted(tmp_path / "seal.json")
-        status = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["status"]
-        assert status == "pending"
+        intake.main(["mark", other, "--status", "running"])  # another paper's, still researching
+        edition = tmp_path / "edition.json"
+        edition.write_text(json.dumps({"sections": [{"topic_id": tid}]}), encoding="utf-8")
+        post.after_posted(tmp_path / "seal.json", str(tmp_path / "edition.pdf"))
+        by_id = {t["id"]: t for t in json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"]}
+        assert by_id[tid]["status"] == "pending" and by_id[tid]["last_edition_at"]
+        assert by_id[other]["status"] == "running" and by_id[other]["last_edition_at"] is None
+
+
+class TestRunPrintEdition:
+    def test_unknown_outcome_line_is_kept_not_rewrapped_as_a_failure(self, monkeypatch):
+        line = "error: page may not have printed — lp outcome unknown: Click Allow; check the printer queue"
+        monkeypatch.setattr("subprocess.run", lambda *a, **k: types.SimpleNamespace(
+            returncode=1, stdout="", stderr=line))
+        assert post.run_print_edition("/x.pdf", "/c.json") == line
 
 
 class TestTextFileFlag:
@@ -124,6 +140,8 @@ class TestMaybePrint:
          "page not printed — lp 1: no such printer; next scheduled run retries"),
         ("warning: something first\nerror: page not printed — latch denied",
          "page not printed — latch denied; next scheduled run retries"),
+        ("error: page not printed — lp outcome unknown: still running",
+         "page not printed — lp outcome unknown: still running"),
         ("error: page not printed — Mac unreachable",
          "page not printed — Mac unreachable; next scheduled run retries"),
     ])
@@ -156,11 +174,11 @@ class TestMaybeRecord:
         assert out == f"edition not recorded — timed out after {post.RECORD_TIMEOUT}s"
 
 
-def _seal_ok():
+def _seal_ok(*_):
     return "sealed"
 
 
-def _seal_fails():
+def _seal_fails(*_):
     raise RuntimeError("disk full")
 
 
@@ -175,7 +193,7 @@ class TestFinalizersRunIndependently:
         monkeypatch.setattr(post, "read_message", lambda: "")
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
         monkeypatch.setattr(post, "post_json", lambda *a, **k: None)
-        monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda: "sealed"))
+        monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda *_: "sealed"))
         if "maybe_print" in overrides:
             monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
         if "maybe_record" in overrides:
@@ -209,3 +227,38 @@ class TestFinalizersRunIndependently:
         )
         post.main()
         assert order == ["record"]
+
+
+class TestHoldUntil:
+    """Scheduled papers start early; chat must wait for delivery.hour.
+
+    Measured live: lead_minutes alone started research at hour−lead, then
+    post_to_chat sent the PDF the moment the recipe finished — not at the
+    hour the owner named. --hold-until is the send clock. If that hour has
+    already passed, send now; never sleep until tomorrow.
+    """
+
+    @pytest.mark.parametrize("tz, now, hour, expected", [
+        ("America/Sao_Paulo", datetime(2026, 9, 20, 6, 20), "07:00", 40 * 60),
+        # 2026-11-01 01:30 in New York is EDT and 02:00 is EST, so the wall
+        # clock spans 30 minutes but the hold is 2.5 real hours.
+        ("America/New_York", datetime(2026, 11, 1, 1, 30), "03:00", 2.5 * 3600),
+        ("UTC", datetime(2026, 9, 20, 7, 1), "07:00", 0),  # past: now, never tomorrow
+    ])
+    def test_seconds_until_hour(self, monkeypatch, tz, now, hour, expected):
+        monkeypatch.setenv("TZ", tz)
+        assert post.seconds_until_hhmm(hour, now=now.replace(tzinfo=ZoneInfo(tz))) == expected
+
+    @pytest.mark.parametrize("now, expected", [
+        (datetime(2026, 9, 20, 6, 59, 30), [30]),
+        (datetime(2026, 9, 20, 8, 0, 0), []),  # already due: no sleep
+    ])
+    def test_hold_sleeps_only_the_remaining_seconds(self, monkeypatch, now, expected):
+        monkeypatch.setenv("TZ", "UTC")
+        slept = []
+        post.hold_until("07:00", sleep=slept.append, now=now.replace(tzinfo=ZoneInfo("UTC")))
+        assert slept == expected
+
+    def test_bad_clock_is_refused(self):
+        with pytest.raises(SystemExit, match="hold-until"):
+            post.seconds_until_hhmm("7:00")

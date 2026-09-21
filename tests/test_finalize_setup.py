@@ -56,6 +56,15 @@ class TestWritesAValidConfig:
         assert written["delivery"]["lead_minutes"] == 0
         assert "CONFIG:written" in out
 
+    @pytest.mark.parametrize(("hour", "lead"), [("07:00", 40), ("00:20", 40)])
+    def test_priority_lead_minutes(self, tmp_path, hour, lead):
+        # Advisor pass is ~40 minutes; start the cron that early. The nominal lead is stored
+        # unclamped; registration clamps it per slot. Chat still waits for the hour: lead is the
+        # start clock, not the send clock.
+        config = seed(tmp_path, dict(COMPLETE, local_hour=hour, priority={"configured": True}))
+        finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
+        assert json.loads(config.read_text())["delivery"]["lead_minutes"] == lead
+
     def test_keeps_the_hour_the_owner_named(self, tmp_path):
         config = seed(tmp_path)
         finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])

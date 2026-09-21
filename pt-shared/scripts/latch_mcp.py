@@ -74,7 +74,9 @@ def settle(parsed, get_result, sleep=time.sleep, max_wait=POLL_SECONDS):
             parsed = get_result(handle)
             continue
         if status in ("denied", "failed", "expired", "unknown", "blocked"):
-            raise LatchError(f"latch {status}")
+            # A blocked run names what the owner must do to unblock it.
+            action = (parsed.get("diagnosis") or {}).get("owner_action")
+            raise LatchError(f"latch {status}" + (f": {action}" if action else ""))
         if status == "ready":
             inner = parsed.get("result", parsed)
             if isinstance(inner, str):
@@ -85,6 +87,37 @@ def settle(parsed, get_result, sleep=time.sleep, max_wait=POLL_SECONDS):
             return inner
         return parsed
     raise LatchError("latch timed out")
+
+
+def finish_command(call_tool, result, step):
+    """A plow_run_command result that has exited: polls a still-running job's
+    handle through plow_get_output, then refuses anything without an exit_code.
+
+    A network-enabled job outlives Latch's wait_ms and keeps running, so a
+    'running' reply is not a failure yet. If the job never finishes inside
+    POLL_SECONDS, or polling it fails or is blocked, the print may still
+    happen: the error says the outcome is unknown, with the owner's action
+    when Latch names one.
+    """
+    for _ in range(POLL_SECONDS):
+        if not isinstance(result, dict):
+            break
+        # A blocked or parked run names what the owner must do, whether it is
+        # still running or came back terminal (with or without an exit_code).
+        action = (result.get("diagnosis") or {}).get("owner_action")
+        if action:
+            raise LatchError(f"{step} outcome unknown: {action}")
+        handle = result.get("handle")
+        if "exit_code" in result or result.get("status") != "running" or not handle:
+            break
+        time.sleep(1)
+        try:
+            result = call_tool("plow_get_output", {"handle": handle})
+        except LatchError as exc:
+            raise LatchError(f"{step} outcome unknown: {exc}") from exc
+    if not isinstance(result, dict) or "exit_code" not in result:
+        raise LatchError(f"{step} outcome unknown: still running")
+    return result
 
 
 class LatchClient:

@@ -570,6 +570,28 @@ def _load_json_file(path):
     return data if isinstance(data, dict) else None
 
 
+def stale_desk_files(edition, run_root):
+    """Desk files under run_root/desk-*/ dated for a day other than the edition's.
+
+    A desk that fails to gather leaves the previous day's notes.json /
+    events.json in place, and the paper would print yesterday's agenda as
+    today's. Every desk file must carry today's `date`: a missing one is as
+    stale as a wrong one. Called only on a validated edition. A news-only
+    edition (a one-topic subscription) renders no standing desk, so leftover
+    desk files cannot reach it and are not judged.
+    """
+    if all(desk_of(s) == "news" for s in edition["sections"]):
+        return []
+    stale = []
+    for path in sorted(pathlib.Path(run_root).glob("desk-*/*.json")):
+        data = _load_json_file(path)
+        if data is None:
+            continue
+        if data.get("date") != edition["date"]:
+            stale.append(f"{path.parent.name}/{path.name} is dated {data.get('date')!r}")
+    return stale
+
+
 def ordered_sections(sections):
     """Weather, calendar, mail, then news -- the paper's fixed departments."""
     return sorted(
@@ -1297,6 +1319,11 @@ def main(argv=None):
         failures = validate_tournament(edition, tournament)
         if failures:
             sys.exit(f"error: invalid tournament.json: {failures}")
+
+    stale = stale_desk_files(edition, pathlib.Path(args.edition).resolve().parent.parent)
+    if stale:
+        sys.exit(f"error: stale desk notes for edition {edition['date']}: {stale}; "
+                 "re-run that desk's gather instead of reusing yesterday's file")
 
     name = masthead()
     chat_text = render_chat(edition, name)

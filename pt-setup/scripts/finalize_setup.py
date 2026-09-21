@@ -55,6 +55,7 @@ def build(draft, owner_tz, container_tz):
     owner = {"timezone": owner_tz}
     if isinstance(language, str) and language.strip():
         owner["language"] = language.strip()
+    priority = draft.get("priority") or {}
     config = {
         "owner": owner,
         "delivery": {
@@ -62,7 +63,7 @@ def build(draft, owner_tz, container_tz):
             # Kept so a later edit can reason in the owner's own clock
             # rather than re-deriving it from the container's.
             "local_hour": draft["local_hour"],
-            "lead_minutes": 0,
+            "lead_minutes": PRIORITY_LEAD_MINUTES if priority.get("configured") else 0,
         },
         "printer": {
             "configured": bool(printer.get("configured")),
@@ -70,10 +71,14 @@ def build(draft, owner_tz, container_tz):
         },
         "mail": {"configured": bool((draft.get("mail") or {}).get("configured"))},
     }
-    priority = draft.get("priority") or {}
     if isinstance(priority.get("configured"), bool):
         config["priority"] = {"configured": bool(priority.get("configured"))}
     return config
+
+
+# The advisor pass takes ~40 minutes; cron starts that early. Stored nominal:
+# register_crons clamps it per slot against the owner's midnight.
+PRIORITY_LEAD_MINUTES = 40
 
 
 def main(argv=None):

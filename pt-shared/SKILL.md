@@ -69,7 +69,8 @@ does not, and every run fails on the import.
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF plus its
   chat-only mail/sports companion when present, or chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
-  run file stays `edition.pdf` on disk). A successful `--pdf` POST stamps
+  run file stays `edition.pdf` on disk). `--hold-until HH:MM` waits for
+  that clock before posting (scheduled papers; a live copy omits it). A successful `--pdf` POST stamps
   `seal_chat_session.py` and then runs `print_edition.py` when the printer
   is configured (best-effort; a print failure does not undo the chat).
 - `scripts/seal_chat_session.py` — write the stamp (also called by
