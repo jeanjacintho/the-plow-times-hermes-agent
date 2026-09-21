@@ -180,8 +180,11 @@ class TestFinalizersRunIndependently:
         ("FINALIZED", _seal_ok, "page not printed — lp 1", "RECORDED", None),
         ("topics not finalized — broken", _seal_ok, "page printed", "RECORDED",
          r"topics.py finalize-edition <edition.json>.*do not repost"),
-        ("FINALIZED", _seal_ok, "page printed", "edition not recorded — broken",
+        ("FINALIZED", _seal_ok, "page printed", "error: edition not recorded — broken",
          r"record_edition.py <edition.json>.*do not repost"),
+        ("topics not finalized — broken", _seal_ok, "page printed",
+         "error: edition not recorded — broken",
+         r"topics.py finalize-edition <edition.json>.*record_edition.py <edition.json>.*do not repost"),
     ])
     def test_finalizers_continue_in_order(self, tmp_path, monkeypatch,
                                           topics, seal, print_result, recorded, error):

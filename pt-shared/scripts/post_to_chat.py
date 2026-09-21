@@ -399,15 +399,16 @@ def main():
         if edition_json else "skipped: no posted file"
     )
     print(recorded)
+    recoveries = []
     if topics_result.startswith("topics not finalized"):
+        recoveries.append("topics.py finalize-edition <edition.json>")
+    if "edition not recorded" in recorded:
+        recoveries.append("record_edition.py <edition.json>")
+    if recoveries:
         sys.exit(
-            "error: topic finalization failed after delivery; recover with "
-            "topics.py finalize-edition <edition.json>; do not repost"
-        )
-    if recorded.startswith("edition not recorded"):
-        sys.exit(
-            "error: edition recording failed after delivery; recover with "
-            "record_edition.py <edition.json>; do not repost"
+            "error: post-delivery finalization failed; recover with "
+            + "; ".join(recoveries)
+            + "; do not repost"
         )
 
 
