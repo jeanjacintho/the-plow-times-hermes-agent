@@ -55,15 +55,20 @@ class TestRecentTopic:
             "headline": "Apple approved Poke",
             "printed": [{"claim": "Poke went live in June", "url": "https://tc.example/poke"}]}})
         day_page(mac, "2026-09-18", sections={
+            # A focused paper and the daily one both carried the section; record_edition.py
+            # merges them into one frontmatter entry before history.py ever reads it -- the
+            # later edition's headline wins, and its claims accumulate onto the earlier's.
             "t_9f2a": {"headline": "Cognition bought Poke",
-                       "printed": [{"claim": "Low nine figures", "url": "https://tc.example/cognition"}]},
+                       "printed": [{"claim": "Apple approved the deal that morning", "url": "https://tc.example/apple"},
+                                   {"claim": "Low nine figures", "url": "https://tc.example/cognition"}]},
             "t_0001": {"headline": "Another section",
                        "printed": [{"claim": "Unrelated", "url": "https://other.example"}]}})
         assert history.recent(Wiki(mac.call_tool), TODAY, topic="t_9f2a") == [
             {"date": "2026-09-17", "headline": "Apple approved Poke",
              "printed": [{"claim": "Poke went live in June", "url": "https://tc.example/poke"}]},
             {"date": "2026-09-18", "headline": "Cognition bought Poke",
-             "printed": [{"claim": "Low nine figures", "url": "https://tc.example/cognition"}]},
+             "printed": [{"claim": "Apple approved the deal that morning", "url": "https://tc.example/apple"},
+                         {"claim": "Low nine figures", "url": "https://tc.example/cognition"}]},
         ]
 
     def test_todays_edition_is_in_topic_history_for_a_second_paper_the_same_day(self, mac):
@@ -83,19 +88,6 @@ class TestRecentTopic:
         day_page(mac, "2026-09-17", {"headline": "Close the pilot"})
         day_page(mac, "2026-09-18", sections={"t_0001": {"headline": "Another section", "printed": []}})
         assert history.recent(Wiki(mac.call_tool), TODAY, topic="t_9f2a") == []
-
-    def test_both_of_a_days_editions_count_as_printed(self, mac):
-        # A focused paper and the daily one both carry the section; record_edition.py
-        # merges them into one frontmatter entry before history.py ever reads it.
-        day_page(mac, "2026-09-18", sections={"t_9f2a": {
-            "headline": "Afternoon",
-            "printed": [{"claim": "First", "url": "https://a.example"},
-                        {"claim": "Second", "url": "https://b.example"}]}})
-        assert history.recent(Wiki(mac.call_tool), TODAY, topic="t_9f2a") == [
-            {"date": "2026-09-18", "headline": "Afternoon",
-             "printed": [{"claim": "First", "url": "https://a.example"},
-                         {"claim": "Second", "url": "https://b.example"}]},
-        ]
 
     def test_the_desks_own_history_is_unchanged(self, mac):
         # The priority desk's reader must not notice this flag exists.
