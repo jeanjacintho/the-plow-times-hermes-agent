@@ -792,6 +792,12 @@ class TestSkills:
             "only after the renderer succeeds and `tournament.json` is atomically published",
             "retry only that wiki write",
             "Never run a separate polish generation",
+            "Delegate payloads are short pointers",
+            "reads `RUN_PAGE` first",
+            "Do not inline the run state",
+            "complete edition JSON document",
+            "Generation three is the next required action",
+            "only decides whether to start generation four or later",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()

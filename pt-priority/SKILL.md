@@ -68,6 +68,10 @@ On a compacted or restated turn, the first action is to read `RUN_PAGE` and obey
 Never infer the active page from timestamps or delegate a stage recorded there as complete.
 
 Every child returns compact structured JSON with no narrative preface.
+**Delegate payloads are short pointers:** include only the exact `RUN_PAGE`, stage, generation,
+and target index or label. The child reads `RUN_PAGE` first and obtains its target, evidence
+locations, and prior results there. Do not inline the run state, read receipts, or tool output in
+the delegation payload.
 Immediately after every delegate set returns, the parent's next action is to reduce its results
 into the run's wiki state page before any other model work. Keep only decisions, priority cases,
 replayable read receipts, evidence locations, unknowns, and verdicts; never copy tool transcripts
@@ -198,7 +202,9 @@ the quote. The card is:
 Write the complete candidate checkpoint to
 `/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json` and copy its
 `priority` object into the priority section of
-`/var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json`. Run the normal renderer gate
+`/var/lib/hermes/pt/run/desk-priority/card-edition.candidate.json`. The latter is a complete edition JSON document,
+including `date`, `location`, and a `sections` list containing the priority section; it is not a
+standalone card fragment. Run the normal renderer gate
 against those two views of the same candidate:
 the checkpoint `stage` is exactly
 `generation_<n>_complete_gate_passed_checkpoint_written`, with `<n>` equal to `generation`.
@@ -221,6 +227,8 @@ run-state proposal; never re-run Cull or apply another rank move.
 Every generation after the first starts from the preceding generation's three champions and tries to beat them. Do not
 stop merely because a generation retained all incumbents. Record the Orient start time in
 `tournament.json`. Complete at least three generations when 90 minutes remain before the cutoff.
+After generation two reaches Cull without an accepted generation-three checkpoint, Generation three is the next required action;
+later desks are prohibited. The time cutoff only decides whether to start generation four or later.
 Every generation runs the same Challenge + research, Criticize, and Cull stages.
 Never run a separate polish generation or count rewriting as a generation.
 Increment `generation` only after that generation's Challenge, Research, Criticize, and Cull
