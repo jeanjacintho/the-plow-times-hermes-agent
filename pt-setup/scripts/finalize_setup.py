@@ -97,6 +97,11 @@ def main(argv=None):
         )
         return 1
     draft = _record.load_draft(draft_path)
+    # The same invariant record_setup.py applies when the answer is recorded,
+    # applied again where config.json is actually written: a draft can predate
+    # that check, or be finalized after the credential went away, and the
+    # config is the file the daily run reads. One owner, two call sites.
+    unprintable = _record.refuse_unprintable_printer(draft)
     pending = _record.next_question(draft)
     if pending != "close":
         print(
@@ -130,6 +135,11 @@ def main(argv=None):
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print("CONFIG:written")
+    if unprintable:
+        print(
+            f"PRINTER:unavailable {unprintable} is not set, so this install "
+            "cannot print; written as not configured"
+        )
     print(f"delivery.hour={config['delivery']['hour']} (owner {config['delivery']['local_hour']})")
     return 0
 

@@ -34,6 +34,15 @@ def container_tz(monkeypatch):
     monkeypatch.setenv("TZ", "America/Sao_Paulo")
 
 
+@pytest.fixture(autouse=True)
+def printable_install(monkeypatch):
+    """These tests are about the config, not about whether paper can ship, so
+    they run as a self-hosted install that has its static Latch credential.
+    TestUnprintableInstall clears it deliberately."""
+    monkeypatch.setenv("DOMO_DEVICE_UID", "device")
+    monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
+
+
 def seed(tmp_path, draft=None):
     (tmp_path / ".setup-draft.json").write_text(
         json.dumps(COMPLETE if draft is None else draft), encoding="utf-8"
@@ -158,3 +167,30 @@ class TestCarriesTheLanguage:
         config = seed(tmp_path)
         finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
         assert "language" not in json.loads(config.read_text())["owner"]
+
+
+class TestUnprintableInstall:
+    """A draft can predate the credential check, or be finalized after the
+    credential went away. config.json is the file the daily run reads, so the
+    invariant has to hold here too (#75)."""
+
+    def test_a_complete_draft_cannot_write_a_printer_it_cannot_drive(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
+            monkeypatch.delenv(name, raising=False)
+        config = seed(tmp_path)
+
+        rc = finalize.main(
+            ["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"]
+        )
+
+        out = capsys.readouterr().out
+        assert rc == 0, out
+        written = json.loads(config.read_text())
+        assert written["printer"] == {"configured": False, "name": None}
+        assert "PRINTER:unavailable" in out
+        assert "DOMO_DEVICE_UID is not set" in out
+        # The rest of the config still lands -- the chat edition is unaffected.
+        assert written["mail"]["configured"] is True
+        assert "CONFIG:written" in out
