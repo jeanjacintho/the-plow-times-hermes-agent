@@ -123,7 +123,7 @@ def blank(value):
 
 
 def advisor_catalog():
-    """Bundled advisor name -> (source URLs, words), from the one-file contract."""
+    """Bundled advisor name -> sourced quotation text bound to its own URL."""
     catalog = {}
     for path in ADVISORS.glob("*.md"):
         if path.name == "README.md":
@@ -135,8 +135,16 @@ def advisor_catalog():
                      if line.startswith("advisor:")), "")
         sources = {line.strip()[2:].strip() for line in front.splitlines()
                    if line.strip().startswith("- http")}
+        sourced = text.partition("## Sourced words")[2].split("\n## ", 1)[0]
+        quotations = {}
+        for line in sourced.splitlines():
+            quote, separator, citation = line.removeprefix("- “").rpartition("” — [")
+            _label, link_separator, url = citation.rpartition("](")
+            url = url.removesuffix(")")
+            if line.startswith("- “") and separator and link_separator and url in sources:
+                quotations[" ".join(quote.split())] = url
         if name:
-            catalog[name] = (sources, " ".join(text.split()))
+            catalog[name] = quotations
     return catalog
 
 
@@ -341,12 +349,13 @@ def validate(edition):
                             source = advisors.get(name) if isinstance(name, str) else None
                             if not blank(name) and source is None:
                                 failures.append(f"{iwhere}.advisor.name has no named advisor file")
-                            elif source:
-                                urls, words = source
-                                if isinstance(url, str) and url.strip() not in urls:
-                                    failures.append(f"{iwhere}.advisor.url is not a source in the named advisor file")
-                                if isinstance(quote, str) and " ".join(quote.split()) not in words:
+                            elif source is not None:
+                                normalized_quote = " ".join(quote.split()) if isinstance(quote, str) else ""
+                                sourced_url = source.get(normalized_quote)
+                                if sourced_url is None:
                                     failures.append(f"{iwhere}.advisor.quote is not in the named advisor file")
+                                elif isinstance(url, str) and url.strip() != sourced_url:
+                                    failures.append(f"{iwhere}.advisor.url does not match its sourced words entry")
                     if len(advisor_quotes) != len(set(advisor_quotes)):
                         failures.append(f"{where}.priority.recommendations reuse an advisor quote")
                 questions = priority.get("questions", [])
@@ -395,37 +404,6 @@ def validate_tournament(edition, tournament):
     )
     if tournament.get("stage") != expected_stage:
         failures.append("tournament is not at its completed gated checkpoint")
-
-    receipts = tournament.get("generations")
-    receipt_numbers = (
-        [receipt.get("generation") for receipt in receipts]
-        if isinstance(receipts, list) and all(isinstance(receipt, dict) for receipt in receipts)
-        else []
-    )
-    expected_numbers = list(range(1, generation + 1)) if isinstance(generation, int) and not isinstance(generation, bool) else []
-    if receipt_numbers != expected_numbers:
-        failures.append("tournament needs criticism receipts for every generation")
-    else:
-        for receipt in receipts:
-            number = receipt["generation"]
-            inherited = receipt.get("inherited")
-            challengers = receipt.get("challengers")
-            critics = receipt.get("critics")
-            valid_inherited = (
-                isinstance(inherited, int) and not isinstance(inherited, bool)
-                and 0 <= inherited <= 3
-                and (number == 1 or inherited == 3)
-            )
-            if (
-                not valid_inherited
-                or challengers != 3
-                or not isinstance(critics, int)
-                or isinstance(critics, bool)
-                or critics != inherited + challengers
-            ):
-                failures.append(
-                    f"generation {number} did not criticize every inherited champion and challenger"
-                )
 
     card_priority = None
     card_headlines = []

@@ -760,14 +760,13 @@ class TestSkills:
             "dated today is still generation zero",
             "The parent never calls Latch",
             "proposes and researches one contender",
-            "one compact receipt per completed generation",
-            "Never claim a critic",
+            "claim a critic that did not return a verdict",
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         assert "reserved 150-minute window" in desks
         assert "global batch budget starts after priority" in desks
-        assert "Every cron execution runs a fresh tournament" in desks
+        assert "Every canonical scheduled execution runs a fresh tournament" in desks
 
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"

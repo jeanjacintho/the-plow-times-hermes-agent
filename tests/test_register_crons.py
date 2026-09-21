@@ -359,6 +359,16 @@ class TestExtraDailyHours:
         jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", {}, 45)
         assert [j["name"] for j in jobs] == ["pt-daily-edition"]
 
+    @pytest.mark.parametrize("extra,section_hour", [
+        (["09:00"], None),
+        ([], "09:00"),
+    ])
+    def test_papers_less_than_three_hours_apart_are_refused(self, extra, section_hour):
+        topics = [topic("t_1", kind="section", deliver_at=section_hour)] if section_hour else []
+
+        with pytest.raises(SystemExit, match="paper times 07:00 and 09:00 are less than 180 minutes apart"):
+            crons.desired_jobs(topics, "07:00", {}, 0, extra_hours=extra)
+
     def test_multiple_extra_hours_are_numbered_in_order(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "03:00", {}, 45,
@@ -433,13 +443,13 @@ class TestFocusedPapers:
     def test_papers_sit_between_extra_hours_and_subscriptions(self):
         jobs = crons.desired_jobs(
             [
-                topic("t_1", kind="section", deliver_at="12:30"),
+                topic("t_1", kind="section", deliver_at="13:30"),
                 topic("t_9f2a"),
             ],
             "07:00", {}, 0, extra_hours=["10:30"],
         )
         assert [j["name"] for j in jobs] == [
-            "pt-daily-edition", "pt-daily-edition-2", "pt-paper-1230",
+            "pt-daily-edition", "pt-daily-edition-2", "pt-paper-1330",
             "pt-subscription-t_9f2a",
         ]
 
@@ -832,6 +842,16 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "prepare_daily_run.py" not in crons.daily_prompt("daily2")
         assert "prepare_daily_run.py" not in crons.daily_prompt("daily", live=True)
         assert "prepare_daily_run.py" not in crons.paper_prompt("paper-1200", "12:00")
+
+    def test_only_the_canonical_scheduled_paper_runs_priority(self):
+        assert "run the priority tournament" in crons.daily_prompt("daily")
+        for prompt in (
+            crons.daily_prompt("daily2"),
+            crons.daily_prompt("daily", live=True),
+            crons.paper_prompt("paper-1200", "12:00"),
+        ):
+            assert "do not run priority" in prompt
+            assert "reuse its atomic checkpoint or gap card" in prompt
 
     def test_daily_prompt_forbids_origin_retry_loops(self):
         p = crons.daily_prompt("daily")

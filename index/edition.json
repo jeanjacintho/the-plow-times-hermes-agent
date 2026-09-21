@@ -38,7 +38,7 @@
           "first_step": "Write the rye card and pin it on the board by 09:00.",
           "advisor": {
             "name": "Patrick Salyer (Mayfield)",
-            "quote": "Find a painful, urgent problem and 5–10 customers who will publicly vouch for the product.",
+            "quote": "You'll know you're on the right track when you have a handful of referenceable customers ... and a \"painkiller\" solution.",
             "url": "https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software"
           }
         },
@@ -47,14 +47,14 @@
           "body": "The morning tray walk is useful only if tomorrow's baker can repeat what Mira notices today. Capture the few observable signs that distinguish a ready loaf from one that needs another minute, then use the same check before every market batch.",
           "evidence": [{"claim": "The first trays are reviewed with Mira", "source": "Synthetic calendar"}],
           "first_step": "Write the three checks beside the oven before the 09:15 walk.",
-          "advisor": {"name": "Patrick Salyer (Mayfield)", "quote": "Write the playbook from the founder's wins, then prove a rep can run it.", "url": "https://patricksalyer.substack.com/p/sales-playbook-what-is-it-and-how"}
+          "advisor": {"name": "Patrick Salyer (Mayfield)", "quote": "it's crucial for founders to be involved in establishing a sales playbook.", "url": "https://patricksalyer.substack.com/p/sales-playbook-what-is-it-and-how"}
         },
         {
-          "headline": "Test the tasting flight before redesigning packaging",
-          "body": "The flight answers a customer-choice question this weekend; new bags do not. Use the market to learn which pairing people understand and buy, then let that evidence shape the next presentation decision instead of polishing packaging first.",
+          "headline": "Let the tasting flight earn the next packaging spend",
+          "body": "Packaging is a use-of-funds decision; the tasting flight is the milestone that can justify it. Use this weekend to learn which pairing people understand and buy, then spend only against the presentation change that evidence unlocks.",
           "evidence": [{"claim": "The tasting flight has active customer interest", "source": "Synthetic counter notes"}],
-          "first_step": "Prepare one tasting card with two pairings and a single purchase question.",
-          "advisor": {"name": "Patrick Salyer (Mayfield)", "quote": "Name the threat, preserve runway, and test the smallest decisive change with customers.", "url": "https://patricksalyer.substack.com/p/the-3-phases-of-enterprise-software"}
+          "first_step": "Prepare one tasting card with two pairings, one purchase question, and no packaging order.",
+          "advisor": {"name": "Patrick Salyer (Mayfield)", "quote": "Raise the right amount of money, at a stage appropriate valuation, to hit the milestones that unlock the next stage.", "url": "https://patricksalyer.substack.com/p/the-new-series-a-is-the-old-series"}
         }
       ],
       "questions": []

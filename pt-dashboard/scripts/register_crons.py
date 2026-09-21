@@ -158,6 +158,13 @@ def daily_prompt(lock_name, live=False):
         "(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
         if lock_name == "daily" and not live else ""
     )
+    desks = (
+        "run the priority tournament, then every other standing desk "
+        "pt-research/references/desks.md lists, in its order, "
+        if lock_name == "daily" and not live else
+        "do not run priority; reuse its atomic checkpoint or gap card, then run every other "
+        "standing desk pt-research/references/desks.md lists, starting with weather, "
+    )
     return (
         f"Run the daily edition now, in one session. First run "
         f"/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire "
@@ -171,8 +178,7 @@ def daily_prompt(lock_name, live=False):
         f"--deliver-at main --as-of <today's YYYY-MM-DD>. If it refuses, repeat "
         f"its named roster, run /var/lib/hermes/skills/pt-shared/scripts/run_lock.py "
         f"release --name the same {WORKSPACE_LOCK}-<date>, and stop before research. "
-        f"Then run pt-research: first "
-        f"every standing desk pt-research/references/desks.md lists, in its order, "
+        f"Then run pt-research: first {desks}"
         f"then every active news section with no deliver_at (or deliver_at "
         f"equal to delivery.hour in pt/config.json — skip sections that belong "
         f"to another paper hour) and every assignment with run_on <= "
@@ -214,7 +220,8 @@ def paper_prompt(lock_name, hour):
         f"--deliver-at {hour}. If it refuses, repeat its named roster and stop before "
         f"research only after running /var/lib/hermes/skills/pt-shared/scripts/run_lock.py "
         f"release --name the same {WORKSPACE_LOCK}-<date>. Then run pt-research: first "
-        f"every standing desk pt-research/references/desks.md lists, in its order, "
+        f"do not run priority; reuse its atomic checkpoint or gap card, then run every other "
+        f"standing desk pt-research/references/desks.md lists, starting with weather, "
         f"then ONLY active news sections whose deliver_at is {hour} "
         f"(read topics.json; do not research unscoped sections, sections of "
         f"another hour, or assignments). Write notes under run/<id>/ and "
@@ -474,6 +481,21 @@ def focused_paper_hours(topics, delivery_hour):
     return sorted(hours)
 
 
+def require_workspace_spacing(hours, minimum_minutes=180):
+    """Refuse paper starts whose shared-workspace windows can overlap."""
+    for index, first in enumerate(hours):
+        first_hour, first_minute = _hour_minute(first)
+        first_total = first_hour * 60 + first_minute
+        for second in hours[index + 1:]:
+            second_hour, second_minute = _hour_minute(second)
+            distance = abs(first_total - (second_hour * 60 + second_minute))
+            if min(distance, 24 * 60 - distance) < minimum_minutes:
+                raise SystemExit(
+                    f"refusing to register: paper times {first} and {second} are less than "
+                    f"{minimum_minutes} minutes apart; their shared workspace can overlap."
+                )
+
+
 def paper_job(hour, lead_minutes, env=None):
     """One focused paper: desks plus sections whose deliver_at is this hour."""
     name = paper_job_name(hour)
@@ -509,13 +531,15 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     deliver_at that is not delivery.hour (a different newspaper), then one
     job per subscription.
     """
+    focused_hours = focused_paper_hours(topics, delivery_hour)
+    require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
     jobs = []
     if has_paper(topics):
         jobs.append(daily_job(delivery_hour, lead_minutes, env))
         for n, hour in enumerate(extra_hours, start=2):
             jobs.append(daily_job(hour, lead_minutes, env,
                                    name=f"{DAILY_NAME}-{n}", lock_name=f"daily{n}"))
-        for hour in focused_paper_hours(topics, delivery_hour):
+        for hour in focused_hours:
             jobs.append(paper_job(hour, lead_minutes, env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)

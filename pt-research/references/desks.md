@@ -20,10 +20,13 @@ Before every desk below: run `/var/lib/hermes/skills/pt-shared/scripts/wiki_setu
 then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
 `run/desk-priority/tournament.json` checkpoint. It reads the owner's sources itself and spends no
 web budget.
-Priority has a reserved 150-minute window (ending earlier when the delivery cutoff requires it),
+Priority runs only in the canonical scheduled daily paper. Live, alternate, and focused papers
+reuse its atomic checkpoint or the honest gap card and start below at weather; they never run the
+tournament or write its state. The canonical run gives priority a reserved 150-minute window
+(ending earlier when the delivery cutoff requires it),
 and the global batch budget starts after priority completes. Never stop its tournament early to
 save time for weather, calendar, mail, sports, or news; those desks use the time that remains.
-Every cron execution runs a fresh tournament. A delivered edition dated today is generation-zero
+Every canonical scheduled execution runs a fresh tournament. A delivered edition dated today is generation-zero
 input on a same-day replay, never evidence that the current execution completed priority.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
 or news. Immediately after loading `pt-priority`, Orient and create `tournament.working.json`

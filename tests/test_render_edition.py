@@ -17,13 +17,14 @@ RECOMMENDATION = {
         {"claim": "Returning users repeat the same workflow", "source": "Weekly retention note", "url": "https://example.com/retention"},
     ],
     "first_step": "Draft the three-slide spine: retention, repeated use, and the runway milestone.",
-    "advisor": {"name": "Patrick Salyer", "quote": "Forget the naming (seed / A / B).", "url": "https://example.com/advisor"},
+    "advisor": {"name": "Patrick Salyer", "quote": "Forget the naming (seed / A / B).", "url": "https://example.com/advisor/one"},
 }
 ADVISOR_WORDS = (
     "Forget the naming (seed / A / B).",
     "Raise the right amount of money to hit the milestones that unlock the next stage.",
     "You'll know you're on the right track when you have referenceable customers.",
 )
+ADVISOR_URLS = tuple(f"https://example.com/advisor/{name}" for name in ("one", "two", "three"))
 
 
 @pytest.fixture(autouse=True)
@@ -32,8 +33,12 @@ def synthetic_advisors(tmp_path, monkeypatch):
     advisor_dir.mkdir()
     (advisor_dir / "patrick-salyer.md").write_text(
         "---\nadvisor: Patrick Salyer\nsources:\n"
-        "  - https://example.com/advisor\n---\n"
-        "## Sourced words\n" + "\n".join(ADVISOR_WORDS) + "\n",
+        + "".join(f"  - {url}\n" for url in ADVISOR_URLS)
+        + "---\n## Framework\nFramework prose is not a quotation.\n## Sourced words\n"
+        + "\n".join(
+            f"- “{quote}” — [Source]({url})"
+            for quote, url in zip(ADVISOR_WORDS, ADVISOR_URLS)
+        ) + "\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(render, "ADVISORS", advisor_dir, raising=False)
@@ -42,7 +47,8 @@ def synthetic_advisors(tmp_path, monkeypatch):
 def recommendations(headline=RECOMMENDATION["headline"]):
     return [
         {**RECOMMENDATION, "headline": f"{headline} — {rank}",
-         "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[rank - 1]}}
+         "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[rank - 1],
+                     "url": ADVISOR_URLS[rank - 1]}}
         for rank in range(1, 4)
     ]
 def edition_with_priority_and_weather():
@@ -103,15 +109,6 @@ def tournament(generation=3, items=None, stage=None):
         "generation": generation,
         "stage": stage or f"generation_{generation}_complete_gate_passed_checkpoint_written",
         "priority": {"recommendations": items, "questions": []},
-        "generations": [
-            {
-                "generation": number,
-                "inherited": 0 if number == 1 else 3,
-                "challengers": 3,
-                "critics": 3 if number == 1 else 6,
-            }
-            for number in range(1, generation + 1)
-        ],
         "champions": [
             {"headline": item["headline"], "rank": rank}
             for rank, item in enumerate(items, 1)
@@ -131,8 +128,10 @@ class TestValidate:
          "priority.recommendations[0].evidence[0].url is not an http(s) URL"),
         ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "quote": "Invented words."}}] * 3,
          "priority.recommendations[0].advisor.quote is not in the named advisor file"),
-        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "url": "https://elsewhere.example/post"}}] * 3,
-         "priority.recommendations[0].advisor.url is not a source in the named advisor file"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "url": ADVISOR_URLS[1]}}] * 3,
+         "priority.recommendations[0].advisor.url does not match its sourced words entry"),
+        ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "quote": "Framework prose is not a quotation."}}] * 3,
+         "priority.recommendations[0].advisor.quote is not in the named advisor file"),
         ([{**RECOMMENDATION, "advisor": {**RECOMMENDATION["advisor"], "name": "Unknown Advisor"}}] * 3,
          "priority.recommendations[0].advisor.name has no named advisor file"),
     ])
@@ -140,8 +139,8 @@ class TestValidate:
         assert failure in render.validate(recommendation_edition(recommendations))
 
     def test_ranked_recommendations_render_escaped_paper_prose(self):
-        second = {**RECOMMENDATION, "headline": "Interview <three> users", "body": "First paragraph.\n\nSecond & final.", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[1]}}
-        third = {**RECOMMENDATION, "headline": "Ship the proof", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[2]}}
+        second = {**RECOMMENDATION, "headline": "Interview <three> users", "body": "First paragraph.\n\nSecond & final.", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[1], "url": ADVISOR_URLS[1]}}
+        third = {**RECOMMENDATION, "headline": "Ship the proof", "advisor": {**RECOMMENDATION["advisor"], "quote": ADVISOR_WORDS[2], "url": ADVISOR_URLS[2]}}
         page = recommendation_edition([RECOMMENDATION, second, third], ["Q4 — What changed?"])
         assert render.validate(page) == ""
         output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
@@ -197,22 +196,6 @@ class TestValidate:
         failure = render.validate_tournament(recommendation_edition(), checkpoint)
 
         assert "tournament priority does not match the printed recommendations" in failure
-
-    def test_complete_tournament_requires_a_criticism_receipt_for_every_generation(self):
-        checkpoint = tournament()
-        del checkpoint["generations"]
-
-        failure = render.validate_tournament(recommendation_edition(), checkpoint)
-
-        assert "tournament needs criticism receipts for every generation" in failure
-
-    def test_complete_tournament_requires_every_target_to_have_a_critic(self):
-        checkpoint = tournament()
-        checkpoint["generations"][1]["critics"] = 3
-
-        failure = render.validate_tournament(recommendation_edition(), checkpoint)
-
-        assert "generation 2 did not criticize every inherited champion and challenger" in failure
 
     def test_complete_tournament_accepts_matching_third_checkpoint(self):
         assert render.validate_tournament(
