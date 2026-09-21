@@ -127,6 +127,12 @@ class TestMaybePrint:
          "page not printed — lp outcome unknown: still running"),
         ("error: page not printed — Mac unreachable",
          "page not printed — Mac unreachable; next scheduled run retries"),
+        # No Latch credential: no number of retries can ever print it, so the
+        # line must not collect a retry promise it cannot keep.
+        ("error: page not printed — DOMO_DEVICE_UID is not set, so paper is "
+         "unavailable on this install; nothing to fix on your Mac",
+         "page not printed — DOMO_DEVICE_UID is not set, so paper is "
+         "unavailable on this install; nothing to fix on your Mac"),
     ])
     def test_only_a_failed_print_owes_the_owner_a_chat_line(self, result, line):
         assert post.print_failure_line(result) == line

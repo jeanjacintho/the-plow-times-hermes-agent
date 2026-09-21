@@ -32,7 +32,7 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
-from latch_mcp import LatchError, connect, finish_command
+from latch_mcp import LatchError, connect, finish_command, missing_credential
 
 PATH_RE = re.compile(
     r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.pdf(?:\.b64)?)"
@@ -185,6 +185,16 @@ def main(argv=None):
     if not printer:
         print("skipped: printer.configured is not true")
         return
+    # Before anything else: this install may have no Latch credential at all
+    # (a self-hosted setup step nothing performs on a hosted agent). That is
+    # not a failed print, it is a print that can never happen, so say so
+    # terminally -- post_to_chat.py must not append a retry promise to it.
+    blank = missing_credential()
+    if blank:
+        sys.exit(
+            f"error: page not printed — {blank} is not set, so paper is "
+            "unavailable on this install; nothing to fix on your Mac"
+        )
     date = args.date or edition_date(args.pdf)
     if args.dry_run:
         print(f"dry-run: would write {mac_pdf_path(date)} and lp -d {printer}")

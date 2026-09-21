@@ -263,6 +263,18 @@ def run_finalize_topics(edition_json):
     return blob
 
 
+# Failures that must not collect "; next scheduled run retries".
+#   "outcome unknown"            -- a retry promise could mean a second copy
+#   "next scheduled run retries" -- the line already carries one
+#   "paper is unavailable"       -- the install has no Latch credential, so
+#                                   no number of retries can ever print it
+TERMINAL_FAILURES = (
+    "outcome unknown",
+    "next scheduled run retries",
+    "paper is unavailable",
+)
+
+
 def print_failure_line(result):
     """The one chat line a failed print owes the owner; None if it printed or skipped.
 
@@ -272,8 +284,8 @@ def print_failure_line(result):
     if line is None:
         return None
     line = line.removeprefix("error: ")[:200]
-    if "outcome unknown" in line or "next scheduled run retries" in line:
-        return line  # unknown: a retry promise could mean a second copy
+    if any(marker in line for marker in TERMINAL_FAILURES):
+        return line
     return line + "; next scheduled run retries"
 
 

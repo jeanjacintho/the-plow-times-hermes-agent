@@ -68,6 +68,43 @@ class TestPrinterGate:
     def test_configured_returns_exact_cups_name(self, tmp_path):
         assert pe.printer_name(str(_config(tmp_path, name="HP_LaserJet_4"))) == "HP_LaserJet_4"
 
+    def test_no_latch_credential_says_paper_is_unavailable_not_retrying(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        # A hosted install never performs the static-credential setup step,
+        # so printing can never work there. The owner's line has to say that
+        # instead of promising a retry -- post_to_chat.py keys the retry
+        # promise off this wording (TERMINAL_FAILURES).
+        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
+            monkeypatch.delenv(name, raising=False)
+        pdf = _edition(tmp_path)
+        config = _config(tmp_path)
+
+        with pytest.raises(SystemExit) as exit_info:
+            pe.main([str(pdf), str(config)])
+
+        message = str(exit_info.value)
+        assert "page not printed" in message
+        assert "DOMO_DEVICE_UID is not set" in message
+        assert "paper is unavailable on this install" in message
+        assert "nothing to fix on your Mac" in message
+
+    def test_a_configured_credential_gets_past_the_gate(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        # The gate must not stand between a properly configured install and
+        # its printer: with both values present the run proceeds normally.
+        monkeypatch.setenv("DOMO_DEVICE_UID", "device")
+        monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
+        pdf = _edition(tmp_path)
+        config = _config(tmp_path)
+
+        pe.main([str(pdf), str(config), "--dry-run"])
+
+        out = capsys.readouterr().out
+        assert "dry-run: would write" in out
+        assert "paper is unavailable" not in out
+
 
 class TestPdfAndDate:
     def test_missing_pdf_is_refused_by_name(self, tmp_path):
