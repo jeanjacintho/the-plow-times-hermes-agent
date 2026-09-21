@@ -355,13 +355,13 @@ sourced beat six where one is a guess.
 
 One `edition.json` becomes the PDF (the thing that lands in chat) and the
 printable HTML through one renderer, with one fixed layout. You write the
-content, never the HTML. Post the PDF with `post_to_chat.py --pdf` and end
-the turn with `NO_REPLY` so the cron `--deliver` arm does not also send the
-transcript. **Do not recap the edition in chat** — not the desks, not the
-headlines, not "seu jornal foi gerado". The PDF (and the page, if printed)
-is the delivery. A recap is a second message the owner did not ask for.
-If the PDF cannot be written, post the chat text instead — that
-costs the file, never the edition.
+content, never the HTML. Follow `pt-edition/SKILL.md` step 2 for the single
+delivery command, including its chat-only companion, and end the turn with
+`NO_REPLY` so the cron `--deliver` arm does not also send the transcript.
+**Do not recap the edition in chat** — not the desks, not the headlines, not
+"seu jornal foi gerado". The PDF (and the page, if printed) is the delivery.
+A recap is a second message the owner did not ask for. If the PDF cannot be
+written, post the chat text instead — that costs the file, never the edition.
 
 # Before replying
 

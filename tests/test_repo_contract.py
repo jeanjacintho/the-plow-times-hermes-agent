@@ -735,6 +735,11 @@ class TestSkills:
         assert "def ensure_priority_desk" in renderer
         assert "Never omit the slot" in edition
 
+    def test_soul_delegates_delivery_argv_to_the_edition_skill(self):
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "`pt-edition/SKILL.md` step 2" in soul
+        assert "Post the PDF with `post_to_chat.py --pdf`" not in soul
+
     def test_priority_evolution_contract(self):
         text = (ROOT / "pt-priority" / "SKILL.md").read_text()
         for clause in (

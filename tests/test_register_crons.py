@@ -902,7 +902,7 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         scheduled = (
             crons.daily_prompt("daily"),
             crons.daily_prompt("daily2"),
-            crons.paper_prompt("paper-1200", "12:00"),
+            crons.paper_prompt("12:00"),
         )
         for prompt in scheduled:
             assert "paper-workspace-<today's date" in prompt
@@ -915,14 +915,14 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "prepare_daily_run.py" in crons.daily_prompt("daily")
         assert "prepare_daily_run.py" not in crons.daily_prompt("daily2")
         assert "prepare_daily_run.py" not in crons.daily_prompt("daily", live=True)
-        assert "prepare_daily_run.py" not in crons.paper_prompt("paper-1200", "12:00")
+        assert "prepare_daily_run.py" not in crons.paper_prompt("12:00")
 
     def test_only_the_canonical_scheduled_paper_runs_priority(self):
         assert "run the priority tournament" in crons.daily_prompt("daily")
         for prompt in (
             crons.daily_prompt("daily2"),
             crons.daily_prompt("daily", live=True),
-            crons.paper_prompt("paper-1200", "12:00"),
+            crons.paper_prompt("12:00"),
         ):
             assert "do not run priority" in prompt
             assert "reuse its atomic checkpoint or gap card" in prompt
@@ -933,7 +933,7 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "needs origins" in p or "apex" in p
 
     def test_hour_paper_prompt_carries_the_print_leg(self):
-        p = crons.paper_prompt("paper1", "12:00")
+        p = crons.paper_prompt("12:00")
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
         assert "post_to_chat.py already finalizes every carried topic" in p
@@ -942,7 +942,7 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
 
     @pytest.mark.parametrize("prompt", [
         crons.daily_prompt("daily"),
-        crons.paper_prompt("paper1", "12:00"),
+        crons.paper_prompt("12:00"),
     ])
     def test_paper_prompt_stops_before_research_on_legacy_overfill(self, prompt):
         assert "topics.py check-paper" in prompt

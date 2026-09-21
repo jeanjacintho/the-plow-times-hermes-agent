@@ -223,7 +223,7 @@ def daily_prompt(lock_name, live=False, hold_until=None, lead_minutes=0):
          "card, and make no advisor pass." if live else "")
 
 
-def paper_prompt(lock_name, hour, lead_minutes=0):
+def paper_prompt(hour, lead_minutes=0):
     """Run prompt for a focused paper at ``hour`` (a section deliver_at)."""
     hold = (
         f" with --hold-until {hour} so chat waits for that clock "
@@ -542,11 +542,10 @@ def require_workspace_spacing(hours):
 def paper_job(hour, lead_minutes, env=None):
     """One focused paper: desks plus sections whose deliver_at is this hour."""
     name = paper_job_name(hour)
-    lock_name = f"paper-{hour.replace(':', '')}"
     return {
         "name": name,
         "schedule": daily_schedule(hour, lead_minutes),
-        "prompt": paper_prompt(lock_name, hour, lead_minutes),
+        "prompt": paper_prompt(hour, lead_minutes),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
