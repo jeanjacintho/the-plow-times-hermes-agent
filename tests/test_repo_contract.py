@@ -745,6 +745,8 @@ class TestSkills:
             'Every critic goal ends with: "Return ONLY complete JSON of at most 2,500 characters."',
             'The culler goal ends with: "Return ONLY complete JSON of at most 10,000 characters."',
             "critic task count is `I + 3`",
+            "set its `Stage` to Cull complete",
+            "Recovery from `Cull complete` proceeds to candidate construction and validation",
             "Writer JSON is at most 3,000 characters",
             "Critic JSON is at most 2,500 characters",
             "Culler JSON is at most 10,000 characters",

@@ -106,8 +106,9 @@ order; the stage sections below define each payload, but never reorder or merge 
 4. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
    call the culler until that wiki write returns success.
 5. Make one one-task `delegate_task` call for Cull. The culler goal ends with: "Return ONLY complete JSON of at most 10,000 characters."
-6. Rewrite `RUN_PAGE` with Cull before building or validating the candidate. Then run the candidate
-   gate and publish the accepted checkpoint as specified below.
+6. Rewrite `RUN_PAGE` with Cull and set its `Stage` to Cull complete before building or validating
+   the candidate. Recovery from `Cull complete` proceeds to candidate construction and validation.
+   Then run the candidate gate and publish the accepted checkpoint as specified below.
 7. When fewer than three generations are complete, immediately start the next generation at step 1.
 
 ### 1. Challenge + research
