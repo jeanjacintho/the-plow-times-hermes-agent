@@ -266,12 +266,18 @@ def run_finalize_topics(edition_json):
 # Failures that must not collect "; next scheduled run retries".
 #   "outcome unknown"            -- a retry promise could mean a second copy
 #   "next scheduled run retries" -- the line already carries one
-#   "paper is unavailable"       -- the install has no Latch credential, so
-#                                   no number of retries can ever print it
+#   "paper is unavailable" /     -- the install has no Latch credential, so
+#   "papel não está disponível"     no number of retries can ever print it.
+#                                   print_edition.py writes that sentence in
+#                                   the owner's language (its UNAVAILABLE
+#                                   dict), so both spellings are terminal --
+#                                   otherwise a Portuguese owner collects an
+#                                   English retry promise that cannot be kept.
 TERMINAL_FAILURES = (
     "outcome unknown",
     "next scheduled run retries",
     "paper is unavailable",
+    "papel não está disponível",
 )
 
 

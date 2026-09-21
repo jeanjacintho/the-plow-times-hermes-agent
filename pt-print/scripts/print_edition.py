@@ -39,6 +39,40 @@ PATH_RE = re.compile(
 )
 
 
+# The one failure line this script authors in full, so the one it can write in
+# the owner's language. SOUL.md: every owner-facing line mirrors the language
+# they write in. The other failure lines carry `lp`'s own stderr through and
+# cannot be translated, which is why only this one is a dict.
+UNAVAILABLE = {
+    "en": (
+        "{name} is not set, so paper is unavailable on this install; "
+        "nothing to fix on your Mac"
+    ),
+    "pt": (
+        "{name} não está definido, então o papel não está disponível nesta "
+        "instalação; não há nada para corrigir no seu Mac"
+    ),
+}
+
+
+def owner_language(config_path):
+    """The owner's language tag from pt/config.json, or "" when unreadable."""
+    try:
+        cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return ""
+    owner = cfg.get("owner") if isinstance(cfg, dict) else None
+    lang = owner.get("language") if isinstance(owner, dict) else None
+    return lang if isinstance(lang, str) else ""
+
+
+def unavailable_line(blank, language):
+    """`blank` is the unset variable's name; the sentence is the owner's."""
+    tag = (language or "").lower().replace("_", "-")
+    key = "pt" if ("portug" in tag or tag in {"pt", "pt-br"}) else "en"
+    return UNAVAILABLE[key].format(name=blank)
+
+
 def printer_name(config_path):
     """CUPS name when printer.configured is exactly true; else None (skip)."""
     try:
@@ -199,8 +233,8 @@ def main(argv=None):
     blank = missing_credential()
     if blank:
         sys.exit(
-            f"error: page not printed — {blank} is not set, so paper is "
-            "unavailable on this install; nothing to fix on your Mac"
+            "error: page not printed — "
+            + unavailable_line(blank, owner_language(args.config))
         )
 
     try:
