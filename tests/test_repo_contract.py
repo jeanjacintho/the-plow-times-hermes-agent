@@ -769,6 +769,8 @@ class TestSkills:
             "proposes and researches one contender",
             "claim a critic that did not return a verdict",
             "projects/theplowtimes/runs/<run-datetime>/state.md",
+            "`RUN_PAGE=projects/theplowtimes/runs/<run-datetime>/state.md`",
+            "Never infer the active page from timestamps",
             "actual Orient invocation time",
             "after Orient and after every Challenge, Criticize, and Cull",
             "`priority_case`",
@@ -791,6 +793,7 @@ class TestSkills:
         assert "global batch budget starts after priority" in desks
         assert "Every canonical scheduled execution runs a fresh tournament" in desks
         assert "tournament.working.json" not in text + desks
+        assert "newest active run page" not in text
         qa = (ROOT / "pt-shared" / "assets" / "wiki" / "qa.md").read_text()
         assert "Rank is positional" in qa
         assert "one adjacent position" in qa

@@ -55,14 +55,17 @@ Load this skill once during Orient. Preserve any canonical
 actual Orient invocation time as `YYYY-MM-DDTHHMM` and create
 `projects/theplowtimes/runs/<run-datetime>/state.md`. Copy the required OKF front matter shape from
 `qa.md`, with a run-specific title and description. The page is private research state, never printed.
+Keep its exact path in root context as
+`RUN_PAGE=projects/theplowtimes/runs/<run-datetime>/state.md`; every compaction handoff preserves
+that value until delivery.
 Rewrite that one page whole after Orient and after every Challenge, Criticize, and Cull;
 do not create per-generation files or an append-only event log. It holds the stage and generation,
 champions, contenders, priority cases, read receipts, unknowns, critic verdicts, fact-rank moves,
 and the last complete checkpoint summary. If context is compacted, resume from this page and the
 canonical checkpoint.
 **Never load this skill again in the same run.**
-On a compacted or restated turn, the first action is to read the newest active run page for
-today and obey its `Stage`. Never delegate a stage already recorded there as complete.
+On a compacted or restated turn, the first action is to read `RUN_PAGE` and obey its `Stage`.
+Never infer the active page from timestamps or delegate a stage recorded there as complete.
 
 Every child returns compact structured JSON with no narrative preface.
 Writer JSON is at most 3,000 characters. Critic JSON is at most 2,500 characters.
