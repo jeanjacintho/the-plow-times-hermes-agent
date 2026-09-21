@@ -226,6 +226,18 @@ HTML.** Hand-write `edition.json` under the run directory:
   compile a main-paper section into a noon paper, or the reverse. Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
+- **A desk's notes file must be dated for today's edition.** A desk that
+  fails to gather leaves the previous day's `run/desk-*/notes.json` /
+  `events.json` in place. `render_edition.py` refuses an edition that carries a standing desk when any
+  such file's `date` is missing or not the edition's `date`; re-run that
+  desk, or delete its stale files. A news-only edition (a one-topic
+  subscription) renders no standing desk, so leftover desk files are not
+  checked and need no action. Weather and calendar are mandatory
+  departments: after deleting, compile an honest failed-gather section, never
+  drop them. Only an optional desk (mail, sports, priority) may be dropped as
+  a logged miss. While the edition still carries a standing desk, the check reads
+  all the files, so dropping one desk's section without deleting its files
+  still refuses.
 - **Pagination is the renderer's job.** News that does not fit one Letter
   sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
   Each boxed desk stays whole; if the rail itself overflows, the next desk

@@ -892,6 +892,29 @@ class TestMain:
         render.main([str(path), "--html", str(second)])
         assert first.read_text() == second.read_text()
 
+    @pytest.mark.parametrize("fields", [{"date": "2000-01-01"}, {}])
+    def test_refuses_a_desk_file_dated_for_another_day_or_undated(self, tmp_path, fields):
+        path = _paper_with_desk_file(tmp_path, edition_with_priority_and_weather(), fields)
+        with pytest.raises(SystemExit) as exc:
+            render.main([str(path), "--config", str(tmp_path / "none.json")])
+        assert "stale desk notes" in str(exc.value)
+
+    def test_a_news_only_edition_ignores_yesterdays_desk_files(self, tmp_path):
+        # A one-topic subscription renders no standing desk; a leftover file
+        # from yesterday's daily paper must not block it.
+        path = _paper_with_desk_file(tmp_path, edition(), {"date": "2000-01-01"})
+        render.main([str(path), "--config", str(tmp_path / "none.json")])
+
+def _paper_with_desk_file(tmp_path, ed, fields):
+    run = tmp_path / "run"
+    (run / "desk-calendar").mkdir(parents=True)
+    (run / "desk-calendar" / "events.json").write_text(
+        json.dumps({**fields, "events": []}), encoding="utf-8")
+    (run / "paper").mkdir()
+    path = run / "paper" / "edition.json"
+    path.write_text(json.dumps(ed), encoding="utf-8")
+    return path
+
 
 class TestAdvisorBank:
     def test_shipped_bank_shape(self):

@@ -74,7 +74,7 @@ writes nothing — not the page, the Q&A or the card — and the stub stands. It
 `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once, before Ask, and hands its JSON
 to the children that need it; an `error:` (or a failed run) is "not read", never "none found", so
 this pass too writes only the stub and stops, rather than continuing with `yesterday` silently
-missing. It first writes the stub `{"desk": "priority", "status": "unavailable"}` to the card
+missing. It first writes the stub `{"desk": "priority", "date": "<today>", "status": "unavailable"}` to the card
 (replaced only by a pass reaching Card), then passes once, and again while the day page has no
 headline or the last pass kept a candidate, and the next would end at least 30 minutes before
 `delivery.hour` and within 90 minutes of its start. Every other paper (a live copy, `paper-*`,
@@ -135,8 +135,8 @@ questions section on the page and `/var/lib/hermes/pt/company.md` into the Q&A (
 facts naming a basis to Answered); only once that write succeeds does it drop the sections and, if
 the file is there, run `mv /var/lib/hermes/pt/company.md /var/lib/hermes/pt/company.md.migrated`.
 
-**The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "status":
-"ok", "priority": {…}}` mapped from the kept page, the Q&A and the history entries (all dated before today),
+**The card**, `/var/lib/hermes/pt/run/desk-priority/notes.json`, is `{"desk": "priority", "date":
+"<today>", "status": "ok", "priority": {…}}` mapped from the kept page, the Q&A and the history entries (all dated before today),
 nothing added: Priority's stage as `stage_label` and the dated Q&A answer it rests on as
 `stage_why`; `headline`, `first_step`, `who`, `draft`, `not_today`; `why` items of `text` plus a
 bank quote's `quote`, post `url` and post title as `source_label`; Today's events and chores as

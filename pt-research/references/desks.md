@@ -6,7 +6,10 @@ runs only when `pt/config.json` has `"priority": { "configured": true }`.
 Mail joins only when it has `"mail": { "configured": true }`; sports
 joins only when it has `"sports": { "configured": true }`. Notes go under
 `/var/lib/hermes/pt/run/desk-<name>/notes.json` (same shape as a topic
-notes file, `topic_id` omitted). pt-edition compiles them with
+notes file, `topic_id` omitted; every desk file also carries a top-level
+`"date": "<today>"`, and `render_edition.py` refuses one with none or another
+day's when the edition carries a standing desk, so a failed gather cannot
+reprint yesterday; a one-topic subscription renders no desk and is not checked). pt-edition compiles them with
 `"desk": "priority"|"weather"|"calendar"|"mail"|"sports"`. Never mark them in topics.py.
 
 Every Latch call is the same two tools the print path uses:
@@ -157,6 +160,10 @@ If **both** failed, write `{"date": "<today>", "events": []}` and say in
 list after a failed gather is not a free day: **never** print "no events
 today" / "the calendar is free" / "Nenhum evento hoje" unless a gather
 succeeded with a real empty list. Never invent a meeting.
+
+Delete any existing `run/desk-calendar/notes.json` and `events.json` before
+gathering, so a failed gather can never leave yesterday's agenda behind. Both
+files carry today's `date`; `render_edition.py` refuses one dated otherwise.
 
 Print a tight, sourced list the edition can turn into two paragraphs
 ("Today: …" / "Upcoming: …"). Notes at `run/desk-calendar/notes.json`.
