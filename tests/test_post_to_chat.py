@@ -53,16 +53,17 @@ class TestComposePayload:
         assert json.loads(stamp.read_text(encoding="utf-8"))["pending"] is True
         assert json.loads(stamp.read_text(encoding="utf-8"))["delivered"] is True
 
-    def test_after_posted_reopens_delivered_sections(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
-        intake = load_module("topics_reopen", "pt-intake/scripts/topics.py")
-        intake.main(["add", "--text", "AI", "--kind", "section", "--depth", "quick"])
-        tid = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["id"]
-        intake.main(["mark", tid, "--status", "running"])
-        intake.main(["mark", tid, "--status", "delivered"])
-        post.after_posted(tmp_path / "seal.json")
-        status = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"][0]["status"]
-        assert status == "pending"
+    def test_posted_path_finalizes_the_sibling_edition(self, tmp_path):
+        pdf = tmp_path / "edition.pdf"
+        pdf.write_bytes(b"%PDF")
+        seen = []
+
+        out = post.maybe_finalize_topics(
+            str(pdf), runner=lambda path: seen.append(path) or "FINALIZED"
+        )
+
+        assert seen == [str(tmp_path / "edition.json")]
+        assert out == "FINALIZED"
 
 
 class TestTextFileFlag:
@@ -175,6 +176,10 @@ class TestFinalizersRunIndependently:
         monkeypatch.setattr(post, "read_message", lambda: "")
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
         monkeypatch.setattr(post, "post_json", lambda *a, **k: None)
+        monkeypatch.setattr(
+            post, "maybe_finalize_topics",
+            overrides.get("maybe_finalize_topics", lambda *a, **k: "FINALIZED"),
+        )
         monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda: "sealed"))
         if "maybe_print" in overrides:
             monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
@@ -190,12 +195,14 @@ class TestFinalizersRunIndependently:
     def test_a_failing_finalizer_never_blocks_the_next_one(self, tmp_path, monkeypatch, seal, print_result):
         order = []
         self._mock_main(
-            tmp_path, monkeypatch, after_posted=seal,
+            tmp_path, monkeypatch,
+            maybe_finalize_topics=lambda *a, **k: order.append("finalize") or "FINALIZED",
+            after_posted=lambda: order.append("seal") or seal(),
             maybe_print=lambda *a, **k: order.append("print") or print_result,
             maybe_record=lambda *a, **k: order.append("record") or "RECORDED",
         )
         post.main()
-        assert order == ["print", "record"]
+        assert order == ["finalize", "seal", "print", "record"]
 
     def test_a_print_failure_before_its_own_runner_still_records(self, tmp_path, monkeypatch):
         # maybe_print itself is real here (not mocked): an unresolvable pdf
