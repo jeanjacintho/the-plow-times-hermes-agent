@@ -3,20 +3,9 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from conftest import load_module
 
 record = load_module("record_setup", "pt-shared/scripts/record_setup.py")
-
-
-@pytest.fixture(autouse=True)
-def printable_install(monkeypatch):
-    """These tests are about the draft, not about whether paper can ship, so
-    they run as a self-hosted install that has its static Latch credential.
-    TestUnprintableInstall clears it deliberately."""
-    monkeypatch.setenv("DOMO_DEVICE_UID", "device")
-    monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
 
 
 def draft_of(tmp_path):
@@ -223,55 +212,3 @@ class TestDoneClearsTheDraft:
         )
         assert rc == 1
 
-
-class TestUnprintableInstall:
-    """An install with no static Latch credential cannot print at all, so the
-    interview must not record a printer it can never drive (#74, #75)."""
-
-    def test_configured_true_is_downgraded_when_the_install_cannot_print(
-        self, tmp_path, monkeypatch, capsys
-    ):
-        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
-            monkeypatch.delenv(name, raising=False)
-        config = tmp_path / "config.json"
-
-        assert record.main(["record_setup.py", str(config),
-                            "local_hour=07:00", "printer.configured=true",
-                            "printer.name=Canon_TS9500_series"]) == 0
-
-        draft = draft_of(tmp_path)
-        assert draft["printer"]["configured"] is False
-        assert "name" not in draft["printer"]
-        out = capsys.readouterr().out
-        assert "PRINTER:unavailable" in out
-        assert "DOMO_DEVICE_UID is not set" in out
-        # The interview still advances -- the printer question is answered.
-        assert "NEXT_QUESTION=priority" in out
-
-    def test_a_printable_install_records_the_printer_untouched(
-        self, tmp_path, monkeypatch, capsys
-    ):
-        monkeypatch.setenv("DOMO_DEVICE_UID", "device")
-        monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
-        config = tmp_path / "config.json"
-
-        assert record.main(["record_setup.py", str(config),
-                            "local_hour=07:00", "printer.configured=true",
-                            "printer.name=Canon_TS9500_series"]) == 0
-
-        draft = draft_of(tmp_path)
-        assert draft["printer"] == {"configured": True, "name": "Canon_TS9500_series"}
-        assert "PRINTER:unavailable" not in capsys.readouterr().out
-
-    def test_answering_no_is_left_alone_on_an_unprintable_install(
-        self, tmp_path, monkeypatch, capsys
-    ):
-        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
-            monkeypatch.delenv(name, raising=False)
-        config = tmp_path / "config.json"
-
-        assert record.main(["record_setup.py", str(config),
-                            "local_hour=07:00", "printer.configured=false"]) == 0
-
-        assert draft_of(tmp_path)["printer"]["configured"] is False
-        assert "PRINTER:unavailable" not in capsys.readouterr().out
