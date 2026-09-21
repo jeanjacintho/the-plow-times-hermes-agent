@@ -68,10 +68,23 @@ class TestSoul:
         assert "paper is unavailable" in text
         assert "momentary hiccup" in text
         assert "relink" in text
-        # post_to_chat.py keys the retry promise off this wording; if the
-        # skill and the marker drift, the promise comes back.
-        post = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
-        assert "paper is unavailable" in post
+        # post_to_chat.py keys the retry promise off this wording. Assert the
+        # marker itself, not just that the phrase occurs in the file -- the
+        # phrase also appears in that file's comments, so a substring check
+        # would pass with the marker deleted from the tuple.
+        import sys
+
+        sys.path.insert(0, str(ROOT / "pt-shared" / "scripts"))
+        post = load_module("post_to_chat", "pt-shared/scripts/post_to_chat.py")
+        # The specific phrase, not "any marker": the skill also documents the
+        # retry wording, so accepting any member passed with this one deleted.
+        assert "paper is unavailable" in post.TERMINAL_FAILURES
+        # And it really does suppress the promise, end to end.
+        line = (
+            "error: page not printed — DOMO_DEVICE_UID is not set, so paper "
+            "is unavailable on this install; nothing to fix on your Mac"
+        )
+        assert post.print_failure_line(line) == line.removeprefix("error: ")
 
     def test_setup_opener_does_not_ask_timezone(self):
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
