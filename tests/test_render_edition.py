@@ -136,12 +136,27 @@ class TestValidate:
         assert render.validate(page) == ""
         output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
         assert '<div class="priority-grid">' in output
-        assert output.count('<article class="priority-rec">') == 3
-        assert output.index("Put retention at the center") < output.index("Interview &lt;three&gt; users")
+        assert output.count('<article class="priority-rec') == 3
+        assert '<p class="priority-rank">1</p><h2>Put retention at the center' in output
+        assert '<p class="priority-rank">2</p><h2>Interview &lt;three&gt; users</h2>' in output
         assert "Second &amp; final." in output
         assert "FIRST STEP" in output and "Patrick Salyer" in output
         assert "Returning users repeat the same workflow" in output
         assert 'href="https://example.com/retention"' in output
+
+    def test_closest_length_pair_sits_below_the_full_width_outlier(self):
+        items = recommendations()
+        items[0] = {**items[0], "headline": "Short outlier", "body": "Brief."}
+        items[1] = {**items[1], "headline": "Similar card two", "body": "A" * 300}
+        items[2] = {**items[2], "headline": "Similar card three", "body": "B" * 305}
+
+        output = render.priority_block({"recommendations": items, "questions": []})
+
+        feature_at = output.index('<div class="priority-feature">')
+        pair_at = output.index('<div class="priority-pair">')
+        assert feature_at < output.index("Short outlier") < pair_at
+        assert pair_at < output.index("Similar card two") < output.index("Similar card three")
+        assert output.count('class="priority-rec priority-rec--wide"') == 1
 
     def test_recommendations_cannot_reuse_one_advisor_quote(self):
         duplicated = [{**item, "advisor": RECOMMENDATION["advisor"]}
@@ -715,12 +730,14 @@ class TestHtml:
         page = render.render_html(edition(), render.DEFAULT_MASTHEAD, "{{LEAD}}")
         assert 'href="https://example.com/weather"' in page
 
-    def test_pdf_refuses_more_than_one_rendered_page(self, tmp_path, monkeypatch):
+    def test_pdf_writes_all_rendered_pages(self, tmp_path, monkeypatch):
+        written = []
+
         class FakeDocument:
             pages = [object(), object()]
 
-            def write_pdf(self, _path):
-                raise AssertionError("multi-page document must not be written")
+            def write_pdf(self, path):
+                written.append(path)
 
         class FakeHTML:
             def __init__(self, *, string):
@@ -730,8 +747,9 @@ class TestHtml:
                 return FakeDocument()
 
         monkeypatch.setitem(sys.modules, "weasyprint", types.SimpleNamespace(HTML=FakeHTML))
-        with pytest.raises(SystemExit, match="rendered 2 pages; expected exactly 1"):
-            render.write_pdf("<p>two pages</p>", tmp_path / "edition.pdf")
+        path = tmp_path / "edition.pdf"
+        render.write_pdf("<p>two pages</p>", path)
+        assert written == [str(path)]
 
 
 class TestMain:

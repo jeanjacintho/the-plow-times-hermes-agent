@@ -211,14 +211,14 @@ HTML.** Hand-write `edition.json` under the run directory:
   compile a main-paper section into a noon paper, or the reverse. Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
-- **The PDF is exactly one Letter sheet.** Include no more than three news
-  articles. The renderer keeps every included word and refuses the PDF by
-  name if WeasyPrint lays it out onto anything other than one page; it never
-  truncates or silently drops a fourth article. Never hand-split copy.
+- **Let the Letter PDF paginate naturally.** Include no more than three news
+  articles. The renderer keeps every included word and may use a second page
+  instead of shrinking readable type; it never truncates or silently drops a
+  fourth article. Never hand-split copy.
 - **`location` is this run's city** from the Latch location step, a string,
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
-- **`layout` remains accepted for compatibility**, but the fixed one-page
+- **`layout` remains accepted for compatibility**, but the fixed newspaper
   template owns story placement from article order: lead first, pair second.
 - **Never pad.** Three sourced sentences beat six where one is a guess. An
   empty pass (zero sourced claims) is still an edition: the title, one honest

@@ -903,6 +903,18 @@ def _inline(heading, texts):
     return f'<h3>{heading}</h3><ul class="priority-inline">{items}</ul>'
 
 
+def recommendation_char_count(recommendation):
+    """Approximate printed length with the characters the reader sees."""
+    texts = [
+        recommendation["headline"], recommendation["body"],
+        recommendation["first_step"], recommendation["advisor"]["name"],
+        recommendation["advisor"]["quote"],
+    ]
+    for fact in recommendation["evidence"]:
+        texts.extend((fact["claim"], fact["source"]))
+    return sum(len(" ".join(text.split())) for text in texts)
+
+
 def priority_block(priority):
     """Ranked recommendation essays, followed by questions for the owner."""
     recommendations = []
@@ -922,7 +934,27 @@ def priority_block(priority):
             f'<blockquote>“{_esc(advisor["quote"])}” <span class="src">— '
             f'<a href="{_esc(advisor["url"])}">{_esc(advisor["name"])}</a></span></blockquote></article>'
         )
-    blocks = [f'<div class="priority-grid">{"".join(recommendations)}</div>']
+    pairs = ((0, 1), (0, 2), (1, 2))
+    pair = min(
+        pairs,
+        key=lambda indexes: (
+            abs(
+                recommendation_char_count(priority["recommendations"][indexes[0]])
+                - recommendation_char_count(priority["recommendations"][indexes[1]])
+            ),
+            indexes,
+        ),
+    )
+    wide = next(index for index in range(3) if index not in pair)
+    wide_html = recommendations[wide].replace(
+        'class="priority-rec"', 'class="priority-rec priority-rec--wide"', 1
+    )
+    blocks = [
+        '<div class="priority-grid">'
+        f'<div class="priority-feature">{wide_html}</div>'
+        f'<div class="priority-pair">{recommendations[pair[0]]}{recommendations[pair[1]]}</div>'
+        '</div>'
+    ]
     if priority.get("questions"):
         blocks.append(_inline('QUESTIONS FOR YOU · TEXT “Q2: …”', priority["questions"]))
     return "\n".join(blocks)
@@ -1262,9 +1294,6 @@ def write_pdf(html_text, path):
             "(the personalized-paper plan §5 has the Chrome-on-Mac fallback)."
         )
     document = HTML(string=html_text).render()
-    page_count = len(document.pages)
-    if page_count != 1:
-        sys.exit(f"error: rendered {page_count} pages; expected exactly 1")
     document.write_pdf(str(path))
 
 
