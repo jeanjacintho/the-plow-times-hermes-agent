@@ -197,7 +197,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   on-demand copy reusing an older checkpoint also sets the section's `"as_of"` to that
   checkpoint's `date`; the card then prints "Advice from <date>". If that
   complete checkpoint is missing, or the **As of** date in
-  `pt/advisor.md` is not today, leave the section out of
+  `pt/advisor.md` is not today (on demand: not the reused checkpoint's `as_of`), leave the section out of
   `edition.json`: `render_edition.py` then fills the slot with its honest
   gap card. Never omit the slot any other way. Mail only when
   `pt/config.json` has
