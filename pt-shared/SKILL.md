@@ -60,7 +60,7 @@ does not, and every run fails on the import.
   agent's own key sat unused beside it.
 - `scripts/owner_language.py` — `is_portuguese(language)`, the one place that
   reads `owner.language` for repo-authored copy (the chat wait lines and the
-  priority gap card). A library, not a flow
+  priority card's "Advice from" line). A library, not a flow
   script: nothing invokes it, the pt-* scripts import it.
 - `scripts/wiki.py` — the paper's pages in the owner's wiki (`~/Plow/wiki`, plow-wiki):
   the root `projects/theplowtimes` (writer `theplowtimes`), the shared

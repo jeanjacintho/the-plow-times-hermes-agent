@@ -104,9 +104,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block
   it qualifies. Unsourced claims are named, not hidden.
-- **Every desk but priority prints `sources` and `could_not_source`**, in
-  the reader's words ("your calendar", never a file or a path). On the
-  priority desk those lines were the paper's own plumbing ("Sources:
+- **Every desk prints `could_not_source`, and every desk but priority
+  prints `sources`**, in the reader's words ("your calendar", never a file
+  or a path). Priority sources were the paper's own plumbing ("Sources:
   priority desk"), so the renderer drops them there. Weather on the
   printed page is the masthead ear (a vendored Atlas icon and high/low, or
   the named miss when research failed); it has no sources line. The chat
@@ -197,9 +197,12 @@ HTML.** Hand-write `edition.json` under the run directory:
   on-demand copy reusing an older checkpoint also sets the section's `"as_of"` to that
   checkpoint's `date`; the card then prints "Advice from <date>". If that
   complete checkpoint is missing, or the **As of** date in
-  `pt/advisor.md` is not today (on demand: not the reused checkpoint's `as_of`), leave the section out of
-  `edition.json`: `render_edition.py` then fills the slot with its honest
-  gap card. Never omit the slot any other way. Mail only when
+  `pt/advisor.md` is not today (on demand: not the reused checkpoint's `as_of`), write the
+  unavailable section instead: a one-line `body` saying today's card could not be built, and
+  `could_not_source` copied verbatim from `run/desk-priority/notes.json` when its `date` is
+  this edition's (that desk is kept across days; an older file's reason is not today's).
+  `render_edition.py` refuses a configured paper with no priority section, and an
+  unavailable one with no reason. Never omit the slot. Mail only when
   `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
   otherwise omit the mail block entirely so that slot stays empty.
@@ -221,12 +224,12 @@ HTML.** Hand-write `edition.json` under the run directory:
   `events.json` in place. `render_edition.py` refuses an edition that carries a standing desk when any
   such file's `date` is missing or not the edition's `date`; re-run that
   desk, or delete its stale files. `desk-priority` is kept across days and exempt;
-  `--tournament` dates its card instead. A news-only edition (a one-topic
+  `--tournament` dates its card instead, and an unavailable card needs today's `notes.json`. A news-only edition (a one-topic
   subscription) renders no standing desk, so leftover desk files are not
-  checked and need no action. Weather and calendar are mandatory
-  departments: after deleting, compile an honest failed-gather section, never
-  drop them. Only an optional desk (mail, sports, priority) may be dropped as
-  a logged miss. While the edition still carries a standing desk, the check reads
+  checked and need no action. Weather, calendar, and a configured priority
+  desk are mandatory: after deleting, compile an honest failed-gather (priority:
+  unavailable) section from the current reason, never drop them. Only mail
+  and sports may be dropped as a logged miss. While the edition still carries a standing desk, the check reads
   all the files, so dropping one desk's section without deleting its files
   still refuses.
 - **Pagination is the renderer's job.** News that does not fit one Letter

@@ -39,8 +39,8 @@ before any later-desk work. After compaction, resume that page alongside the las
 `tournament.json` deliverable checkpoint.
 An older delivered card is generation-zero input, never proof that today's desk is complete.
 **Skipping this desk in the canonical scheduled paper is a bug, not a shortcut**:
-`render_edition.py`'s gap card for a
-missing complete tournament checkpoint is the backstop, not the plan.
+a desk that cannot publish writes its reason to `could_not_source`, and `render_edition.py`
+refuses a configured paper with no priority section.
 
 ## 1. Location, then weather — every daily run
 

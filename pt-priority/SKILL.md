@@ -184,7 +184,7 @@ question with the named source class, then uses Latch research to make the stron
 
 Each critic also returns its own `reads` in the writer receipt shape, plus checked claims, contrary
 evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
-It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, keep the honest unavailable card.
+It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, the desk is unavailable (see Card).
 After the critic set returns, preserve every returned verdict in the run page's `## Critic verdicts` section;
 do not copy tool transcripts or claim a critic that did not return a verdict.
 
@@ -240,6 +240,11 @@ the quote. The card is:
 ```json
 {"desk":"priority","status":"ok","priority":{"recommendations":[…],"questions":["Q<n> — …"]}}
 ```
+
+When the desk cannot publish (Orient blocked, no checkpoint when time runs out), it writes
+`/var/lib/hermes/pt/run/desk-priority/notes.json` as
+`{"date":"<edition date>","could_not_source":["<what failed and why>"]}`; the edition prints
+that reason as the unavailable card.
 
 Write the complete candidate checkpoint to
 `/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json` and copy its

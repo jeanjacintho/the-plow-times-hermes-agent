@@ -747,8 +747,6 @@ class TestSkills:
         # A config with no owner.language must not send the culler back to inferring one;
         # pt-edition owns that fallback and this desk defers to it rather than forking it.
         assert "is `pt-edition/SKILL.md`'s case" in skill
-        renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
-        assert "def ensure_priority_desk" in renderer
         assert "Never omit the slot" in edition
 
     def test_soul_delegates_delivery_argv_to_the_edition_skill(self):
