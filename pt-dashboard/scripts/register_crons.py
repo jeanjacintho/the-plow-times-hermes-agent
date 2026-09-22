@@ -425,16 +425,6 @@ def daily_schedule(delivery_hour, lead_minutes):
     return f"{total % 60} {total // 60} * * *"
 
 
-def has_paper(topics):
-    """The daily paper always exists once setup can register crons.
-
-    Weather and calendar desks run even with zero news sections; mail joins
-    when configured. Topics only add news blocks. `topics` is unused and
-    kept so callers and tests stay the same shape.
-    """
-    return True
-
-
 def daily_job(delivery_hour, lead_minutes, env=None, *, name=DAILY_NAME):
     """One full-paper delivery job -- the canonical slot, or an extra one."""
     return {
@@ -534,12 +524,13 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     def lead(hour):
         return _slot_lead(hour, lead_minutes, owner_tz, container_tz)
 
-    if has_paper(topics):
-        jobs.append(daily_job(delivery_hour, lead(delivery_hour), env))
-        for n, hour in enumerate(extra_hours, start=2):
-            jobs.append(daily_job(hour, lead(hour), env, name=f"{DAILY_NAME}-{n}"))
-        for hour in focused_hours:
-            jobs.append(paper_job(hour, lead(hour), env))
+    # The daily paper always exists once setup can register: weather and
+    # calendar run even with zero news sections.
+    jobs.append(daily_job(delivery_hour, lead(delivery_hour), env))
+    for n, hour in enumerate(extra_hours, start=2):
+        jobs.append(daily_job(hour, lead(hour), env, name=f"{DAILY_NAME}-{n}"))
+    for hour in focused_hours:
+        jobs.append(paper_job(hour, lead(hour), env))
     jobs.extend(
         subscription_job(t, delivery_hour, env)
         for t in topics
@@ -554,10 +545,9 @@ def stale_names(topics, registered, extra_hours_count=0, delivery_hour=None):
     A subscription job outlives only its non-cancelled topic; a one-off job
     outlives only a topic still pending or running (its prompt self-removes
     it after firing -- this sweep is the backstop, and prunes delivered,
-    cancelled or vanished topics' leftovers). The daily job and every
-    numbered extra-daily job outlive only a paper that still exists; an extra
-    job also goes stale the moment the owner removes that many delivery
-    times. A pt-paper-HHMM job outlives only an active section still at that
+    cancelled or vanished topics' leftovers). The daily job is never stale; a
+    numbered extra-daily job goes stale the moment the owner removes that
+    many delivery times. A pt-paper-HHMM job outlives only an active section still at that
     hour (and not the main delivery.hour). Names not starting with pt- are
     never ours to remove.
     """
@@ -568,8 +558,6 @@ def stale_names(topics, registered, extra_hours_count=0, delivery_hour=None):
     stale = []
     for name in registered:
         if name == DAILY_NAME:
-            if not has_paper(topics):
-                stale.append(name)
             continue
         extra_match = _EXTRA_DAILY_RE.fullmatch(name)
         if extra_match is not None:

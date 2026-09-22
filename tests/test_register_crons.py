@@ -535,18 +535,6 @@ class TestFocusedPapers:
         assert stale == []
 
 
-class TestHasPaper:
-    def test_always_true_with_a_section(self):
-        assert crons.has_paper([topic("t_1", kind="section", status="pending")])
-
-    def test_always_true_with_no_news_topics(self):
-        # Weather and calendar desks still fill a paper.
-        assert crons.has_paper([])
-
-    def test_always_true_with_only_a_subscription(self):
-        assert crons.has_paper([topic("t_1")])
-
-
 class TestDailyJob:
     def test_included_when_a_section_exists(self):
         jobs = crons.desired_jobs(
