@@ -96,9 +96,12 @@ does not, and every run fails on the import.
 - `scripts/run_lock.py` — one exclusive run per name with stale takeover, so
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:
-  `/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name NAME [--stale-minutes N]`
+  `/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name NAME [--stale-minutes N] [--wait-seconds N]`
   and the matching `.../run_lock.py release --name NAME`. Prints one word
   (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
+  `--wait-seconds` polls a fresh holder instead of reporting `held` on the
+  first check, so a scheduled run does not skip the day just because an
+  on-demand copy won the lock a moment earlier.
 - `scripts/prepare_daily_run.py` — immediately after any paper lock is acquired,
   archives prior dated and desk scratch beside `run/` and prints `READY`.
   Every paper passes `--preserve-priority` (desks.md decides which advisor checkpoint

@@ -825,6 +825,24 @@ class TestScheduledHold:
         assert "--hold-until 03:00" in jobs[0]["prompt"]
         assert "--hold-until 10:30" in jobs[1]["prompt"]
 
+    def test_scheduled_paper_waits_out_a_fresh_holder_instead_of_skipping(self):
+        # issue #30: an on-demand copy winning the lock a moment before cron
+        # fires must not make the scheduled run skip the whole day.
+        jobs = crons.desired_jobs([], "07:00", {})
+        assert f"--wait-seconds {crons.HELD_LOCK_WAIT_SECONDS}" in jobs[0]["prompt"]
+
+    def test_on_demand_copy_does_not_wait_on_its_own_lock(self):
+        # It is the one usually winning that race; waiting on itself would
+        # just be the same "held" story with extra steps.
+        assert "--wait-seconds" not in crons.paper_prompt()
+
+    def test_paper_job_also_waits_out_a_fresh_holder(self):
+        jobs = crons.desired_jobs(
+            [topic("t_sec", kind="section", deliver_at="12:00")], "07:00", {},
+        )
+        paper = next(j for j in jobs if j["name"] == "pt-paper-1200")
+        assert f"--wait-seconds {crons.HELD_LOCK_WAIT_SECONDS}" in paper["prompt"]
+
 
 class TestPrintLegSurvivesIntoTheRunPrompts:
     """Paper must still happen even when the model skips pt-print.

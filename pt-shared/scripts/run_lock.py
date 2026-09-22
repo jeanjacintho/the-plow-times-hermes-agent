@@ -10,7 +10,7 @@ agent must never do. `hermes cron` has no dedup, so the lock is a file
 created with O_EXCL: the atomic primitive every process on the host agrees
 on.
 
-  acquire --name NAME [--stale-minutes N]
+  acquire --name NAME [--stale-minutes N] [--wait-seconds N]
   release --name NAME
 
 `acquire` prints exactly one word and always exits 0, so a cron-fired
@@ -21,6 +21,12 @@ session reads the decision instead of a status code:
                   a dead run's leftover, not a live owner; this process now
                   owns it
   held            a fresh owner is running it; stop, do not start a second
+
+`--wait-seconds` (default 0) is for a cron-fired run that must not skip the
+day just because an on-demand copy took the lock a moment earlier (issue
+#30): instead of reporting `held` on the first check, it polls once a second
+until the lock frees, goes stale, or the budget runs out, whichever comes
+first -- so `held` still means "give up," just after actually waiting.
 
 `release` removes the lock; a missing lock is not an error (the run ended
 without acquiring, or two releases raced). The lock directory is
@@ -34,6 +40,7 @@ import os
 import pathlib
 import re
 import sys
+import time
 from datetime import datetime, timezone
 
 DEFAULT_STALE_MINUTES = 120
@@ -63,26 +70,42 @@ def age_minutes(text):
     return (now() - stamp).total_seconds() / 60.0
 
 
-def acquire(name, stale_minutes):
+def acquire(name, stale_minutes, wait_seconds=0, sleep=time.sleep):
+    """Take the lock, waiting out a fresh holder for up to wait_seconds.
+
+    A one-shot on-demand run can win the race against the same day's cron
+    fire by a few seconds; without a wait, the scheduled run saw a fresh
+    lock and skipped the whole day (issue #30). wait_seconds=0 keeps the
+    original one-check behavior.
+    """
     path = lock_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-    except FileExistsError:
+    waited = 0
+    while True:
         try:
-            text = path.read_text()
-        except OSError:
-            text = ""
-        age = age_minutes(text)
-        if age is None or age > stale_minutes:
-            # A lock we cannot parse, or one older than the whole run budget,
-            # is a dead run's leftover -- taking it over beats blocking the
-            # paper forever. A parsed-and-fresh lock is a live owner: held.
-            path.write_text(now().isoformat(timespec="seconds") + "\n")
-            print("stale-takeover")
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        except FileExistsError:
+            try:
+                text = path.read_text()
+            except OSError:
+                text = ""
+            age = age_minutes(text)
+            if age is None or age > stale_minutes:
+                # A lock we cannot parse, or one older than the whole run
+                # budget, is a dead run's leftover -- taking it over beats
+                # blocking the paper forever. A parsed-and-fresh lock is a
+                # live owner: held, unless there is still time to wait it out.
+                path.write_text(now().isoformat(timespec="seconds") + "\n")
+                print("stale-takeover")
+                return 0
+            if waited < wait_seconds:
+                sleep(1)
+                waited += 1
+                continue
+            print("held")
             return 0
-        print("held")
-        return 0
+        else:
+            break
     with os.fdopen(fd, "w") as handle:
         handle.write(now().isoformat(timespec="seconds") + "\n")
     print("acquired")
@@ -106,7 +129,8 @@ def main(argv=None):
     acq = sub.add_parser("acquire", help="take the run lock if free")
     acq.add_argument("--name", required=True)
     acq.add_argument("--stale-minutes", type=int, default=DEFAULT_STALE_MINUTES)
-    acq.set_defaults(func=lambda a: acquire(a.name, a.stale_minutes))
+    acq.add_argument("--wait-seconds", type=int, default=0)
+    acq.set_defaults(func=lambda a: acquire(a.name, a.stale_minutes, a.wait_seconds))
 
     rel = sub.add_parser("release", help="drop the run lock")
     rel.add_argument("--name", required=True)

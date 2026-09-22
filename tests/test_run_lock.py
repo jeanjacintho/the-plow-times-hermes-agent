@@ -67,3 +67,63 @@ def test_release_missing_is_not_an_error(pt_home):
 def test_names_with_path_characters_refused(pt_home):
     with pytest.raises(SystemExit, match="not allowed"):
         lock.main(["acquire", "--name", "../escape"])
+
+
+class TestWaitSeconds:
+    """issue #30: a scheduled run must not skip the day on a passing overlap
+    with an on-demand copy that won the lock a moment earlier."""
+
+    def test_default_is_the_original_one_check_behavior(self, pt_home):
+        out(["acquire", "--name", "daily-2026-09-11"])
+        code, text = out(["acquire", "--name", "daily-2026-09-11"])
+        assert code == 0 and text == "held"
+
+    def test_waits_then_acquires_once_the_holder_releases(self, pt_home):
+        lock_path = pt_home / "run" / "daily-2026-09-11.lock"
+        lock_path.parent.mkdir(parents=True)
+        lock_path.write_text(lock.now().isoformat(timespec="seconds") + "\n")
+        calls = []
+
+        def fake_sleep(seconds):
+            calls.append(seconds)
+            if len(calls) == 2:
+                lock_path.unlink()
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = lock.acquire("daily-2026-09-11", 120, wait_seconds=5, sleep=fake_sleep)
+        assert code == 0 and buf.getvalue().strip() == "acquired"
+        assert calls == [1, 1]
+
+    def test_gives_up_as_held_once_the_wait_budget_runs_out(self, pt_home):
+        lock_path = pt_home / "run" / "daily-2026-09-11.lock"
+        lock_path.parent.mkdir(parents=True)
+        lock_path.write_text(lock.now().isoformat(timespec="seconds") + "\n")
+        calls = []
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = lock.acquire("daily-2026-09-11", 120, wait_seconds=3, sleep=calls.append)
+        assert code == 0 and buf.getvalue().strip() == "held"
+        assert calls == [1, 1, 1]
+
+    def test_a_lock_that_goes_stale_mid_wait_is_taken_over_without_using_the_full_budget(self, pt_home):
+        # Each fake second pushes the lock's own timestamp further into the
+        # past, standing in for real time passing while this waits.
+        lock_path = pt_home / "run" / "daily-2026-09-11.lock"
+        lock_path.parent.mkdir(parents=True)
+        lock_path.write_text((lock.now() - timedelta(minutes=119)).isoformat(timespec="seconds") + "\n")
+        calls = []
+
+        def fake_sleep(seconds):
+            calls.append(seconds)
+            lock_path.write_text(
+                (lock.now() - timedelta(minutes=119, seconds=len(calls) * 10)).isoformat(timespec="seconds")
+                + "\n"
+            )
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = lock.acquire("daily-2026-09-11", 120, wait_seconds=60, sleep=fake_sleep)
+        assert code == 0 and buf.getvalue().strip() == "stale-takeover"
+        assert len(calls) < 60
