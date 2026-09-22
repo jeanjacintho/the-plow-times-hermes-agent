@@ -73,22 +73,73 @@ class TestFinishCommand:
             lm.finish_command(lambda *_: {}, parked, "lp")
 
 
-class TestMissingCredential:
-    """A hosted install never gets the static DOMO_* pair, and that is a
-    permanent gap rather than a failed call -- callers need to ask before
-    committing to a Latch session."""
+class TestConnect:
+    """Which credential this install reaches the Mac with.
 
-    @pytest.mark.parametrize("env, expected", [
-        ({"DOMO_DEVICE_UID": "d", "DOMO_MCP_TOKEN": "t"}, None),
-        ({"DOMO_MCP_TOKEN": "t"}, "DOMO_DEVICE_UID"),
-        ({"DOMO_DEVICE_UID": "d"}, "DOMO_MCP_TOKEN"),
-        ({}, "DOMO_DEVICE_UID"),
-        ({"DOMO_DEVICE_UID": "   ", "DOMO_MCP_TOKEN": "t"}, "DOMO_DEVICE_UID"),
-    ])
-    def test_it_names_the_variable_that_has_no_value(self, monkeypatch, env, expected):
-        for name in lm.CREDENTIAL_VARS:
+    A self-hosted install pastes a static DOMO_* pair into the home's .env; a
+    Plow-hosted install never gets one, and used to fail every print on the
+    missing variable. It derives its own relay URL instead.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN", "PLOW_AGENT_TOKEN",
+                     "PLOW_API_BASE"):
             monkeypatch.delenv(name, raising=False)
-        for name, value in env.items():
-            monkeypatch.setenv(name, value)
+        monkeypatch.setenv("PLOW_API_BASE", "https://api.example")
 
-        assert lm.missing_credential() == expected
+    def test_a_static_pair_builds_its_own_device_url(self, monkeypatch):
+        monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
+        monkeypatch.setenv("DOMO_MCP_TOKEN", "static-token")
+        # Nothing may be fetched when the pair is present.
+        monkeypatch.setattr(lm, "get_json", lambda *a, **k: pytest.fail("fetched"))
+
+        client = lm.connect()
+
+        assert client.url == "https://api.example/v1/relay/devices/dev-1/mcp"
+        assert client.token == "static-token"
+
+    def test_without_a_pair_it_derives_the_url_from_its_own_identity(self, monkeypatch):
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
+        seen = {}
+
+        def fake_get(base, path, token, label):
+            seen.update(base=base, path=path, token=token)
+            # Verbatim, and deliberately NOT the shape connect() would build:
+            # a proxied agent is handed a proxied URL.
+            return {"mcp_url": "https://proxy.example/v1/relay/devices/usr-9/mcp"}
+
+        monkeypatch.setattr(lm, "get_json", fake_get)
+
+        client = lm.connect()
+
+        assert seen == {"base": "https://api.example",
+                        "path": "/v1/agents/me",
+                        "token": "agent-token"}
+        assert client.url == "https://proxy.example/v1/relay/devices/usr-9/mcp"
+        assert client.token == "agent-token"
+
+    @pytest.mark.parametrize("identity", [
+        {"mcp_url": None},      # credential lacks relay:call
+        {"mcp_url": "  "},
+        {},
+        "not an object",
+    ])
+    def test_no_url_means_this_credential_cannot_call_the_relay(self, monkeypatch, identity):
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
+        monkeypatch.setattr(lm, "get_json", lambda *a, **k: identity)
+
+        with pytest.raises(LatchError, match="relay"):
+            lm.connect()
+
+    def test_a_half_pair_is_not_a_pair(self, monkeypatch):
+        # Only one of the two set: fall through to the derived URL rather than
+        # refusing, which is what used to happen.
+        monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
+        monkeypatch.setattr(
+            lm, "get_json",
+            lambda *a, **k: {"mcp_url": "https://api.example/v1/relay/devices/usr-9/mcp"},
+        )
+
+        assert lm.connect().token == "agent-token"

@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.request
 
-from bearer_http import open_no_redirect, require
+from bearer_http import get_json, open_no_redirect, require
 
 MCP_TIMEOUT = 60
 POLL_SECONDS = 120
@@ -128,9 +128,14 @@ class LatchClient:
     tools/call with no initialize -- so this does too.
     """
 
-    def __init__(self, base, device, token):
-        self.url = f"{base.rstrip('/')}/v1/relay/devices/{device}/mcp"
+    def __init__(self, url, token):
+        self.url = url
         self.token = token
+
+    @classmethod
+    def for_device(cls, base, device, token):
+        """A static DOMO_* pair names its device; build that device's URL."""
+        return cls(f"{base.rstrip('/')}/v1/relay/devices/{device}/mcp", token)
 
     def _headers(self):
         return {
@@ -174,26 +179,42 @@ class LatchClient:
         )
 
 
-CREDENTIAL_VARS = ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN")
+def hosted_mcp_url(base, agent_token):
+    """This agent's own relay MCP URL, from the identity endpoint it boots on.
 
+    `GET /v1/agents/me` returns `mcp_url` gated on the credential's
+    `relay:call` scope -- which every hosted agent's credential carries --
+    and NOT on a paired Mac: the relay answers 404 until one connects. So a
+    URL here means "entitled to call the relay", not "the Mac is up". Use the
+    value verbatim: an agent reaching Plow through a proxy is handed a
+    proxied URL, which rebuilding the path from `base` would discard.
 
-def missing_credential():
-    """The first DOMO_* variable this install has no value for, or None.
-
-    `require` exits, which is right once a caller has committed to a Latch
-    call. This answers the question *before* committing, because the answer
-    is not a transient failure: the static credential is a self-hosted setup
-    step (README, "create a static credential"), so an install that never got
-    one can never print, and the print leg has to say that instead of
-    promising a retry that cannot succeed. Presence only -- never the value.
+    None only when the credential lacks the scope.
     """
-    return next(
-        (name for name in CREDENTIAL_VARS if not os.environ.get(name, "").strip()),
-        None,
-    )
+    identity = get_json(base, "/v1/agents/me", agent_token, "Plow agent identity")
+    url = identity.get("mcp_url") if isinstance(identity, dict) else None
+    return url.strip() if isinstance(url, str) and url.strip() else None
 
 
 def connect():
-    """A session as this agent's static Latch credential (DOMO_* in the home's .env)."""
+    """A session with the owner's Mac, by whichever credential this install has.
+
+    A self-hosted install pastes a static DOMO_* pair into the home's .env
+    (README, "create a static credential"). A Plow-hosted install has no such
+    step and never gets one -- but its own agent credential already carries
+    the `relay:call` scope the relay MCP endpoint requires, so the URL is
+    derived rather than demanded. Before this, a hosted install could not
+    print at all: `require` refused on DOMO_DEVICE_UID every run.
+    """
     base = os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip() or "https://api.plow.co"
-    return LatchClient(base, require("DOMO_DEVICE_UID"), require("DOMO_MCP_TOKEN"))
+    device = os.environ.get("DOMO_DEVICE_UID", "").strip()
+    token = os.environ.get("DOMO_MCP_TOKEN", "").strip()
+    if device and token:
+        return LatchClient.for_device(base, device, token)
+    agent_token = require("PLOW_AGENT_TOKEN")
+    url = hosted_mcp_url(base, agent_token)
+    if not url:
+        raise LatchError(
+            "this agent's credential cannot call the relay (no relay:call scope)"
+        )
+    return LatchClient(url, agent_token)

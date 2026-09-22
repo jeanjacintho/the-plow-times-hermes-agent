@@ -53,8 +53,10 @@ does not, and every run fails on the import.
   (`connect()`, `LatchClient.call_tool` (one stateless request, pending
   handles settled), `LatchError`). A failure raises `LatchError`; the caller
   names what did not happen. The print leg and the wiki scripts both use it.
-  `missing_credential()` answers whether this install has the static DOMO_*
-  pair at all, before a caller commits to a session.
+  `connect()` uses the static DOMO_* pair when the home's .env has one
+  (self-hosted) and otherwise derives this agent's own relay URL from
+  `GET /v1/agents/me` with `PLOW_AGENT_TOKEN`, which is what makes printing
+  work on a Plow-hosted install that has no pair to paste.
 - `scripts/owner_language.py` — `is_portuguese(language)`, the one place that
   reads `owner.language` for repo-authored copy (the chat wait lines, the
   priority gap card, the unavailable-paper notice). A library, not a flow
