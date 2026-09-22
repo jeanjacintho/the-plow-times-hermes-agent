@@ -61,7 +61,9 @@ If you have no assistant line yet: `plow-agents login --new-line`, then `lines` 
 
 Text the line you minted. The first message is the paper’s hour, not a profile interview.
 
-To print and to research in your own browser, run [Latch](https://howto.plow.co/latch) on the Mac this agent should drive. In Latch: **Agents → can’t use OAuth? create a static credential**. Put `DOMO_DEVICE_UID` and `DOMO_MCP_TOKEN` in the container’s `/var/lib/hermes/.env` (`KEY=value` at column 0), then `docker compose restart`. Chat works without Latch; the Mac, the printer and the wiki do not.
+To print and to research in your own browser, run [Latch](https://howto.plow.co/latch) on the Mac this agent should drive, signed in to the same Plow account. The agent reaches it with its own credential — there is nothing to paste and no restart. Chat works without Latch; the Mac, the printer and the wiki do not.
+
+Upgrading from a version that had you paste a static credential? Revoke it in Latch.
 
 ```sh
 docker compose down          # stop, keep memory

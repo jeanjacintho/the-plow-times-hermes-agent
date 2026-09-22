@@ -995,12 +995,15 @@ class TestDeployment:
         content = (ROOT / "skills.tsv").read_text().strip()
         assert content == ""
 
-    def test_config_declares_latch_and_chat_only(self):
+    def test_config_declares_no_relay_server_of_its_own(self):
         config = (ROOT / "runtime" / "config.yaml").read_text()
         assert "plow-chat-platform" in config
-        assert "https://api.plow.co/v1/relay/devices/" in config
-        # The credential is interpolated from the dotenv, never a literal.
-        assert "DOMO_MCP_TOKEN" in config and "DOMO_DEVICE_UID" in config
+        # plow-init manages the one relay entry in mcp_servers and enables it
+        # exactly when the agent's identity carries a relay. A second entry
+        # here hand-built a device URL from a static DOMO_* pair, and a stale
+        # pair then won over the agent's own key and 401'd every run.
+        assert "/v1/relay/devices/" not in config
+        assert "DOMO_MCP_TOKEN" not in config and "DOMO_DEVICE_UID" not in config
         # Hard gate: Hermes web_extract / web_search / Playwright stay off.
         assert "disabled_toolsets" in config
         assert "\n    - web\n" in config
