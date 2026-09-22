@@ -1,5 +1,5 @@
 #!/bin/sh
-# Drop the `latch` mcp_servers entry this repo used to declare.
+# Drop the `latch` mcp_servers entry this repo used to declare, once.
 #
 # The image's config.yaml lands in /var/lib/hermes, which is the agent-home
 # volume, so it is shadowed after first create -- the same shadowing the
@@ -9,50 +9,49 @@
 # entry would otherwise sit there forever, enabled, still interpolating the
 # retired DOMO_* pair, failing its connect every five minutes.
 #
-# Temporary: delete this hook once no install predates the single-credential
-# change. It is a one-time migration, not a standing reconcile -- it removes
-# the retired entry, identified by the credential it interpolates rather than
-# by its name alone, so a later server that happens to be called `latch`
-# survives.
+# It runs once per home and leaves a marker. That is what makes it a migration
+# rather than a standing reconcile, and it is why no predicate guards the
+# delete: a hook that has already run cannot mistake a later server named
+# `latch` for the retired one, so it does not have to tell them apart.
+#
+# Temporary: delete this hook, and the marker it writes, once no install
+# predates the single-credential change.
 set -eu
-config=/var/lib/hermes/config.yaml
-[ -f "$config" ] || exit 0
-/opt/hermes/.venv/bin/python3 - "$config" <<'PY'
+/opt/hermes/.venv/bin/python3 - \
+  /var/lib/hermes/config.yaml /var/lib/hermes/.pt-legacy-latch-retired <<'PY'
 import os
 import sys
 import yaml
 
-path = sys.argv[1]
-with open(path) as handle:
+config_path, marker_path = sys.argv[1], sys.argv[2]
+if os.path.exists(marker_path) or not os.path.exists(config_path):
+    sys.exit(0)
+
+with open(config_path) as handle:
     config = yaml.safe_load(handle) or {}
 
 servers = config.get("mcp_servers")
-entry = servers.get("latch") if isinstance(servers, dict) else None
-# The name alone does not make it the retired one. What does is the URL this
-# repo always wrote for it -- the device interpolated straight into the path.
-# Matching the bearer too would be stricter without being safer: an install
-# whose header drifted is exactly the one still needing the migration.
-LEGACY_URL_MARKER = "${DOMO_DEVICE_UID}"
-if not isinstance(entry, dict) or LEGACY_URL_MARKER not in str(entry.get("url", "")):
-    sys.exit(0)
+if isinstance(servers, dict) and servers.pop("latch", None) is not None:
+    # An empty mapping would read as "this agent declares no relay" and clobber
+    # the image-managed `plow` entry on merge; drop the key itself instead.
+    if not servers:
+        del config["mcp_servers"]
+    # Same shape as 02-copy-plow-credentials: a boot-critical file is replaced,
+    # not truncated in place, so an interrupted write cannot leave an agent
+    # that will not start. The rename is atomic within the directory.
+    stat = os.stat(config_path)
+    tmp = config_path + ".tmp"
+    with open(tmp, "w") as handle:
+        yaml.safe_dump(config, handle, allow_unicode=True, sort_keys=False)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.chown(tmp, stat.st_uid, stat.st_gid)
+    os.chmod(tmp, stat.st_mode & 0o7777)
+    os.replace(tmp, config_path)
+    print("retired the legacy latch mcp_servers entry")
 
-del servers["latch"]
-# An empty mapping would read as "this agent declares no relay" and clobber the
-# image-managed `plow` entry on merge; drop the key itself instead.
-if not servers:
-    del config["mcp_servers"]
-
-# Same shape as 02-copy-plow-credentials: a boot-critical file is replaced, not
-# truncated in place, so an interrupted write cannot leave an agent that will
-# not start. The rename is atomic within the directory.
-stat = os.stat(path)
-tmp = path + ".tmp"
-with open(tmp, "w") as handle:
-    yaml.safe_dump(config, handle, allow_unicode=True, sort_keys=False)
-    handle.flush()
-    os.fsync(handle.fileno())
-os.chown(tmp, stat.st_uid, stat.st_gid)
-os.chmod(tmp, stat.st_mode & 0o7777)
-os.replace(tmp, path)
-print("retired the legacy latch mcp_servers entry")
+# Written whether or not anything was removed -- a home that never carried the
+# entry is migrated too, and asking again every boot is the thing being fixed.
+with open(marker_path, "w") as handle:
+    handle.write("the-plow-times retired mcp_servers.latch here\n")
 PY
