@@ -36,7 +36,8 @@ attachment_uids) and optionally sends the companion as its body.
 that clock in TZ before posting; if it has already passed, posts now.
 After a successful POST, three
 finalizers run independently and best-effort: finalize exactly the topics carried by
-`edition.json`, print via print_edition.py when configured, and record via
+`edition.json`, print the run's PDF via print_edition.py when configured (a
+miss posts one line saying why), and record via
 record_edition.py (`--pdf` and `--text-file` both) on the sibling
 `edition.json` -- one's failure never skips or undoes another, and nothing
 about the record reaches chat. `--dry-run` prints the redacted envelope and
@@ -173,36 +174,41 @@ def _best_effort(run, args, failure):
     return (out or "").strip() or f"{failure} — empty result"
 
 
-def run_print_edition(pdf_path, config_path):
+PRINT_TIMEOUT = 600
+
+
+def print_page(pdf_path):
+    """Print the page; the owner's one chat line if it did not, else None.
+
+    print_edition.py exits 0 when it printed or when printer.configured is
+    not true (silence). Any other exit, a hang, or a crash owes the owner a
+    line, since the turn ends in NO_REPLY. The exit status says it failed
+    and the script's last line says why (issue #79: no phrase is both the
+    owner's lede and the selector). Measured 2026-09-22: an on-demand run
+    with a configured printer printed nothing and said nothing.
+    """
     import subprocess
 
-    proc = subprocess.run(
-        [sys.executable, str(PRINT_SCRIPT), pdf_path, config_path],
-        capture_output=True,
-        text=True,
-    )
-    blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
-    if proc.returncode != 0:
-        if "page not printed" in blob or "page may not have printed" in blob:
-            return blob
-        return f"page not printed — {blob or proc.returncode}"
-    return blob
-
-
-def maybe_print(pdf_path, config_path=None, runner=None):
-    """Ship the page after the chat PDF. Plain: main() makes this best-effort.
-
-    Measured live 2026-09-18: the model posted the PDF, had edition.html
-    and printer.configured true, and never ran print_edition.py. Later the
-    same day this gated on a sibling edition.html the print never reads;
-    runs that rendered only the PDF logged "skipped: no html" and printed
-    nothing. The PDF just posted is the page.
-    """
-    config_path = config_path or CONFIG_DEFAULT
-    if not pdf_path:
-        return "skipped: no pdf"
-    run = runner or run_print_edition
-    return run(str(Path(pdf_path).resolve()), config_path)
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(PRINT_SCRIPT), pdf_path, CONFIG_DEFAULT],
+            capture_output=True,
+            text=True,
+            timeout=PRINT_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        reason = f"outcome unknown: still running after {PRINT_TIMEOUT}s"
+    except Exception as exc:
+        reason = str(exc)
+    else:
+        blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
+        print(blob)
+        if proc.returncode == 0:
+            return None
+        reason = blob.splitlines()[-1] if blob else f"exit {proc.returncode}"
+    line = "page not printed — " + reason.removeprefix("error: ")[:200]
+    # An unknown outcome may still print: a retry promise could mean a second copy.
+    return line if "outcome unknown" in line else line + "; next scheduled run retries"
 
 
 RECORD_TIMEOUT = 300
@@ -240,33 +246,6 @@ def run_finalize_topics(edition_json):
     if proc.returncode != 0:
         return f"topics not finalized — {blob or proc.returncode}"
     return blob
-
-
-# Failures that must not collect "; next scheduled run retries".
-#   "outcome unknown"            -- a retry promise could mean a second copy
-#   "next scheduled run retries" -- the line already carries one
-# There is no longer a can-never-print state to mark: a hosted install
-# derives its relay URL from its own credential, so every print failure is
-# something a later run can succeed at -- a Mac that is asleep, a printer
-# that is off, a relay that 404s until Latch connects.
-TERMINAL_FAILURES = (
-    "outcome unknown",
-    "next scheduled run retries",
-)
-
-
-def print_failure_line(result):
-    """The one chat line a failed print owes the owner; None if it printed or skipped.
-
-    The turn ends in NO_REPLY, so a failure left on stdout never reaches them.
-    """
-    line = next((l for l in result.splitlines() if "page not printed" in l), None)
-    if line is None:
-        return None
-    line = line.removeprefix("error: ")[:200]
-    if any(marker in line for marker in TERMINAL_FAILURES):
-        return line
-    return line + "; next scheduled run retries"
 
 
 def compose_payload(text, attachment_uid=None):
@@ -375,16 +354,16 @@ def main():
     if args.pdf:
         suffix = " + companion" if text else " only"
         print(f"chat edition posted (pdf{suffix}) {args.pdf}")
-        printed = _best_effort(maybe_print, (args.pdf,), "page not printed")
-        print(printed)
-        line = print_failure_line(printed)
-        if line:
-            try:  # the edition already posted: exit 0 must keep meaning that
-                post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", {"body": line})
-            except SystemExit as exc:
-                print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     else:
         print(f"chat edition posted ({len(text)} chars)")
+    # The text leg prints its run's PDF too: absent, the owner hears why.
+    pdf = args.pdf or (str(Path(args.text_file).parent / "edition.pdf") if args.text_file else None)
+    line = print_page(pdf) if pdf else None
+    if line:
+        try:  # the edition already posted: exit 0 must keep meaning that
+            post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", {"body": line})
+        except SystemExit as exc:
+            print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     recorded = (
         _best_effort(run_record_edition, (edition_json,), "edition not recorded")
         if edition_json else "skipped: no posted file"

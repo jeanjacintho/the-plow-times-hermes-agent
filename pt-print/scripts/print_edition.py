@@ -17,8 +17,9 @@ Usage:
     print_edition.py <edition.pdf> <config.json>
 
 Date comes from sibling edition.json. Skips with exit 0 when
-printer.configured is not true. Any real Latch or `lp` failure exits
-non-zero with `page not printed` in the message.
+printer.configured is not true. Any failure exits non-zero with its reason
+as the last line; post_to_chat.py turns that into the owner's chat line
+(issue #79: the exit status, not a phrase, says the page did not print).
 """
 from __future__ import annotations
 
@@ -60,7 +61,7 @@ def read_pdf(path):
     try:
         data = Path(path).read_bytes()
     except OSError:
-        sys.exit(f"error: pdf path cannot be read: {path}")
+        sys.exit(f"error: no PDF to print at {path}")
     if not data:
         sys.exit(f"error: pdf is empty: {path}")
     return data
@@ -110,7 +111,7 @@ def written_path(parsed):
         first = str(candidates[0])
         if first.startswith("/"):
             return first
-    sys.exit("error: page not printed — write did not return a Mac path")
+    sys.exit("error: write did not return a Mac path")
 
 
 def is_bfd(parsed):
@@ -122,10 +123,8 @@ def require_exit_zero(call_tool, result, step):
     """The finished run's exit_code must be 0; anything else is no page (issue #35)."""
     result = finish_command(call_tool, result, step)
     if result["exit_code"] not in (0, "0"):
-        sys.exit(
-            f"error: page not printed — {step} {result['exit_code']}: "
-            f"{result.get('output', result)}"
-        )
+        output = " ".join(str(result.get("output", result)).split())
+        sys.exit(f"error: {step} {result['exit_code']}: {output}")
 
 
 def ship(pdf_path, printer, date, call_tool):
@@ -194,7 +193,7 @@ def main(argv=None):
     try:
         ship(args.pdf, printer, date, connect().call_tool)
     except LatchError as exc:
-        sys.exit(f"error: page not printed — {exc}")
+        sys.exit(f"error: {exc}")
     print(f"page printed on {printer}")
 
 
