@@ -1059,6 +1059,23 @@ class TestPriorityDeskOwnsItsMessage:
         assert "no priority card and no could_not_source reason" in render.validate(
             edition(sections=[self.WEATHER, section]))
 
+    # desk-priority is kept across days; yesterday's failure is not today's reason.
+    @pytest.mark.parametrize("notes_date, refused", [("2000-01-01", True), ("2026-09-11", False)])
+    def test_an_unavailable_card_needs_todays_notes(self, tmp_path, notes_date, refused):
+        desk = tmp_path / "run" / "desk-priority"
+        desk.mkdir(parents=True)
+        (desk / "notes.json").write_text(json.dumps({"date": notes_date}), encoding="utf-8")
+        (tmp_path / "run" / "paper").mkdir()
+        ed_path = tmp_path / "run" / "paper" / "edition.json"
+        ed_path.write_text(json.dumps(edition(sections=[self.WEATHER, self.UNAVAILABLE])))
+        cfg = tmp_path / "config.json"
+        cfg.write_text(json.dumps(self.ON), encoding="utf-8")
+        if refused:
+            with pytest.raises(SystemExit, match="desk-priority/notes.json is dated"):
+                render.main([str(ed_path), "--config", str(cfg)])
+        else:
+            render.main([str(ed_path), "--config", str(cfg)])
+
     def test_an_unavailable_desk_prints_its_own_reason(self, tmp_path):
         html, chat = self._main(tmp_path, self.ON, [self.WEATHER, self.UNAVAILABLE])
         reason = "the wiki returned HTTP 401 on every attempt this session"

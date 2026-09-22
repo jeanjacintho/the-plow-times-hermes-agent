@@ -568,14 +568,18 @@ def stale_desk_files(edition, run_root):
     edition (a one-topic subscription) renders no standing desk, so leftover
     desk files cannot reach it and are not judged. desk-priority is kept
     across days on purpose (the advisor checkpoint); its card is dated by
-    validate_tournament instead.
+    validate_tournament instead, but an unavailable card prints the reason
+    in its notes.json, so that file must be today's.
     """
     if all(desk_of(s) == "news" for s in edition["sections"]):
         return []
+    unavailable = any(desk_of(s) == "priority" and s.get("priority") is None
+                      for s in edition["sections"])
     stale = []
     for path in sorted(pathlib.Path(run_root).glob("desk-*/*.json")):
         data = _load_json_file(path)
-        if data is None or path.parent.name == "desk-priority":
+        if data is None or (path.parent.name == "desk-priority"
+                            and not (unavailable and path.name == "notes.json")):
             continue
         if data.get("date") != edition["date"]:
             stale.append(f"{path.parent.name}/{path.name} is dated {data.get('date')!r}")

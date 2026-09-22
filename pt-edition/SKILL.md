@@ -224,7 +224,7 @@ HTML.** Hand-write `edition.json` under the run directory:
   `events.json` in place. `render_edition.py` refuses an edition that carries a standing desk when any
   such file's `date` is missing or not the edition's `date`; re-run that
   desk, or delete its stale files. `desk-priority` is kept across days and exempt;
-  `--tournament` dates its card instead. A news-only edition (a one-topic
+  `--tournament` dates its card instead, and an unavailable card needs today's `notes.json`. A news-only edition (a one-topic
   subscription) renders no standing desk, so leftover desk files are not
   checked and need no action. Weather, calendar, and a configured priority
   desk are mandatory: after deleting, compile an honest failed-gather (priority:
