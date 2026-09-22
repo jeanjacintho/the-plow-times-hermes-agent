@@ -83,13 +83,9 @@ These are ordinary turns, not classifications. Do them and end:
 - **"I want the paper twice a day" / "send it at 10:30 too" / "drop the
   second edition"** — a second (or third) full-paper delivery time is not a
   topic, so it never goes through `topics.py`: it is `delivery.extra_hours`
-  in `pt/config.json`, a list of "HH:MM" strings alongside `delivery.hour`.
-  Ask the local time they want (in their own zone), convert it with
-
-      /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py --local-hour HH:MM --owner-tz <owner.timezone from config.json>
-
-  never mental UTC-offset math. Append (or remove) the printed hour in
-  `extra_hours`, validate with
+  in `pt/config.json`, a list of "HH:MM" strings alongside `delivery.hour`,
+  in the owner's own clock like it. Append (or remove) the time they name
+  in `extra_hours`, validate with
   `pt_config_gate.py`, paste its output, then re-run
   `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so
   `pt-daily-edition-2` (or `-3`, numbered by list order) exists or is
@@ -99,14 +95,12 @@ These are ordinary turns, not classifications. Do them and end:
   once put a second edition at the wrong hour with nothing able to fix it
   but a human noticing). Confirm in one line, in the owner's own terms —
   "got it, the paper now arrives at 03:00 and 10:30" — never mention the
-  container's zone or the conversion.
+  container's zone.
 - **"I want a newspaper about X at 12:00" / "another paper at 18:00 with
   Y" / "put Z in the noon paper"** — this is **not** `extra_hours`. It is a
-  `section` with `--deliver-at HH:MM` (container-local, converted with
-  `convert_delivery.py` the same way as `delivery.hour`). Sections that share
-  an hour share one paper;
-  a different hour is a different paper (`pt-paper-HHMM`). Convert the
-  owner's local time, then:
+  `section` with `--deliver-at HH:MM` (the owner's own clock, like
+  `delivery.hour`). Sections that share an hour share one paper;
+  a different hour is a different paper (`pt-paper-HHMM`):
 
       topics.py add --text "<topic>" --kind section --depth quick --deliver-at HH:MM
 
@@ -238,10 +232,8 @@ copy. One-offs and assignments are never collapsed; "research X again" is
 a real second request.
 
 `--run-on` is required for an assignment and refused for every other kind.
-`--deliver-at` is section-only: a container-local `HH:MM` for a paper other
-than the main daily edition. Omit it for the main paper. Convert the owner's
-stated local time with `convert_delivery.py` (owner.timezone from config,
-already learned from Latch — do not ask the zone). Compute "tomorrow"/"Friday" as a real calendar date in **the owner's timezone**
+`--deliver-at` is section-only: the owner's own `HH:MM` for a paper other
+than the main daily edition. Omit it for the main paper. Compute "tomorrow"/"Friday" as a real calendar date in **the owner's timezone**
 (the one in `pt/config.json`), never from the container's clock reading past
 midnight. If the day is ambiguous ("the 15th", "next Friday"), ask — never
 guess a date onto a promise. Paste the script's output; the `id` it prints is
@@ -249,11 +241,8 @@ the topic's identity everywhere else.
 
 ## Schedule the run — one-time crons, never inline
 
-All jobs fire in the container's zone (`TZ` in `compose.yml`'s environment —
-register_crons.py refuses to register at all if it's empty). pt-setup
-converts the owner's stated local delivery hour into that zone once, at
-write time, so `delivery.hour` is already correct; register_crons.py no
-longer compares it against `owner.timezone` itself. Every job carries
+Every stored hour is the owner's own clock; register_crons.py moves each
+onto the container's (`TZ`), where cron fires. Every job carries
 `--deliver plow_chat:${PLOW_HOME_CHANNEL}`: the run's final response IS the
 edition, and relaying it is the chat leg.
 

@@ -17,14 +17,10 @@ services:
       # run/<id>/edition.json writes then land in /opt/hermes. Set here so the
       # process environment actually has it.
       TERMINAL_CWD: /var/lib/hermes
-      # convert_delivery.py and register_crons.py both read this directly
-      # (os.environ.get("TZ")) -- their own error messages say "restart
-      # with AGENT_TZ set", but measured live nothing in this image
-      # actually translates AGENT_TZ into TZ, so TZ has to be set here
-      # itself. Per instance: register_crons.py reads delivery.hour in this
-      # zone, so changing it on an existing home shifts every paper. Default
-      # is the upstream owner's (America/Sao_Paulo); another instance sets
-      # PT_TZ in this checkout's gitignored .env.
+      # The clock cron and post_to_chat.py --hold-until share. Any zone
+      # works: register_crons.py converts the owner's hours (pt/config.json)
+      # into it. Unset, plow-init would give cron America/Los_Angeles while
+      # --hold-until read UTC. Changing it needs register_crons.py re-run.
       TZ: ${PT_TZ:-America/Sao_Paulo}
     volumes:
       # `.host`, not the path the agent reads: a bind carries this machine's

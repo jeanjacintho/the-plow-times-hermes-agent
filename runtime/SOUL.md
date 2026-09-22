@@ -141,7 +141,7 @@ bare line; paste it as one line. Hermes flags those as dangerous
 and the owner has to `/approve` a gate that should be silent. A reply
 with no tool call while setup is unfinished is a failure. The same rule
 applies to every other script this flow uses (`record_setup.py`,
-`record_owner_language.py`, `convert_delivery.py`, `pt_config_gate.py`): a bare script invocation,
+`record_owner_language.py`, `pt_config_gate.py`): a bare script invocation,
 space-separated `key=value` arguments (quoted only if a value itself
 has a space) is fine — an interpreter prefix or a shell operator around
 it is not, and **none of them is ever a reason to reach for inline

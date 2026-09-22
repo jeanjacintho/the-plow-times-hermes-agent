@@ -57,24 +57,13 @@ unreadable or unexpected jobs.json aborts. Never read "I could not tell what
 is registered" as "nothing is" -- that re-registers every job and duplicates
 all of them.
 
-`delivery.hour` is always the CONTAINER's local time, "HH:MM" -- `hermes
-cron create` takes no per-job zone, so every schedule fires in the
-container's zone regardless of what `owner.timezone` says. This used to be
-enforced by
-refusing to register at all unless owner.timezone equalled the container's
-TZ (the only way delivery.hour could safely be read as the owner's own local
-hour with zero conversion). That traded a real product cost for the safety:
-an owner in a different zone than whatever the container happens to be
-running in could not get a paper at all without someone restarting the
-container first -- mid-conversation, the one thing this agent cannot do for
-itself. pt-setup now does the conversion instead: it asks the owner's real
-zone and what local time they want, computes the equivalent container-local
-hour with `zoneinfo`, and writes THAT as delivery.hour, while owner.timezone
-keeps the owner's real zone for display and for recomputing after a
-container restart changes TZ. So this script trusts delivery.hour as
-already correct for the container it is running in, the same way it always
-trusted a hand-edited "changing one setting" update to be correct -- the
-conversion risk moved to one write path (pt-setup), not away.
+Every stored hour -- delivery.hour, extra_hours, a section's deliver_at --
+is the owner's wall clock in owner.timezone. `hermes cron create` takes no
+per-job zone and fires on the container's clock (TZ), as post_to_chat.py's
+--hold-until waits on it, so this script converts each hour into TZ when it
+registers, on today's date. A config still carrying delivery.local_hour was
+written when delivery.hour was stored on the container's clock; its hours
+register unconverted, exactly as they always did.
 
 It runs INSIDE the container, where /opt/hermes/bin/hermes and that file
 live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
@@ -228,19 +217,13 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
 DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
 
 
-def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
-    """Refuse to register if the container or the config can't name a zone.
+def load_zones(config_path=CONFIG_FILE, env=None):
+    """(owner zone, zone the stored hours are written in), or refuse.
 
-    NOT an owner.timezone == container TZ check anymore (see the module
-    docstring) -- pt-setup now converts the owner's stated local delivery
-    time into the container's local hour at write time, so delivery.hour is
-    trusted as already correct for whatever zone this container is running
-    in, the same way a hand-edited "changing one setting" update always was.
-    What's still refused: a container with no TZ at all (nothing here could
-    even attempt the conversion), and a config missing owner.timezone
-    entirely (pt-setup's conversion step needs it, and it's the number shown
-    back to the owner). Name kept for the smaller blast radius on callers and
-    tests; only its body changed.
+    Refused: a container with no TZ (nothing here can name the clock cron
+    fires on) and a config without owner.timezone. The hours' zone is the
+    owner's, or the container's for a config still carrying
+    delivery.local_hour (see the module docstring).
     """
     env = os.environ if env is None else env
     container = (env.get("TZ") or "").strip()
@@ -253,7 +236,8 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
         )
     path = pathlib.Path(config_path)
     try:
-        owner = json.loads(path.read_text())["owner"]["timezone"]
+        config = json.loads(path.read_text())
+        owner = config["owner"]["timezone"]
     except FileNotFoundError:
         raise SystemExit(
             f"refusing to register: {path} is missing. pt-setup writes it; "
@@ -268,7 +252,8 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
         raise SystemExit(
             f"refusing to register: {path} has a blank owner.timezone."
         )
-    return owner
+    legacy = "local_hour" in (config.get("delivery") or {})
+    return owner, container if legacy else owner
 
 
 def _job_rows(jobs_path):
@@ -402,23 +387,24 @@ def _hour_minute(delivery_hour):
     return int(hour_part), int(minute_part)
 
 
-def _slot_lead(hour, lead_minutes, owner_tz, container_tz):
-    """The nominal lead, clamped so this slot never starts before midnight.
+def _slot(hour, lead_minutes, owner_tz, hours_tz, container_tz):
+    """(container HH:MM, lead) for one stored hour.
 
-    Cron runs on the container's clock but the run's lock and paper are dated
-    in the owner's zone, so the slot is clamped against both midnights: an
-    owner-local 00:20 that is 03:20 on the container still starts at owner
-    midnight, and a 10:30 slot keeps the full lead. Without a zone pair, only
-    the container clock applies.
+    The hour is read in hours_tz on today's date and moved onto the
+    container's clock, which cron and --hold-until run on. The lead is
+    clamped so the run never starts before midnight on either clock -- the
+    run's lock and paper are dated in the owner's zone. Without a zone pair
+    the hour is taken as already on the container's clock.
     """
     h, m = _hour_minute(hour)
-    room = h * 60 + m
-    if owner_tz and container_tz:
-        slot = datetime.now(ZoneInfo(container_tz)).replace(
-            hour=h, minute=m, second=0, microsecond=0)
-        local = slot.astimezone(ZoneInfo(owner_tz))
-        room = min(room, local.hour * 60 + local.minute)
-    return min(lead_minutes, room)
+    if not (owner_tz and container_tz):
+        return hour, min(lead_minutes, h * 60 + m)
+    at = datetime.now(ZoneInfo(hours_tz or owner_tz)).replace(
+        hour=h, minute=m, second=0, microsecond=0)
+    here = at.astimezone(ZoneInfo(container_tz))
+    local = at.astimezone(ZoneInfo(owner_tz))
+    room = min(here.hour * 60 + here.minute, local.hour * 60 + local.minute)
+    return here.strftime("%H:%M"), min(lead_minutes, room)
 
 
 def daily_schedule(delivery_hour, lead_minutes):
@@ -495,13 +481,16 @@ def require_workspace_spacing(hours):
                 )
 
 
-def paper_job(hour, lead_minutes, env=None):
-    """One focused paper: desks plus sections whose deliver_at is this hour."""
+def paper_job(hour, lead_minutes, env=None, at=None):
+    """One focused paper: desks plus sections whose deliver_at is this hour.
+
+    `at` is that hour on the container's clock, when it differs."""
     name = paper_job_name(hour)
+    at = at or hour
     return {
         "name": name,
-        "schedule": daily_schedule(hour, lead_minutes),
-        "prompt": paper_prompt(hold_until=hour, lead_minutes=lead_minutes, focus=hour),
+        "schedule": daily_schedule(at, lead_minutes),
+        "prompt": paper_prompt(hold_until=at, lead_minutes=lead_minutes, focus=hour),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
@@ -520,33 +509,36 @@ def subscription_job(topic, delivery_hour, env=None):
 
 
 def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
-                  extra_hours=(), owner_tz=None):
+                  extra_hours=(), owner_tz=None, hours_tz=None):
     """The jobs the topic store calls for, in spec order.
 
     The daily edition comes first (it is the main paper), then one job per
     extra delivery time (delivery.extra_hours -- the same MAIN roster,
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
-    job per subscription. lead_minutes is the nominal lead; each slot clamps
-    it to its own owner-zone midnight.
+    job per subscription. Hours are stored in hours_tz (default: the
+    owner's) and registered on the container's clock; lead_minutes is the
+    nominal lead, clamped per slot (see _slot).
     """
     focused_hours = focused_paper_hours(topics, delivery_hour)
     require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
     jobs = []
     container_tz = (os.environ if env is None else env).get("TZ")
 
-    def lead(hour):
-        return _slot_lead(hour, lead_minutes, owner_tz, container_tz)
+    def slot(hour):
+        return _slot(hour, lead_minutes, owner_tz, hours_tz, container_tz)
 
     # The daily paper always exists once setup can register: weather and
     # calendar run even with zero news sections.
-    jobs.append(daily_job(delivery_hour, lead(delivery_hour), env))
+    main_at, main_lead = slot(delivery_hour)
+    jobs.append(daily_job(main_at, main_lead, env))
     for n, hour in enumerate(extra_hours, start=2):
-        jobs.append(daily_job(hour, lead(hour), env, name=f"{DAILY_NAME}-{n}"))
+        jobs.append(daily_job(*slot(hour), env, name=f"{DAILY_NAME}-{n}"))
     for hour in focused_hours:
-        jobs.append(paper_job(hour, lead(hour), env))
+        at, lead = slot(hour)
+        jobs.append(paper_job(hour, lead, env, at=at))
     jobs.extend(
-        subscription_job(t, delivery_hour, env)
+        subscription_job(t, main_at, env)
         for t in topics
         if t["kind"] == "subscription" and t["status"] != "cancelled"
     )
@@ -722,7 +714,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
 
-    owner_tz = require_timezone_agreement(config_path, env)
+    owner_tz, hours_tz = load_zones(config_path, env)
     delivery_hour = load_delivery_hour(config_path)
     extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)
@@ -739,7 +731,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     pending = []
 
     for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours,
-                         owner_tz=owner_tz):
+                         owner_tz=owner_tz, hours_tz=hours_tz):
         if job["name"] in registered:
             if not registered[job["name"]]:
                 print(

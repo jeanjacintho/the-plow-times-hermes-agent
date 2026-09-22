@@ -73,34 +73,32 @@ class TestRegisteredJobs:
         }
 
 
-class TestTimezoneAgreement:
+class TestLoadZones:
     def test_empty_tz_refuses(self, tmp_path):
         path = write_config(tmp_path)
         with pytest.raises(SystemExit, match="TZ is empty"):
-            crons.require_timezone_agreement(path, env={})
+            crons.load_zones(path, env={})
 
-    def test_mismatch_no_longer_refuses(self, tmp_path):
-        # pt-setup now converts the owner's stated local delivery time into
-        # the container's local hour at write time (zoneinfo math), so
-        # delivery.hour is trusted as already correct for this container --
-        # owner.timezone naming a different real zone than TZ is the normal
-        # case now, not a refusal. See the module docstring.
+    def test_hours_are_the_owners_whatever_the_container_zone(self, tmp_path):
         path = write_config(tmp_path)
-        crons.require_timezone_agreement(path, env={"TZ": "America/Chicago"})
+        assert crons.load_zones(path, env={"TZ": "America/Chicago"}) == (TZ, TZ)
+
+    def test_a_config_carrying_local_hour_keeps_its_container_clock_hours(self, tmp_path):
+        # Written before hours moved to the owner's zone: delivery.hour is
+        # already on the container's clock and must register unconverted.
+        legacy = {**CONFIG, "delivery": {"hour": "10:00", "local_hour": "07:00"}}
+        path = write_config(tmp_path, config=legacy)
+        assert crons.load_zones(path, env={"TZ": "UTC"}) == (TZ, "UTC")
 
     def test_blank_owner_timezone_refuses(self, tmp_path):
         blank_tz_config = {**CONFIG, "owner": {"timezone": ""}}
         path = write_config(tmp_path, config=blank_tz_config)
         with pytest.raises(SystemExit, match="blank owner.timezone"):
-            crons.require_timezone_agreement(path, env={"TZ": TZ})
+            crons.load_zones(path, env={"TZ": TZ})
 
     def test_missing_config_refuses(self, tmp_path):
         with pytest.raises(SystemExit, match="missing"):
-            crons.require_timezone_agreement(tmp_path / "nope.json", env={"TZ": TZ})
-
-    def test_agreement_passes(self, tmp_path):
-        path = write_config(tmp_path)
-        crons.require_timezone_agreement(path, env={"TZ": TZ})
+            crons.load_zones(tmp_path / "nope.json", env={"TZ": TZ})
 
 
 class TestResolveDeliver:
@@ -143,12 +141,32 @@ class TestDesiredJobs:
         # container. The 40-minute lead stops at owner midnight (03:00
         # container); the owner's 10:30 (13:30) keeps the full lead.
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section", deliver_at="18:30")], "03:20", {"TZ": "UTC"}, 40,
-            extra_hours=["13:30"], owner_tz="America/Sao_Paulo",
+            [topic("t_1", kind="section", deliver_at="14:30")], "00:20", {"TZ": "UTC"}, 40,
+            extra_hours=["10:30"], owner_tz="America/Sao_Paulo",
         )
         assert jobs[0]["schedule"] == "0 3 * * *"
         assert jobs[1]["schedule"] == "50 12 * * *"
-        assert jobs[2]["schedule"] == "50 17 * * *"
+        assert jobs[2]["schedule"] == "50 16 * * *"
+
+    @pytest.mark.parametrize("hours_tz, schedule, hold", [
+        # The owner's 07:00 in Tokyo (+09) is 22:00 the evening before in UTC.
+        (None, "0 22 * * *", "22:00"),
+        # A config still carrying local_hour stored 07:00 on the container's clock.
+        ("UTC", "0 7 * * *", "07:00"),
+    ])
+    def test_every_job_fires_on_the_container_clock(self, hours_tz, schedule, hold):
+        jobs = crons.desired_jobs(
+            [topic("t_9f2a"), topic("t_1", kind="section", deliver_at="12:00")], "07:00",
+            {"TZ": "UTC"}, owner_tz="Asia/Tokyo", hours_tz=hours_tz)
+        by_name = {j["name"]: j for j in jobs}
+        daily = by_name[crons.DAILY_NAME]
+        assert daily["schedule"] == schedule
+        assert f"--hold-until {hold} " in daily["prompt"]
+        assert by_name["pt-subscription-t_9f2a"]["schedule"] == schedule
+        # The focused paper keeps the owner's hour as its name and roster key.
+        paper = by_name[crons.paper_job_name("12:00")]
+        assert "--deliver-at 12:00" in paper["prompt"]
+        assert paper["schedule"] == ("0 3 * * *" if hours_tz is None else "0 12 * * *")
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
@@ -415,11 +433,10 @@ class TestExtraDailyHours:
 
     def test_the_cli_path_reads_the_container_zone_from_the_environment(self, monkeypatch):
         # main() passes env=None; the zone must come from os.environ, as
-        # require_timezone_agreement() reads it, or the owner-midnight clamp
-        # silently does not run.
+        # load_zones() reads it, or the conversion silently does not run.
         monkeypatch.setenv("TZ", "UTC")
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section")], "03:20", None, 40, owner_tz="America/Sao_Paulo",
+            [topic("t_1", kind="section")], "00:20", None, 40, owner_tz="America/Sao_Paulo",
         )
         assert jobs[0]["schedule"] == "0 3 * * *"
 
