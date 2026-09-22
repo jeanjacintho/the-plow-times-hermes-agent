@@ -73,7 +73,7 @@ RUN apt-get update \
 #     PATH to the container's default, dropping `/opt/hermes/.venv/bin`.
 #     The skill's own `python3
 #     render_edition.py ...` runs as a plain command, not a login shell, and
-#     the real container PATH (`agent.env` / the running container's env) is
+#     the real container PATH (the running container's env) is
 #     `/opt/hermes/bin:/opt/hermes/.venv/bin:...:/usr/bin:...` -- the hermes
 #     venv wins, `import weasyprint` fails there, and the PDF leg silently
 #     no-ops (best-effort) while the chat edition still ships as plain text.
@@ -124,12 +124,11 @@ RUN uv pip install --python /opt/hermes/.venv/bin/python3 \
  && bash -lc "python3 -c \"$probe\"" \
  && bash -c "python3 -c \"$probe\""
 
-# Identity and skills. SOUL.md replaces the base's; first boot re-asserts
-# root ownership, which is what the trailing chmod answers. Skills land at
-# /opt/hermes/skills so the base runtime reconciles them into whichever home
-# this image boots — a COPY under /var/lib/hermes/skills is shadowed by the
-# agent-home volume after first create.
-COPY runtime/SOUL.md /var/lib/hermes/SOUL.md
+# USER.md, config.yaml and skills. First boot re-asserts root ownership,
+# which is what the trailing chmod answers. Skills land at /opt/hermes/skills
+# so the base runtime reconciles them into whichever home this image boots —
+# a COPY under /var/lib/hermes/skills is shadowed by the agent-home volume
+# after first create.
 COPY runtime/USER.md /var/lib/hermes/memories/USER.md
 COPY runtime/config.yaml /var/lib/hermes/config.yaml
 COPY LICENSE /usr/share/doc/the-plow-times/
@@ -145,8 +144,7 @@ COPY pt-shared/    /opt/hermes/skills/pt-shared/
 RUN find /opt/hermes/skills -mindepth 1 -type d -exec chmod 0755 {} + \
  && find /opt/hermes/skills -mindepth 1 -type f ! -perm -u+x -exec chmod 0644 {} + \
  && find /opt/hermes/skills -mindepth 1 -type f -perm -u+x -exec chmod 0755 {} + \
- && chmod 0644 /var/lib/hermes/SOUL.md /var/lib/hermes/config.yaml \
-      /var/lib/hermes/memories/USER.md \
+ && chmod 0644 /var/lib/hermes/config.yaml /var/lib/hermes/memories/USER.md \
  && install -d -o 10000 -g 10000 -m 0700 /var/lib/hermes/pt
 
 COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
