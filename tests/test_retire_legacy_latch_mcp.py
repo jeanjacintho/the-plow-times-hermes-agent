@@ -30,12 +30,16 @@ def _run(tmp_path, config):
     return yaml.safe_load(path.read_text())
 
 
+LEGACY = {
+    "url": "https://api.plow.co/v1/relay/devices/${DOMO_DEVICE_UID}/mcp",
+    "headers": {"Authorization": "Bearer ${DOMO_MCP_TOKEN}"},
+    "enabled": True,
+}
+
+
 def test_the_legacy_entry_goes_and_the_image_managed_one_stays(tmp_path):
     out = _run(tmp_path, {
-        "mcp_servers": {
-            "latch": {"url": "https://api.plow.co/v1/relay/devices/${DOMO_DEVICE_UID}/mcp", "enabled": True},
-            "plow": {"url": "${PLOW_MCP_URL}", "enabled": True},
-        },
+        "mcp_servers": {"latch": LEGACY, "plow": {"url": "${PLOW_MCP_URL}", "enabled": True}},
         "cron": {"wrap_response": False},
     })
 
@@ -47,10 +51,33 @@ def test_the_legacy_entry_goes_and_the_image_managed_one_stays(tmp_path):
 def test_the_key_itself_goes_when_latch_was_the_only_entry(tmp_path):
     # An empty mapping reads as "this agent declares no relay" and would clobber
     # the image-managed entry on merge, which is the failure this PR is about.
-    out = _run(tmp_path, {"mcp_servers": {"latch": {"url": "x", "enabled": True}}, "agent": {"api_max_retries": 9}})
+    out = _run(tmp_path, {"mcp_servers": {"latch": LEGACY}, "agent": {"api_max_retries": 9}})
 
     assert "mcp_servers" not in out
     assert out["agent"] == {"api_max_retries": 9}
+
+
+def test_a_later_server_that_merely_shares_the_name_survives(tmp_path):
+    # The hook identifies the retired entry by the credential it interpolates,
+    # not by its name -- otherwise it would quietly eat a future `latch` server
+    # on every boot, forever.
+    config = {"mcp_servers": {"latch": {"url": "https://latch.example/mcp", "enabled": True}}}
+
+    assert _run(tmp_path, config) == config
+
+
+def test_the_config_keeps_its_mode_and_owner(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump({"mcp_servers": {"latch": LEGACY, "plow": {"url": "x"}}}, sort_keys=False))
+    path.chmod(0o644)
+    before = path.stat()
+
+    subprocess.run([sys.executable, "-c", _body(), str(path)], check=True)
+
+    after = path.stat()
+    assert after.st_mode == before.st_mode
+    assert (after.st_uid, after.st_gid) == (before.st_uid, before.st_gid)
+    assert not (tmp_path / "config.yaml.tmp").exists()
 
 
 @pytest.mark.parametrize("config", [

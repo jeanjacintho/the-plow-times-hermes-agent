@@ -11,26 +11,47 @@
 #
 # Temporary: delete this hook once no install predates the single-credential
 # change. It is a one-time migration, not a standing reconcile -- it removes
-# one key it recognises and touches nothing else.
+# the retired entry, identified by the credential it interpolates rather than
+# by its name alone, so a later server that happens to be called `latch`
+# survives.
 set -eu
 config=/var/lib/hermes/config.yaml
 [ -f "$config" ] || exit 0
 grep -q '^  latch:' "$config" || exit 0
 /opt/hermes/.venv/bin/python3 - "$config" <<'PY'
+import os
 import sys
 import yaml
 
 path = sys.argv[1]
 with open(path) as handle:
     config = yaml.safe_load(handle) or {}
+
 servers = config.get("mcp_servers")
-if not isinstance(servers, dict) or servers.pop("latch", None) is None:
+entry = servers.get("latch") if isinstance(servers, dict) else None
+# The name alone does not make it the retired one. What does is the credential
+# it interpolates: this repo built the URL from ${DOMO_DEVICE_UID} and the
+# bearer from ${DOMO_MCP_TOKEN}, and nothing else here ever has.
+if not isinstance(entry, dict) or "DOMO_" not in yaml.safe_dump(entry):
     sys.exit(0)
+
+del servers["latch"]
 # An empty mapping would read as "this agent declares no relay" and clobber the
 # image-managed `plow` entry on merge; drop the key itself instead.
 if not servers:
-    config.pop("mcp_servers")
-with open(path, "w") as handle:
+    del config["mcp_servers"]
+
+# Same shape as 02-copy-plow-credentials: a boot-critical file is replaced, not
+# truncated in place, so an interrupted write cannot leave an agent that will
+# not start. The rename is atomic within the directory.
+stat = os.stat(path)
+tmp = path + ".tmp"
+with open(tmp, "w") as handle:
     yaml.safe_dump(config, handle, allow_unicode=True, sort_keys=False)
+    handle.flush()
+    os.fsync(handle.fileno())
+os.chown(tmp, stat.st_uid, stat.st_gid)
+os.chmod(tmp, stat.st_mode & 0o7777)
+os.replace(tmp, path)
 print("retired the legacy latch mcp_servers entry")
 PY
