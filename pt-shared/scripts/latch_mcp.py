@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.request
 
-from bearer_http import open_no_redirect, require
+from bearer_http import open_no_redirect
 
 MCP_TIMEOUT = 60
 POLL_SECONDS = 120
@@ -128,9 +128,14 @@ class LatchClient:
     tools/call with no initialize -- so this does too.
     """
 
-    def __init__(self, base, device, token):
-        self.url = f"{base.rstrip('/')}/v1/relay/devices/{device}/mcp"
+    def __init__(self, url, token):
+        self.url = url
         self.token = token
+
+    @classmethod
+    def for_device(cls, base, device, token):
+        """A static DOMO_* pair names its device; build that device's URL."""
+        return cls(f"{base.rstrip('/')}/v1/relay/devices/{device}/mcp", token)
 
     def _headers(self):
         return {
@@ -174,26 +179,40 @@ class LatchClient:
         )
 
 
-CREDENTIAL_VARS = ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN")
-
-
-def missing_credential():
-    """The first DOMO_* variable this install has no value for, or None.
-
-    `require` exits, which is right once a caller has committed to a Latch
-    call. This answers the question *before* committing, because the answer
-    is not a transient failure: the static credential is a self-hosted setup
-    step (README, "create a static credential"), so an install that never got
-    one can never print, and the print leg has to say that instead of
-    promising a retry that cannot succeed. Presence only -- never the value.
-    """
-    return next(
-        (name for name in CREDENTIAL_VARS if not os.environ.get(name, "").strip()),
-        None,
-    )
-
-
 def connect():
-    """A session as this agent's static Latch credential (DOMO_* in the home's .env)."""
-    base = os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip() or "https://api.plow.co"
-    return LatchClient(base, require("DOMO_DEVICE_UID"), require("DOMO_MCP_TOKEN"))
+    """A session with the owner's Mac, by whichever credential this install has.
+
+    A self-hosted install may paste a static DOMO_* pair into the home's .env
+    (README, "create a static credential"), and Hermes loads that file over
+    the process environment, so the pair wins where it exists.
+
+    Otherwise use what the pinned base image already published. plow-init
+    fetches `/v1/agents/me` at boot and writes its `mcp_url` to
+    `/run/s6/container_environment/PLOW_MCP_URL`, which s6 puts in every
+    service's environment -- measured present on both a hosted and a
+    self-hosted install. So there is nothing to derive here: re-fetching the
+    identity would be a second source of truth for a URL the runtime already
+    owns, and the runtime's copy is the one that carries a proxied agent's
+    proxied host. Before this, a hosted install could not print at all --
+    `require` refused on DOMO_DEVICE_UID every run.
+    """
+    device = os.environ.get("DOMO_DEVICE_UID", "").strip()
+    token = os.environ.get("DOMO_MCP_TOKEN", "").strip()
+    if device and token:
+        base = (
+            os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip()
+            or "https://api.plow.co"
+        )
+        return LatchClient.for_device(base, device, token)
+    # LatchError, not require()'s SystemExit: pt-shared/SKILL.md states this
+    # module's contract as "a failure raises LatchError; the caller names what
+    # did not happen", and SystemExit walks straight through every caller's
+    # `except LatchError` -- so the print leg would lose "page not printed" and
+    # wiki_setup its "wiki not ready". main had the same hole on
+    # require("DOMO_DEVICE_UID"); this is the first spelling that closes it.
+    values = {}
+    for name in ("PLOW_MCP_URL", "PLOW_AGENT_TOKEN"):
+        values[name] = os.environ.get(name, "").strip()
+        if not values[name]:
+            raise LatchError(f"{name} is not set")
+    return LatchClient(values["PLOW_MCP_URL"], values["PLOW_AGENT_TOKEN"])

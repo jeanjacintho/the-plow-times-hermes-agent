@@ -73,22 +73,63 @@ class TestFinishCommand:
             lm.finish_command(lambda *_: {}, parked, "lp")
 
 
-class TestMissingCredential:
-    """A hosted install never gets the static DOMO_* pair, and that is a
-    permanent gap rather than a failed call -- callers need to ask before
-    committing to a Latch session."""
+class TestConnect:
+    """Which credential this install reaches the Mac with.
 
-    @pytest.mark.parametrize("env, expected", [
-        ({"DOMO_DEVICE_UID": "d", "DOMO_MCP_TOKEN": "t"}, None),
-        ({"DOMO_MCP_TOKEN": "t"}, "DOMO_DEVICE_UID"),
-        ({"DOMO_DEVICE_UID": "d"}, "DOMO_MCP_TOKEN"),
-        ({}, "DOMO_DEVICE_UID"),
-        ({"DOMO_DEVICE_UID": "   ", "DOMO_MCP_TOKEN": "t"}, "DOMO_DEVICE_UID"),
-    ])
-    def test_it_names_the_variable_that_has_no_value(self, monkeypatch, env, expected):
-        for name in lm.CREDENTIAL_VARS:
+    A self-hosted install may paste a static DOMO_* pair into the home's .env;
+    otherwise both install types use PLOW_MCP_URL, which plow-init publishes
+    to every service from `/v1/agents/me` at boot.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN", "PLOW_AGENT_TOKEN",
+                     "PLOW_MCP_URL", "PLOW_API_BASE"):
             monkeypatch.delenv(name, raising=False)
-        for name, value in env.items():
+
+    def test_a_static_pair_builds_its_own_device_url(self, monkeypatch):
+        monkeypatch.setenv("PLOW_API_BASE", "https://api.example")
+        monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
+        monkeypatch.setenv("DOMO_MCP_TOKEN", "static-token")
+        # The pair wins even where the runtime published a URL.
+        monkeypatch.setenv("PLOW_MCP_URL", "https://api.example/ignored/mcp")
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
+
+        client = lm.connect()
+
+        assert client.url == "https://api.example/v1/relay/devices/dev-1/mcp"
+        assert client.token == "static-token"
+
+    def test_without_a_pair_it_uses_the_url_the_runtime_published(self, monkeypatch):
+        # Deliberately a different host from PLOW_API_BASE: a proxied agent is
+        # published a proxied URL, and rebuilding the path would discard it.
+        monkeypatch.setenv("PLOW_API_BASE", "https://api.example")
+        monkeypatch.setenv("PLOW_MCP_URL", "https://plow-abc.int.exe.xyz/v1/relay/devices/usr-9/mcp")
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
+
+        client = lm.connect()
+
+        assert client.url == "https://plow-abc.int.exe.xyz/v1/relay/devices/usr-9/mcp"
+        assert client.token == "agent-token"
+
+    @pytest.mark.parametrize("present, missing", [
+        ({"PLOW_AGENT_TOKEN": "t"}, "PLOW_MCP_URL"),
+        ({"PLOW_MCP_URL": "https://x/mcp"}, "PLOW_AGENT_TOKEN"),
+    ])
+    def test_a_missing_runtime_value_is_refused_by_name(self, monkeypatch, present, missing):
+        for name, value in present.items():
             monkeypatch.setenv(name, value)
 
-        assert lm.missing_credential() == expected
+        # LatchError, not SystemExit: SystemExit walks through every caller's
+        # `except LatchError`, so the print leg would lose "page not printed".
+        with pytest.raises(LatchError, match=missing):
+            lm.connect()
+
+    def test_a_half_pair_is_not_a_pair(self, monkeypatch):
+        # Only one of the two set: fall through to the runtime's URL rather
+        # than refusing, which is what used to happen.
+        monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
+        monkeypatch.setenv("PLOW_MCP_URL", "https://api.example/v1/relay/devices/usr-9/mcp")
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
+
+        assert lm.connect().token == "agent-token"

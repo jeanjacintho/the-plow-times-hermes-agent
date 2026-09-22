@@ -60,18 +60,18 @@ class TestSoul:
         assert "/var/lib/hermes/.env" in text
         assert "Never read" in text
 
-    def test_print_skill_answers_a_missing_latch_credential_honestly(self):
-        # The failure is permanent, so the three answers a live run actually
-        # gave -- momentary hiccup, relink Latch in the dashboard, edit an env
-        # var -- are each wrong, and the skill has to say so by name.
+    def test_print_skill_says_a_hosted_install_can_print(self):
+        # A hosted install used to fail every print on a missing DOMO_* pair,
+        # and the skill told the owner paper was unavailable on their install.
+        # connect() now derives the relay URL from the agent's own credential,
+        # so that state does not exist and the skill must not claim it does --
+        # nor may post_to_chat.py still carry a terminal marker for it.
         text = (ROOT / "pt-print" / "SKILL.md").read_text()
-        assert "paper is unavailable" in text
-        assert "momentary hiccup" in text
-        assert "relink" in text
-        # The code side of this wording is covered by test_post_to_chat.py's
-        # print_failure_line table, whose row pins the same literal -- drift in
-        # either direction fails one of the two, so tying them here added no
-        # coverage, only a dependency on TERMINAL_FAILURES' representation.
+        assert "no state in which paper can never print" in text
+        assert "/v1/agents/me" in text
+        assert "paper is unavailable" not in text
+        post = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
+        assert "paper is unavailable" not in post
 
     def test_setup_opener_does_not_ask_timezone(self):
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()

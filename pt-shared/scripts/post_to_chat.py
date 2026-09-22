@@ -266,18 +266,13 @@ def run_finalize_topics(edition_json):
 # Failures that must not collect "; next scheduled run retries".
 #   "outcome unknown"            -- a retry promise could mean a second copy
 #   "next scheduled run retries" -- the line already carries one
-#   "paper is unavailable" /     -- the install has no Latch credential, so
-#   "papel não está disponível"     no number of retries can ever print it.
-#                                   print_edition.py writes that sentence in
-#                                   the owner's language (its UNAVAILABLE
-#                                   dict), so both spellings are terminal --
-#                                   otherwise a Portuguese owner collects an
-#                                   English retry promise that cannot be kept.
+# There is no longer a can-never-print state to mark: a hosted install
+# derives its relay URL from its own credential, so every print failure is
+# something a later run can succeed at -- a Mac that is asleep, a printer
+# that is off, a relay that 404s until Latch connects.
 TERMINAL_FAILURES = (
     "outcome unknown",
     "next scheduled run retries",
-    "paper is unavailable",
-    "papel não está disponível",
 )
 
 

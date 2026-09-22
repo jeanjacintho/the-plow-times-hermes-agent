@@ -63,34 +63,30 @@ after the second consecutive failed run on a subscription, say the printer
 may need re-probing (the pt-setup changing-one-setting path), once, and stop
 mentioning it until the owner does something.
 
-## When paper is unavailable on this install
+## How this reaches the Mac, and what a failure means
 
-One failure is not a failure to retry. `print_edition.py` reaches the Mac
-with a static Latch credential (`DOMO_DEVICE_UID`, `DOMO_MCP_TOKEN`), and
-creating one is a self-hosted setup step — nothing performs it on a hosted
-agent. Those installs cannot print, ever, and the script says so in the
-line it exits with:
+`print_edition.py` opens a Latch session through `latch_mcp.connect()`, which
+takes whichever credential the install has:
 
-    page not printed — DOMO_DEVICE_UID is not set, so paper is unavailable
-    on this install; nothing to fix on your Mac
+- **self-hosted** — the static `DOMO_DEVICE_UID` / `DOMO_MCP_TOKEN` pair the
+  owner pasted into the home's `.env` (README, "create a static credential").
+- **otherwise** — the `PLOW_MCP_URL` and `PLOW_AGENT_TOKEN` that `plow-init`
+  publishes to every service at boot, having read this agent's own `mcp_url`
+  from `/v1/agents/me` once. Nothing is fetched here. That pair is present on
+  a hosted install, which never gets a static pair and used to fail every
+  print, and on a self-hosted one too.
 
-`post_to_chat.py` posts that line as-is; the wording is what keeps it out
-of the retry promise (`TERMINAL_FAILURES`). If the owner then asks how to
-fix it, the answer is that the paper cannot print on this install and the
-chat edition is the whole delivery. Three answers this is **not**:
+That means **there is no state in which paper can never print.** A hosted
+install used to fail every run on a missing `DOMO_DEVICE_UID`; it no longer
+can. So every print failure here is one a later run may succeed at, and the
+retry line `post_to_chat.py` posts is honest:
 
-- not "a momentary hiccup" and not "the next run will pick it back up" —
-  an unset variable never becomes set on its own, so a self-heal promise
-  is one the paper breaks the next morning and every morning after,
-- not their Latch pairing and not something to relink in a dashboard. The
-  pairing is almost certainly fine; the credential this script needs is a
-  different thing entirely, and sending them to go fix a healthy pairing
-  costs them a round trip and finds nothing,
-- not an environment variable for the owner to edit. They have no shell in
-  a hosted agent, and telling them to edit one is telling them to do the
-  impossible.
+- the relay answers 404 until Latch connects — the owner opening Latch on
+  their Mac fixes it, and the next run prints,
+- a sleeping Mac, an off printer, a `lp` refusal — all recoverable.
 
-Say it once, plainly, and do not raise it again until they do. Never report
-the state of a layer you did not check as evidence about the one that
-broke: "your Mac is connected fine" answers a question nobody asked when
-the credential is what is missing.
+Two things follow for what you say to the owner. Do not tell them paper is
+unavailable on this install; it is not. And do not send them to relink a
+Latch pairing without reading its state first — a failure here is far more
+often the Mac being asleep than the pairing being broken. Never report the
+state of a layer you did not check as evidence about the one that broke.
