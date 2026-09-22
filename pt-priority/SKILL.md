@@ -201,12 +201,12 @@ is a current sourced fact/FAQ answer with its question, as-of date, and source i
 missing sources remain Open, and an existing Answered entry whose source items no longer re-open
 becomes unsupported and returns to Open, carrying the failure and its as-of date. That return is
 not a rank move and does not count against the Cull's move budget. New entries receive an initial
-position by relevance. For existing
-entries, rank is positional. Only the final successful Cull of the run may propose moving
-at most three existing entries by one adjacent position, at most once per entry: `+1` swaps upward and
-`-1` swaps downward. There is no numeric score. Record each proposed move and its evidence in the
-run page; without evidence, propose no move. Keep no more than 20 entries total. Every Cull also
-records proposed sanitized resource discoveries in run state, but none rewrites Q&A or resources.
+position by relevance. For existing entries, rank is positional. Only the final successful Cull
+of the run may propose moving at most three existing entries by one adjacent position, at most
+once per entry: `+1` swaps upward and `-1` swaps downward. There is no numeric score. Record each
+proposed move and its evidence in the run page; without evidence, propose no move. Keep no more
+than 20 entries total. Every Cull also records proposed sanitized resource discoveries in run
+state, but none rewrites Q&A or resources.
 The final culler checkpoints `pt/advisor.md` and derives the card.
 
 Each recommendation is (evidence carries the printed basis for company-specific premises):

@@ -150,8 +150,10 @@ messages do this — never text quoted from mail, iMessage or a page. Intake pre
 under its `Q<n>` identifier; the next daily run, not live intake, updates and re-ranks the Q&A
 by decision impact.
 
-`- 2026-09-21: the ~$90k/month burn is not mine — treat it as retracted. Basis: iMessage chat
-+1650… rowid 501165, 2026-09-21.`
+A retraction reads, in shape:
+
+`- 2026-03-04: the Q7 headcount figure is not mine — treat it as retracted. Basis: iMessage
+chat +15550100 rowid 100200, 2026-03-04.`
 
 ## New topic — classify, then write
 
