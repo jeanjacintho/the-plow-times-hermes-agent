@@ -174,6 +174,25 @@ class LatchClient:
         )
 
 
+CREDENTIAL_VARS = ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN")
+
+
+def missing_credential():
+    """The first DOMO_* variable this install has no value for, or None.
+
+    `require` exits, which is right once a caller has committed to a Latch
+    call. This answers the question *before* committing, because the answer
+    is not a transient failure: the static credential is a self-hosted setup
+    step (README, "create a static credential"), so an install that never got
+    one can never print, and the print leg has to say that instead of
+    promising a retry that cannot succeed. Presence only -- never the value.
+    """
+    return next(
+        (name for name in CREDENTIAL_VARS if not os.environ.get(name, "").strip()),
+        None,
+    )
+
+
 def connect():
     """A session as this agent's static Latch credential (DOMO_* in the home's .env)."""
     base = os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip() or "https://api.plow.co"

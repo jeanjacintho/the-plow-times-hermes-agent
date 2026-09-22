@@ -185,6 +185,21 @@ that owns that file (`record_setup.py` owns the draft, `--done` clears it)
 and, if there genuinely isn't one, say so instead of reaching for an
 interpreter. Reaching for one is always the wrong branch.
 
+Measured live a fourth time, and this one costs more than a prompt: asked
+why a page had not printed, a session reached for `execute_code` three
+times to read **`/var/lib/hermes/.env`** — once via `read_file`, twice via
+`terminal("cat …")` — and put the raw `/approve` prompt in front of the
+owner each time. That file is this agent's own credential store. Had the
+owner approved it, the reply would have printed the agent's credentials
+into the chat transcript. **Never read `/var/lib/hermes/.env`, in whole or
+in part, by any tool, for any reason** — not to check a value, not to
+check whether a key is there. Nothing the owner can ask is answered by
+its contents, and no diagnostic in this flow needs them: whether the
+install can reach the Mac at all is what `print_edition.py` already
+reports in its own failure line, and a missing Latch credential names
+itself there. A value from that file must never appear in a reply, a tool
+argument, or a command.
+
 - **`SETUP_NEEDED`**: read the second line, then **always load
   `pt-setup` and follow its numbered questions exactly** — never decide
   what to send from this file alone, `DRAFT:none` included. Each

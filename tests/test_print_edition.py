@@ -13,11 +13,12 @@ sys.path.insert(0, str(ROOT / "pt-shared" / "scripts"))
 pe = load_module("print_edition", "pt-print/scripts/print_edition.py")
 
 
-def _config(tmp_path, configured=True, name="HP_LaserJet"):
+def _config(tmp_path, configured=True, name="HP_LaserJet", language=None):
     path = tmp_path / "config.json"
     path.write_text(
         json.dumps({
-            "owner": {"timezone": "America/Sao_Paulo"},
+            "owner": {"timezone": "America/Sao_Paulo",
+                      **({"language": language} if language else {})},
             "delivery": {"hour": "07:00"},
             "printer": {"configured": configured, "name": name if configured else None},
         }),
@@ -67,6 +68,54 @@ class TestPrinterGate:
 
     def test_configured_returns_exact_cups_name(self, tmp_path):
         assert pe.printer_name(str(_config(tmp_path, name="HP_LaserJet_4"))) == "HP_LaserJet_4"
+
+    # Tag rules live in tests/test_owner_language.py -- one policy, one matrix.
+    # These two rows assert only that the notice routes through it.
+    @pytest.mark.parametrize("language, expected", [
+        ("en", "paper is unavailable on this install"),
+        ("pt-PT", "papel não está disponível nesta instalação"),
+    ])
+    def test_no_latch_credential_says_paper_is_unavailable_in_the_owners_language(
+        self, tmp_path, monkeypatch, language, expected
+    ):
+        # A hosted install never performs the static-credential setup step, so
+        # printing can never work there. The owner's line has to say that
+        # instead of promising a retry -- post_to_chat.py keys the retry
+        # promise off this wording (TERMINAL_FAILURES, both spellings) -- and
+        # SOUL.md requires it in the language the owner writes in.
+        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
+            monkeypatch.delenv(name, raising=False)
+        pdf = _edition(tmp_path)
+        config = _config(tmp_path, language=language)
+
+        with pytest.raises(SystemExit) as exit_info:
+            pe.main([str(pdf), str(config)])
+
+        message = str(exit_info.value)
+        assert "page not printed" in message
+        assert "DOMO_DEVICE_UID" in message
+        assert expected in message
+
+    @pytest.mark.parametrize("credential", [True, False])
+    def test_dry_run_previews_without_touching_the_credential(
+        self, tmp_path, monkeypatch, capsys, credential
+    ):
+        # --dry-run opens no Latch session, so it must not require one: it
+        # previews the commands either way. The gate belongs on the last line
+        # before a session is opened, not in front of a preview.
+        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
+            monkeypatch.delenv(name, raising=False)
+        if credential:
+            monkeypatch.setenv("DOMO_DEVICE_UID", "device")
+            monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
+        pdf = _edition(tmp_path)
+        config = _config(tmp_path)
+
+        pe.main([str(pdf), str(config), "--dry-run"])
+
+        out = capsys.readouterr().out
+        assert "dry-run: would write" in out
+        assert "paper is unavailable" not in out
 
 
 class TestPdfAndDate:

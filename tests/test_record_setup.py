@@ -211,3 +211,4 @@ class TestDoneClearsTheDraft:
             ["record_setup.py", str(tmp_path / "config.json"), "--done", "news_asked=true"]
         )
         assert rc == 1
+

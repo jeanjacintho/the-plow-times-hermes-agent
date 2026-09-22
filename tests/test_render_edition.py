@@ -982,6 +982,19 @@ def _paper_with_desk_file(tmp_path, ed, fields):
     return path
 
 
+class TestGapCardLanguage:
+    """The gap card is owner-facing copy, so it follows owner.language for
+    every Portuguese region -- not an allow-list of two (pt, pt-BR), which
+    answered pt-PT and pt_AO in English."""
+
+    # Tag rules live in tests/test_owner_language.py -- one policy, one matrix.
+    # These two rows assert only that the card routes through it.
+    @pytest.mark.parametrize("language, key", [("pt-PT", "pt"), ("English", "en")])
+    def test_the_card_speaks_the_owners_language(self, language, key):
+        section = render._unavailable_priority_section(language)
+        assert section["headline"] == render.PRIORITY_UNAVAILABLE[key]["headline"]
+
+
 class TestEnsurePriorityDesk:
     WEATHER = {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []}
     ON = {"priority": {"configured": True}, "owner": {"language": "English"}}

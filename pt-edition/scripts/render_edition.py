@@ -41,6 +41,10 @@ import urllib.request
 from datetime import date
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(
+    0, str(pathlib.Path(__file__).resolve().parents[2] / "pt-shared" / "scripts")
+)
+from owner_language import is_portuguese  # noqa: E402
 DEFAULT_MASTHEAD = "THE FOUNDER TIMES"
 KINDS = ("section", "assignment")
 # Standing newspaper desks. weather and calendar always run; mail only when
@@ -512,11 +516,6 @@ def fill_news_desk(edition):
             section["desk"] = "news"
 
 
-def _is_portuguese(language):
-    s = (language or "").lower().replace("_", "-")
-    return "portug" in s or s in {"pt", "pt-br"}
-
-
 def _owner_language(config):
     if not isinstance(config, dict):
         return ""
@@ -535,7 +534,7 @@ def _priority_configured(config):
 
 
 def _unavailable_priority_section(language):
-    copy = PRIORITY_UNAVAILABLE["pt"] if _is_portuguese(language) else PRIORITY_UNAVAILABLE["en"]
+    copy = PRIORITY_UNAVAILABLE["pt"] if is_portuguese(language) else PRIORITY_UNAVAILABLE["en"]
     return {
         "kind": "section",
         "desk": "priority",

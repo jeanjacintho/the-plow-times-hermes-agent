@@ -32,11 +32,44 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
-from latch_mcp import LatchError, connect, finish_command
+from latch_mcp import LatchError, connect, finish_command, missing_credential
+from owner_language import is_portuguese
 
 PATH_RE = re.compile(
     r"(/Users/[^\s'\"]+/Plow/pt/edition-[0-9-]+\.pdf(?:\.b64)?)"
 )
+
+
+# The one failure line this script authors in full, so the one it can write in
+# the owner's language. SOUL.md: every owner-facing line mirrors the language
+# they write in. The other failure lines carry `lp`'s own stderr through and
+# cannot be translated, which is why only this one is a dict.
+UNAVAILABLE = {
+    "en": (
+        "{name} is not set, so paper is unavailable on this install; "
+        "nothing to fix on your Mac"
+    ),
+    "pt": (
+        "{name} não está definido, então o papel não está disponível nesta "
+        "instalação; não há nada para corrigir no seu Mac"
+    ),
+}
+
+
+def owner_language(config_path):
+    """The owner's language tag from pt/config.json, or "" when unreadable."""
+    try:
+        cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return ""
+    owner = cfg.get("owner") if isinstance(cfg, dict) else None
+    lang = owner.get("language") if isinstance(owner, dict) else None
+    return lang if isinstance(lang, str) else ""
+
+
+def unavailable_line(blank, language):
+    """`blank` is the unset variable's name; the sentence is the owner's."""
+    return UNAVAILABLE["pt" if is_portuguese(language) else "en"].format(name=blank)
 
 
 def printer_name(config_path):
@@ -189,6 +222,19 @@ def main(argv=None):
     if args.dry_run:
         print(f"dry-run: would write {mac_pdf_path(date)} and lp -d {printer}")
         return
+
+    # This install may have no Latch credential at all (a self-hosted setup
+    # step nothing performs on a hosted agent). That is not a failed print,
+    # it is a print that can never happen, so say so terminally --
+    # post_to_chat.py must not append a retry promise to it. Asked here, on
+    # the last line before a session is opened, so --dry-run stays what it
+    # says it is: a preview that touches nothing and needs no credential.
+    blank = missing_credential()
+    if blank:
+        sys.exit(
+            "error: page not printed — "
+            + unavailable_line(blank, owner_language(args.config))
+        )
 
     try:
         ship(args.pdf, printer, date, connect().call_tool)

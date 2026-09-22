@@ -158,3 +158,4 @@ class TestCarriesTheLanguage:
         config = seed(tmp_path)
         finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
         assert "language" not in json.loads(config.read_text())["owner"]
+

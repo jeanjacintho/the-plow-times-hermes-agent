@@ -71,3 +71,24 @@ class TestFinishCommand:
         parked = {"status": "running", "handle": "j", "diagnosis": {"owner_action": "Click Allow"}}
         with pytest.raises(LatchError, match="lp outcome unknown: Click Allow"):
             lm.finish_command(lambda *_: {}, parked, "lp")
+
+
+class TestMissingCredential:
+    """A hosted install never gets the static DOMO_* pair, and that is a
+    permanent gap rather than a failed call -- callers need to ask before
+    committing to a Latch session."""
+
+    @pytest.mark.parametrize("env, expected", [
+        ({"DOMO_DEVICE_UID": "d", "DOMO_MCP_TOKEN": "t"}, None),
+        ({"DOMO_MCP_TOKEN": "t"}, "DOMO_DEVICE_UID"),
+        ({"DOMO_DEVICE_UID": "d"}, "DOMO_MCP_TOKEN"),
+        ({}, "DOMO_DEVICE_UID"),
+        ({"DOMO_DEVICE_UID": "   ", "DOMO_MCP_TOKEN": "t"}, "DOMO_DEVICE_UID"),
+    ])
+    def test_it_names_the_variable_that_has_no_value(self, monkeypatch, env, expected):
+        for name in lm.CREDENTIAL_VARS:
+            monkeypatch.delenv(name, raising=False)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+
+        assert lm.missing_credential() == expected
