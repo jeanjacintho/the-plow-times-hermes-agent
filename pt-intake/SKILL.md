@@ -136,7 +136,7 @@ is not a topic. Run `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --de
 isn't reachable: say so in one line and write nothing, the correction will need resending.
 Then `mcp__plow__plow_read_file` `~/Plow/wiki/entities/owner/goals.md`, append one line
 dated today (`- YYYY-MM-DD: …`, an answer starting with its `Q<n>`) ending with its item, the
-same shape the Q&A uses: a Messages chat plus rowid, or the mail message id, of the owner's own
+same shape the Q&A uses: a Messages chat plus rowid, or a named mail reader's message id, of the owner's own
 message that carried the correction — a correction made in chat **is** a re-openable item, so
 the line pins it rather than restating it. File it under `## Goals`, `## Not now` or `## Notes`,
 whichever fits, set `updated:` to today. Read it again immediately before the write and fold

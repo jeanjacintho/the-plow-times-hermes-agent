@@ -783,6 +783,7 @@ class TestSkills:
             "sanitized `reads`",
             "reopens decisive public read receipts",
             "never contain raw private queries, selectors, URLs, or excerpts",
+            "item (a re-open handle, not content)",
             "only after the renderer succeeds and `tournament.json` is atomically published",
         ):
             assert clause in text
@@ -833,6 +834,8 @@ class TestSkills:
         assert "re-open" in desk
         # the truth rule must survive untouched — the new rule is a different axis
         assert "unknown, never disproved" in desk
+        # the rule needs an owner: a pass re-opens what it stands on, not a standing sweep
+        assert "re-opens that entry's items" in desk
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
         assert "rowid" in intake and "confirm" in intake
 
