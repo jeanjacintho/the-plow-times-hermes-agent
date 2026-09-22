@@ -835,9 +835,11 @@ class TestSkills:
         # the truth rule must survive untouched — the new rule is a different axis
         assert "unknown, never disproved" in desk
         # the rule needs an owner: a pass re-opens what it stands on, not a standing sweep
-        assert "re-opens that entry's items" in desk
+        assert "carries it forward as support" in desk
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
         assert "rowid" in intake and "confirm" in intake
+        # a mail id alone is not an item -- ids from different mail readers aren't interchangeable
+        assert "named mail reader" in intake
 
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
         # Measured live 2026-09-18: two real appointments, paper said the

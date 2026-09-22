@@ -202,11 +202,11 @@ is a current sourced fact/FAQ answer with its question, as-of date, and source i
 missing sources remain Open, and an existing Answered entry whose source items no longer re-open
 becomes unsupported and returns to Open, carrying the failure and its as-of date. That return is
 not a rank move and does not count against the Cull's move budget. A pass re-opens the items it
-is about to stand on: citing an Answered entry, resting a recommendation on it, or carrying it
-forward as support re-opens that entry's items first, and a failure returns it to Open under the
-rule above. An entry nothing stands on this run goes unchecked this run and is re-opened the
-moment something depends on it. New entries receive an initial position by relevance.
-For existing entries, rank is positional. Only the final successful Cull
+is about to stand on: whichever writer or critic — the only stages with live read access — cites
+an Answered entry, rests a recommendation on it, or carries it forward as support re-opens that
+entry's items first, and a failure returns it to Open under the rule above for Cull to record. An
+entry nothing depends on this run stays unchecked until then. New entries receive an initial
+position by relevance. For existing entries, rank is positional. Only the final successful Cull
 of the run may propose moving at most three existing entries by one adjacent position, at most
 once per entry: `+1` swaps upward and `-1` swaps downward. There is no numeric score. Record each
 proposed move and its evidence in the run page; without evidence, propose no move. Keep no more
