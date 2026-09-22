@@ -62,8 +62,8 @@ is the owner's wall clock in owner.timezone. `hermes cron create` takes no
 per-job zone and fires on the container's clock (TZ), as post_to_chat.py's
 --hold-until waits on it, so this script converts each hour into TZ when it
 registers, on today's date. A config still carrying delivery.local_hour was
-written when delivery.hour was stored on the container's clock; its hours
-register unconverted, exactly as they always did.
+written when hours were stored on the container's clock; adopt_owner_clock()
+moves them onto the owner's once, before anything registers.
 
 It runs INSIDE the container, where /opt/hermes/bin/hermes and that file
 live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
@@ -218,12 +218,10 @@ DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
 
 
 def load_zones(config_path=CONFIG_FILE, env=None):
-    """(owner zone, zone the stored hours are written in), or refuse.
+    """(owner zone, container zone), or refuse.
 
     Refused: a container with no TZ (nothing here can name the clock cron
-    fires on) and a config without owner.timezone. The hours' zone is the
-    owner's, or the container's for a config still carrying
-    delivery.local_hour (see the module docstring).
+    fires on) and a config without owner.timezone.
     """
     env = os.environ if env is None else env
     container = (env.get("TZ") or "").strip()
@@ -252,8 +250,34 @@ def load_zones(config_path=CONFIG_FILE, env=None):
         raise SystemExit(
             f"refusing to register: {path} has a blank owner.timezone."
         )
-    legacy = "local_hour" in (config.get("delivery") or {})
-    return owner, container if legacy else owner
+    return owner, container
+
+
+def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
+    """Move a pre-owner-clock install's hours onto the owner's clock, once.
+
+    Such a config kept delivery.hour (and extra_hours, and every section's
+    deliver_at) on the container's clock, with the owner's own hour beside it
+    in delivery.local_hour. That key is the marker, and it goes last.
+    """
+    import topics as topics_mod
+
+    path = pathlib.Path(config_path)
+    config = json.loads(path.read_text())
+    delivery = config["delivery"]
+    if "local_hour" not in delivery:
+        return
+    with topics_mod.mutation_lock():
+        topics = topics_mod.load_topics()
+        for topic in topics:
+            if topic.get("deliver_at"):
+                topic["deliver_at"] = _move(topic["deliver_at"], container_tz, owner_tz)
+        topics_mod.save_topics(topics)
+    if "extra_hours" in delivery:
+        delivery["extra_hours"] = [_move(h, container_tz, owner_tz) for h in delivery["extra_hours"]]
+    delivery["hour"] = delivery.pop("local_hour")
+    path.write_text(json.dumps(config, indent=2) + "\n")
+    print(f"moved {path} onto the owner's clock ({owner_tz})")
 
 
 def _job_rows(jobs_path):
@@ -387,24 +411,28 @@ def _hour_minute(delivery_hour):
     return int(hour_part), int(minute_part)
 
 
-def _slot(hour, lead_minutes, owner_tz, hours_tz, container_tz):
-    """(container HH:MM, lead) for one stored hour.
+def _minutes(hhmm):
+    hour, minute = _hour_minute(hhmm)
+    return hour * 60 + minute
 
-    The hour is read in hours_tz on today's date and moved onto the
-    container's clock, which cron and --hold-until run on. The lead is
-    clamped so the run never starts before midnight on either clock -- the
-    run's lock and paper are dated in the owner's zone. Without a zone pair
-    the hour is taken as already on the container's clock.
-    """
+
+def _move(hour, from_tz, to_tz):
+    """HH:MM on today's date in from_tz, read on to_tz's clock."""
     h, m = _hour_minute(hour)
-    if not (owner_tz and container_tz):
-        return hour, min(lead_minutes, h * 60 + m)
-    at = datetime.now(ZoneInfo(hours_tz or owner_tz)).replace(
-        hour=h, minute=m, second=0, microsecond=0)
-    here = at.astimezone(ZoneInfo(container_tz))
-    local = at.astimezone(ZoneInfo(owner_tz))
-    room = min(here.hour * 60 + here.minute, local.hour * 60 + local.minute)
-    return here.strftime("%H:%M"), min(lead_minutes, room)
+    at = datetime.now(ZoneInfo(from_tz)).replace(hour=h, minute=m, second=0, microsecond=0)
+    return at.astimezone(ZoneInfo(to_tz)).strftime("%H:%M")
+
+
+def _slot(hour, lead_minutes, owner_tz, container_tz):
+    """(container HH:MM, lead) for one owner-clock hour.
+
+    Cron and --hold-until run on the container's clock. The lead is clamped
+    so the run never starts before midnight on either clock -- the run's
+    lock and paper are dated in the owner's zone. Without a zone pair the
+    hour is taken as already on the container's clock.
+    """
+    at = _move(hour, owner_tz, container_tz) if owner_tz and container_tz else hour
+    return at, min(lead_minutes, _minutes(hour), _minutes(at))
 
 
 def daily_schedule(delivery_hour, lead_minutes):
@@ -509,16 +537,16 @@ def subscription_job(topic, delivery_hour, env=None):
 
 
 def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
-                  extra_hours=(), owner_tz=None, hours_tz=None):
+                  extra_hours=(), owner_tz=None):
     """The jobs the topic store calls for, in spec order.
 
     The daily edition comes first (it is the main paper), then one job per
     extra delivery time (delivery.extra_hours -- the same MAIN roster,
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
-    job per subscription. Hours are stored in hours_tz (default: the
-    owner's) and registered on the container's clock; lead_minutes is the
-    nominal lead, clamped per slot (see _slot).
+    job per subscription. Hours are the owner's and register on the
+    container's clock; lead_minutes is the nominal lead, clamped per slot
+    (see _slot).
     """
     focused_hours = focused_paper_hours(topics, delivery_hour)
     require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
@@ -526,7 +554,7 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     container_tz = (os.environ if env is None else env).get("TZ")
 
     def slot(hour):
-        return _slot(hour, lead_minutes, owner_tz, hours_tz, container_tz)
+        return _slot(hour, lead_minutes, owner_tz, container_tz)
 
     # The daily paper always exists once setup can register: weather and
     # calendar run even with zero news sections.
@@ -714,7 +742,8 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
 
-    owner_tz, hours_tz = load_zones(config_path, env)
+    owner_tz, container_tz = load_zones(config_path, env)
+    adopt_owner_clock(owner_tz, container_tz, config_path)
     delivery_hour = load_delivery_hour(config_path)
     extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)
@@ -731,7 +760,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     pending = []
 
     for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours,
-                         owner_tz=owner_tz, hours_tz=hours_tz):
+                         owner_tz=owner_tz):
         if job["name"] in registered:
             if not registered[job["name"]]:
                 print(

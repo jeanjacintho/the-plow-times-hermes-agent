@@ -100,8 +100,8 @@ is a script and not a habit:
 - **The container's `TZ` and `owner.timezone` must both be nameable.**
   Stored hours are the owner's clock; `hermes cron create` takes no per-job
   zone, so the script converts each hour into `TZ` as it registers. A config
-  still carrying `delivery.local_hour` stored its hours on the container's
-  clock already, and registers them unconverted.
+  still carrying `delivery.local_hour` (an older install, hours on the
+  container's clock) is moved onto the owner's clock once, first.
 
 A paused job is neither skipped nor duplicated: it is left alone, named, and
 the run exits non-zero after everything else finishes — the same contract

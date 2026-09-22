@@ -79,16 +79,9 @@ class TestLoadZones:
         with pytest.raises(SystemExit, match="TZ is empty"):
             crons.load_zones(path, env={})
 
-    def test_hours_are_the_owners_whatever_the_container_zone(self, tmp_path):
+    def test_names_both_clocks(self, tmp_path):
         path = write_config(tmp_path)
-        assert crons.load_zones(path, env={"TZ": "America/Chicago"}) == (TZ, TZ)
-
-    def test_a_config_carrying_local_hour_keeps_its_container_clock_hours(self, tmp_path):
-        # Written before hours moved to the owner's zone: delivery.hour is
-        # already on the container's clock and must register unconverted.
-        legacy = {**CONFIG, "delivery": {"hour": "10:00", "local_hour": "07:00"}}
-        path = write_config(tmp_path, config=legacy)
-        assert crons.load_zones(path, env={"TZ": "UTC"}) == (TZ, "UTC")
+        assert crons.load_zones(path, env={"TZ": "America/Chicago"}) == (TZ, "America/Chicago")
 
     def test_blank_owner_timezone_refuses(self, tmp_path):
         blank_tz_config = {**CONFIG, "owner": {"timezone": ""}}
@@ -148,25 +141,39 @@ class TestDesiredJobs:
         assert jobs[1]["schedule"] == "50 12 * * *"
         assert jobs[2]["schedule"] == "50 16 * * *"
 
-    @pytest.mark.parametrize("hours_tz, schedule, hold", [
+    def test_every_job_fires_on_the_container_clock(self):
         # The owner's 07:00 in Tokyo (+09) is 22:00 the evening before in UTC.
-        (None, "0 22 * * *", "22:00"),
-        # A config still carrying local_hour stored 07:00 on the container's clock.
-        ("UTC", "0 7 * * *", "07:00"),
-    ])
-    def test_every_job_fires_on_the_container_clock(self, hours_tz, schedule, hold):
         jobs = crons.desired_jobs(
             [topic("t_9f2a"), topic("t_1", kind="section", deliver_at="12:00")], "07:00",
-            {"TZ": "UTC"}, owner_tz="Asia/Tokyo", hours_tz=hours_tz)
+            {"TZ": "UTC"}, owner_tz="Asia/Tokyo")
         by_name = {j["name"]: j for j in jobs}
         daily = by_name[crons.DAILY_NAME]
-        assert daily["schedule"] == schedule
-        assert f"--hold-until {hold} " in daily["prompt"]
-        assert by_name["pt-subscription-t_9f2a"]["schedule"] == schedule
+        assert daily["schedule"] == "0 22 * * *"
+        assert "--hold-until 22:00 " in daily["prompt"]
+        assert by_name["pt-subscription-t_9f2a"]["schedule"] == "0 22 * * *"
         # The focused paper keeps the owner's hour as its name and roster key.
         paper = by_name[crons.paper_job_name("12:00")]
         assert "--deliver-at 12:00" in paper["prompt"]
-        assert paper["schedule"] == ("0 3 * * *" if hours_tz is None else "0 12 * * *")
+        assert paper["schedule"] == "0 3 * * *"
+
+    def test_a_container_clock_config_moves_to_the_owners_once_and_registers_as_before(
+            self, tmp_path, monkeypatch):
+        # Written before hours moved to the owner's zone: container-clock
+        # hours, the owner's own main hour in delivery.local_hour.
+        monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
+        path = write_config(tmp_path, {**CONFIG, "owner": {"timezone": "Asia/Tokyo"},
+                                       "delivery": {"hour": "22:00", "local_hour": "07:00",
+                                                    "extra_hours": ["06:00"]}})
+        (tmp_path / "pt" / "topics.json").write_text(json.dumps({"topics": [
+            topic("t_1", kind="section", deliver_at="03:00"), topic("t_2", kind="section")]}))
+        for _ in range(2):  # idempotent: the second run finds nothing to move
+            crons.adopt_owner_clock("Asia/Tokyo", "UTC", path)
+        assert json.loads(path.read_text())["delivery"] == {"hour": "07:00", "extra_hours": ["15:00"]}
+        topics = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"]
+        assert [t.get("deliver_at") for t in topics] == ["12:00", None]
+        jobs = crons.desired_jobs(topics, "07:00", {"TZ": "UTC"},
+                                  extra_hours=["15:00"], owner_tz="Asia/Tokyo")
+        assert [j["schedule"] for j in jobs] == ["0 22 * * *", "0 6 * * *", "0 3 * * *"]
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
