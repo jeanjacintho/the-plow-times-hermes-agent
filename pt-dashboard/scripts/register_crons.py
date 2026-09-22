@@ -540,8 +540,8 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
     job per subscription, then one per pending one-off whose scheduled_for is
-    still ahead (a naive one reads as container-local, like every schedule
-    here; a past one fired or was missed and is never re-armed).
+    still ahead (a past one fired or was missed and is never re-armed; an
+    offset-naive one refuses, since its instant would depend on the host).
     lead_minutes is the nominal lead; each slot clamps it to its own
     owner-zone midnight.
     """
@@ -566,12 +566,16 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
         if t["kind"] == "subscription" and t["status"] != "cancelled"
     )
     now = datetime.now().astimezone()
-    jobs.extend(
-        oneoff_job(t)
-        for t in topics
-        if t["kind"] == "one_off" and t["status"] == "pending" and t.get("scheduled_for")
-        and datetime.fromisoformat(t["scheduled_for"]).astimezone() > now
-    )
+    for t in topics:
+        if t["kind"] != "one_off" or t["status"] != "pending" or not t.get("scheduled_for"):
+            continue
+        at = datetime.fromisoformat(t["scheduled_for"])
+        if at.utcoffset() is None:
+            raise SystemExit(
+                f"refusing to register: one-off {t['id']} has an offset-naive "
+                f"scheduled_for {t['scheduled_for']!r}; its instant depends on the host's zone.")
+        if at > now:
+            jobs.append(oneoff_job(t))
     return jobs
 
 

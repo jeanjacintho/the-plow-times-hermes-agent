@@ -158,7 +158,6 @@ class TestDesiredJobs:
 
     @pytest.mark.parametrize("status,scheduled_for,has_job", [
         ("pending", FUTURE, True),
-        ("pending", "2099-01-01T07:03:00", True),  # naive: container-local
         ("pending", None, False),
         ("pending", "2000-01-01T07:03:00-03:00", False),  # fired or missed: never re-armed
         ("running", FUTURE, False),
@@ -170,6 +169,11 @@ class TestDesiredJobs:
                   "scheduled_for": scheduled_for}
         names = [j["name"] for j in crons.desired_jobs([oneoff], "07:00", {})]
         assert names == [crons.DAILY_NAME] + (["pt-oneoff-t_0c11"] if has_job else [])
+
+    def test_offset_naive_one_off_refuses(self):
+        oneoff = {**topic("t_0c11", kind="one_off"), "scheduled_for": "2099-01-01T07:03:00"}
+        with pytest.raises(SystemExit, match="offset-naive"):
+            crons.desired_jobs([oneoff], "07:00", {})
 
     def test_running_subscription_still_has_its_job(self):
         jobs = crons.desired_jobs([topic("t_9f2a", status="running")], "07:00", {})
