@@ -994,6 +994,21 @@ class TestGapCardLanguage:
         section = render._unavailable_priority_section(language)
         assert section["headline"] == render.PRIORITY_UNAVAILABLE[key]["headline"]
 
+    # The delivered card's own chrome is renderer-authored, so it follows the
+    # same policy: localized recommendations under English labels is still a
+    # mixed-language card to the owner reading it.
+    @pytest.mark.parametrize("language, key", [("pt-PT", "pt"), ("English", "en")])
+    def test_the_cards_labels_speak_it_too(self, language, key):
+        html = render.priority_block(
+            {"recommendations": recommendations(), "questions": ["Q14 — burn?"]},
+            language=language,
+        )
+
+        other = "en" if key == "pt" else "pt"
+        for slot in ("first_step", "questions"):
+            assert render.PRIORITY_LABELS[key][slot] in html
+            assert render.PRIORITY_LABELS[other][slot] not in html
+
 
 class TestEnsurePriorityDesk:
     WEATHER = {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []}
