@@ -76,70 +76,58 @@ class TestFinishCommand:
 class TestConnect:
     """Which credential this install reaches the Mac with.
 
-    A self-hosted install pastes a static DOMO_* pair into the home's .env; a
-    Plow-hosted install never gets one, and used to fail every print on the
-    missing variable. It derives its own relay URL instead.
+    A self-hosted install may paste a static DOMO_* pair into the home's .env;
+    otherwise both install types use PLOW_MCP_URL, which plow-init publishes
+    to every service from `/v1/agents/me` at boot.
     """
 
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
         for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN", "PLOW_AGENT_TOKEN",
-                     "PLOW_API_BASE"):
+                     "PLOW_MCP_URL", "PLOW_API_BASE"):
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv("PLOW_API_BASE", "https://api.example")
 
     def test_a_static_pair_builds_its_own_device_url(self, monkeypatch):
+        monkeypatch.setenv("PLOW_API_BASE", "https://api.example")
         monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
         monkeypatch.setenv("DOMO_MCP_TOKEN", "static-token")
-        # Nothing may be fetched when the pair is present.
-        monkeypatch.setattr(lm, "get_json", lambda *a, **k: pytest.fail("fetched"))
+        # The pair wins even where the runtime published a URL.
+        monkeypatch.setenv("PLOW_MCP_URL", "https://api.example/ignored/mcp")
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
 
         client = lm.connect()
 
         assert client.url == "https://api.example/v1/relay/devices/dev-1/mcp"
         assert client.token == "static-token"
 
-    def test_without_a_pair_it_derives_the_url_from_its_own_identity(self, monkeypatch):
+    def test_without_a_pair_it_uses_the_url_the_runtime_published(self, monkeypatch):
+        # Deliberately a different host from PLOW_API_BASE: a proxied agent is
+        # published a proxied URL, and rebuilding the path would discard it.
+        monkeypatch.setenv("PLOW_API_BASE", "https://api.example")
+        monkeypatch.setenv("PLOW_MCP_URL", "https://plow-abc.int.exe.xyz/v1/relay/devices/usr-9/mcp")
         monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
-        seen = {}
-
-        def fake_get(base, path, token, label):
-            seen.update(base=base, path=path, token=token)
-            # Verbatim, and deliberately NOT the shape connect() would build:
-            # a proxied agent is handed a proxied URL.
-            return {"mcp_url": "https://proxy.example/v1/relay/devices/usr-9/mcp"}
-
-        monkeypatch.setattr(lm, "get_json", fake_get)
 
         client = lm.connect()
 
-        assert seen == {"base": "https://api.example",
-                        "path": "/v1/agents/me",
-                        "token": "agent-token"}
-        assert client.url == "https://proxy.example/v1/relay/devices/usr-9/mcp"
+        assert client.url == "https://plow-abc.int.exe.xyz/v1/relay/devices/usr-9/mcp"
         assert client.token == "agent-token"
 
-    @pytest.mark.parametrize("identity", [
-        {"mcp_url": None},      # credential lacks relay:call
-        {"mcp_url": "  "},
-        {},
-        "not an object",
+    @pytest.mark.parametrize("present, missing", [
+        ({"PLOW_AGENT_TOKEN": "t"}, "PLOW_MCP_URL"),
+        ({"PLOW_MCP_URL": "https://x/mcp"}, "PLOW_AGENT_TOKEN"),
     ])
-    def test_no_url_means_this_credential_cannot_call_the_relay(self, monkeypatch, identity):
-        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
-        monkeypatch.setattr(lm, "get_json", lambda *a, **k: identity)
+    def test_a_missing_runtime_value_is_refused_by_name(self, monkeypatch, present, missing):
+        for name, value in present.items():
+            monkeypatch.setenv(name, value)
 
-        with pytest.raises(LatchError, match="relay"):
+        with pytest.raises(SystemExit, match=missing):
             lm.connect()
 
     def test_a_half_pair_is_not_a_pair(self, monkeypatch):
-        # Only one of the two set: fall through to the derived URL rather than
-        # refusing, which is what used to happen.
+        # Only one of the two set: fall through to the runtime's URL rather
+        # than refusing, which is what used to happen.
         monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
+        monkeypatch.setenv("PLOW_MCP_URL", "https://api.example/v1/relay/devices/usr-9/mcp")
         monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
-        monkeypatch.setattr(
-            lm, "get_json",
-            lambda *a, **k: {"mcp_url": "https://api.example/v1/relay/devices/usr-9/mcp"},
-        )
 
         assert lm.connect().token == "agent-token"

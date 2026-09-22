@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.request
 
-from bearer_http import get_json, open_no_redirect, require
+from bearer_http import open_no_redirect, require
 
 MCP_TIMEOUT = 60
 POLL_SECONDS = 120
@@ -179,42 +179,29 @@ class LatchClient:
         )
 
 
-def hosted_mcp_url(base, agent_token):
-    """This agent's own relay MCP URL, from the identity endpoint it boots on.
-
-    `GET /v1/agents/me` returns `mcp_url` gated on the credential's
-    `relay:call` scope -- which every hosted agent's credential carries --
-    and NOT on a paired Mac: the relay answers 404 until one connects. So a
-    URL here means "entitled to call the relay", not "the Mac is up". Use the
-    value verbatim: an agent reaching Plow through a proxy is handed a
-    proxied URL, which rebuilding the path from `base` would discard.
-
-    None only when the credential lacks the scope.
-    """
-    identity = get_json(base, "/v1/agents/me", agent_token, "Plow agent identity")
-    url = identity.get("mcp_url") if isinstance(identity, dict) else None
-    return url.strip() if isinstance(url, str) and url.strip() else None
-
-
 def connect():
     """A session with the owner's Mac, by whichever credential this install has.
 
-    A self-hosted install pastes a static DOMO_* pair into the home's .env
-    (README, "create a static credential"). A Plow-hosted install has no such
-    step and never gets one -- but its own agent credential already carries
-    the `relay:call` scope the relay MCP endpoint requires, so the URL is
-    derived rather than demanded. Before this, a hosted install could not
-    print at all: `require` refused on DOMO_DEVICE_UID every run.
+    A self-hosted install may paste a static DOMO_* pair into the home's .env
+    (README, "create a static credential"), and Hermes loads that file over
+    the process environment, so the pair wins where it exists.
+
+    Otherwise use what the pinned base image already published. plow-init
+    fetches `/v1/agents/me` at boot and writes its `mcp_url` to
+    `/run/s6/container_environment/PLOW_MCP_URL`, which s6 puts in every
+    service's environment -- measured present on both a hosted and a
+    self-hosted install. So there is nothing to derive here: re-fetching the
+    identity would be a second source of truth for a URL the runtime already
+    owns, and the runtime's copy is the one that carries a proxied agent's
+    proxied host. Before this, a hosted install could not print at all --
+    `require` refused on DOMO_DEVICE_UID every run.
     """
-    base = os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip() or "https://api.plow.co"
     device = os.environ.get("DOMO_DEVICE_UID", "").strip()
     token = os.environ.get("DOMO_MCP_TOKEN", "").strip()
     if device and token:
-        return LatchClient.for_device(base, device, token)
-    agent_token = require("PLOW_AGENT_TOKEN")
-    url = hosted_mcp_url(base, agent_token)
-    if not url:
-        raise LatchError(
-            "this agent's credential cannot call the relay (no relay:call scope)"
+        base = (
+            os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip()
+            or "https://api.plow.co"
         )
-    return LatchClient(url, agent_token)
+        return LatchClient.for_device(base, device, token)
+    return LatchClient(require("PLOW_MCP_URL"), require("PLOW_AGENT_TOKEN"))
