@@ -88,11 +88,12 @@ class TestMissedPrintIsReported:
     """Measured 2026-09-22: a configured printer, a rendered PDF, no page and
     no word to the owner. Every miss now posts one line after the edition."""
 
-    def _main(self, tmp_path, monkeypatch, argv, run=None, configured=True):
+    def _main(self, tmp_path, monkeypatch, argv, run=None, configured=True, language="English"):
         (tmp_path / "edition.json").write_text('{"date": "2026-09-22"}', encoding="utf-8")
         (tmp_path / "edition.chat.txt").write_text("THE FOUNDER TIMES", encoding="utf-8")
         cfg = tmp_path / "config.json"
-        cfg.write_text(json.dumps({"printer": {"configured": configured, "name": "JV"}}),
+        cfg.write_text(json.dumps({"owner": {"language": language},
+                                   "printer": {"configured": configured, "name": "JV"}}),
                        encoding="utf-8")
         monkeypatch.setattr(post, "CONFIG_DEFAULT", str(cfg))
         monkeypatch.setenv("PLOW_MCP_URL", "https://relay.invalid/mcp")
@@ -126,15 +127,19 @@ class TestMissedPrintIsReported:
         (tmp_path / "edition.pdf").write_bytes(b"%PDF")
         assert self._main(tmp_path, monkeypatch, ["--pdf", "edition.pdf"], run) == notice
 
-    @pytest.mark.parametrize("configured, notice", [
-        (True, ["page not printed — no PDF to print at {pdf}; next scheduled run retries"]),
-        (False, []),
+    @pytest.mark.parametrize("configured, language, notice", [
+        (True, "English",
+         ["page not printed — no PDF to print at {pdf}; next scheduled run retries"]),
+        (True, "Português",
+         ["página não impressa — nenhum PDF para imprimir em {pdf}; "
+          "a próxima edição agendada tenta de novo"]),
+        (False, "English", []),
     ])
     def test_text_fallback_says_why_the_configured_printer_got_nothing(
-            self, tmp_path, monkeypatch, configured, notice):
+            self, tmp_path, monkeypatch, configured, language, notice):
         # Real print_edition.py: the text leg runs when no PDF was rendered.
         out = self._main(tmp_path, monkeypatch, ["--text-file", "edition.chat.txt"],
-                         configured=configured)
+                         configured=configured, language=language)
         assert out == [n.format(pdf=tmp_path / "edition.pdf") for n in notice]
 
 

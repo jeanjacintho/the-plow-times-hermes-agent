@@ -56,6 +56,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from bearer_http import post_json, post_json_read, put_bytes, require
+from owner_language import is_portuguese
+from setup_needed import owner_language
 
 
 CONFIG_DEFAULT = "/var/lib/hermes/pt/config.json"
@@ -175,6 +177,20 @@ def _best_effort(run, args, failure):
 
 
 PRINT_TIMEOUT = 600
+PRINT_MISS = {
+    "en": {
+        "lede": "page not printed — ",
+        "retry": "; next scheduled run retries",
+        "timeout": f"outcome unknown: still running after {PRINT_TIMEOUT}s",
+        "no_pdf": "no PDF to print at {}",
+    },
+    "pt": {
+        "lede": "página não impressa — ",
+        "retry": "; a próxima edição agendada tenta de novo",
+        "timeout": f"resultado desconhecido: ainda em execução após {PRINT_TIMEOUT}s",
+        "no_pdf": "nenhum PDF para imprimir em {}",
+    },
+}
 
 
 def print_page(pdf_path):
@@ -184,8 +200,10 @@ def print_page(pdf_path):
     not true (silence). Any other exit, a hang, or a crash owes the owner a
     line, since the turn ends in NO_REPLY. The exit status says it failed
     and the script's last line says why (issue #79: no phrase is both the
-    owner's lede and the selector). Measured 2026-09-22: an on-demand run
-    with a configured printer printed nothing and said nothing.
+    owner's lede and the selector), kept untranslated as diagnostic detail;
+    the words this repo authors follow the owner's language. Measured
+    2026-09-22: an on-demand run with a configured printer printed nothing
+    and said nothing.
     """
     import subprocess
 
@@ -196,19 +214,22 @@ def print_page(pdf_path):
             text=True,
             timeout=PRINT_TIMEOUT,
         )
-    except subprocess.TimeoutExpired:
-        reason = f"outcome unknown: still running after {PRINT_TIMEOUT}s"
-    except Exception as exc:
-        reason = str(exc)
-    else:
         blob = ((proc.stdout or "") + (proc.stderr or "")).strip()
         print(blob)
         if proc.returncode == 0:
             return None
-        reason = blob.splitlines()[-1] if blob else f"exit {proc.returncode}"
-    line = "page not printed — " + reason.removeprefix("error: ")[:200]
-    # An unknown outcome may still print: a retry promise could mean a second copy.
-    return line if "outcome unknown" in line else line + "; next scheduled run retries"
+        detail = blob.splitlines()[-1] if blob else f"exit {proc.returncode}"
+    except subprocess.TimeoutExpired:
+        detail = None
+    except Exception as exc:
+        detail = str(exc)
+    words = PRINT_MISS["pt" if is_portuguese(owner_language(CONFIG_DEFAULT)) else "en"]
+    if detail is None:  # an unknown outcome may still print: no retry promise
+        return words["lede"] + words["timeout"]
+    if not os.path.isfile(pdf_path):
+        detail = words["no_pdf"].format(pdf_path)
+    line = words["lede"] + detail.removeprefix("error: ")[:200]
+    return line if "outcome unknown" in detail else line + words["retry"]
 
 
 RECORD_TIMEOUT = 300

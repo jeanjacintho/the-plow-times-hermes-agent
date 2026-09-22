@@ -61,7 +61,7 @@ def read_pdf(path):
     try:
         data = Path(path).read_bytes()
     except OSError:
-        sys.exit(f"error: no PDF to print at {path}")
+        sys.exit(f"error: pdf path cannot be read: {path}")
     if not data:
         sys.exit(f"error: pdf is empty: {path}")
     return data
