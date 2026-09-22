@@ -63,7 +63,7 @@ Text the line you minted. The first message is the paper’s hour, not a profile
 
 To print and to research in your own browser, run [Latch](https://howto.plow.co/latch) on the Mac this agent should drive, signed in to the same Plow account. The agent reaches it with its own credential — there is nothing to paste and no restart. Chat works without Latch; the Mac, the printer and the wiki do not.
 
-Upgrading from a version that had you paste a static credential? The next boot retires it for you. Revoke that credential in Latch anyway — nothing uses it now, and a bearer nothing uses is one nobody notices.
+Upgrading from a version that had you paste a static credential? Revoke it in Latch.
 
 ```sh
 docker compose down          # stop, keep memory
