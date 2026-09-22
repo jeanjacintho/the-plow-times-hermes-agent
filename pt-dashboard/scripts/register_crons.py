@@ -277,7 +277,7 @@ def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
                 topic["deliver_at"] = _move(topic["deliver_at"], container_tz, owner_tz)
                 topic["owner_clock"] = True
         topics_mod.save_topics(topics)
-        if "extra_hours" in delivery:
+        if delivery.get("extra_hours"):
             delivery["extra_hours"] = [_move(h, container_tz, owner_tz) for h in delivery["extra_hours"]]
         delivery["hour"] = delivery.pop("local_hour")
         tmp = path.with_suffix(".json.tmp")
