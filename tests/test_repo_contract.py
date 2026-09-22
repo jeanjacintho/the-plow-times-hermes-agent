@@ -41,7 +41,7 @@ class TestSoul:
 
     def test_soul_fits_hermes_context_file_limit(self):
         # Measured live: prompt_builder truncated SOUL.md at 20 000 because
-        # context_file_max_chars never reached plow-seed. The merge stamps
+        # context_file_max_chars never reached plow-seed. The merge carries
         # the runtime value; this bound uses the same number so a longer
         # persona fails here instead of only in docker compose logs.
         check = load_module("soul_fits_context", "checks/soul_fits_context.py")
@@ -980,7 +980,7 @@ class TestDeployment:
         # Hard gate: plow_chat must not stream tool progress or mid-turn
         # assistant narration (Hermes default is both on for this platform).
         assert "interim_assistant_messages: false" in config
-        assert "tool_progress: off" in config
+        assert 'tool_progress: "off"' in config
         assert "long_running_notifications: false" in config
         assert "anthropic/claude-sonnet-5" in config
         assert "default: anthropic/claude-sonnet-5" in config
@@ -999,7 +999,7 @@ class TestDeployment:
         assert "./plow-credentials:/var/lib/plow/credentials.host:ro" in text
         assert "agent-home:/var/lib/hermes" in text
         assert "AGENT_ID: theplowtimes" in text
-        assert "TERMINAL_CWD: /var/lib/hermes" in text
+        assert "TERMINAL_CWD" not in text
         assert "stop_grace_period: 35s" in text
         for line in text.splitlines():
             stripped = line.strip()
@@ -1031,16 +1031,10 @@ class TestDeployment:
             assert f"/var/lib/hermes/skills/{name}" not in dockerfile
         assert "COPY runtime/SOUL.md /opt/hermes/plow-seed/SOUL.md" in dockerfile
         assert "COPY runtime/USER.md /var/lib/hermes/memories/USER.md" in dockerfile
-        # Boot recopies plow-seed over home; Sonnet lives there, not only in
-        # runtime/config.yaml. Do not sed the seed onto another model.
-        assert "plow-seed/config.yaml" in dockerfile
-        assert "anthropic/claude-sonnet-5" in dockerfile
-        assert "moonshotai/kimi-k2.5" not in dockerfile
-        # plow-init writes seed display every boot; quiet chat has to be
-        # stamped there, not only in runtime/config.yaml.
+        # The home's config is built from plow-seed; runtime/config.yaml is
+        # merged onto it, and the home copy comes from that merge.
         assert "merge_pt_seed_config.py" in dockerfile
-        assert "interim_assistant_messages: false" in dockerfile
-        assert "context_file_max_chars: 40000" in dockerfile
+        assert "COPY runtime/config.yaml /var/lib/hermes" not in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()

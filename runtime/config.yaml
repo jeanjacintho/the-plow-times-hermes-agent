@@ -3,9 +3,12 @@
 # are deliberately absent, so the pinned image supplies its current defaults
 # rather than a frozen snapshot of them.
 #
+# The image deep-merges this whole file onto plow-seed/config.yaml
+# (image/merge_pt_seed_config.py), the config a home is built from and
+# plow-init re-stamps every boot; editing it needs an image rebuild.
+#
 # Default model is Claude Sonnet 5 on the Plow provider — a paper pin,
-# not the fleet seed (base-ef00193 defaults to z-ai/glm-5.2). merge_pt_seed_config.py
-# stamps this onto plow-seed so plow-init does not restore glm on boot.
+# not the fleet seed (base-ef00193 defaults to z-ai/glm-5.2).
 # It has to be listed under providers.plow.models too, not only as
 # model.default, or Hermes keeps offering the previous catalog entry.
 #
@@ -26,10 +29,7 @@ providers:
     models:
       anthropic/claude-sonnet-5: {}
 
-# Boot recomposes SOUL.md from plow-seed; the newspaper file has to be
-# that seed or the generic Plow-assistant persona wins every start.
-# Hermes truncates that file at 20 000 unless this key is on the seed
-# (merge_pt_seed_config.py), not only here.
+# Hermes truncates SOUL.md at 20 000 chars without this.
 context_file_max_chars: 40000
 
 # No `mcp_servers` key on purpose. Reaching the owner's Mac over the Plow
@@ -73,9 +73,11 @@ terminal:
 # Parallel) and its own Playwright `browser_*` tools. Measured live, an
 # on-demand paper used those from the container instead of Latch's Mac
 # browser. They are off globally: research is plow_browser_* or it is not
-# sourced. MCP `latch` is not a toolset and stays enabled.
+# sourced. MCP `latch` is not a toolset and stays enabled. `clarify` is the
+# base seed's own entry, restated because a list here replaces the seed's.
 agent:
   disabled_toolsets:
+    - clarify
     - web
     - search
     - browser
@@ -85,23 +87,20 @@ agent:
 # decision landed in the owner's DM as a real message, then the PDF as
 # edition.pdf. Skills telling the model to stay quiet are not a gate —
 # these keys are. Wait lines go through chat_status.py (a POST), not
-# assistant text. Gateway restart is required after this block changes.
-# plow-init recopies seed display over this file every boot — the image
-# must stamp the same block into /opt/hermes/plow-seed/config.yaml
-# (merge_pt_seed_config.py) or a recreate restores the loud defaults.
+# assistant text. "off" is quoted: YAML reads a bare off as false.
 display:
-  tool_progress: off
+  tool_progress: "off"
   interim_assistant_messages: false
   long_running_notifications: false
   busy_ack_detail: false
-  live_status: off
+  live_status: "off"
   platforms:
     plow_chat:
-      tool_progress: off
+      tool_progress: "off"
       interim_assistant_messages: false
       long_running_notifications: false
       busy_ack_detail: false
-      live_status: off
+      live_status: "off"
 plugins:
   enabled:
   - plow-chat-platform

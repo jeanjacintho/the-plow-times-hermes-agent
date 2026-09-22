@@ -12,11 +12,6 @@ services:
       # Who this agent is on the Agent Index. Without it the reporter stands
       # down rather than guessing a name.
       AGENT_ID: theplowtimes
-      # config.yaml sets terminal.cwd, which the gateway is supposed to bridge
-      # into TERMINAL_CWD — measured live on this agent, it does not. Relative
-      # run/<id>/edition.json writes then land in /opt/hermes. Set here so the
-      # process environment actually has it.
-      TERMINAL_CWD: /var/lib/hermes
       # convert_delivery.py and register_crons.py both read this directly
       # (os.environ.get("TZ")) -- their own error messages say "restart
       # with AGENT_TZ set", but measured live nothing in this image

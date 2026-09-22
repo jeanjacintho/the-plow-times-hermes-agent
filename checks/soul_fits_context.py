@@ -3,7 +3,7 @@
 
 Hermes truncates context files silently in chat; the warning is only in
 `docker compose logs`. Default limit is 20 000; runtime/config.yaml raises
-it, and merge_pt_seed_config.py has to stamp that onto plow-seed.
+it (merge_pt_seed_config.py carries it onto plow-seed).
 """
 from __future__ import annotations
 
