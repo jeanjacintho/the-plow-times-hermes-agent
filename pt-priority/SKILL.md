@@ -31,7 +31,11 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 - **An event is its people,** including attendees and anyone named in its title. In a thread,
   whoever wrote last has the ball.
 - Every factual claim names its item in the private advisor page or Q&A. Missing access is
-  **unknown, never disproved**. Never turn an error into “none found.”
+  **unknown, never disproved**. Never turn an error into “none found.” An **item** is a handle:
+  a named reader plus the id it re-opens with — a mail message or thread id, a calendar event id,
+  a Messages chat plus rowid, a sheet id and tab, a file path that opens. A source class with no
+  handle (“a mail thread and a calendar event”) is not an item. A claim whose item will not
+  re-open is **unsupported**: not disproved, and not a fact this page may rest on.
 - The page speaks to the reader as you / você in `owner.language`, never about them by name;
   “the founder” appears only when discussing the advisor's general framework, never as a label
   for the reader.
@@ -194,12 +198,15 @@ in every recommendation and question, using `owner.language`.
 
 The culler proposes Open-question ranks and supported answers only in run state. Each Answered entry
 is a current sourced fact/FAQ answer with its question, as-of date, and source items or URLs;
-missing sources remain Open. New entries receive an initial position by relevance. For existing
-entries, rank is positional. Only the final successful Cull of the run may propose moving
-at most three existing entries by one adjacent position, at most once per entry: `+1` swaps upward and
-`-1` swaps downward. There is no numeric score. Record each proposed move and its evidence in the
-run page; without evidence, propose no move. Keep no more than 20 entries total. Every Cull also
-records proposed sanitized resource discoveries in run state, but none rewrites Q&A or resources.
+missing sources remain Open, and an existing Answered entry whose source items no longer re-open
+becomes unsupported and returns to Open, carrying the failure and its as-of date. That return is
+not a rank move and does not count against the Cull's move budget. New entries receive an initial
+position by relevance. For existing entries, rank is positional. Only the final successful Cull
+of the run may propose moving at most three existing entries by one adjacent position, at most
+once per entry: `+1` swaps upward and `-1` swaps downward. There is no numeric score. Record each
+proposed move and its evidence in the run page; without evidence, propose no move. Keep no more
+than 20 entries total. Every Cull also records proposed sanitized resource discoveries in run
+state, but none rewrites Q&A or resources.
 The final culler checkpoints `pt/advisor.md` and derives the card.
 
 Each recommendation is (evidence carries the printed basis for company-specific premises):

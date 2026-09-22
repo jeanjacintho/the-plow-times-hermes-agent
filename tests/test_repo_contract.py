@@ -823,6 +823,19 @@ class TestSkills:
         shared = (ROOT / "pt-shared" / "SKILL.md").read_text()
         assert "--topic" in shared
 
+    def test_a_claim_whose_item_will_not_reopen_is_unsupported(self):
+        # A basis naming a file that does not exist kept its Answered standing
+        # across three generations, because "missing access is unknown, never
+        # disproved" is about the claim's truth and nothing spoke to its
+        # standing (issues #72, #73).
+        desk = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "unsupported" in desk
+        assert "re-open" in desk
+        # the truth rule must survive untouched — the new rule is a different axis
+        assert "unknown, never disproved" in desk
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "rowid" in intake and "confirm" in intake
+
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
         # Measured live 2026-09-18: two real appointments, paper said the
         # day was empty. Google was called as `calendar today` (exit 2) and
