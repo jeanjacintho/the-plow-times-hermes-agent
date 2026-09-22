@@ -368,13 +368,19 @@ Stop. On their next message:
   1. `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk` — it makes
      `~/Plow/wiki` ready (creating it when the Mac has none) and prints `WIKI:…`.
   2. `mcp__plow__plow_read_file` `path=~/Plow/wiki/entities/owner/goals.md`; add
-     their answer as one `- ` line under `## Goals` unless it is already there, set
-     `updated:` to today. Read it again immediately before the write and fold whatever
+     their answer as one `- ` line under `## Goals` unless it is already there, ending
+     with its item — the shape intake's corrections use: a Messages chat plus rowid, or
+     a named mail reader's message id, of the owner's own message; every setup answer
+     arrives as one, so this is never optional. Set `updated:` to today. Read it again
+     immediately before the write and fold whatever
      changed since the first read into what you write — the owner edits this page in
      Obsidian, and their line is evidence of what they say, never something a pass
      drops. Then `mcp__plow__plow_write_file` it back. Every other line, frontmatter
      included, stays as it was. Never paste the page back in chat.
   Only once the goal is on the page: `record_setup.py <config path> priority.configured=true`.
+  No re-openable handle for that message (issue #85's non-phone-backed line) → same as
+  No, no wiki write: the goal isn't supportable, so the desk stays unconfigured rather
+  than stand on nothing — the paper still prints its other desks.
   An `error:` from step 1, or a denied or failed write → say so in one line and record
   nothing; the question stays open.
   Say in one line that the desk reads their Mac every morning, that they can correct it

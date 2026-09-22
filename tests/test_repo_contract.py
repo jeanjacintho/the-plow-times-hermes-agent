@@ -782,7 +782,8 @@ class TestSkills:
             "`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`",
             "sanitized `reads`",
             "reopens decisive public read receipts",
-            "never contain raw private queries, selectors, item IDs, URLs, or excerpts",
+            "never contain raw private queries, selectors, URLs, or excerpts",
+            "item (a re-open handle, not content)",
             "only after the renderer succeeds and `tournament.json` is atomically published",
         ):
             assert clause in text
@@ -822,6 +823,23 @@ class TestSkills:
         assert "already spent" in research
         shared = (ROOT / "pt-shared" / "SKILL.md").read_text()
         assert "--topic" in shared
+
+    def test_a_claim_whose_item_will_not_reopen_is_unsupported(self):
+        # A basis naming a file that does not exist kept its Answered standing
+        # across three generations, because "missing access is unknown, never
+        # disproved" is about the claim's truth and nothing spoke to its
+        # standing (issues #72, #73).
+        desk = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "unsupported" in desk
+        assert "re-open" in desk
+        # the truth rule must survive untouched — the new rule is a different axis
+        assert "unknown, never disproved" in desk
+        # the rule needs an owner: only the live-read stages re-open what they stand on
+        assert "the only stages with live read access — re-opens" in desk
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "rowid" in intake and "confirm" in intake
+        # a mail id alone is not an item -- ids from different mail readers aren't interchangeable
+        assert "named mail reader" in intake
 
     def test_calendar_desk_uses_google_then_a_locked_applescript(self):
         # Measured live 2026-09-18: two real appointments, paper said the
