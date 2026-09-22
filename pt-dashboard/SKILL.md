@@ -16,6 +16,7 @@ topic list:
 | `pt-paper-HHMM` | `<min> <hour> * * *` from a section `deliver_at` that is not `delivery.hour` (same lead subtraction) | one job per distinct hour; desks plus only the sections at that hour. Two sections at 12:30 share `pt-paper-1230`. A cancelled last section at that hour is pruned |
 | `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` (container TZ, both parts) | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-time, `now + 3m` (quick) or next `delivery.hour` (deep) | created by pt-intake at the scheduled minute; its own prompt self-removes it after firing — this script's sweep is the backstop |
+| `pt-daily-edition-now` | one-shot, a minute out | `register_crons.py --now`: the main paper on demand, same prompt as `pt-daily-edition` without `--hold-until`; the next `--now` replaces it, the sweep never removes it |
 
 The daily schedule is computed in minutes, so `00:00 − 0min` is `0 0 * * *`
 (midnight itself). A lead that would reach back past midnight, such as
@@ -26,8 +27,8 @@ unset or blank `PLOW_HOME_CHANNEL` refuses the registration by name). The
 edition itself is posted mid-run as the PDF plus any chat-only mail/sports
 companion (`post_to_chat.py --pdf --text-file`). Scheduled papers add
 `--hold-until` at that job's hour so a
-recipe that finished early does not send before the clock; a live copy
-omits it. The job's final response is `NO_REPLY` so that `--deliver`
+recipe that finished early does not send before the clock; the on-demand
+copy has none. The job's final response is `NO_REPLY` so that `--deliver`
 does not also send the research transcript. An empty target is a chat
 leg that silently delivers nowhere.
 

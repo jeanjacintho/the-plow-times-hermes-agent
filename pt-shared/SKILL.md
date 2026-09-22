@@ -79,18 +79,12 @@ does not, and every run fails on the import.
   chat-only mail/sports companion when present, or chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
   run file stays `edition.pdf` on disk). `--hold-until HH:MM` waits for
-  that clock before posting (scheduled papers; a live copy omits it). A successful `--pdf` POST stamps
-  `seal_chat_session.py` and then runs `print_edition.py` when the printer
+  that clock before posting (scheduled papers; the on-demand copy has none). A successful
+  `--pdf` POST then runs `print_edition.py` when the printer
   is configured (best-effort; a print failure does not undo the chat).
-- `scripts/seal_chat_session.py` — write the stamp (also called by
-  `chat_status.py --soon`). Not a chat message. The gateway pin rotates
-  plow_chat on `agent:end`.
-- `scripts/chat_status.py` — live wait lines. Bare:
-  `chat_status.py --soon` once before research; `chat_status.py --wait`
-  after desks/topics (no-ops until a few minutes have passed, then posts
-  once); `chat_status.py --busy` during pt-setup Latch/Mac work (hang-on,
-  then one "still on it", never a play-by-play; does not seal the
-  session). Cron never calls it.
+- `scripts/chat_status.py --busy` — setup's hang-on during pt-setup Latch/Mac
+  work (one hang-on, then one "still on it", never a play-by-play). Cron never
+  calls it.
 - `scripts/owner_time.py` — the owner's own clock, not the container's:
   `owner_now()` (an aware datetime) and `owner_today()`, from `owner.timezone`
   in `pt/config.json`. Falls back to the container's clock only when the
@@ -111,8 +105,9 @@ does not, and every run fails on the import.
   and the matching `.../run_lock.py release --name NAME`. Prints one word
   (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
 - `scripts/prepare_daily_run.py` — immediately after any paper lock is acquired,
-  archives prior dated, desk, and chat-status scratch beside `run/` and prints `READY`.
-  Noncanonical papers pass `--preserve-priority`; every paper clears all other desks.
+  archives prior dated and desk scratch beside `run/` and prints `READY`.
+  Every paper passes `--preserve-priority` (desks.md decides which advisor checkpoint
+  is reused); every other desk is cleared.
   It preserves topic workspaces, the live lock, and setup evidence. The wiki is delivered
   history; archived scratch is never today's completed work.
 - `references/config.example.json` — the config contract `pt_config_gate.py`

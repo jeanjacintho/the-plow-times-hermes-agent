@@ -50,11 +50,6 @@ class TestComposePayload:
         with pytest.raises(SystemExit, match="no edition text"):
             post.compose_payload("")
 
-    def test_successful_post_stamps_a_session_seal(self, tmp_path):
-        stamp = tmp_path / "seal-session.json"
-        post.after_posted(stamp)
-        assert json.loads(stamp.read_text(encoding="utf-8"))["pending"] is True
-        assert json.loads(stamp.read_text(encoding="utf-8"))["delivered"] is True
 
 class TestRunPrintEdition:
     def test_unknown_outcome_line_is_kept_not_rewrapped_as_a_failure(self, monkeypatch):
@@ -144,17 +139,9 @@ class TestRunRecord:
         assert out == f"edition not recorded — timed out after {post.RECORD_TIMEOUT}s"
 
 
-def _seal_ok(*_):
-    return "sealed"
-
-
-def _seal_fails(*_):
-    raise RuntimeError("disk full")
-
-
 class TestFinalizersRunIndependently:
     """The paper comes before the archive, and no finalizer's failure blocks
-    another's: seal, print and record each run best-effort, in order."""
+    another's: finalize, print and record each run best-effort, in order."""
 
     def _mock_main(self, tmp_path, monkeypatch, pdf_arg=None, **overrides):
         pdf = tmp_path / "edition.pdf"
@@ -167,33 +154,30 @@ class TestFinalizersRunIndependently:
             post, "run_finalize_topics",
             overrides.get("run_finalize_topics", lambda *a, **k: "FINALIZED"),
         )
-        monkeypatch.setattr(post, "after_posted", overrides.get("after_posted", lambda: "sealed"))
         if "maybe_print" in overrides:
             monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
         if "run_record_edition" in overrides:
             monkeypatch.setattr(post, "run_record_edition", overrides["run_record_edition"])
         monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", pdf_arg or str(pdf)])
 
-    @pytest.mark.parametrize("topics, seal, print_result, recorded, error", [
-        ("FINALIZED", _seal_ok, "page printed", "RECORDED", None),
-        ("FINALIZED", _seal_fails, "page printed", "RECORDED", None),
-        ("FINALIZED", _seal_ok, "page not printed — lp 1", "RECORDED", None),
-        ("topics not finalized — broken", _seal_ok, "page printed", "RECORDED",
+    @pytest.mark.parametrize("topics, print_result, recorded, error", [
+        ("FINALIZED", "page printed", "RECORDED", None),
+        ("FINALIZED", "page not printed — lp 1", "RECORDED", None),
+        ("topics not finalized — broken", "page printed", "RECORDED",
          r"topics.py finalize-edition <edition.json>.*do not repost"),
-        ("FINALIZED", _seal_ok, "page printed", "error: edition not recorded — broken",
+        ("FINALIZED", "page printed", "error: edition not recorded — broken",
          r"record_edition.py <edition.json>.*do not repost"),
-        ("topics not finalized — broken", _seal_ok, "page printed",
+        ("topics not finalized — broken", "page printed",
          "error: edition not recorded — broken",
          r"topics.py finalize-edition <edition.json>.*record_edition.py <edition.json>.*do not repost"),
     ])
     def test_finalizers_continue_in_order(self, tmp_path, monkeypatch,
-                                          topics, seal, print_result, recorded, error):
+                                          topics, print_result, recorded, error):
         order = []
         paths = []
         self._mock_main(
             tmp_path, monkeypatch,
             run_finalize_topics=lambda path: paths.append(path) or order.append("finalize") or topics,
-            after_posted=lambda: order.append("seal") or seal(),
             maybe_print=lambda *a, **k: order.append("print") or print_result,
             run_record_edition=lambda path: paths.append(path) or order.append("record") or recorded,
         )
@@ -202,7 +186,7 @@ class TestFinalizersRunIndependently:
                 post.main()
         else:
             post.main()
-        assert order == ["finalize", "seal", "print", "record"]
+        assert order == ["finalize", "print", "record"]
         expected = str(tmp_path / "edition.json")
         assert paths == [expected, expected]
 
