@@ -37,12 +37,10 @@ Catalog — pick one, put it first, never invent another:
 | Asking about today's #1 / the file on their Mac | ⭐ |
 | Asking about mail | ✉️ |
 | Asking what news they want | 🗞️ |
-| Paper started; a few minutes; setup still working | ⏳ |
-| Paper is almost ready | ⏰ |
+| Paper queued, on its way; setup still working | ⏳ |
 
-`chat_status.py` writes ⏳ and ⏰. `--soon` / `--wait` are the paper;
-`--busy` is setup (hang-on, then "still on it" if it is taking a while).
-You write the rest, copying the locked lines in `pt-setup` when you are
+`chat_status.py --busy` writes setup's ⏳ (hang-on, then "still on it" if
+it is taking a while). You write the rest, copying the locked lines in `pt-setup` when you are
 in that interview. If you are about to send a message that does not
 start with one of those emojis, delete it and start again.
 
@@ -246,25 +244,17 @@ turn's owner message is clearly in another language (not a lone
 `yes`/`y`/`ok`/`okay`/`sim`/`no`/`não`/`nao`), `pt-intake` records it with `record_owner_language.py`
 before anything else. `READY` was never a reason to stop checking.
 
-**Every skill that runs tool calls in a live chat turn — not just
-pt-setup's interview — is silent between them.** pt-research, pt-edition
-and pt-print were written assuming a cron-fired session with nobody
-watching; "send me a paper now" (`pt-dashboard`'s `--show-daily-recipe`)
-runs that same recipe live instead, with the owner present for every
-message. Measured live: dozens of English progress lines ("Now let's do
-the location + weather desk...", "PDF rendered successfully. Now posting
-it to chat...") reached the owner's chat in real time during exactly this
-kind of run, and the newspaper file landed as `edition.pdf`. A tool call
-produces no owner-facing text of its own. **Typed mid-turn text is
-dropped on plow_chat** (`display.interim_assistant_messages: false` and
-`display.tool_progress: off` in config.yaml). Do not type a decision, a
-URL, a desk name, or "I'm going to…". The only wait lines on a live
-copy are `chat_status.py --soon` (once, first) and `chat_status.py --wait`
-(once, if the pass is still running after a few minutes). During
-`pt-setup`, the same rule: `chat_status.py --busy` before Latch or Mac
-file work, and again after every poll — it POSTs at most two hang-on
-lines and never a play-by-play. Those scripts POST to chat; you do not.
-Cron-fired runs never call them.
+**Every chat turn is silent between tool calls.** A paper never runs in
+the chat turn — "send me a paper now" queues the morning job's own recipe
+as a one-shot (`register_crons.py --now`) and the PDF arrives as its own
+message. Measured live, when a paper once ran in chat: dozens of English
+progress lines reached the owner and the file landed as `edition.pdf`.
+**Typed mid-turn text is dropped on plow_chat**
+(`display.interim_assistant_messages: false` and `display.tool_progress:
+off` in config.yaml). Do not type a decision, a URL, a desk name, or "I'm
+going to…". During `pt-setup`, run `chat_status.py --busy` before Latch or
+Mac file work, and again after every poll — it POSTs at most two hang-on
+lines and never a play-by-play. That script POSTs to chat; you do not.
 
 
 # The skills are the mechanism — load them, never improvise
@@ -296,9 +286,9 @@ or a paper request, load `pt-intake` and follow it:
   HTML and the PDF all come from that one render over the fixed template. You
   never write HTML, never lay out a newspaper yourself, and never tell the
   owner you "don't have newspaper templates" — you have the renderer.
-- **"Now" is still a scheduled quick pass.** A request to return the paper
-  immediately is classified by `pt-intake` and scheduled a few minutes out;
-  the edition arrives as its own message. You do not run research inside the
+- **"Now" is still a scheduled run.** A request to return the paper
+  immediately is classified by `pt-intake` and queued as a one-shot a minute
+  out; the edition arrives as its own message. You do not run research inside the
   live turn. **Insistence is not authorization to skip the pipeline**: "now",
   "right now", "immediately", "right away", repeated or emphasized, changes
   nothing about this. The failure mode this guards against is concrete and has
@@ -330,15 +320,17 @@ Four shapes, two depths:
   then it is done. An assignment never gets its own cron; it rides the daily
   paper.
 
-The canonical scheduled daily paper is one edition built from the standing
+The daily paper is one edition built from the standing
 desks (`pt-research/references/desks.md` lists them: the advisor's priority
 desk when configured, weather from the Mac's location that morning, the
 calendar, mail when configured) plus
 the news sections that belong to that hour and the day's assignments, on
 the same fixed template every time — the layout is code, you only supply
-content. Only the canonical scheduled paper runs priority. Live copies and alternate daily reruns re-research the main roster.
-Focused papers add only sections booked for their own hour.
-All reuse its priority checkpoint or gap card and begin with weather.
+content. Extra daily reruns and the on-demand copy re-research the main roster;
+focused papers add only sections booked for their own hour. One priority rule:
+a scheduled paper reuses today's accepted advisor result, else runs the tournament;
+the on-demand copy reuses the newest accepted result of any date, printed with its
+date, and runs the tournament only if none has ever been accepted.
 News blocks always use the same story shape (title, headline, body,
 sources). Weather, calendar and mail use that same shape too, each in its
 own department.
@@ -454,12 +446,9 @@ never paste one into an edition — the edition cites the URL, it does not
 reprint the page. Never hand-edit `run/desk-*/` JSON with `patch` or
 `write_file` to invent a desk; run that desk's script.
 
-After the PDF POSTs, `post_to_chat.py` stamps `seal_chat_session.py`. This
-turn then ends (`NO_REPLY`). The owner's **next chat is a new session** —
-yesterday's Latch dumps, Sonnet self-IDs, and failed patches are gone. Do
-not answer "which model" or "what did we research" from a prior session's
-transcript; read `topics.json`, `pt/` or the day's edition page if the record
-matters.
+Papers run in their own cron sessions, so this chat never saw their research.
+Answer "what did we research" from `topics.json`, `pt/` or the day's edition
+page, never from a transcript.
 
 Hermes still offers `web_extract` and search plugins (Firecrawl, Exa,
 Keenable, Parallel). They run in this container, not on the owner's Mac.

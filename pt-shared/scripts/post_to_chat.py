@@ -34,9 +34,9 @@ BY NAME, before anything posts, so a half-delivered run cannot happen.
 attachment_uids) and optionally sends the companion as its body.
 `--hold-until HH:MM` waits until
 that clock in TZ before posting; if it has already passed, posts now.
-After a successful POST, four
+After a successful POST, three
 finalizers run independently and best-effort: finalize exactly the topics carried by
-`edition.json`, seal, print via print_edition.py when configured, and record via
+`edition.json`, print via print_edition.py when configured, and record via
 record_edition.py (`--pdf` and `--text-file` both) on the sibling
 `edition.json` -- one's failure never skips or undoes another, and nothing
 about the record reaches chat. `--dry-run` prints the redacted envelope and
@@ -45,7 +45,6 @@ never sends.
 from __future__ import annotations
 
 import argparse
-import json
 import mimetypes
 import os
 import re
@@ -159,26 +158,6 @@ def attachment_filename(pdf_path, override=None):
     if not name.lower().endswith(".pdf"):
         name += ".pdf"
     return name
-
-
-def after_posted(stamp=None):
-    """The PDF is out; the next owner message must not re-read this turn.
-
-    A dry-run never calls this. Marks the stamp delivered so the gateway
-    swallows any recap the model types, then on agent:end rotates the
-    plow_chat session.
-    """
-    import seal_chat_session
-
-    path = stamp or seal_chat_session.STAMP_DEFAULT
-    prev = seal_chat_session.peek(path) or {}
-    seal_chat_session.request(
-        path,
-        session_key=prev.get("session_key") or "",
-        platform=prev.get("platform") or "",
-        delivered=True,
-    )
-    return "sealed"
 
 
 def _best_effort(run, args, failure):
@@ -393,7 +372,6 @@ def main():
         if edition_json else "skipped: no posted file"
     )
     print(topics_result)
-    print(_best_effort(after_posted, (), "chat session not sealed"))
     if args.pdf:
         suffix = " + companion" if text else " only"
         print(f"chat edition posted (pdf{suffix}) {args.pdf}")

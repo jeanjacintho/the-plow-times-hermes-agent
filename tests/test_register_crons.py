@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 
 import pytest
 
@@ -242,7 +241,7 @@ class TestMain:
         return fake
 
     def run_main(self, tmp_path, monkeypatch, topics_list, registered,
-                 calls=None, runner=None, env=None):
+                 calls=None, runner=None, env=None, argv=None):
         pt_home = tmp_path / "pt"
         pt_home.mkdir(exist_ok=True)
         (pt_home / "config.json").write_text(json.dumps(CONFIG))
@@ -258,11 +257,56 @@ class TestMain:
                 return type("P", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
 
         return crons.main(
+            argv,
             jobs_path=jobs_path,
             config_path=pt_home / "config.json",
             env=env if env is not None else {"TZ": TZ, "PLOW_HOME_CHANNEL": "chat_123"},
             runner=runner,
         )
+
+    def test_now_queues_the_main_papers_own_prompt_as_a_one_shot(
+            self, tmp_path, monkeypatch, hermes, capsys):
+        # "Send me the paper now" is the SAME job the 7am cron runs. Measured
+        # live: a live variant of the recipe skipped the advisor, so an
+        # on-demand paper came back with a gap card and one story.
+        calls = []
+        rc = self.run_main(tmp_path, monkeypatch, [], [job(crons.DAILY_NAME)],
+                           calls=calls, argv=["--now"])
+        assert rc == 0
+        (create,) = [c for c in calls if crons.NOW_NAME in c]
+        schedule, prompt = create[3], create[4]
+        assert "T" in schedule  # an ISO instant: hermes fires it once
+        assert prompt == crons.paper_prompt()
+        assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
+        assert "queued: pt-daily-edition-now" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("create_rc", [0, 1])
+    def test_now_removes_the_previous_one_shot_only_after_queueing_its_successor(
+            self, tmp_path, monkeypatch, hermes, create_rc):
+        # A failed create must not cancel a copy the owner was already promised.
+        calls = []
+
+        def runner(argv):
+            calls.append(argv)
+            rc = create_rc if argv[2] == "create" and crons.NOW_NAME in argv else 0
+            return type("P", (), {"returncode": rc, "stdout": "", "stderr": ""})()
+
+        previous = {**job(crons.NOW_NAME), "id": "old123"}
+
+        def run():
+            return self.run_main(tmp_path, monkeypatch, [], [job(crons.DAILY_NAME), previous],
+                                 runner=runner, argv=["--now"])
+        if create_rc:
+            with pytest.raises(SystemExit, match="could not queue"):
+                run()
+            assert not any(c[2] == "remove" for c in calls)
+        else:
+            run()
+            now = [c[2:4] for c in calls if crons.NOW_NAME in c or "old123" in c]
+            assert [c[0] for c in now] == ["create", "remove"] and now[1][1] == "old123"
+
+    def test_registration_never_sweeps_a_queued_copy(self):
+        assert crons.stale_names([], {crons.NOW_NAME: True}, delivery_hour="07:00") == []
 
     def test_registers_missing_subscription(
             self, tmp_path, monkeypatch, hermes):
@@ -510,18 +554,6 @@ class TestFocusedPapers:
         assert stale == []
 
 
-class TestHasPaper:
-    def test_always_true_with_a_section(self):
-        assert crons.has_paper([topic("t_1", kind="section", status="pending")])
-
-    def test_always_true_with_no_news_topics(self):
-        # Weather and calendar desks still fill a paper.
-        assert crons.has_paper([])
-
-    def test_always_true_with_only_a_subscription(self):
-        assert crons.has_paper([topic("t_1")])
-
-
 class TestDailyJob:
     def test_included_when_a_section_exists(self):
         jobs = crons.desired_jobs(
@@ -730,61 +762,20 @@ class TestDriftMain:
         assert not any("remove" in c and crons.DAILY_NAME in c for c in calls)
 
 
-class TestShowDailyRecipe:
-    """The on-demand copy runs the SAME recipe the 7am cron runs.
-
-    Measured live 2026-09-16: asked for "a copy to read right now", the agent
-    had no route for it -- pt-intake's table has five rows and all five are
-    "a new subject to research" -- so it filed a one_off topic whose text was
-    "A current copy of my daily newspaper" and went to research that phrase
-    on the web. The edition came back with the standing desks and a news
-    block reading "No separate news desk in this quick pass". The owner's 48
-    saved sections were never consulted, because a one-off edition carries
-    only its own topic. The recipe that researches every active section
-    existed the whole time -- inside daily_prompt(), reachable only by the
-    cron. This flag makes it reachable, from the one source, so the skill's
-    copy can never drift from what the cron actually runs.
-    """
-
-    def test_flag_prints_the_cron_recipe_marked_live(self, capsys):
-        rc = crons.main(["--show-daily-recipe"])
-        assert rc == 0
-        printed = capsys.readouterr().out.strip()
-        assert printed == crons.daily_prompt("daily", live=True).strip()
-        assert printed.endswith("This is a live copy: print today's advisor card as it stands, "
-                                "or the gap card, and make no advisor pass.")
-
-    def test_recipe_covers_the_sections_the_one_off_path_skipped(self, capsys):
-        crons.main(["--show-daily-recipe"])
-        printed = capsys.readouterr().out
-        assert "every active news section" in printed
-        assert "run_lock.py acquire" in printed
-        assert "--pdf" in printed
-
-    def test_recipe_names_run_lock_as_a_bare_absolute_path(self):
-        # Same incident: "pt-shared's run_lock.py" with no path sent the
-        # model looking for an invocation, then wrapping a shell. The
-        # cron recipe is what --show-daily-recipe prints; it has to be a
-        # command the terminal can run as written.
-        printed = crons.daily_prompt("daily")
-        assert (
-            "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire"
-        ) in printed
-        assert (
-            "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py release"
-        ) in printed
-        assert (
-            "/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py"
-        ) in printed
-        assert "python3" not in printed
-
-    def test_showing_the_recipe_touches_no_jobs_and_needs_no_container(self, tmp_path, capsys):
-        # It must be safe to ask for the recipe anywhere: no hermes binary
-        # check, no config read, no job registration, nothing written.
-        jobs = tmp_path / "jobs.json"
-        rc = crons.main(["--show-daily-recipe"], jobs_path=str(jobs))
-        assert rc == 0
-        assert not jobs.exists()
+def test_recipe_names_run_lock_as_a_bare_absolute_path():
+    # "pt-shared's run_lock.py" with no path sent the model looking for an
+    # invocation, then wrapping a shell.
+    printed = crons.paper_prompt()
+    assert (
+        "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire"
+    ) in printed
+    assert (
+        "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py release"
+    ) in printed
+    assert (
+        "/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py"
+    ) in printed
+    assert "python3" not in printed
 
 
 class TestCliPassesItsArguments:
@@ -792,9 +783,8 @@ class TestCliPassesItsArguments:
         # main(argv=None) deliberately parses [] so an in-process caller never
         # reads pytest's own argv. That means the CLI entry MUST hand over
         # sys.argv[1:] explicitly, or no flag can ever be passed from a
-        # terminal. Caught in the container: `register_crons.py
-        # --show-daily-recipe` ignored the flag and fell through to job
-        # registration, dying on `import topics`.
+        # terminal. Caught in the container: a flag was silently ignored and
+        # the run fell through to plain registration.
         source = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
         assert "main(sys.argv[1:])" in source, "the CLI entry drops its arguments"
 
@@ -808,14 +798,14 @@ class TestScheduledHold:
         assert "--hold-until 07:00" in prompt
         assert "--stale-minutes 240" in prompt
 
-    def test_live_copy_does_not_hold(self):
-        p = crons.daily_prompt("daily", live=True)
+    def test_on_demand_copy_does_not_hold(self):
+        p = crons.paper_prompt(lead_minutes=40)
         assert "--hold-until" not in p
-        assert "--stale-minutes 240 plus delivery.lead_minutes" in p
+        assert "--stale-minutes 280" in p
 
     def test_every_acquirer_of_the_daily_lock_outlives_the_early_start(self):
         # A scheduled run with a 40-minute lead holds the lock 40 minutes
-        # before its own work; a live copy must not call that stale.
+        # before its own work; an on-demand copy must not call that stale.
         jobs = crons.desired_jobs([topic("t_1", kind="section")], "07:00", {}, 40)
         assert "--stale-minutes 280" in jobs[0]["prompt"]
 
@@ -847,8 +837,8 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
     path again).
     """
 
-    def test_daily_prompt_carries_the_print_leg(self):
-        p = crons.daily_prompt("daily")
+    def test_paper_prompt_carries_the_print_leg(self):
+        p = crons.paper_prompt()
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
         assert "post_to_chat.py already finalizes every carried topic" in p
@@ -858,46 +848,34 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "reopen-sections" in p
 
     def test_all_papers_share_a_lock_longer_than_the_tournament(self):
-        scheduled = (
-            crons.daily_prompt("daily"),
-            crons.daily_prompt("daily2"),
-            crons.paper_prompt("12:00"),
-        )
-        for prompt in scheduled:
+        for prompt in (crons.paper_prompt("07:00"), crons.paper_prompt(focus="12:00")):
             assert "paper-workspace-<today's date" in prompt
             assert "--stale-minutes 240" in prompt
-        live = crons.daily_prompt("daily", live=True)
-        assert "paper-workspace-<today's date" in live
-        assert "--stale-minutes 240 plus delivery.lead_minutes" in live
 
-    def test_every_paper_clears_desk_scratch_and_only_canonical_clears_priority(self):
-        canonical = crons.daily_prompt("daily")
-        assert "prepare_daily_run.py" in canonical
-        assert "--preserve-priority" not in canonical
-        for prompt in (
-            crons.daily_prompt("daily2"),
-            crons.daily_prompt("daily", live=True),
-            crons.paper_prompt("12:00"),
-        ):
+    def test_scheduled_papers_reuse_only_todays_advice(self):
+        for prompt in (crons.paper_prompt("07:00"), crons.paper_prompt("12:00", focus="12:00")):
             assert "prepare_daily_run.py --preserve-priority" in prompt
+            assert "reuse today's accepted checkpoint" in prompt
+            assert "else run the tournament" in prompt
 
-    def test_only_the_canonical_scheduled_paper_runs_priority(self):
-        assert "run the priority tournament" in crons.daily_prompt("daily")
-        for prompt in (
-            crons.daily_prompt("daily2"),
-            crons.daily_prompt("daily", live=True),
-            crons.paper_prompt("12:00"),
-        ):
-            assert "do not run priority" in prompt
-            assert "reuse its atomic checkpoint or gap card" in prompt
+    def test_on_demand_copy_never_waits_on_a_tournament_it_can_reuse(self):
+        # Owner's call: the copy reuses the newest accepted advice of any
+        # date, printed with its as-of date; only a paper that has never had
+        # accepted advice runs the tournament.
+        prompt = crons.paper_prompt()
+        assert "prepare_daily_run.py --preserve-priority" in prompt
+        assert "newest accepted checkpoint" in prompt and "whatever its date" in prompt
+        assert '"as_of"' in prompt
+        assert "only if none has ever been accepted" in prompt
+        assert "reuse today's" not in prompt
 
-    def test_daily_prompt_forbids_origin_retry_loops(self):
-        p = crons.daily_prompt("daily")
+    def test_paper_prompt_forbids_origin_retry_loops(self):
+        p = crons.paper_prompt()
         assert "plow_browser_open" in p
         assert "needs origins" in p or "apex" in p
 
     def test_hour_paper_prompt_carries_the_print_leg(self):
-        p = crons.paper_prompt("12:00")
+        p = crons.paper_prompt(focus="12:00")
         assert "print_edition.py" in p
         assert "post_to_chat.py already runs" in p
         assert "post_to_chat.py already finalizes every carried topic" in p
@@ -905,8 +883,8 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "printer.configured" in p
 
     @pytest.mark.parametrize("prompt", [
-        crons.daily_prompt("daily"),
-        crons.paper_prompt("12:00"),
+        crons.paper_prompt(),
+        crons.paper_prompt(focus="12:00"),
     ])
     def test_paper_prompt_stops_before_research_on_legacy_overfill(self, prompt):
         assert "topics.py check-paper" in prompt
@@ -917,5 +895,5 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert refusal < release < research
 
     def test_print_leg_is_best_effort_and_after_the_chat_edition(self):
-        p = crons.daily_prompt("daily")
+        p = crons.paper_prompt()
         assert "best-effort" in p or "best effort" in p

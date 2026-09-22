@@ -121,6 +121,13 @@ def pretty_date(raw):
     return f"{_MONTHS[month - 1]} {day}, {year}"
 
 
+def _real_date(raw):
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
 def blank(value):
     """True unless value is a string with something in it."""
     return not (isinstance(value, str) and value.strip())
@@ -302,6 +309,10 @@ def validate(edition):
                     note = item.get("note")
                     if note is not None and not isinstance(note, str):
                         failures.append(f"{gwhere}.note is not a string")
+        as_of = section.get("as_of")
+        if as_of is not None and not (desk == "priority" and isinstance(as_of, str)
+                                      and DATE_RE.fullmatch(as_of) and _real_date(as_of)):
+            failures.append(f"{where}.as_of is not a YYYY-MM-DD date on the priority desk")
         priority = section.get("priority")
         if priority is not None:
             if desk != "priority":
@@ -394,6 +405,15 @@ def validate(edition):
     return "; ".join(failures or page_rules(sections))
 
 
+def advice_date(edition):
+    """The day the printed advice was accepted: the priority section's
+    `as_of` (an on-demand copy reusing an older checkpoint), else the edition's."""
+    for section in edition.get("sections", []):
+        if isinstance(section, dict) and section.get("desk") == "priority" and section.get("as_of"):
+            return section["as_of"]
+    return edition.get("date")
+
+
 def validate_tournament(edition, tournament):
     """Refuse a priority card that is not a third-generation checkpoint."""
     if not isinstance(tournament, dict):
@@ -401,8 +421,10 @@ def validate_tournament(edition, tournament):
 
     generation = tournament.get("generation")
     failures = []
-    if tournament.get("date") != edition.get("date"):
+    if tournament.get("date") != advice_date(edition):
         failures.append("tournament date does not match edition date")
+    elif str(advice_date(edition)) > str(edition.get("date")):
+        failures.append("priority as_of is after the edition date")
     if (
         not isinstance(generation, int)
         or isinstance(generation, bool)
@@ -585,14 +607,16 @@ def stale_desk_files(edition, run_root):
     today's. Every desk file must carry today's `date`: a missing one is as
     stale as a wrong one. Called only on a validated edition. A news-only
     edition (a one-topic subscription) renders no standing desk, so leftover
-    desk files cannot reach it and are not judged.
+    desk files cannot reach it and are not judged. desk-priority is kept
+    across days on purpose (the advisor checkpoint); its card is dated by
+    validate_tournament instead.
     """
     if all(desk_of(s) == "news" for s in edition["sections"]):
         return []
     stale = []
     for path in sorted(pathlib.Path(run_root).glob("desk-*/*.json")):
         data = _load_json_file(path)
-        if data is None:
+        if data is None or path.parent.name == "desk-priority":
             continue
         if data.get("date") != edition["date"]:
             stale.append(f"{path.parent.name}/{path.name} is dated {data.get('date')!r}")
@@ -1157,6 +1181,9 @@ def html_section(section, drop_cap=False, language=""):
     if games:
         blocks.append(games_list(games))
     if priority:
+        if section.get("as_of"):
+            label = "Conselho de" if is_portuguese(language) else "Advice from"
+            blocks.append(f'  <p class="priority-asof">{label} {section["as_of"]}</p>')
         blocks.append(priority_block(priority))
     if skip_body:
         pass
