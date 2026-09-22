@@ -1015,8 +1015,9 @@ class TestPriorityDeskOwnsItsMessage:
         html, _chat = self._main(tmp_path, config, sections)
         assert 'class="section section--priority"' not in html
 
-    def test_an_unavailable_desk_without_its_reason_is_refused(self):
-        section = {**self.UNAVAILABLE, "could_not_source": []}
+    @pytest.mark.parametrize("could_not", [[], [" "]])
+    def test_an_unavailable_desk_without_its_reason_is_refused(self, could_not):
+        section = {**self.UNAVAILABLE, "could_not_source": could_not}
         assert "no priority card and no could_not_source reason" in render.validate(
             edition(sections=[self.WEATHER, section]))
 
