@@ -10,7 +10,7 @@ phone (or holding a printed page) gets a short, sourced answer, and nothing
 in it is a guess.
 
 **Compiling, rendering and delivering happen silently — the owner sees the
-PDF (or the on-demand copy's own confirmation) and nothing about the steps
+PDF and nothing about the steps
 that produced it.** Measured live, on an on-demand "send me a paper now"
 with the owner watching in real time: "PDF rendered successfully. Now
 posting it to chat.", "PDF posted. Now marking topics delivered and
@@ -193,14 +193,16 @@ HTML.** Hand-write `edition.json` under the run directory:
   (measured live: two real appointments, empty `events.json` after a
   failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
-  its `priority` object from `run/desk-priority/tournament.json` without rewriting. If that
+  its `priority` object from `run/desk-priority/tournament.json` without rewriting. An
+  on-demand copy reusing an older checkpoint also sets the section's `"as_of"` to that
+  checkpoint's `date`; the card then prints "Advice from <date>". If that
   complete checkpoint is missing, or the **As of** date in
-  `pt/advisor.md` is not today, write the unavailable section instead: a
-  one-line `body` saying today's card could not be built, and
-  `could_not_source` copied verbatim from `run/desk-priority/notes.json` (a paper that does not run priority and
-  finds no notes says today's scheduled paper has not published the card).
-  `render_edition.py` refuses a configured paper with no priority section.
-  Never omit the slot. Mail only when
+  `pt/advisor.md` is not today (on demand: not the reused checkpoint's `as_of`), write the
+  unavailable section instead: a one-line `body` saying today's card could not be built, and
+  `could_not_source` copied verbatim from `run/desk-priority/notes.json` when its `date` is
+  this edition's (that desk is kept across days; an older file's reason is not today's).
+  `render_edition.py` refuses a configured paper with no priority section, and an
+  unavailable one with no reason. Never omit the slot. Mail only when
   `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
   otherwise omit the mail block entirely so that slot stays empty.
@@ -221,7 +223,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   fails to gather leaves the previous day's `run/desk-*/notes.json` /
   `events.json` in place. `render_edition.py` refuses an edition that carries a standing desk when any
   such file's `date` is missing or not the edition's `date`; re-run that
-  desk, or delete its stale files. A news-only edition (a one-topic
+  desk, or delete its stale files. `desk-priority` is kept across days and exempt;
+  `--tournament` dates its card instead. A news-only edition (a one-topic
   subscription) renders no standing desk, so leftover desk files are not
   checked and need no action. Weather, calendar, and a configured priority
   desk are mandatory: after deleting, compile an honest failed-gather (priority:
@@ -249,23 +252,17 @@ HTML.** Hand-write `edition.json` under the run directory:
 ## On demand — "send me the paper now"
 
 The owner asking for a copy right now is **not** a new topic (see
-`pt-intake`'s routing table). It runs the same edition the 7am cron runs,
-sections and all. Do not retype those steps from memory and do not write a
-shorter version: ask for them, so an on-demand copy can never drift from
-what the scheduled run actually does.
+`pt-intake`'s routing table), and you do not build it in the chat turn.
+It is the same paper the morning job runs, sections, advisor and all,
+queued as a one-shot a minute out:
 
-    /var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --show-daily-recipe
+    /var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --now
 
-That prints the daily run's steps verbatim, from the same function the cron
-job is built from. Follow what it prints, exactly, including the run lock —
-the lock is what stops an on-demand copy from racing the scheduled paper and
-delivering a hollow edition to both. Printing the recipe registers nothing
-and changes no job.
-
-The one difference: the recipe ends with `NO_REPLY` so the cron's
-`--deliver` does not send the transcript. A copy the owner asked for in chat
-still ends with `NO_REPLY` — step 2 below already sent them the PDF, and a
-transcript after it is the wall of text they did not ask for.
+That reconciles every job and queues `pt-daily-edition-now` with the main
+paper's own prompt and no send clock. The scheduler runs it in its own
+session and this skill delivers it from there. It prints the newest
+accepted advisor checkpoint, dated (`as_of`, below) when it is older than
+today, and waits on a tournament only when none has ever been accepted.
 
 ## Render and deliver
 
@@ -321,7 +318,7 @@ transcript after it is the wall of text they did not ask for.
    A **scheduled** paper's cron prompt adds `--hold-until HH:MM` (that job's
    delivery hour). Honor it: the script sleeps until that clock in `TZ`, and
    if the hour has already passed it posts immediately (never until tomorrow).
-   A **live copy** must omit `--hold-until`.
+   The on-demand copy's prompt carries none.
 
    Omit `--pdf` **only** when step 1 established that weasyprint is
    genuinely absent — never because your own command failed. In that one
@@ -351,12 +348,6 @@ transcript after it is the wall of text they did not ask for.
    non-zero after every finalizer and names the one recovery command:
    `record_edition.py <edition.json>; do not repost`. Run that command once;
    never resend the PDF. This is no longer a normal step you run.
-
-   A successful POST stamps `/var/lib/hermes/skills/pt-shared/scripts/seal_chat_session.py`
-   (you do not have to run that script yourself). When this turn ends, the
-   gateway starts a **new plow_chat session**. Do not keep researching,
-   patching desk JSON, or reading this turn's Latch dumps after the PDF
-   is out — the next owner message will not see them anyway.
 
    **Final response is `NO_REPLY` and nothing else.** Never a recap of
    the desks or headlines — measured live, "Seu jornal foi gerado e

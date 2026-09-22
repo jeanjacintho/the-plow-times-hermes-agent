@@ -178,7 +178,7 @@ or can say in a line.
 | "X in tomorrow's paper" / "Y in Friday's paper" | `assignment` | one research pass whose result appears **only** in that day's paper |
 | "research X, tell me later" | `one_off` | its own edition, delivered once |
 | "update me on Y every night" / "keep an eye on Z" | `subscription` | its own edition, re-run on the delivery hour |
-| "send me the paper now" / "generate a copy I can read right now" | **not a topic** | run the daily edition on demand — see below |
+| "send me the paper now" / "generate a copy I can read right now" | **not a topic** | queue the daily edition now — see below |
 
 **"Give me a copy of my paper" is not a subject to research.** It names no
 claim to look up; it asks you to run the paper the owner already
@@ -188,24 +188,14 @@ produces an edition *about the phrase*: measured live, it became a
 went looking for that on the web, and the paper came back with the standing
 desks and a news block saying "No separate news desk in this quick pass" —
 while 48 saved sections sat unread, because a one-off edition carries only
-its own topic. Do not add a topic. Run the daily edition's own steps, which
-`pt-edition` documents under **On demand**.
+its own topic. Do not add a topic.
 
-**Before running those steps, post the wait line with the script, not a
-sentence you type.** A live turn delivers every assistant chunk to chat —
-measured live, that became a play-by-play of every desk and URL, then a
-file named `edition.pdf`. First tool call, before research:
-
-    /var/lib/hermes/skills/pt-shared/scripts/chat_status.py --soon
-
-One line in `owner.language` lands in chat ("Seu jornal sai daqui a alguns
-minutos." / "Your paper will be ready in a few minutes."). After that,
-**no owner-facing text until the PDF.** During research, after every desk
-and every topic, run `chat_status.py --wait` — it no-ops until a few
-minutes have passed, then posts once ("Mais uns minutos — o jornal está
-quase pronto."). Cron-fired papers never call this script. Do not type
-those sentences yourself; Hermes will not deliver typed mid-turn text
-on plow_chat. Do not narrate a decision in between.
+Queue it with `register_crons.py --now`, which `pt-edition` documents
+under **On demand**; the paper arrives as its own message. If the output
+has a `queued:` line, reply with one ⏳ line in `owner.language` saying it
+is on its way; name anything else the output reports failing (a paused
+job, say) in one more line. With no `queued:` line, say it could not be
+queued. Never research or render it in this turn.
 
 A subscription/section is anything with a cadence in it. A one-off/assignment
 is a single ask. When the owner genuinely cannot be read as one or the other,
