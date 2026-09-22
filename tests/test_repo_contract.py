@@ -757,7 +757,13 @@ class TestSkills:
         assert "Live copies and alternate daily reruns re-research the main roster" in soul
         assert "Focused papers add only sections booked for their own hour" in soul
         assert "the founder" in skill
-        assert "you / você" in skill
+        # The card's language is the owner's, read from config -- not inferred from this
+        # file. A lone `você` exemplar was the only language signal the culler had, and it
+        # wrote a Portuguese card for an English owner (#93).
+        assert "written in the owner's language throughout" in skill
+        assert "whose examples are not a hint" in skill
+        assert "`you` in English, `você` in Portuguese" in skill
+        assert "owner.language` from `/var/lib/hermes/pt/config.json`" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
         assert "def ensure_priority_desk" in renderer
         assert "Never omit the slot" in edition
@@ -778,7 +784,9 @@ class TestSkills:
             "A recommendation without a supporting sourced quote is ineligible",
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
             "--tournament",
-            "rewrite every reference to the owner by name or role into direct reader voice",
+            "rewrite every reference to the owner by name or role into direct",
+            "question in the owner's language -- the literal value read during Orient",
+            "is a defect, not a style choice",
             "`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`",
             "sanitized `reads`",
             "reopens decisive public read receipts",

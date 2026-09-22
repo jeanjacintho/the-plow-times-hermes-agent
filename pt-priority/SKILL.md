@@ -36,7 +36,9 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
   a Messages chat plus rowid, a sheet id and tab, a file path that opens. A source class with no
   handle (“a mail thread and a calendar event”) is not an item. A claim whose item will not
   re-open is **unsupported**: not disproved, and not a fact this page may rest on.
-- The page speaks to the reader as you / você in `owner.language`, never about them by name;
+- The page is written in the owner's language throughout -- the value read during Orient, not
+  a language inferred from this file, whose examples are not a hint. It speaks to the reader
+  directly in it (`you` in English, `você` in Portuguese), never about them by name;
   “the founder” appears only when discussing the advisor's general framework, never as a label
   for the reader.
 - Discover advisors by reading every `*.md` except `README.md` under
@@ -46,7 +48,9 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 ## Orient
 
 Read all named advisor files, `qa.md`, `resources.md`, goals, today's desk evidence, and
-`pt/advisor.md`. Run `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once and keep
+`pt/advisor.md`. Read `owner.language` from `/var/lib/hermes/pt/config.json` and keep its literal
+value in the root context: every later stage is told to write in it, and nothing else in this skill
+says where it lives. Run `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once and keep
 its compact JSON in the root context; do not reopen or dump the edition archive. The newest
 delivered recommendations are generation zero. With no history, seed candidates from the named
 advisors' “Questions that change the advice.” Preserve the last fully criticized champion set as
@@ -194,8 +198,11 @@ A critic's verdict is evidence, not an elimination vote. When at least three ful
 targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
 A recommendation without a supporting sourced quote is ineligible, not a slot to pad: its quoted
 words must support the recommendation's actual proposition, not merely come from the same advisor.
-Before building the candidate, rewrite every reference to the owner by name or role into direct reader voice
-in every recommendation and question, using `owner.language`.
+Before building the candidate, rewrite every reference to the owner by name or role into direct
+reader voice in every recommendation and question. Write every headline, body, FIRST STEP and
+question in the owner's language -- the literal value read during Orient. This is a rewrite of
+address, not a translation: when that value is English the prose stays English, and a card whose
+body language disagrees with it is a defect, not a style choice.
 
 The culler proposes Open-question ranks and supported answers only in run state. Each Answered entry
 is a current sourced fact/FAQ answer with its question, as-of date, and source items or URLs;
