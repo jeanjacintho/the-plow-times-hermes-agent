@@ -17,7 +17,6 @@
 set -eu
 config=/var/lib/hermes/config.yaml
 [ -f "$config" ] || exit 0
-grep -q '^  latch:' "$config" || exit 0
 /opt/hermes/.venv/bin/python3 - "$config" <<'PY'
 import os
 import sys
@@ -29,10 +28,12 @@ with open(path) as handle:
 
 servers = config.get("mcp_servers")
 entry = servers.get("latch") if isinstance(servers, dict) else None
-# The name alone does not make it the retired one. What does is the credential
-# it interpolates: this repo built the URL from ${DOMO_DEVICE_UID} and the
-# bearer from ${DOMO_MCP_TOKEN}, and nothing else here ever has.
-if not isinstance(entry, dict) or "DOMO_" not in yaml.safe_dump(entry):
+# The name alone does not make it the retired one. What does is the URL this
+# repo always wrote for it -- the device interpolated straight into the path.
+# Matching the bearer too would be stricter without being safer: an install
+# whose header drifted is exactly the one still needing the migration.
+LEGACY_URL_MARKER = "${DOMO_DEVICE_UID}"
+if not isinstance(entry, dict) or LEGACY_URL_MARKER not in str(entry.get("url", "")):
     sys.exit(0)
 
 del servers["latch"]

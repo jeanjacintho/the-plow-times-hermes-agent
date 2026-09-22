@@ -57,13 +57,35 @@ def test_the_key_itself_goes_when_latch_was_the_only_entry(tmp_path):
     assert out["agent"] == {"api_max_retries": 9}
 
 
-def test_a_later_server_that_merely_shares_the_name_survives(tmp_path):
-    # The hook identifies the retired entry by the credential it interpolates,
-    # not by its name -- otherwise it would quietly eat a future `latch` server
-    # on every boot, forever.
-    config = {"mcp_servers": {"latch": {"url": "https://latch.example/mcp", "enabled": True}}}
+@pytest.mark.parametrize("entry", [
+    # No DOMO_ anywhere: plainly somebody else's server.
+    {"url": "https://latch.example/mcp", "enabled": True},
+    # An unrelated DOMO_* variable. A substring test for "DOMO_" ate this one.
+    {"url": "https://latch.example/mcp", "headers": {"X-Key": "${DOMO_API_KEY}"}},
+    # The marker in the header rather than the URL is not the shape this repo
+    # ever wrote, so it is not the entry this migration is for.
+    {"url": "https://latch.example/mcp", "headers": {"Authorization": "Bearer ${DOMO_MCP_TOKEN}"}},
+])
+def test_a_later_server_that_merely_shares_the_name_survives(tmp_path, entry):
+    # The hook identifies the retired entry by the URL it interpolates, not by
+    # its name -- otherwise it would quietly eat a future `latch` server on
+    # every boot, forever.
+    config = {"mcp_servers": {"latch": entry}}
 
     assert _run(tmp_path, config) == config
+
+
+def test_the_entry_is_found_whatever_shape_the_yaml_is_in(tmp_path):
+    # A `grep '^  latch:'` gate used to guard the parser, and it only matched
+    # one serialization. The install whose config is in flow style is still an
+    # install carrying the legacy entry.
+    path = tmp_path / "config.yaml"
+    path.write_text('mcp_servers: {latch: {url: "https://api.plow.co/v1/relay/devices/${DOMO_DEVICE_UID}/mcp"},'
+                    ' plow: {url: "${PLOW_MCP_URL}"}}\n')
+
+    subprocess.run([sys.executable, "-c", _body(), str(path)], check=True)
+
+    assert yaml.safe_load(path.read_text()) == {"mcp_servers": {"plow": {"url": "${PLOW_MCP_URL}"}}}
 
 
 def test_the_config_keeps_its_mode_and_owner(tmp_path):
