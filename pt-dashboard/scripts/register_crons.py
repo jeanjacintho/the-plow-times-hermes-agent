@@ -731,13 +731,16 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
+    # Validated before any scheduler change, so a bad one-off mutates nothing.
+    # A naive instant would fire on the container's clock, not the owner's.
     oneoff = next((t for t in topics if t["id"] == args.oneoff), None) if args.oneoff else None
+    oneoff_at = (datetime.fromisoformat(oneoff["scheduled_for"])
+                 if oneoff and oneoff["scheduled_for"] else None)
     if args.oneoff and (oneoff is None or oneoff["kind"] != "one_off"
-                        or oneoff["status"] != "pending" or not oneoff["scheduled_for"]):
-        raise SystemExit(f"refusing to queue: {args.oneoff} is not a pending one_off "
-                         "topic with a scheduled_for in topics.json")
-    # Parsed before any scheduler change, so a malformed value mutates nothing.
-    oneoff_at = datetime.fromisoformat(oneoff["scheduled_for"]) if oneoff else None
+                        or oneoff["status"] != "pending"
+                        or oneoff_at is None or oneoff_at.utcoffset() is None):
+        raise SystemExit(f"refusing to queue: {args.oneoff} is not a pending one_off topic "
+                         "with an offset-aware scheduled_for in topics.json")
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)

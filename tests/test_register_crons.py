@@ -301,6 +301,7 @@ class TestMain:
         [{**topic("t_0c11", kind="one_off", status="delivered"),
           "scheduled_for": "2026-09-22T07:03:00-07:00"}],
         [topic("t_0c11", kind="one_off")],
+        [{**topic("t_0c11", kind="one_off"), "scheduled_for": "2026-09-22T07:03:00"}],
     ])
     def test_oneoff_refuses_anything_but_a_pending_scheduled_one_off(
             self, tmp_path, monkeypatch, hermes, topics_list):
