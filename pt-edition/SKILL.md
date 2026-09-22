@@ -104,9 +104,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block
   it qualifies. Unsourced claims are named, not hidden.
-- **Every desk but priority prints `sources` and `could_not_source`**, in
-  the reader's words ("your calendar", never a file or a path). On the
-  priority desk those lines were the paper's own plumbing ("Sources:
+- **Every desk prints `could_not_source`, and every desk but priority
+  prints `sources`**, in the reader's words ("your calendar", never a file
+  or a path). Priority sources were the paper's own plumbing ("Sources:
   priority desk"), so the renderer drops them there. Weather on the
   printed page is the masthead ear (a vendored Atlas icon and high/low, or
   the named miss when research failed); it has no sources line. The chat
@@ -196,8 +196,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   its `priority` object from `run/desk-priority/tournament.json` without rewriting. If that
   complete checkpoint is missing, or the **As of** date in
   `pt/advisor.md` is not today, write the unavailable section instead: a
-  one-line `body` and `could_not_source` copied verbatim from
-  `run/desk-priority/notes.json` (a paper that does not run priority and
+  one-line `body` saying today's card could not be built, and
+  `could_not_source` copied verbatim from `run/desk-priority/notes.json` (a paper that does not run priority and
   finds no notes says today's scheduled paper has not published the card).
   `render_edition.py` refuses a configured paper with no priority section.
   Never omit the slot. Mail only when

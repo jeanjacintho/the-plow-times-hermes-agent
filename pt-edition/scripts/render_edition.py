@@ -285,6 +285,8 @@ def validate(edition):
                     if note is not None and not isinstance(note, str):
                         failures.append(f"{gwhere}.note is not a string")
         priority = section.get("priority")
+        if desk == "priority" and priority is None and not could_not:
+            failures.append(f"{where} has no priority card and no could_not_source reason")
         if priority is not None:
             if desk != "priority":
                 failures.append(f"{where}.priority is only valid on the priority desk")
