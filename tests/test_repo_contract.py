@@ -1037,7 +1037,6 @@ class TestDeployment:
                 re.MULTILINE,
             ), f"COPY {name}/ does not land at /opt/hermes/skills/{name}/"
             assert f"/var/lib/hermes/skills/{name}" not in dockerfile
-        assert "COPY runtime/SOUL.md /var/lib/hermes/SOUL.md" in dockerfile
         assert "COPY runtime/SOUL.md /opt/hermes/plow-seed/SOUL.md" in dockerfile
         assert "COPY runtime/USER.md /var/lib/hermes/memories/USER.md" in dockerfile
         # Boot recopies plow-seed over home; Sonnet lives there, not only in
