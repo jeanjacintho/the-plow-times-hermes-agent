@@ -368,8 +368,12 @@ Stop. On their next message:
   1. `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk` — it makes
      `~/Plow/wiki` ready (creating it when the Mac has none) and prints `WIKI:…`.
   2. `mcp__plow__plow_read_file` `path=~/Plow/wiki/entities/owner/goals.md`; add
-     their answer as one `- ` line under `## Goals` unless it is already there, set
-     `updated:` to today. Read it again immediately before the write and fold whatever
+     their answer as one `- ` line under `## Goals` unless it is already there, ending
+     with its item — the shape intake's corrections use: a Messages chat plus rowid, or
+     the mail message id, of the owner's own message. No message behind this answer
+     (typed in this interactive turn, not sent) → write the line with no item and say
+     so; that's unsupported, not a fake handle. Set `updated:` to today. Read it again
+     immediately before the write and fold whatever
      changed since the first read into what you write — the owner edits this page in
      Obsidian, and their line is evidence of what they say, never something a pass
      drops. Then `mcp__plow__plow_write_file` it back. Every other line, frontmatter
