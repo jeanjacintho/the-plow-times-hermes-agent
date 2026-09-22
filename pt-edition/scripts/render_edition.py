@@ -928,8 +928,8 @@ def recommendation_char_count(recommendation):
 
 
 def priority_block(priority, language=""):
-    labels = PRIORITY_LABELS["pt"] if is_portuguese(language) else PRIORITY_LABELS["en"]
     """Ranked recommendation essays, followed by questions for the owner."""
+    labels = PRIORITY_LABELS["pt"] if is_portuguese(language) else PRIORITY_LABELS["en"]
     recommendations = []
     for rank, recommendation in enumerate(priority["recommendations"], 1):
         advisor = recommendation["advisor"]
