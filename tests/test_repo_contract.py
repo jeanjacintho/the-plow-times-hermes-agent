@@ -760,8 +760,11 @@ class TestSkills:
         # The card's language is the owner's, read from config -- not inferred from this
         # file. A lone `você` exemplar was the only language signal the culler had, and it
         # wrote a Portuguese card for an English owner (#93).
-        assert "written in the owner's language throughout" in skill
-        assert "whose examples are not a hint" in skill
+        assert "Everything this desk writes" in skill
+        # Free-form, not a flag: a binary en/pt branch silently gives a Mandarin owner
+        # English text, and pt-edition promises "Mandarin in, Mandarin out".
+        assert "a language to write in, never a flag to branch on" in skill
+        assert "not a language inferred from this file" in skill
         assert "`you` in English, `você` in Portuguese" in skill
         assert "owner.language` from `/var/lib/hermes/pt/config.json`" in skill
         # A config with no owner.language must not send the culler back to inferring one;

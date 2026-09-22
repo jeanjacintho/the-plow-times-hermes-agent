@@ -53,16 +53,6 @@ KINDS = ("section", "assignment")
 DESKS = ("priority", "news", "weather", "calendar", "mail", "sports")
 DESK_ORDER = {"priority": -1, "weather": 0, "calendar": 1, "mail": 2, "sports": 3, "news": 4}
 CONFIG_DEFAULT = "/var/lib/hermes/pt/config.json"
-# The two pieces of the priority card the renderer writes rather than the desk.
-# `owner.language` governs the whole card (pt-priority/SKILL.md), so these follow
-# it through the same is_portuguese seam PRIORITY_UNAVAILABLE already uses --
-# otherwise a Portuguese owner reads localized recommendations under English
-# chrome. They are labels, not decoration: one marks the actionable line, the
-# other tells the reader how to answer.
-PRIORITY_LABELS = {
-    "en": {"first_step": "FIRST STEP", "questions": "QUESTIONS FOR YOU · TEXT “Q2: …”"},
-    "pt": {"first_step": "PRIMEIRO PASSO", "questions": "PERGUNTAS PARA VOCÊ · MANDE “Q2: …”"},
-}
 PRIORITY_UNAVAILABLE = {
     "pt": {
         "title": "O que priorizar hoje",
@@ -927,9 +917,8 @@ def recommendation_char_count(recommendation):
     return sum(len(" ".join(text.split())) for text in texts)
 
 
-def priority_block(priority, language=""):
+def priority_block(priority):
     """Ranked recommendation essays, followed by questions for the owner."""
-    labels = PRIORITY_LABELS["pt"] if is_portuguese(language) else PRIORITY_LABELS["en"]
     recommendations = []
     for rank, recommendation in enumerate(priority["recommendations"], 1):
         advisor = recommendation["advisor"]
@@ -943,7 +932,7 @@ def priority_block(priority, language=""):
             f'<article class="priority-rec"><p class="priority-rank">{rank}</p>'
             f'<h2>{_esc(recommendation["headline"])}</h2>{paragraphs}'
             f'<ol class="priority-evidence">{evidence}</ol>'
-            f'<p class="priority-step"><strong>{_esc(labels["first_step"])}</strong> {_esc(recommendation["first_step"])}</p>'
+            f'<p class="priority-step"><strong>FIRST STEP</strong> {_esc(recommendation["first_step"])}</p>'
             f'<blockquote>“{_esc(advisor["quote"])}” <span class="src">— '
             f'<a href="{_esc(advisor["url"])}">{_esc(advisor["name"])}</a></span></blockquote></article>'
         )
@@ -969,7 +958,7 @@ def priority_block(priority, language=""):
         '</div>'
     ]
     if priority.get("questions"):
-        blocks.append(_inline(labels["questions"], priority["questions"]))
+        blocks.append(_inline('QUESTIONS FOR YOU · TEXT “Q2: …”', priority["questions"]))
     return "\n".join(blocks)
 
 
@@ -1168,7 +1157,7 @@ def html_section(section, drop_cap=False, language=""):
     if games:
         blocks.append(games_list(games))
     if priority:
-        blocks.append(priority_block(priority, language))
+        blocks.append(priority_block(priority))
     if skip_body:
         pass
     elif paras:

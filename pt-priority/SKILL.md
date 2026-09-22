@@ -36,8 +36,10 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
   a Messages chat plus rowid, a sheet id and tab, a file path that opens. A source class with no
   handle (“a mail thread and a calendar event”) is not an item. A claim whose item will not
   re-open is **unsupported**: not disproved, and not a fact this page may rest on.
-- The page is written in the owner's language throughout -- the value read during Orient, not
-  a language inferred from this file, whose examples are not a hint. It speaks to the reader
+- Everything this desk writes -- headline, body, first step, questions -- is in the owner's
+  language: the value read during Orient, not a language inferred from this file, whose examples
+  are not a hint. `owner.language` is free-form (pt-edition/SKILL.md: "Mandarin in, Mandarin
+  out"), so it is a language to write in, never a flag to branch on. It speaks to the reader
   directly in it (`you` in English, `você` in Portuguese), never about them by name;
   “the founder” appears only when discussing the advisor's general framework, never as a label
   for the reader.
