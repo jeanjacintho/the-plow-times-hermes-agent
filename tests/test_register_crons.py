@@ -280,30 +280,57 @@ class TestMain:
         assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
         assert "queued: pt-daily-edition-now" in capsys.readouterr().out
 
+    def test_oneoff_queues_its_topic_edition_at_the_given_instant(
+            self, tmp_path, monkeypatch, hermes, capsys):
+        # A one-off is never a hand-built job: measured live, one built by
+        # hand without --deliver completed and reached no chat at all.
+        calls = []
+        at = "2026-09-22T07:03:00-07:00"
+        oneoff = topic("t_0c11", kind="one_off", depth="quick")
+        self.run_main(tmp_path, monkeypatch, [oneoff], [job(crons.DAILY_NAME)],
+                      calls=calls, argv=["--oneoff", "t_0c11", "--at", at])
+        (create,) = [c for c in calls if "pt-oneoff-t_0c11" in c]
+        assert create[3] == at
+        assert "topic t_0c11 now (depth quick)" in create[4]
+        assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
+        assert f"queued: pt-oneoff-t_0c11 ({at})" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("topics_list", [[], [topic("t_0c11")]])
+    def test_oneoff_refuses_an_id_that_is_not_a_one_off(
+            self, tmp_path, monkeypatch, hermes, topics_list):
+        with pytest.raises(SystemExit, match="not a one_off topic"):
+            self.run_main(tmp_path, monkeypatch, topics_list, [job(crons.DAILY_NAME)],
+                          argv=["--oneoff", "t_0c11", "--at", "2026-09-22T07:03:00-07:00"])
+
     @pytest.mark.parametrize("create_rc", [0, 1])
-    def test_now_removes_the_previous_one_shot_only_after_queueing_its_successor(
-            self, tmp_path, monkeypatch, hermes, create_rc):
-        # A failed create must not cancel a copy the owner was already promised.
+    @pytest.mark.parametrize("name,argv", [
+        (crons.NOW_NAME, ["--now"]),
+        ("pt-oneoff-t_0c11", ["--oneoff", "t_0c11", "--at", "2026-09-22T07:03:00-07:00"]),
+    ])
+    def test_one_shot_removes_its_predecessor_only_after_queueing_its_successor(
+            self, tmp_path, monkeypatch, hermes, create_rc, name, argv):
+        # A failed create must not cancel a paper the owner was already promised.
         calls = []
 
-        def runner(argv):
-            calls.append(argv)
-            rc = create_rc if argv[2] == "create" and crons.NOW_NAME in argv else 0
+        def runner(cmd):
+            calls.append(cmd)
+            rc = create_rc if cmd[2] == "create" and name in cmd else 0
             return type("P", (), {"returncode": rc, "stdout": "", "stderr": ""})()
 
-        previous = {**job(crons.NOW_NAME), "id": "old123"}
+        previous = {**job(name), "id": "old123"}
+        oneoff = topic("t_0c11", kind="one_off", depth="quick")
 
         def run():
-            return self.run_main(tmp_path, monkeypatch, [], [job(crons.DAILY_NAME), previous],
-                                 runner=runner, argv=["--now"])
+            return self.run_main(tmp_path, monkeypatch, [oneoff],
+                                 [job(crons.DAILY_NAME), previous], runner=runner, argv=argv)
         if create_rc:
             with pytest.raises(SystemExit, match="could not queue"):
                 run()
             assert not any(c[2] == "remove" for c in calls)
         else:
             run()
-            now = [c[2:4] for c in calls if crons.NOW_NAME in c or "old123" in c]
-            assert [c[0] for c in now] == ["create", "remove"] and now[1][1] == "old123"
+            shot = [c[2:4] for c in calls if name in c or "old123" in c]
+            assert [c[0] for c in shot] == ["create", "remove"] and shot[1][1] == "old123"
 
     def test_registration_never_sweeps_a_queued_copy(self):
         assert crons.stale_names([], {crons.NOW_NAME: True}, delivery_hour="07:00") == []

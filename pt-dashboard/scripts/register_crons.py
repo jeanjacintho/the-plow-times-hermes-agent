@@ -26,15 +26,15 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          deliver_at                 is not delivery.hour
   pt-subscription-<id>   0 <delivery.hour> * * *   one per subscription topic
                                                    not yet cancelled
-  pt-oneoff-<id>         created by pt-intake at   one-time; its own prompt
-                         the scheduled minute      self-removes after firing
+  pt-oneoff-<id>         one-shot at --at          --oneoff <id>: one topic's
+                                                   own edition; swept once the
+                                                   topic is delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
                                                    demand, same prompt, no hold
 
 This script therefore CREATES missing jobs and REMOVES pt-* jobs whose
-topic is gone -- cancelled, delivered one-offs their prompt failed to
-remove, or names with no topic behind them. "Created/removed as topics
-change", the design doc calls it. It never touches a job whose name does
+topic is gone -- cancelled, delivered one-offs, or names with no topic
+behind them. "Created/removed as topics change", the design doc calls it. It never touches a job whose name does
 not start with pt-: those are not this agent's to manage.
 
 It also RECONCILES drift, which create-if-missing alone does not: a job
@@ -130,12 +130,13 @@ DEFAULT_LEAD_MINUTES = 0
 # number could call the scheduled run dead and start a competing paper.
 STALE_RUN_MINUTES = 240
 
-SUBSCRIPTION_PROMPT = (
-    "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
+# One topic's own edition: a subscription's nightly run or a one-off.
+TOPIC_PROMPT = (
+    "Run pt-research on topic {tid} now (depth {depth}), then pt-edition for it. "
     "pt-edition writes edition.json, runs render_edition.py, and posts the PDF "
     "with post_to_chat.py --pdf plus its chat-only companion when present. "
-    "post_to_chat.py atomically records delivery and returns the subscription "
-    "to pending; do not mark it again. Final "
+    "post_to_chat.py atomically records delivery and finalizes the topic; "
+    "do not mark it again. Final "
     "response is NO_REPLY so --deliver does not send the text a second time."
 )
 
@@ -513,7 +514,7 @@ def subscription_job(topic, delivery_hour, env=None):
     return {
         "name": f"pt-subscription-{topic['id']}",
         "schedule": f"{minute} {hour} * * *",
-        "prompt": SUBSCRIPTION_PROMPT.format(tid=topic["id"]),
+        "prompt": TOPIC_PROMPT.format(tid=topic["id"], depth="deep"),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
@@ -557,9 +558,9 @@ def stale_names(topics, registered, extra_hours_count=0, delivery_hour=None):
     """Registered pt-* jobs the topic store no longer calls for.
 
     A subscription job outlives only its non-cancelled topic; a one-off job
-    outlives only a topic still pending or running (its prompt self-removes
-    it after firing -- this sweep is the backstop, and prunes delivered,
-    cancelled or vanished topics' leftovers). The daily job is never stale; a
+    outlives only a topic still pending or running (a fired one-shot stays
+    registered as completed; this sweep prunes it once the topic is
+    delivered, cancelled or gone). The daily job is never stale; a
     numbered extra-daily job goes stale the moment the owner removes that
     many delivery times. A pt-paper-HHMM job outlives only an active section still at that
     hour (and not the main delivery.hour). Names not starting with pt- are
@@ -674,29 +675,24 @@ def edit_argv(job, env=None):
     return argv
 
 
-def queue_now(runner, jobs_path, lead_minutes, env=None, clock=None):
-    """The on-demand copy: the main paper's own prompt as a one-shot job.
+def queue_once(runner, jobs_path, name, at, prompt, env=None):
+    """A one-shot job at the instant `at`: the on-demand copy or a one-off.
 
-    The gateway's scheduler fires it exactly like the morning run -- its own
-    session, the same workspace lock, the same --deliver -- so "send me the
-    paper now" can never be a thinner or different paper. Names are not
-    unique in hermes and a fired one-shot stays registered as completed, so
-    previous rows are removed by id -- only after the new one is created, so
-    a failed create never cancels a copy the owner was already promised.
+    The gateway's scheduler fires it exactly like a scheduled run -- its own
+    session, the same --deliver -- so "send me the paper now" can never be a
+    thinner or different paper, and no one-off is ever a hand-built job.
+    Names are not unique in hermes and a fired one-shot stays registered as
+    completed, so previous rows of this name are removed by id -- only after
+    the new one is created, so a failed create never cancels a paper the
+    owner was already promised.
     """
-    at = (clock or datetime.now().astimezone()) + timedelta(minutes=1)
-    job = {
-        "name": NOW_NAME,
-        "schedule": at.isoformat(timespec="seconds"),
-        "prompt": paper_prompt(lead_minutes=lead_minutes),
-        "skill": "pt-research",
-        "deliver": DELIVER_TARGET,
-    }
-    previous = [j["id"] for j in _job_rows(jobs_path) if j["name"] == NOW_NAME]
-    _check(runner(create_argv(job, env)), f"could not queue {NOW_NAME}")
-    print(f"queued: {NOW_NAME} ({job['schedule']})")
+    job = {"name": name, "schedule": at.isoformat(timespec="seconds"), "prompt": prompt,
+           "skill": "pt-research", "deliver": DELIVER_TARGET}
+    previous = [j["id"] for j in _job_rows(jobs_path) if j["name"] == name]
+    _check(runner(create_argv(job, env)), f"could not queue {name}")
+    print(f"queued: {name} ({job['schedule']})")
     for job_id in previous:
-        _check(runner([HERMES, "cron", "remove", job_id]), f"could not remove the previous {NOW_NAME}")
+        _check(runner([HERMES, "cron", "remove", job_id]), f"could not remove the previous {name}")
 
 
 def _check(proc, failure):
@@ -717,7 +713,13 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
         help="after registering, queue the main paper as a one-shot a minute "
              "out -- the on-demand copy, same prompt, no send clock",
     )
+    parser.add_argument("--oneoff", metavar="ID",
+                        help="after registering, queue one_off topic ID's own edition at --at")
+    parser.add_argument("--at", type=datetime.fromisoformat,
+                        help="ISO-8601 instant for --oneoff, the topic's scheduled_for")
     args = parser.parse_args(argv if argv is not None else [])
+    if bool(args.oneoff) != bool(args.at):
+        parser.error("--oneoff and --at go together")
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
@@ -732,6 +734,9 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
+    oneoff = next((t for t in topics if t["id"] == args.oneoff), None) if args.oneoff else None
+    if args.oneoff and (oneoff is None or oneoff["kind"] != "one_off"):
+        raise SystemExit(f"refusing to queue: {args.oneoff} is not a one_off topic in topics.json")
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
@@ -773,7 +778,12 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
         print(f"removed stale job: {name}")
 
     if args.now:
-        queue_now(runner, jobs_path, lead_minutes, env)
+        queue_once(runner, jobs_path, NOW_NAME,
+                   datetime.now().astimezone() + timedelta(minutes=1),
+                   paper_prompt(lead_minutes=lead_minutes), env)
+    if oneoff:
+        queue_once(runner, jobs_path, f"pt-oneoff-{oneoff['id']}", args.at,
+                   TOPIC_PROMPT.format(tid=oneoff["id"], depth=oneoff["depth"]), env)
 
     if paused:
         raise SystemExit(
