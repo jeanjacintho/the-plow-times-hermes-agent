@@ -156,24 +156,23 @@ class TestDesiredJobs:
             [topic("t_9f2a", status="cancelled")], "07:00", {})
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
-    @pytest.mark.parametrize("status,scheduled_for,has_job", [
-        ("pending", FUTURE, True),
-        ("pending", None, False),
-        ("pending", "2000-01-01T07:03:00-03:00", False),  # fired or missed: never re-armed
-        ("running", FUTURE, False),
-        ("delivered", FUTURE, False),
+    @pytest.mark.parametrize("status,scheduled_for,fires_at", [
+        ("pending", FUTURE, FUTURE),
+        # A rebuild that finished late still owes it: a minute out, like --now.
+        ("pending", "2000-01-01T07:03:00-03:00", "soon"),
+        ("running", FUTURE, None),
+        ("delivered", FUTURE, None),
     ])
-    def test_only_a_pending_one_off_still_ahead_gets_its_job(
-            self, status, scheduled_for, has_job):
+    def test_every_pending_one_off_gets_its_job(self, status, scheduled_for, fires_at):
         oneoff = {**topic("t_0c11", kind="one_off", status=status, depth="quick"),
                   "scheduled_for": scheduled_for}
-        names = [j["name"] for j in crons.desired_jobs([oneoff], "07:00", {})]
-        assert names == [crons.DAILY_NAME] + (["pt-oneoff-t_0c11"] if has_job else [])
-
-    def test_offset_naive_one_off_refuses(self):
-        oneoff = {**topic("t_0c11", kind="one_off"), "scheduled_for": "2099-01-01T07:03:00"}
-        with pytest.raises(SystemExit, match="offset-naive"):
-            crons.desired_jobs([oneoff], "07:00", {})
+        jobs = crons.desired_jobs([oneoff], "07:00", {})
+        shots = [j["schedule"] for j in jobs if j["name"] == "pt-oneoff-t_0c11"]
+        if fires_at == "soon":
+            (shot,) = shots
+            assert crons.datetime.fromisoformat(shot) > crons.datetime.now().astimezone()
+        else:
+            assert shots == ([fires_at] if fires_at else [])
 
     def test_running_subscription_still_has_its_job(self):
         jobs = crons.desired_jobs([topic("t_9f2a", status="running")], "07:00", {})

@@ -228,7 +228,7 @@ Two rules that keep the paper honest:
 
 Then write it — this script is the ONLY writer for topics.json:
 
-    /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" --kind one_off|subscription|section|assignment --depth quick|deep [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
+    /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" --kind one_off|subscription|section|assignment --depth quick|deep [--run-on YYYY-MM-DD] [--deliver-at HH:MM] [--scheduled-for <ISO-8601 with offset; required for one_off>]
 
 Adding a `section` the owner already has is a no-op: the script prints
 `{"duplicate_of": "<id>", ...}` and adds nothing, because a section is an
