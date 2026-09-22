@@ -1,8 +1,8 @@
 """owner_language.py -- the one policy for "is this owner writing Portuguese?"
 
-This is where the tag matrix lives. Its three consumers (the chat wait lines,
-the priority gap card, the unavailable-paper notice) each assert only that
-they route through it, not the tag rules again.
+This is where the tag matrix lives. Its consumers (the chat wait lines, the
+unavailable-paper notice) each assert only that they route through it, not
+the tag rules again.
 """
 from __future__ import annotations
 

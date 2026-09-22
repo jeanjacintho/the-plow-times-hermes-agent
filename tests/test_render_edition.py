@@ -504,7 +504,7 @@ class TestChat:
         assert "Sources: https://example.com/weather" in text
 
     @pytest.mark.parametrize("desk", render.DESKS)
-    def test_every_desk_but_priority_prints_sources_and_gaps(self, desk):
+    def test_every_desk_prints_gaps_and_all_but_priority_print_sources(self, desk):
         data = edition(sections=[{
             "kind": "assignment", "topic_id": "t_3f2a", "run_on": "2026-09-11", "desk": desk,
             "title": "iPhone 15 price", "body": " ",
@@ -517,10 +517,10 @@ class TestChat:
                                   "{{LEAD}}{{PRIORITY_BLOCK}}{{WEATHER_EAR}}{{DESKS_INLINE}}")
         assert "special for this edition" in text
         assert ("Sources:" in text) is (desk != "priority")
-        assert ("Couldn't source: the Pro model" in text) is (desk != "priority")
+        assert "Couldn't source: the Pro model" in text
         if desk == "priority":
             assert "Sources:" not in page
-            assert "Couldn't source" not in page
+            assert "Couldn't source: the Pro model" in page
         elif desk == "weather":
             assert "Sources:" not in page
             assert "Couldn't source<br>" in page
@@ -982,52 +982,45 @@ def _paper_with_desk_file(tmp_path, ed, fields):
     return path
 
 
-class TestGapCardLanguage:
-    """The gap card is owner-facing copy, so it follows owner.language for
-    every Portuguese region -- not an allow-list of two (pt, pt-BR), which
-    answered pt-PT and pt_AO in English."""
-
-    # Tag rules live in tests/test_owner_language.py -- one policy, one matrix.
-    # These two rows assert only that the card routes through it.
-    @pytest.mark.parametrize("language, key", [("pt-PT", "pt"), ("English", "en")])
-    def test_the_card_speaks_the_owners_language(self, language, key):
-        section = render._unavailable_priority_section(language)
-        assert section["headline"] == render.PRIORITY_UNAVAILABLE[key]["headline"]
-
-
-class TestEnsurePriorityDesk:
+class TestPriorityDeskOwnsItsMessage:
     WEATHER = {"kind": "section", "title": "Weather", "desk": "weather", "body": "rain", "sources": []}
-    ON = {"priority": {"configured": True}, "owner": {"language": "English"}}
+    ON = {"priority": {"configured": True}}
+    # Measured live 2026-09-22: the desk could not Orient and knew exactly why.
+    UNAVAILABLE = {"kind": "section", "title": "What to prioritize today", "desk": "priority",
+                   "body": "Today's recommendations could not be built.", "sources": [],
+                   "could_not_source": ["the wiki returned HTTP 401 on every attempt this session"]}
 
-    @pytest.mark.parametrize("config, sections, inserted, priority_desks", [
-        ({"priority": {"configured": False}}, [WEATHER], False, 0),
-        (ON, [WEATHER], True, 1),
-        # A one-topic subscription edition carries no standing desk.
-        (ON, edition()["sections"], False, 0),
-        (ON, edition_with_priority_and_weather()["sections"], False, 1),
-    ])
-    def test_inserts_the_gap_card_only_on_a_paper_missing_it(
-            self, config, sections, inserted, priority_desks):
-        out, did = render.ensure_priority_desk(edition(sections=sections), config)
-        assert did is inserted
-        assert [render.desk_of(s) for s in out["sections"]].count("priority") == priority_desks
-        assert render.validate(out) == ""
-
-    def test_main_injects_the_card_from_config(self, tmp_path):
-        # Measured live 2026-09-18: priority.configured was true, research
-        # never wrote desk-priority, edition.json shipped weather/mail/news
-        # only. The renderer must put the card on the page itself.
-        ed_path = write(tmp_path, edition(sections=[self.WEATHER]))
+    def _main(self, tmp_path, config, sections):
+        ed_path = write(tmp_path, edition(sections=sections))
         cfg = tmp_path / "config.json"
-        cfg.write_text(json.dumps({
-            "priority": {"configured": True},
-            "owner": {"language": "English"},
-        }), encoding="utf-8")
-        html_path = tmp_path / "out.html"
-        render.main([str(ed_path), "--html", str(html_path), "--config", str(cfg)])
-        html = html_path.read_text()
-        assert "section--priority" in html
-        assert "What to prioritize today" in html
+        cfg.write_text(json.dumps(config), encoding="utf-8")
+        html_path, chat_path = tmp_path / "out.html", tmp_path / "out.txt"
+        render.main([str(ed_path), "--html", str(html_path), "--chat", str(chat_path),
+                     "--config", str(cfg)])
+        return html_path.read_text(), chat_path.read_text()
+
+    # Measured live 2026-09-18: priority.configured was true, research never
+    # wrote desk-priority, edition.json shipped weather/mail/news only.
+    def test_a_configured_paper_without_the_desk_fails_loudly(self, tmp_path):
+        with pytest.raises(SystemExit) as exc:
+            self._main(tmp_path, self.ON, [self.WEATHER])
+        assert "priority is configured but edition.json has no priority section" in str(exc.value)
+
+    @pytest.mark.parametrize("config, sections", [
+        ({"priority": {"configured": False}}, [WEATHER]),
+        # A one-topic subscription edition carries no standing desk.
+        (ON, edition()["sections"]),
+    ])
+    def test_a_paper_that_owes_no_desk_renders_without_one(self, tmp_path, config, sections):
+        html, _chat = self._main(tmp_path, config, sections)
+        assert 'class="section section--priority"' not in html
+
+    def test_an_unavailable_desk_prints_its_own_reason(self, tmp_path):
+        html, chat = self._main(tmp_path, self.ON, [self.WEATHER, self.UNAVAILABLE])
+        reason = "the wiki returned HTTP 401 on every attempt this session"
+        assert 'class="section section--priority"' in html
+        assert f"Couldn't source: {reason}" in html
+        assert f"Couldn't source: {reason}" in chat
 
 
 class TestFillNewsDesk:

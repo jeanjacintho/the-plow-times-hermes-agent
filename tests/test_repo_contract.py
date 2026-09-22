@@ -759,7 +759,7 @@ class TestSkills:
         assert "the founder" in skill
         assert "you / você" in skill
         renderer = (ROOT / "pt-edition" / "scripts" / "render_edition.py").read_text()
-        assert "def ensure_priority_desk" in renderer
+        assert "def priority_desk_missing" in renderer
         assert "Never omit the slot" in edition
 
     def test_soul_delegates_delivery_argv_to_the_edition_skill(self):
