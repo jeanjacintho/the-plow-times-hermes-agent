@@ -70,10 +70,11 @@ takes whichever credential the install has:
 
 - **self-hosted** — the static `DOMO_DEVICE_UID` / `DOMO_MCP_TOKEN` pair the
   owner pasted into the home's `.env` (README, "create a static credential").
-- **Plow-hosted** — no such pair exists and none ever will, so the URL is
-  derived from `GET /v1/agents/me`, which returns this agent's own `mcp_url`
-  gated on its credential's `relay:call` scope. Every hosted agent has that
-  scope.
+- **otherwise** — the `PLOW_MCP_URL` and `PLOW_AGENT_TOKEN` that `plow-init`
+  publishes to every service at boot, having read this agent's own `mcp_url`
+  from `/v1/agents/me` once. Nothing is fetched here. That pair is present on
+  a hosted install, which never gets a static pair and used to fail every
+  print, and on a self-hosted one too.
 
 That means **there is no state in which paper can never print.** A hosted
 install used to fail every run on a missing `DOMO_DEVICE_UID`; it no longer
