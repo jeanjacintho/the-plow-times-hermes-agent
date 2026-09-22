@@ -265,11 +265,11 @@ def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
     import topics as topics_mod
 
     path = pathlib.Path(config_path)
-    config = json.loads(path.read_text())
-    delivery = config["delivery"]
-    if "local_hour" not in delivery:
-        return
     with topics_mod.mutation_lock():
+        config = json.loads(path.read_text())
+        delivery = config["delivery"]
+        if "local_hour" not in delivery:
+            return
         topics = topics_mod.load_topics()
         for topic in topics:
             if topic.get("deliver_at") and not topic.get("owner_clock"):
