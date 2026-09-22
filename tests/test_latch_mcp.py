@@ -120,7 +120,9 @@ class TestConnect:
         for name, value in present.items():
             monkeypatch.setenv(name, value)
 
-        with pytest.raises(SystemExit, match=missing):
+        # LatchError, not SystemExit: SystemExit walks through every caller's
+        # `except LatchError`, so the print leg would lose "page not printed".
+        with pytest.raises(LatchError, match=missing):
             lm.connect()
 
     def test_a_half_pair_is_not_a_pair(self, monkeypatch):

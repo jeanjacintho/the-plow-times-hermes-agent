@@ -13,7 +13,7 @@ import time
 import urllib.error
 import urllib.request
 
-from bearer_http import open_no_redirect, require
+from bearer_http import open_no_redirect
 
 MCP_TIMEOUT = 60
 POLL_SECONDS = 120
@@ -204,4 +204,15 @@ def connect():
             or "https://api.plow.co"
         )
         return LatchClient.for_device(base, device, token)
-    return LatchClient(require("PLOW_MCP_URL"), require("PLOW_AGENT_TOKEN"))
+    # LatchError, not require()'s SystemExit: pt-shared/SKILL.md states this
+    # module's contract as "a failure raises LatchError; the caller names what
+    # did not happen", and SystemExit walks straight through every caller's
+    # `except LatchError` -- so the print leg would lose "page not printed" and
+    # wiki_setup its "wiki not ready". main had the same hole on
+    # require("DOMO_DEVICE_UID"); this is the first spelling that closes it.
+    values = {}
+    for name in ("PLOW_MCP_URL", "PLOW_AGENT_TOKEN"):
+        values[name] = os.environ.get(name, "").strip()
+        if not values[name]:
+            raise LatchError(f"{name} is not set")
+    return LatchClient(values["PLOW_MCP_URL"], values["PLOW_AGENT_TOKEN"])
