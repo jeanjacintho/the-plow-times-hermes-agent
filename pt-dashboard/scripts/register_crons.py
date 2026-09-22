@@ -26,15 +26,15 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          deliver_at                 is not delivery.hour
   pt-subscription-<id>   0 <delivery.hour> * * *   one per subscription topic
                                                    not yet cancelled
-  pt-oneoff-<id>         created by pt-intake at   one-time; its own prompt
-                         the scheduled minute      self-removes after firing
+  pt-oneoff-<id>         one-shot at the topic's   one per pending one-off
+                         scheduled_for             still ahead; swept once
+                                                   delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
                                                    demand, same prompt, no hold
 
 This script therefore CREATES missing jobs and REMOVES pt-* jobs whose
-topic is gone -- cancelled, delivered one-offs their prompt failed to
-remove, or names with no topic behind them. "Created/removed as topics
-change", the design doc calls it. It never touches a job whose name does
+topic is gone -- cancelled, delivered one-offs, or names with no topic
+behind them. "Created/removed as topics change", the design doc calls it. It never touches a job whose name does
 not start with pt-: those are not this agent's to manage.
 
 It also RECONCILES drift, which create-if-missing alone does not: a job
@@ -130,12 +130,13 @@ DEFAULT_LEAD_MINUTES = 0
 # number could call the scheduled run dead and start a competing paper.
 STALE_RUN_MINUTES = 240
 
-SUBSCRIPTION_PROMPT = (
-    "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
+# One topic's own edition: a subscription's nightly run or a one-off.
+TOPIC_PROMPT = (
+    "Run pt-research on topic {tid} now (depth {depth}), then pt-edition for it. "
     "pt-edition writes edition.json, runs render_edition.py, and posts the PDF "
     "with post_to_chat.py --pdf plus its chat-only companion when present. "
-    "post_to_chat.py atomically records delivery and returns the subscription "
-    "to pending; do not mark it again. Final "
+    "post_to_chat.py atomically records delivery and finalizes the topic; "
+    "do not mark it again. Final "
     "response is NO_REPLY so --deliver does not send the text a second time."
 )
 
@@ -513,7 +514,18 @@ def subscription_job(topic, delivery_hour, env=None):
     return {
         "name": f"pt-subscription-{topic['id']}",
         "schedule": f"{minute} {hour} * * *",
-        "prompt": SUBSCRIPTION_PROMPT.format(tid=topic["id"]),
+        "prompt": TOPIC_PROMPT.format(tid=topic["id"], depth="deep"),
+        "skill": "pt-research",
+        "deliver": DELIVER_TARGET,
+    }
+
+
+def oneoff_job(topic):
+    """A pending one-off's own edition, one-shot at its scheduled_for."""
+    return {
+        "name": f"pt-oneoff-{topic['id']}",
+        "schedule": topic["scheduled_for"],
+        "prompt": TOPIC_PROMPT.format(tid=topic["id"], depth=topic["depth"]),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
@@ -527,8 +539,11 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     extra delivery time (delivery.extra_hours -- the same MAIN roster,
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
-    job per subscription. lead_minutes is the nominal lead; each slot clamps
-    it to its own owner-zone midnight.
+    job per subscription, then one per pending one-off at its scheduled_for
+    still ahead (topics.py refuses one without an offset; a past one is
+    not re-armed).
+    lead_minutes is the nominal lead; each slot clamps it to its own
+    owner-zone midnight.
     """
     focused_hours = focused_paper_hours(topics, delivery_hour)
     require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
@@ -550,6 +565,13 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
         for t in topics
         if t["kind"] == "subscription" and t["status"] != "cancelled"
     )
+    now = datetime.now().astimezone()
+    jobs.extend(
+        oneoff_job(t)
+        for t in topics
+        if t["kind"] == "one_off" and t["status"] == "pending" and t.get("scheduled_for")
+        and datetime.fromisoformat(t["scheduled_for"]).astimezone() > now
+    )
     return jobs
 
 
@@ -557,9 +579,9 @@ def stale_names(topics, registered, extra_hours_count=0, delivery_hour=None):
     """Registered pt-* jobs the topic store no longer calls for.
 
     A subscription job outlives only its non-cancelled topic; a one-off job
-    outlives only a topic still pending or running (its prompt self-removes
-    it after firing -- this sweep is the backstop, and prunes delivered,
-    cancelled or vanished topics' leftovers). The daily job is never stale; a
+    outlives only a topic still pending or running (a fired one-shot stays
+    registered as completed; this sweep prunes it once the topic is
+    delivered, cancelled or gone). The daily job is never stale; a
     numbered extra-daily job goes stale the moment the owner removes that
     many delivery times. A pt-paper-HHMM job outlives only an active section still at that
     hour (and not the main delivery.hour). Names not starting with pt- are

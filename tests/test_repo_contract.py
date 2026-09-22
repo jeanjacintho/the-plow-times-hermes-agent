@@ -214,7 +214,6 @@ class TestSoul:
         # sections went unread: a one-off edition carries only its own topic.
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
         assert "not a topic" in intake, "the on-demand row is missing from the routing table"
-        assert "post_to_chat.py finalizes it" in intake
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "## On demand" in edition
         # It must queue the cron's own job, never restate its steps: a second
