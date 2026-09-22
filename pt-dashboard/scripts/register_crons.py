@@ -27,8 +27,8 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
   pt-subscription-<id>   0 <delivery.hour> * * *   one per subscription topic
                                                    not yet cancelled
   pt-oneoff-<id>         one-shot at the topic's   one per pending one-off
-                         scheduled_for, or a       (a late one is still owed);
-                         minute out if past        swept once delivered
+                         scheduled_for             still ahead; swept once
+                                                   delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
                                                    demand, same prompt, no hold
 
@@ -520,11 +520,11 @@ def subscription_job(topic, delivery_hour, env=None):
     }
 
 
-def oneoff_job(topic, schedule):
-    """A pending one-off's own edition, one-shot at `schedule`."""
+def oneoff_job(topic):
+    """A pending one-off's own edition, one-shot at its scheduled_for."""
     return {
         "name": f"pt-oneoff-{topic['id']}",
-        "schedule": schedule,
+        "schedule": topic["scheduled_for"],
         "prompt": TOPIC_PROMPT.format(tid=topic["id"], depth=topic["depth"]),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
@@ -540,9 +540,8 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
     job per subscription, then one per pending one-off at its scheduled_for
-    (topics.py refuses one without an offset). A pending one-off is still
-    owed even when its instant passed -- a rebuild finished late -- so it
-    fires a minute out, like --now, rather than being dropped.
+    still ahead (topics.py refuses one without an offset; a past one is
+    not re-armed).
     lead_minutes is the nominal lead; each slot clamps it to its own
     owner-zone midnight.
     """
@@ -566,12 +565,12 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
         for t in topics
         if t["kind"] == "subscription" and t["status"] != "cancelled"
     )
-    soon = (datetime.now().astimezone() + timedelta(minutes=1)).isoformat(timespec="seconds")
+    now = datetime.now().astimezone()
     jobs.extend(
-        oneoff_job(t, max(t["scheduled_for"], soon,
-                          key=lambda at: datetime.fromisoformat(at).astimezone()))
+        oneoff_job(t)
         for t in topics
         if t["kind"] == "one_off" and t["status"] == "pending" and t.get("scheduled_for")
+        and datetime.fromisoformat(t["scheduled_for"]).astimezone() > now
     )
     return jobs
 

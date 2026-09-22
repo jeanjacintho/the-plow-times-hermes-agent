@@ -157,22 +157,17 @@ class TestDesiredJobs:
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
     @pytest.mark.parametrize("status,scheduled_for,fires_at", [
-        ("pending", FUTURE, FUTURE),
-        # A rebuild that finished late still owes it: a minute out, like --now.
-        ("pending", "2000-01-01T07:03:00-03:00", "soon"),
-        ("running", FUTURE, None),
-        ("delivered", FUTURE, None),
+        ("pending", FUTURE, [FUTURE]),
+        ("pending", "2000-01-01T07:03:00-03:00", []),  # past: not re-armed
+        ("running", FUTURE, []),
+        ("delivered", FUTURE, []),
     ])
-    def test_every_pending_one_off_gets_its_job(self, status, scheduled_for, fires_at):
+    def test_only_a_pending_one_off_still_ahead_gets_its_job(
+            self, status, scheduled_for, fires_at):
         oneoff = {**topic("t_0c11", kind="one_off", status=status, depth="quick"),
                   "scheduled_for": scheduled_for}
         jobs = crons.desired_jobs([oneoff], "07:00", {})
-        shots = [j["schedule"] for j in jobs if j["name"] == "pt-oneoff-t_0c11"]
-        if fires_at == "soon":
-            (shot,) = shots
-            assert crons.datetime.fromisoformat(shot) > crons.datetime.now().astimezone()
-        else:
-            assert shots == ([fires_at] if fires_at else [])
+        assert [j["schedule"] for j in jobs if j["name"] == "pt-oneoff-t_0c11"] == fires_at
 
     def test_running_subscription_still_has_its_job(self):
         jobs = crons.desired_jobs([topic("t_9f2a", status="running")], "07:00", {})
