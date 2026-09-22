@@ -271,12 +271,12 @@ edition, and relaying it is the chat leg.
   remember the late tag follows it.
 - **One-off** — pick the moment: quick is now+3m; deep is the next
   `delivery.hour` from pt/config.json (today if it has not passed, tomorrow
-  otherwise), so the result lands with the morning paper. Write it as an
-  ISO-8601 instant with offset, record it at add time via `--scheduled-for`,
-  then queue the job with that same instant:
-  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --oneoff <id> --at <instant>`.
-  It creates `pt-oneoff-<id>` with the topic's own prompt and the deliver
-  target baked in, and the sweep removes it once the topic is delivered.
+  otherwise), so the result lands with the morning paper. Record it at add
+  time as an ISO-8601 instant with offset via `--scheduled-for`, then run
+  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --oneoff <id>`.
+  It creates `pt-oneoff-<id>` at that `scheduled_for` with the topic's own
+  prompt and the deliver target baked in; the sweep removes it once the
+  topic is delivered.
   Never hand-build this job with `hermes cron`: measured live, a hand-built
   one-off without `--deliver` completed and the owner got nothing.
 - **Subscription** — write the topic, then run

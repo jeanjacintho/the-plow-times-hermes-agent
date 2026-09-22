@@ -26,8 +26,8 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          deliver_at                 is not delivery.hour
   pt-subscription-<id>   0 <delivery.hour> * * *   one per subscription topic
                                                    not yet cancelled
-  pt-oneoff-<id>         one-shot at --at          --oneoff <id>: one topic's
-                                                   own edition; swept once the
+  pt-oneoff-<id>         one-shot at the topic's   --oneoff <id>: one topic's
+                         scheduled_for             own edition; swept once the
                                                    topic is delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
                                                    demand, same prompt, no hold
@@ -714,12 +714,9 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
              "out -- the on-demand copy, same prompt, no send clock",
     )
     parser.add_argument("--oneoff", metavar="ID",
-                        help="after registering, queue one_off topic ID's own edition at --at")
-    parser.add_argument("--at", type=datetime.fromisoformat,
-                        help="ISO-8601 instant for --oneoff, the topic's scheduled_for")
+                        help="after registering, queue pending one_off topic ID's own "
+                             "edition at its scheduled_for")
     args = parser.parse_args(argv if argv is not None else [])
-    if bool(args.oneoff) != bool(args.at):
-        parser.error("--oneoff and --at go together")
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
@@ -735,8 +732,10 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     import topics as topics_mod
     topics = topics_mod.load_topics()
     oneoff = next((t for t in topics if t["id"] == args.oneoff), None) if args.oneoff else None
-    if args.oneoff and (oneoff is None or oneoff["kind"] != "one_off"):
-        raise SystemExit(f"refusing to queue: {args.oneoff} is not a one_off topic in topics.json")
+    if args.oneoff and (oneoff is None or oneoff["kind"] != "one_off"
+                        or oneoff["status"] != "pending" or not oneoff["scheduled_for"]):
+        raise SystemExit(f"refusing to queue: {args.oneoff} is not a pending one_off "
+                         "topic with a scheduled_for in topics.json")
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
@@ -782,7 +781,8 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
                    datetime.now().astimezone() + timedelta(minutes=1),
                    paper_prompt(lead_minutes=lead_minutes), env)
     if oneoff:
-        queue_once(runner, jobs_path, f"pt-oneoff-{oneoff['id']}", args.at,
+        queue_once(runner, jobs_path, f"pt-oneoff-{oneoff['id']}",
+                   datetime.fromisoformat(oneoff["scheduled_for"]),
                    TOPIC_PROMPT.format(tid=oneoff["id"], depth=oneoff["depth"]), env)
 
     if paused:

@@ -286,26 +286,35 @@ class TestMain:
         # hand without --deliver completed and reached no chat at all.
         calls = []
         at = "2026-09-22T07:03:00-07:00"
-        oneoff = topic("t_0c11", kind="one_off", depth="quick")
+        oneoff = {**topic("t_0c11", kind="one_off", depth="quick"), "scheduled_for": at}
         self.run_main(tmp_path, monkeypatch, [oneoff], [job(crons.DAILY_NAME)],
-                      calls=calls, argv=["--oneoff", "t_0c11", "--at", at])
+                      calls=calls, argv=["--oneoff", "t_0c11"])
         (create,) = [c for c in calls if "pt-oneoff-t_0c11" in c]
         assert create[3] == at
         assert "topic t_0c11 now (depth quick)" in create[4]
         assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
         assert f"queued: pt-oneoff-t_0c11 ({at})" in capsys.readouterr().out
 
-    @pytest.mark.parametrize("topics_list", [[], [topic("t_0c11")]])
-    def test_oneoff_refuses_an_id_that_is_not_a_one_off(
+    @pytest.mark.parametrize("topics_list", [
+        [],
+        [{**topic("t_0c11"), "scheduled_for": "2026-09-22T07:03:00-07:00"}],
+        [{**topic("t_0c11", kind="one_off", status="delivered"),
+          "scheduled_for": "2026-09-22T07:03:00-07:00"}],
+        [topic("t_0c11", kind="one_off")],
+    ])
+    def test_oneoff_refuses_anything_but_a_pending_scheduled_one_off(
             self, tmp_path, monkeypatch, hermes, topics_list):
-        with pytest.raises(SystemExit, match="not a one_off topic"):
+        # A delivered one-off queued again would deliver twice.
+        calls = []
+        with pytest.raises(SystemExit, match="not a pending one_off"):
             self.run_main(tmp_path, monkeypatch, topics_list, [job(crons.DAILY_NAME)],
-                          argv=["--oneoff", "t_0c11", "--at", "2026-09-22T07:03:00-07:00"])
+                          calls=calls, argv=["--oneoff", "t_0c11"])
+        assert calls == []
 
     @pytest.mark.parametrize("create_rc", [0, 1])
     @pytest.mark.parametrize("name,argv", [
         (crons.NOW_NAME, ["--now"]),
-        ("pt-oneoff-t_0c11", ["--oneoff", "t_0c11", "--at", "2026-09-22T07:03:00-07:00"]),
+        ("pt-oneoff-t_0c11", ["--oneoff", "t_0c11"]),
     ])
     def test_one_shot_removes_its_predecessor_only_after_queueing_its_successor(
             self, tmp_path, monkeypatch, hermes, create_rc, name, argv):
@@ -318,7 +327,8 @@ class TestMain:
             return type("P", (), {"returncode": rc, "stdout": "", "stderr": ""})()
 
         previous = {**job(name), "id": "old123"}
-        oneoff = topic("t_0c11", kind="one_off", depth="quick")
+        oneoff = {**topic("t_0c11", kind="one_off", depth="quick"),
+                  "scheduled_for": "2026-09-22T07:03:00-07:00"}
 
         def run():
             return self.run_main(tmp_path, monkeypatch, [oneoff],
