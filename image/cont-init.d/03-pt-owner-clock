@@ -1,0 +1,9 @@
+#!/command/with-contenv sh
+# Stored delivery hours moved from the container's clock to the owner's. A
+# home from before that is converted here, before the agent can write an
+# owner-clock hour beside its old ones. Nothing to do on a fresh home, or
+# without TZ: only a compose install, which sets it, stored container hours.
+set -eu
+[ -f /var/lib/hermes/pt/config.json ] && [ -n "${TZ:-}" ] || exit 0
+exec /command/s6-setuidgid hermes \
+  /opt/hermes/skills/pt-dashboard/scripts/register_crons.py --owner-clock

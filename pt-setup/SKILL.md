@@ -136,9 +136,7 @@ on or off** (`mail.configured`), or a new printer is a
 one-line conversation that updates `pt/config.json` directly. Before writing
 a different `delivery.hour` (the owner's own HH:MM), run `topics.py check-paper
 --deliver-at main --main-hour <HH:MM>`; if it refuses, name its
-roster and leave the setting unchanged. If the file still has
-`delivery.local_hour`, run `register_crons.py` once first: it moves that
-older install's hours onto the owner's clock. After a valid change, re-run the gate
+roster and leave the setting unchanged. After a valid change, re-run the gate
 and then re-run
 `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so the
 new schedule exists now — not an interview from the top, and **never a

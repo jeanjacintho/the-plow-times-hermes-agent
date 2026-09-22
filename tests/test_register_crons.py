@@ -159,7 +159,7 @@ class TestDesiredJobs:
         assert paper["schedule"] == "0 3 * * *"
 
     @pytest.mark.parametrize("interrupted", [False, True])
-    def test_a_container_clock_config_moves_to_the_owners_once_and_registers_as_before(
+    def test_a_container_clock_config_moves_to_the_owners_at_boot_and_registers_as_before(
             self, tmp_path, monkeypatch, interrupted):
         # Written before hours moved to the owner's zone: container-clock
         # hours, the owner's own main hour in delivery.local_hour.
@@ -169,6 +169,10 @@ class TestDesiredJobs:
                                                     "extra_hours": ["06:00"]}})
         (tmp_path / "pt" / "topics.json").write_text(json.dumps({"topics": [
             topic("t_1", kind="section", deliver_at="03:00"), topic("t_2", kind="section")]}))
+
+        def boot():  # image/cont-init.d/03-pt-owner-clock
+            assert crons.main(["--owner-clock"], config_path=path, env={"TZ": "UTC"}) == 0
+
         if interrupted:  # topics converted, then the config write dies
             real_replace = os.replace
 
@@ -178,16 +182,22 @@ class TestDesiredJobs:
                 real_replace(src, dst)
             monkeypatch.setattr(os, "replace", crash_on_config)
             with pytest.raises(OSError):
-                crons.adopt_owner_clock("Asia/Tokyo", "UTC", path)
+                boot()
             monkeypatch.setattr(os, "replace", real_replace)
-        for _ in range(2):  # idempotent: the second run finds nothing to move
-            crons.adopt_owner_clock("Asia/Tokyo", "UTC", path)
+        boot()
         assert json.loads(path.read_text())["delivery"] == {"hour": "07:00", "extra_hours": ["15:00"]}
+        # After the upgrade the owner books an 18:00 paper through intake,
+        # and the agent restarts before registering: nothing moves twice.
+        import topics as topics_mod
+        topics_mod.main(["add", "--text", "evening", "--kind", "section",
+                         "--depth", "quick", "--deliver-at", "18:00"])
+        boot()
         topics = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"]
-        assert [t.get("deliver_at") for t in topics] == ["12:00", None]
+        assert [t.get("deliver_at") for t in topics] == ["12:00", None, "18:00"]
         jobs = crons.desired_jobs(topics, "07:00", "Asia/Tokyo", "UTC",
                                   extra_hours=["15:00"])
-        assert [j["schedule"] for j in jobs] == ["0 22 * * *", "0 6 * * *", "0 3 * * *"]
+        assert [j["schedule"] for j in jobs] == [
+            "0 22 * * *", "0 6 * * *", "0 3 * * *", "0 9 * * *"]
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(

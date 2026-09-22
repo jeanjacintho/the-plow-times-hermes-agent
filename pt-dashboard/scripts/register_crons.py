@@ -63,7 +63,8 @@ per-job zone and fires on the container's clock (TZ), as post_to_chat.py's
 --hold-until waits on it, so this script converts each hour into TZ when it
 registers, on today's date. A config still carrying delivery.local_hour was
 written when hours were stored on the container's clock; adopt_owner_clock()
-moves them onto the owner's once, before anything registers.
+moves them onto the owner's at boot (--owner-clock), before the agent can
+write an owner-clock hour beside them.
 
 It runs INSIDE the container, where /opt/hermes/bin/hermes and that file
 live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
@@ -448,8 +449,7 @@ def daily_schedule(delivery_hour, lead_minutes):
     evening before and be the previous day's paper. Every job's schedule
     comes through here, so this is the one place that refuses it.
     """
-    hour, minute = _hour_minute(delivery_hour)
-    total = hour * 60 + minute - lead_minutes
+    total = _minutes(delivery_hour) - lead_minutes
     if total < 0:
         raise SystemExit(
             f"refusing to register: delivery.lead_minutes={lead_minutes} would start "
@@ -501,11 +501,8 @@ def require_workspace_spacing(hours):
     """Refuse paper starts whose shared-workspace windows can overlap."""
     minimum_minutes = 180
     for index, first in enumerate(hours):
-        first_hour, first_minute = _hour_minute(first)
-        first_total = first_hour * 60 + first_minute
         for second in hours[index + 1:]:
-            second_hour, second_minute = _hour_minute(second)
-            distance = abs(first_total - (second_hour * 60 + second_minute))
+            distance = abs(_minutes(first) - _minutes(second))
             if min(distance, 24 * 60 - distance) < minimum_minutes:
                 raise SystemExit(
                     f"refusing to register: paper times {first} and {second} are less than "
@@ -739,13 +736,20 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
         help="after registering, queue the main paper as a one-shot a minute "
              "out -- the on-demand copy, same prompt, no send clock",
     )
+    parser.add_argument(
+        "--owner-clock", action="store_true",
+        help="only move an older install's hours onto the owner's clock "
+             "(image/cont-init.d/03-pt-owner-clock, every boot)",
+    )
     args = parser.parse_args(argv if argv is not None else [])
+    if args.owner_clock:
+        adopt_owner_clock(*load_zones(config_path, env), config_path)
+        return 0
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
 
     owner_tz, container_tz = load_zones(config_path, env)
-    adopt_owner_clock(owner_tz, container_tz, config_path)
     delivery_hour = load_delivery_hour(config_path)
     extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)

@@ -101,7 +101,7 @@ is a script and not a habit:
   Stored hours are the owner's clock; `hermes cron create` takes no per-job
   zone, so the script converts each hour into `TZ` as it registers. A config
   still carrying `delivery.local_hour` (an older install, hours on the
-  container's clock) is moved onto the owner's clock once, first.
+  container's clock) is moved onto the owner's clock at boot.
 
 A paused job is neither skipped nor duplicated: it is left alone, named, and
 the run exits non-zero after everything else finishes — the same contract
