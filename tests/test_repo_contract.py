@@ -834,8 +834,8 @@ class TestSkills:
         assert "re-open" in desk
         # the truth rule must survive untouched — the new rule is a different axis
         assert "unknown, never disproved" in desk
-        # the rule needs an owner: a pass re-opens what it stands on, not a standing sweep
-        assert "carries it forward as support" in desk
+        # the rule needs an owner: only the live-read stages re-open what they stand on
+        assert "the only stages with live read access — re-opens" in desk
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
         assert "rowid" in intake and "confirm" in intake
         # a mail id alone is not an item -- ids from different mail readers aren't interchangeable
