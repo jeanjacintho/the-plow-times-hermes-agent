@@ -12,28 +12,18 @@
 # Pinned by digest, exactly like the fleet's `runtime/stack.json`: a mutable
 # tag would re-resolve on every pull and change a large unreviewed surface
 # under a running agent that holds live credentials. Bump both together.
-FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-ef0019372ff8bca593611b31ebd2e08f9f1458ff@sha256:a8a2f97ad78b8192d80a984dce81d3bf5a9a883d18cb7b677704913a09b56aee
+FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-67021a7029e33e80bcb27899be6515a5a0e9b37b@sha256:0c3892e93c1a001c61fb7106396e0a4b7e0219008184fd90719caa84a3390ff0
 
-# Boot recopies /opt/hermes/plow-seed/config.yaml over the agent home on
-# every start. The base seed's model.default is z-ai/glm-5.2; this paper
-# stays on anthropic/claude-sonnet-5. merge_pt_seed_config.py stamps
-# that id (and its providers.plow.models slot) from runtime/config.yaml
-# onto the seed. Do not sed the seed onto another model, and do not pin
-# HERMES_MODEL in compose.yml.
-#
-# plow-init also writes seed['display'] whole on every boot. The base
-# seed leaves plow_chat interim messages at the Hermes default (on) and
-# long_running_notifications true — measured live after the Sonnet
-# recreate: the model named every tool in the owner's DM. Overlay the
-# newspaper quiet block onto the seed; copying runtime/config.yaml into
-# /var/lib/hermes is not enough (agent-home shadows it).
+# The home's config is /opt/hermes/plow-seed/config.yaml: the base ships a
+# copy as the home's, cont-init copies it into a home that has none, and
+# plow-init re-stamps its model, display and terminal.cwd every boot. So
+# runtime/config.yaml is deep-merged onto the seed, and the home copy is
+# refreshed from the result. Do not pin HERMES_MODEL in compose.yml.
 COPY runtime/config.yaml /tmp/pt-runtime-config.yaml
 COPY image/merge_pt_seed_config.py /opt/plow/merge_pt_seed_config.py
 RUN /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
       /opt/hermes/plow-seed/config.yaml /tmp/pt-runtime-config.yaml \
- && grep -q 'interim_assistant_messages: false' /opt/hermes/plow-seed/config.yaml \
- && grep -q 'long_running_notifications: false' /opt/hermes/plow-seed/config.yaml \
- && grep -q 'context_file_max_chars: 40000' /opt/hermes/plow-seed/config.yaml
+ && install -o hermes -g hermes -m 0640 /opt/hermes/plow-seed/config.yaml /var/lib/hermes/config.yaml
 
 # Boot also recomposes $HOME/SOUL.md from this seed. COPY to the home is
 # shadowed by the volume and then overwritten; the newspaper identity has
@@ -124,13 +114,12 @@ RUN uv pip install --python /opt/hermes/.venv/bin/python3 \
  && bash -lc "python3 -c \"$probe\"" \
  && bash -c "python3 -c \"$probe\""
 
-# USER.md, config.yaml and skills. First boot re-asserts root ownership,
+# USER.md and skills. First boot re-asserts root ownership,
 # which is what the trailing chmod answers. Skills land at /opt/hermes/skills
 # so the base runtime reconciles them into whichever home this image boots —
 # a COPY under /var/lib/hermes/skills is shadowed by the agent-home volume
 # after first create.
 COPY runtime/USER.md /var/lib/hermes/memories/USER.md
-COPY runtime/config.yaml /var/lib/hermes/config.yaml
 COPY LICENSE /usr/share/doc/the-plow-times/
 COPY pt-dashboard/ /opt/hermes/skills/pt-dashboard/
 COPY pt-edition/   /opt/hermes/skills/pt-edition/
@@ -144,7 +133,7 @@ COPY pt-shared/    /opt/hermes/skills/pt-shared/
 RUN find /opt/hermes/skills -mindepth 1 -type d -exec chmod 0755 {} + \
  && find /opt/hermes/skills -mindepth 1 -type f ! -perm -u+x -exec chmod 0644 {} + \
  && find /opt/hermes/skills -mindepth 1 -type f -perm -u+x -exec chmod 0755 {} + \
- && chmod 0644 /var/lib/hermes/config.yaml /var/lib/hermes/memories/USER.md \
+ && chmod 0644 /var/lib/hermes/memories/USER.md \
  && install -d -o 10000 -g 10000 -m 0700 /var/lib/hermes/pt
 
 COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
