@@ -66,20 +66,16 @@ mentioning it until the owner does something.
 ## How this reaches the Mac, and what a failure means
 
 `print_edition.py` opens a Latch session through `latch_mcp.connect()`, which
-takes whichever credential the install has:
+uses one credential on every install: the `PLOW_MCP_URL` and
+`PLOW_AGENT_TOKEN` that `plow-init` publishes to every service at boot, having
+read this agent's own `mcp_url` from `/v1/agents/me` once. Nothing is fetched
+here, and there is no second path to prefer over it.
 
-- **self-hosted** — the static `DOMO_DEVICE_UID` / `DOMO_MCP_TOKEN` pair the
-  owner pasted into the home's `.env` (README, "create a static credential").
-- **otherwise** — the `PLOW_MCP_URL` and `PLOW_AGENT_TOKEN` that `plow-init`
-  publishes to every service at boot, having read this agent's own `mcp_url`
-  from `/v1/agents/me` once. Nothing is fetched here. That pair is present on
-  a hosted install, which never gets a static pair and used to fail every
-  print, and on a self-hosted one too.
-
-That means **there is no state in which paper can never print.** A hosted
-install used to fail every run on a missing `DOMO_DEVICE_UID`; it no longer
-can. So every print failure here is one a later run may succeed at, and the
-retry line `post_to_chat.py` posts is honest:
+That means **there is no state in which paper can never print.** The owner
+used to paste a static `DOMO_*` pair in beside it, which won here and then
+401'd every call once it went stale; that branch is gone. So every print
+failure here is one a later run may succeed at, and the retry line
+`post_to_chat.py` posts is honest:
 
 - the relay answers 404 until Latch connects — the owner opening Latch on
   their Mac fixes it, and the next run prints,

@@ -76,29 +76,31 @@ class TestFinishCommand:
 class TestConnect:
     """Which credential this install reaches the Mac with.
 
-    A self-hosted install may paste a static DOMO_* pair into the home's .env;
-    otherwise both install types use PLOW_MCP_URL, which plow-init publishes
-    to every service from `/v1/agents/me` at boot.
+    One path, both install types: PLOW_MCP_URL, which plow-init publishes to
+    every service from `/v1/agents/me` at boot. There is no static-credential
+    branch -- see `test_a_stale_static_pair_is_ignored` for why.
     """
 
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
-        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN", "PLOW_AGENT_TOKEN",
-                     "PLOW_MCP_URL", "PLOW_API_BASE"):
+        for name in ("PLOW_AGENT_TOKEN", "PLOW_MCP_URL", "PLOW_API_BASE"):
             monkeypatch.delenv(name, raising=False)
 
-    def test_a_static_pair_builds_its_own_device_url(self, monkeypatch):
-        monkeypatch.setenv("PLOW_API_BASE", "https://api.example")
-        monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
-        monkeypatch.setenv("DOMO_MCP_TOKEN", "static-token")
-        # The pair wins even where the runtime published a URL.
-        monkeypatch.setenv("PLOW_MCP_URL", "https://api.example/ignored/mcp")
+    def test_a_stale_static_pair_is_ignored(self, monkeypatch):
+        # The README used to have the owner paste a DOMO_* pair into the
+        # home's .env, and that pair won here over the agent's own key. When
+        # the pair went stale the relay answered 401 on every run while a
+        # working credential sat unused beside it (measured 2026-09-22:
+        # printing, edition recording and both desks' history all failed).
+        monkeypatch.setenv("DOMO_DEVICE_UID", "ce6f4be1bd93c9b9")
+        monkeypatch.setenv("DOMO_MCP_TOKEN", "revoked")
+        monkeypatch.setenv("PLOW_MCP_URL", "https://plow-abc.int.exe.xyz/v1/relay/devices/usr-9/mcp")
         monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
 
         client = lm.connect()
 
-        assert client.url == "https://api.example/v1/relay/devices/dev-1/mcp"
-        assert client.token == "static-token"
+        assert client.url == "https://plow-abc.int.exe.xyz/v1/relay/devices/usr-9/mcp"
+        assert client.token == "agent-token"
 
     def test_without_a_pair_it_uses_the_url_the_runtime_published(self, monkeypatch):
         # Deliberately a different host from PLOW_API_BASE: a proxied agent is
@@ -124,12 +126,3 @@ class TestConnect:
         # `except LatchError`, so the print leg would lose "page not printed".
         with pytest.raises(LatchError, match=missing):
             lm.connect()
-
-    def test_a_half_pair_is_not_a_pair(self, monkeypatch):
-        # Only one of the two set: fall through to the runtime's URL rather
-        # than refusing, which is what used to happen.
-        monkeypatch.setenv("DOMO_DEVICE_UID", "dev-1")
-        monkeypatch.setenv("PLOW_MCP_URL", "https://api.example/v1/relay/devices/usr-9/mcp")
-        monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")
-
-        assert lm.connect().token == "agent-token"

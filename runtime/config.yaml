@@ -32,24 +32,23 @@ providers:
 # (merge_pt_seed_config.py), not only here.
 context_file_max_chars: 40000
 
-mcp_servers:
-  # Plow Latch, reached over the Plow relay. This is the whole point of this
-  # agent: the browser it researches with is the operator's own Mac, not this
-  # container -- the same mechanism property-hunt-hermes-agent uses to browse
-  # listings. The relay authorises the connection and tells the Mac who is
-  # asking; the Mac authorises each action.
-  #
-  # Same shape the rentals agent uses for Hostex: a URL and a bearer header,
-  # both from the instance dotenv. The credential never appears in the URL.
-  #
-  # This block is the declaration. Latch is the ONLY mcp_server here: research
-  # rides plow_browser_* against the owner's Mac, and this agent installs no
-  # connectors (skills.tsv is empty for the same reason).
-  latch:
-    url: https://api.plow.co/v1/relay/devices/${DOMO_DEVICE_UID}/mcp
-    headers:
-      Authorization: Bearer ${DOMO_MCP_TOKEN}
-    enabled: true
+# No `mcp_servers` key on purpose. Reaching the owner's Mac over the Plow
+# relay is the whole point of this agent -- the browser it researches with is
+# the operator's Mac, not this container -- but the base image already
+# declares that server and owns it: plow-init stamps the one relay entry from
+# plow-seed/config.yaml and enables it exactly when `/v1/agents/me` comes back
+# carrying a relay, so an agent without one has nothing to connect to instead
+# of a server that fails per call. Its own comment says as much: "the one
+# entry in `mcp_servers` this image manages. Any other belongs to [the agent]."
+#
+# This file used to declare a second relay server beside it, with the device
+# in the URL and a static DOMO_* pair from the instance dotenv. Two servers
+# reached one Mac, and the hand-pasted one won: once it went stale the relay
+# answered 401 on every call through it while the agent's own credential --
+# minted with `relay:call`, and already published as PLOW_MCP_URL -- sat
+# unused (2026-09-22). Declaring nothing here is what keeps that to one path.
+# Research still rides plow_browser_* against the owner's Mac, and this agent
+# installs no connectors (skills.tsv is empty for the same reason).
 # Hermes wraps every cron-delivered message in a "Cronjob Response: <job>
 # (job_id: ...) ------- <content> To stop or manage this job..." envelope by
 # default (cron/scheduler.py, wrap_response: True unless set otherwise). Every

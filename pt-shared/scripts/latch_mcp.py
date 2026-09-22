@@ -132,11 +132,6 @@ class LatchClient:
         self.url = url
         self.token = token
 
-    @classmethod
-    def for_device(cls, base, device, token):
-        """A static DOMO_* pair names its device; build that device's URL."""
-        return cls(f"{base.rstrip('/')}/v1/relay/devices/{device}/mcp", token)
-
     def _headers(self):
         return {
             "Authorization": f"Bearer {self.token}",
@@ -180,36 +175,31 @@ class LatchClient:
 
 
 def connect():
-    """A session with the owner's Mac, by whichever credential this install has.
+    """A session with the owner's Mac, over the relay the runtime published.
 
-    A self-hosted install may paste a static DOMO_* pair into the home's .env
-    (README, "create a static credential"), and Hermes loads that file over
-    the process environment, so the pair wins where it exists.
-
-    Otherwise use what the pinned base image already published. plow-init
-    fetches `/v1/agents/me` at boot and writes its `mcp_url` to
+    plow-init fetches `/v1/agents/me` at boot and writes its `mcp_url` to
     `/run/s6/container_environment/PLOW_MCP_URL`, which s6 puts in every
     service's environment -- measured present on both a hosted and a
-    self-hosted install. So there is nothing to derive here: re-fetching the
+    self-hosted install. There is nothing to derive here: re-fetching the
     identity would be a second source of truth for a URL the runtime already
     owns, and the runtime's copy is the one that carries a proxied agent's
-    proxied host. Before this, a hosted install could not print at all --
-    `require` refused on DOMO_DEVICE_UID every run.
+    proxied host. plow-init also manages the one `mcp_servers` entry that
+    reaches the Mac, enabling it exactly when that identity carries a relay,
+    so an agent without one has nothing to connect to rather than a server
+    that fails per call.
+
+    There is no static-credential branch. `DOMO_DEVICE_UID` / `DOMO_MCP_TOKEN`
+    are Latch's fallback for a client that cannot do OAuth; this agent is not
+    one of those -- it holds its own credential, minted with `relay:call`. The
+    pair used to win here, and a stale one then answered 401 on every run
+    while the working key sat unused beside it (2026-09-22: printing, edition
+    recording, and both desks' history failed together).
     """
-    device = os.environ.get("DOMO_DEVICE_UID", "").strip()
-    token = os.environ.get("DOMO_MCP_TOKEN", "").strip()
-    if device and token:
-        base = (
-            os.environ.get("PLOW_API_BASE", "https://api.plow.co").strip()
-            or "https://api.plow.co"
-        )
-        return LatchClient.for_device(base, device, token)
     # LatchError, not require()'s SystemExit: pt-shared/SKILL.md states this
     # module's contract as "a failure raises LatchError; the caller names what
     # did not happen", and SystemExit walks straight through every caller's
     # `except LatchError` -- so the print leg would lose "page not printed" and
-    # wiki_setup its "wiki not ready". main had the same hole on
-    # require("DOMO_DEVICE_UID"); this is the first spelling that closes it.
+    # wiki_setup its "wiki not ready".
     values = {}
     for name in ("PLOW_MCP_URL", "PLOW_AGENT_TOKEN"):
         values[name] = os.environ.get(name, "").strip()

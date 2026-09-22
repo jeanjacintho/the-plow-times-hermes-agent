@@ -76,11 +76,11 @@ class TestPrinterGate:
         # --dry-run opens no Latch session, so it must not require one: it
         # previews the commands either way. The gate belongs on the last line
         # before a session is opened, not in front of a preview.
-        for name in ("DOMO_DEVICE_UID", "DOMO_MCP_TOKEN"):
+        for name in ("PLOW_MCP_URL", "PLOW_AGENT_TOKEN"):
             monkeypatch.delenv(name, raising=False)
         if credential:
-            monkeypatch.setenv("DOMO_DEVICE_UID", "device")
-            monkeypatch.setenv("DOMO_MCP_TOKEN", "token")
+            monkeypatch.setenv("PLOW_MCP_URL", "https://api.example/v1/relay/devices/usr-9/mcp")
+            monkeypatch.setenv("PLOW_AGENT_TOKEN", "token")
         pdf = _edition(tmp_path)
         config = _config(tmp_path)
 
