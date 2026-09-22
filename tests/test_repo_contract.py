@@ -782,7 +782,7 @@ class TestSkills:
             "`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`",
             "sanitized `reads`",
             "reopens decisive public read receipts",
-            "never contain raw private queries, selectors, item IDs, URLs, or excerpts",
+            "never contain raw private queries, selectors, URLs, or excerpts",
             "only after the renderer succeeds and `tournament.json` is atomically published",
         ):
             assert clause in text

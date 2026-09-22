@@ -67,9 +67,10 @@ do not create per-generation files or an append-only event log. It holds the sta
 champions, contenders, priority cases, sanitized reads, unknowns, critic verdicts, fact-rank moves,
 and the last complete checkpoint summary. If context is compacted, resume from this page and the
 canonical checkpoint.
-The page may retain derived owner facts needed to compare recommendations, but its receipts never contain raw private queries, selectors, item IDs, URLs, or excerpts. A private receipt keeps only
-the tool name, a non-identifying source-class label, the semantic question checked, and a compact
-result; public web receipts may keep their public URL and sanitized query.
+The page may retain derived owner facts needed to compare recommendations, but its receipts never contain raw private queries, selectors, URLs, or excerpts. A private receipt keeps only
+the tool name, a non-identifying source-class label, the semantic question checked, the claim's
+item (a re-open handle, not content), and a compact result; public web receipts may keep their
+public URL and sanitized query.
 **Never load this skill again in the same run.**
 On a compacted or restated turn, the first action is to read `RUN_PAGE` and obey its `Stage`.
 Never infer the active page from timestamps or delegate a stage recorded there as complete.
@@ -152,9 +153,9 @@ Each writer also returns `priority_case`: two or three compact lines stating why
 highest-leverage decision now, what competing action it beats, and the cost of waiting. Its
 sanitized `reads` array contains at most six receipts. A public-web receipt carries `tool`, sanitized
 `query`, public `source` URL, and one-line `result`. A mail, Messages, calendar, or authenticated-page
-receipt carries `tool`, a non-identifying source class, the semantic question checked, and a one-line
-result — never a raw query, selector, item ID, private URL, or excerpt. The receipts belong only in
-the private run page, never the resource catalog or printed recommendation.
+receipt carries `tool`, a non-identifying source class, the semantic question checked, the claim's
+item, and a one-line result — never a raw query, selector, private URL, or excerpt. The receipts
+belong only in the private run page, never the resource catalog or printed recommendation.
 
 ### 2. Criticize
 
