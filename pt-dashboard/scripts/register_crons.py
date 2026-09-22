@@ -271,6 +271,14 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
     return owner
 
 
+def _job_rows(jobs_path):
+    """hermes's persisted job rows; only a missing file means none."""
+    try:
+        return json.loads(pathlib.Path(jobs_path).read_text())["jobs"]
+    except FileNotFoundError:
+        return []
+
+
 def registered_jobs(jobs_path=JOBS_FILE):
     """What is already scheduled, from hermes's own persisted state.
 
@@ -284,10 +292,7 @@ def registered_jobs(jobs_path=JOBS_FILE):
     registered" as "nothing is". Only FileNotFoundError means empty -- an
     unreadable or unexpected file raises and stops the run.
     """
-    try:
-        jobs = json.loads(pathlib.Path(jobs_path).read_text())["jobs"]
-    except FileNotFoundError:
-        return {}
+    jobs = _job_rows(jobs_path)
     return {
         job["name"]: bool(job["enabled"]) and not job["paused_at"]
         for job in jobs
@@ -620,10 +625,7 @@ def registered_specs(jobs_path=JOBS_FILE):
     rather than recreating on a guess (older rows, and the test fixtures,
     carry no schedule).
     """
-    try:
-        jobs = json.loads(pathlib.Path(jobs_path).read_text())["jobs"]
-    except FileNotFoundError:
-        return {}
+    jobs = _job_rows(jobs_path)
     return {
         job["name"]: {
             "schedule": _persisted_schedule_expr(job),
@@ -690,11 +692,7 @@ def queue_now(runner, jobs_path, lead_minutes, env=None, clock=None):
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
-    try:
-        previous = [j["id"] for j in json.loads(pathlib.Path(jobs_path).read_text())["jobs"]
-                    if j["name"] == NOW_NAME]
-    except FileNotFoundError:
-        previous = []
+    previous = [j["id"] for j in _job_rows(jobs_path) if j["name"] == NOW_NAME]
     _check(runner(create_argv(job, env)), f"could not queue {NOW_NAME}")
     print(f"queued: {NOW_NAME} ({job['schedule']})")
     for job_id in previous:
