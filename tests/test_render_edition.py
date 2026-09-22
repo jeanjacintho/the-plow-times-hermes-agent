@@ -218,6 +218,7 @@ class TestValidate:
     @pytest.mark.parametrize("as_of, failure", [
         ("2026-09-12", "priority as_of is after the edition date"),
         ("yesterday", "as_of is not a YYYY-MM-DD date on the priority desk"),
+        ("2026-13-01", "as_of is not a YYYY-MM-DD date on the priority desk"),
     ])
     def test_as_of_cannot_be_invented(self, as_of, failure):
         page = recommendation_edition()

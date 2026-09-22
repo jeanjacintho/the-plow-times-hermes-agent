@@ -121,6 +121,13 @@ def pretty_date(raw):
     return f"{_MONTHS[month - 1]} {day}, {year}"
 
 
+def _real_date(raw):
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
 def blank(value):
     """True unless value is a string with something in it."""
     return not (isinstance(value, str) and value.strip())
@@ -303,8 +310,8 @@ def validate(edition):
                     if note is not None and not isinstance(note, str):
                         failures.append(f"{gwhere}.note is not a string")
         as_of = section.get("as_of")
-        if as_of is not None and not (isinstance(as_of, str) and DATE_RE.fullmatch(as_of)
-                                      and desk == "priority"):
+        if as_of is not None and not (desk == "priority" and isinstance(as_of, str)
+                                      and DATE_RE.fullmatch(as_of) and _real_date(as_of)):
             failures.append(f"{where}.as_of is not a YYYY-MM-DD date on the priority desk")
         priority = section.get("priority")
         if priority is not None:
