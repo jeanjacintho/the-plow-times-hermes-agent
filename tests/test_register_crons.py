@@ -833,16 +833,22 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
             assert "paper-workspace-<today's date" in prompt
             assert "--stale-minutes 240" in prompt
 
-    def test_every_paper_keeps_the_advisor_checkpoint_and_follows_one_priority_rule(self):
-        # Owner's call: an on-demand copy reuses today's accepted checkpoint
-        # and runs the tournament only when there is none -- the same rule
-        # the morning run follows, which simply has none yet.
-        for prompt in (crons.paper_prompt(), crons.paper_prompt("07:00"),
-                       crons.paper_prompt(focus="12:00")):
+    def test_scheduled_papers_reuse_only_todays_advice(self):
+        for prompt in (crons.paper_prompt("07:00"), crons.paper_prompt("12:00", focus="12:00")):
             assert "prepare_daily_run.py --preserve-priority" in prompt
             assert "reuse today's accepted checkpoint" in prompt
             assert "else run the tournament" in prompt
-            assert "do not run priority" not in prompt
+
+    def test_on_demand_copy_never_waits_on_a_tournament_it_can_reuse(self):
+        # Owner's call: the copy reuses the newest accepted advice of any
+        # date, printed with its as-of date; only a paper that has never had
+        # accepted advice runs the tournament.
+        prompt = crons.paper_prompt()
+        assert "prepare_daily_run.py --preserve-priority" in prompt
+        assert "newest accepted checkpoint" in prompt and "whatever its date" in prompt
+        assert '"as_of"' in prompt
+        assert "only if none has ever been accepted" in prompt
+        assert "reuse today's" not in prompt
 
     def test_paper_prompt_forbids_origin_retry_loops(self):
         p = crons.paper_prompt()

@@ -302,6 +302,10 @@ def validate(edition):
                     note = item.get("note")
                     if note is not None and not isinstance(note, str):
                         failures.append(f"{gwhere}.note is not a string")
+        as_of = section.get("as_of")
+        if as_of is not None and not (isinstance(as_of, str) and DATE_RE.fullmatch(as_of)
+                                      and desk == "priority"):
+            failures.append(f"{where}.as_of is not a YYYY-MM-DD date on the priority desk")
         priority = section.get("priority")
         if priority is not None:
             if desk != "priority":
@@ -394,6 +398,15 @@ def validate(edition):
     return "; ".join(failures or page_rules(sections))
 
 
+def advice_date(edition):
+    """The day the printed advice was accepted: the priority section's
+    `as_of` (an on-demand copy reusing an older checkpoint), else the edition's."""
+    for section in edition.get("sections", []):
+        if isinstance(section, dict) and section.get("desk") == "priority" and section.get("as_of"):
+            return section["as_of"]
+    return edition.get("date")
+
+
 def validate_tournament(edition, tournament):
     """Refuse a priority card that is not a third-generation checkpoint."""
     if not isinstance(tournament, dict):
@@ -401,8 +414,10 @@ def validate_tournament(edition, tournament):
 
     generation = tournament.get("generation")
     failures = []
-    if tournament.get("date") != edition.get("date"):
+    if tournament.get("date") != advice_date(edition):
         failures.append("tournament date does not match edition date")
+    elif str(advice_date(edition)) > str(edition.get("date")):
+        failures.append("priority as_of is after the edition date")
     if (
         not isinstance(generation, int)
         or isinstance(generation, bool)
@@ -594,7 +609,8 @@ def stale_desk_files(edition, run_root):
         data = _load_json_file(path)
         if data is None:
             continue
-        if data.get("date") != edition["date"]:
+        due = advice_date(edition) if path.parent.name == "desk-priority" else edition["date"]
+        if data.get("date") != due:
             stale.append(f"{path.parent.name}/{path.name} is dated {data.get('date')!r}")
     return stale
 
@@ -1157,6 +1173,9 @@ def html_section(section, drop_cap=False, language=""):
     if games:
         blocks.append(games_list(games))
     if priority:
+        if section.get("as_of"):
+            label = "Conselho de" if is_portuguese(language) else "Advice from"
+            blocks.append(f'  <p class="priority-asof">{label} {pretty_date(section["as_of"])}</p>')
         blocks.append(priority_block(priority))
     if skip_body:
         pass

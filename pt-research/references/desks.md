@@ -19,9 +19,11 @@ Every Latch call is the same two tools the print path uses:
 
 ## Priority — first in every paper, when configured
 
-One rule for every paper, scheduled or on demand: if `run/desk-priority/tournament.json` is today's
+One rule for every scheduled paper: if `run/desk-priority/tournament.json` is today's
 accepted checkpoint (dated today, at its completed third-generation gate — what
-`render_edition.py --tournament` checks), reuse it and start below at weather. Otherwise run
+`render_edition.py --tournament` checks), reuse it and start below at weather. The on-demand
+copy never waits on a tournament: it reuses that checkpoint whatever its date, and pt-edition
+prints an older one with its `as_of` date. Otherwise (or when none has ever been accepted) run
 `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk`,
 then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
 `run/desk-priority/tournament.json` checkpoint. It reads the owner's sources itself and spends no

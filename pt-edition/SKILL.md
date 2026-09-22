@@ -193,7 +193,9 @@ HTML.** Hand-write `edition.json` under the run directory:
   (measured live: two real appointments, empty `events.json` after a
   failed gather). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
-  its `priority` object from `run/desk-priority/tournament.json` without rewriting. If that
+  its `priority` object from `run/desk-priority/tournament.json` without rewriting. An
+  on-demand copy reusing an older checkpoint also sets the section's `"as_of"` to that
+  checkpoint's `date`; the card then prints "Advice from <date>". If that
   complete checkpoint is missing, or the **As of** date in
   `pt/advisor.md` is not today, leave the section out of
   `edition.json`: `render_edition.py` then fills the slot with its honest
@@ -254,10 +256,9 @@ queued as a one-shot a minute out:
 
 That reconciles every job and queues `pt-daily-edition-now` with the main
 paper's own prompt and no send clock. The scheduler runs it in its own
-session and this skill delivers it from there. Like every paper it reuses
-today's accepted advisor checkpoint when there is one and runs the
-tournament when there is not, so a copy before the morning run can take
-a while.
+session and this skill delivers it from there. It never waits on a
+tournament: it prints the newest accepted advisor checkpoint, dated
+(`as_of`, below) when it is older than today.
 
 ## Render and deliver
 

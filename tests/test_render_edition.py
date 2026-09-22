@@ -198,6 +198,33 @@ class TestValidate:
             render.validate_tournament(recommendation_edition(), checkpoint)
         )
 
+    def test_on_demand_copy_reuses_an_older_checkpoint_and_says_so(self):
+        page = recommendation_edition()
+        page["sections"][0]["as_of"] = "2026-09-10"
+        checkpoint = {**tournament(), "date": "2026-09-10"}
+        assert render.validate(page) == ""
+        assert render.validate_tournament(page, checkpoint) == ""
+        output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        assert '<p class="priority-asof">Advice from Sep 10, 2026</p>' in output
+        pt = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}", language="Portuguese")
+        assert "Conselho de Sep 10, 2026" in pt
+
+    def test_same_day_reuse_needs_no_as_of_and_prints_none(self):
+        page = recommendation_edition()
+        assert render.validate_tournament(page, tournament()) == ""
+        output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
+        assert "priority-asof" not in output
+
+    @pytest.mark.parametrize("as_of, failure", [
+        ("2026-09-12", "priority as_of is after the edition date"),
+        ("yesterday", "as_of is not a YYYY-MM-DD date on the priority desk"),
+    ])
+    def test_as_of_cannot_be_invented(self, as_of, failure):
+        page = recommendation_edition()
+        page["sections"][0]["as_of"] = as_of
+        checkpoint = {**tournament(), "date": as_of}
+        assert failure in (render.validate(page) + render.validate_tournament(page, checkpoint))
+
     def test_complete_tournament_owns_the_exact_priority_card(self):
         checkpoint = tournament()
         checkpoint["priority"]["recommendations"][0] = {
@@ -964,6 +991,15 @@ class TestMain:
         with pytest.raises(SystemExit) as exc:
             render.main([str(path), "--config", str(tmp_path / "none.json")])
         assert "stale desk notes" in str(exc.value)
+
+    @pytest.mark.parametrize("priority_date, stale", [("2026-09-10", []), ("2026-09-11", [
+        "desk-priority/tournament.json is dated '2026-09-11'"])])
+    def test_a_reused_advice_desk_is_judged_by_its_as_of(self, tmp_path, priority_date, stale):
+        page = recommendation_edition()
+        page["sections"][0]["as_of"] = "2026-09-10"
+        (tmp_path / "desk-priority").mkdir()
+        (tmp_path / "desk-priority" / "tournament.json").write_text(json.dumps({"date": priority_date}))
+        assert render.stale_desk_files(page, tmp_path) == stale
 
     def test_a_news_only_edition_ignores_yesterdays_desk_files(self, tmp_path):
         # A one-topic subscription renders no standing desk; a leftover file

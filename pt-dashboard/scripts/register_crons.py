@@ -147,13 +147,15 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
     (or deliver_at equal to delivery.hour) and every assignment due today.
     focus="HH:MM" is the focused paper for sections booked at that hour.
     Every paper shares one workspace lock because their desk and topic
-    scratch is shared, and every paper follows the same priority rule:
-    reuse today's accepted advisor checkpoint when one exists, else run the
-    tournament. The morning run simply has none yet.
+    scratch is shared. A scheduled paper reuses today's accepted advisor
+    checkpoint when one exists, else runs the tournament.
 
     hold_until is the send clock (delivery.hour / an extra or focused hour).
     Cron may start earlier via lead_minutes; POST must still wait. The
-    on-demand copy (--now) passes none and posts when done.
+    on-demand copy (--now) passes none, posts when done, and never waits
+    ~150 minutes on a tournament: it reuses the newest accepted checkpoint
+    of any date, printed with its as-of date, and runs the tournament only
+    when none has ever been accepted.
 
     The print leg used to be a separate skill step the model could skip:
     measured live 2026-09-17 Latch saw no `lp`; measured live 2026-09-18
@@ -179,6 +181,14 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
         if hold_until else ""
     )
     lock = "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py"
+    advice = (
+        "reuse today's accepted checkpoint in run/desk-priority/tournament.json when "
+        "there is one, else run the tournament"
+        if hold_until else
+        "reuse the newest accepted checkpoint in run/desk-priority/tournament.json whatever "
+        "its date -- an older one prints with \"as_of\" per pt-edition -- and run the "
+        "tournament only if none has ever been accepted"
+    )
     return (
         f"Run {title} now, in one session. First run {lock} acquire "
         f"--name {WORKSPACE_LOCK}-<today's date in the owner's "
@@ -192,8 +202,7 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
         f"If it refuses, repeat its named roster, run {lock} "
         f"release --name the same {WORKSPACE_LOCK}-<date>, and stop before research. "
         f"Then run pt-research: first the priority desk exactly as "
-        f"pt-research/references/desks.md says (reuse today's accepted checkpoint in "
-        f"run/desk-priority/tournament.json when there is one, else run the tournament), "
+        f"pt-research/references/desks.md says ({advice}), "
         f"then every other standing desk it lists, in its order, then {roster}, "
         f"writing each topic's notes under run/<id>/ and desk notes under run/desk-*. "
         f"One plow_browser_open for the whole paper (apex + www + *.host on "
