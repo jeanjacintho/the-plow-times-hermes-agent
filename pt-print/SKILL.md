@@ -48,13 +48,14 @@ returns "Bad file descriptor" all live in that script — never retyped here.
 ## When it fails — and it is allowed to
 
 Any failure — the Mac unreachable, the write denied, `lp` non-zero, "no
-such printer", the script exiting non-zero — ends the same way:
+such printer", no PDF because the run fell back to text, the script exiting
+non-zero or running past 10 minutes — ends the same way:
 
 - the chat edition already delivered is the outcome; say nothing that
   implies the whole delivery failed,
 - `post_to_chat.py` posts the one line itself ("page not printed — <reason>;
-  next scheduled run retries"), because the turn ends in `NO_REPLY`; do not
-  repeat it,
+  next scheduled run retries", the reason being the script's last line),
+  because the turn ends in `NO_REPLY`; do not repeat it,
 - do not retry in a loop, do not queue the page, do not re-run research to
   "fix" it. The next scheduled run recomposes and re-delivers on its own.
 
