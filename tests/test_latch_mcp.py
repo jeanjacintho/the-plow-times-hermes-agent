@@ -92,7 +92,7 @@ class TestConnect:
         # the pair went stale the relay answered 401 on every run while a
         # working credential sat unused beside it (measured 2026-09-22:
         # printing, edition recording and both desks' history all failed).
-        monkeypatch.setenv("DOMO_DEVICE_UID", "ce6f4be1bd93c9b9")
+        monkeypatch.setenv("DOMO_DEVICE_UID", "stale-device")
         monkeypatch.setenv("DOMO_MCP_TOKEN", "revoked")
         monkeypatch.setenv("PLOW_MCP_URL", "https://plow-abc.int.exe.xyz/v1/relay/devices/usr-9/mcp")
         monkeypatch.setenv("PLOW_AGENT_TOKEN", "agent-token")

@@ -1,0 +1,36 @@
+#!/bin/sh
+# Drop the `latch` mcp_servers entry this repo used to declare.
+#
+# The image's config.yaml lands in /var/lib/hermes, which is the agent-home
+# volume, so it is shadowed after first create -- the same shadowing the
+# Dockerfile already notes for skills. plow-init then writes only the keys it
+# owns and preserves every other mcp_servers entry, so deleting `latch` from
+# runtime/config.yaml reaches a NEW install and no existing one: the legacy
+# entry would otherwise sit there forever, enabled, still interpolating the
+# retired DOMO_* pair, failing its connect every five minutes.
+#
+# Temporary: delete this hook once no install predates the single-credential
+# change. It is a one-time migration, not a standing reconcile -- it removes
+# one key it recognises and touches nothing else.
+set -eu
+config=/var/lib/hermes/config.yaml
+[ -f "$config" ] || exit 0
+grep -q '^  latch:' "$config" || exit 0
+/opt/hermes/.venv/bin/python3 - "$config" <<'PY'
+import sys
+import yaml
+
+path = sys.argv[1]
+with open(path) as handle:
+    config = yaml.safe_load(handle) or {}
+servers = config.get("mcp_servers")
+if not isinstance(servers, dict) or servers.pop("latch", None) is None:
+    sys.exit(0)
+# An empty mapping would read as "this agent declares no relay" and clobber the
+# image-managed `plow` entry on merge; drop the key itself instead.
+if not servers:
+    config.pop("mcp_servers")
+with open(path, "w") as handle:
+    yaml.safe_dump(config, handle, allow_unicode=True, sort_keys=False)
+print("retired the legacy latch mcp_servers entry")
+PY
