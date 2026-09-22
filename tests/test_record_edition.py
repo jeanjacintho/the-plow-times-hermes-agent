@@ -68,6 +68,20 @@ def day(mac):
     return (mac.home / "Plow" / "wiki" / EDITIONS / "2026-09-19.md").read_text()
 
 
+class TestIsLatestEdition:
+    def test_no_prior_is_always_latest(self):
+        assert rec._is_latest_edition(None, MORNING) is True
+
+    def test_a_later_edition_time_wins(self):
+        assert rec._is_latest_edition(MORNING.isoformat(timespec="seconds"), AFTERNOON) is True
+
+    def test_an_earlier_edition_time_loses(self):
+        assert rec._is_latest_edition(AFTERNOON.isoformat(timespec="seconds"), MORNING) is False
+
+    def test_an_unparseable_prior_has_nothing_to_lose_to(self):
+        assert rec._is_latest_edition("garbage", MORNING) is True
+
+
 class TestRecord:
     def test_the_day_page_keeps_the_card_and_the_research_and_is_listed(self, mac, tmp_path):
         out = rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
@@ -108,6 +122,17 @@ class TestRecord:
         w = Wiki(mac.call_tool)
         rec.record(w, edition(tmp_path), "cht_1", MORNING)
         rec.record(w, edition(tmp_path, headline="Book the Acme demo"), "cht_1", AFTERNOON)
+        meta, body = split_page(day(mac))
+        assert "## 06:04 edition" in body and "## 14:00 edition" in body
+        assert meta["priority"]["headline"] == "Book the Acme demo"
+
+    def test_out_of_order_recording_still_keeps_the_chronologically_latest_card(self, mac, tmp_path):
+        # issue #48: two papers can finish recording out of order. The
+        # afternoon edition's write lands first here; the morning one's
+        # arrives second but must not overwrite the afternoon's card.
+        w = Wiki(mac.call_tool)
+        rec.record(w, edition(tmp_path, headline="Book the Acme demo"), "cht_1", AFTERNOON)
+        rec.record(w, edition(tmp_path), "cht_1", MORNING)
         meta, body = split_page(day(mac))
         assert "## 06:04 edition" in body and "## 14:00 edition" in body
         assert meta["priority"]["headline"] == "Book the Acme demo"

@@ -13,11 +13,14 @@ topic_id) with its body, the evidence its research notes hold
 calendar, mail and sports stay out: they are the day's reads of the owner's
 own accounts, and the wiki is every agent's recall.
 
-The page's `priority` frontmatter is the last card printed that day; its
-`sections` frontmatter is each topic id's own record (headline and every
-sourced claim), merged across the day's editions. history.py reads both back
-as history. After the write, `wiki validate` and `wiki index`, so the
-paper's page lists the day.
+The page's `priority` frontmatter is the card of the day's chronologically
+latest edition (by its own `HH:MM`, not by write order -- two papers can
+record out of order, and the earlier one finishing second must not overwrite
+a later card with an older one; `priority_at` is that edition's timestamp,
+kept only to judge the next write). Its `sections` frontmatter is each topic
+id's own record (headline and every sourced claim), merged across the day's
+editions. history.py reads both back as history. After the write, `wiki
+validate` and `wiki index`, so the paper's page lists the day.
 
 The renderer already refused a malformed edition.json before delivery, so the
 fields it requires are read directly.
@@ -33,6 +36,7 @@ import hashlib
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pt-shared" / "scripts"))
@@ -102,6 +106,24 @@ def _section_record(section, notes, prior):
     return {"headline": headline, "printed": printed}
 
 
+def _is_latest_edition(prior_at, now):
+    """Whether `now` is the day's newest edition time seen so far.
+
+    Two papers of the same day (the daily job and a focused pt-paper-HHMM,
+    say) can finish recording out of order -- an earlier delivery landing
+    its write after a later one already has. Judging by edition time rather
+    than write order keeps `priority` the latest card regardless (issue #48).
+    An unset or unparseable prior_at has nothing to lose to.
+    """
+    if not prior_at:
+        return True
+    try:
+        prior = datetime.fromisoformat(prior_at)
+    except ValueError:
+        return True
+    return now >= prior
+
+
 def record(wiki, edition_json, chat, now):
     run_dir = Path(edition_json).parent
     raw = Path(edition_json).read_bytes()
@@ -156,9 +178,10 @@ def record(wiki, edition_json, chat, now):
             cited = {s["resource"] for s in meta["sources"]}
             meta["sources"] += [{"resource": u} for u in dict.fromkeys(urls) if u not in cited]
             meta["sources"] = meta["sources"] or [{"resource": f"plow-chat:{chat}"}]
-            if card:
+            if card and _is_latest_edition(meta.get("priority_at"), now):
                 meta["description"] = card["recommendations"][0]["headline"]
                 meta["priority"] = card
+                meta["priority_at"] = now.isoformat(timespec="seconds")
             elif not meta.get("description"):
                 meta["description"] = news[0].get("headline") or news[0]["title"]
             meta["updated"] = now.isoformat(timespec="seconds")
