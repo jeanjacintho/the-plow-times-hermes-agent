@@ -191,10 +191,11 @@ while 48 saved sections sat unread, because a one-off edition carries only
 its own topic. Do not add a topic.
 
 Queue it with `register_crons.py --now`, which `pt-edition` documents
-under **On demand**; the paper arrives as its own message. On exit 0,
-reply with one ⏳ line in `owner.language` saying it is on its way; on a
-non-zero exit, tell the owner in one line what the output names as failing.
-Never research or render it in this turn.
+under **On demand**; the paper arrives as its own message. If the output
+has a `queued:` line, reply with one ⏳ line in `owner.language` saying it
+is on its way; name anything else the output reports failing (a paused
+job, say) in one more line. With no `queued:` line, say it could not be
+queued. Never research or render it in this turn.
 
 A subscription/section is anything with a cadence in it. A one-off/assignment
 is a single ask. When the owner genuinely cannot be read as one or the other,
