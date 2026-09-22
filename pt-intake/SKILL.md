@@ -273,8 +273,8 @@ edition, and relaying it is the chat leg.
   `delivery.hour` from pt/config.json (today if it has not passed, tomorrow
   otherwise), so the result lands with the morning paper. Record it at add
   time as an ISO-8601 instant with offset via `--scheduled-for`, then run
-  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --oneoff <id>`.
-  It creates `pt-oneoff-<id>` at that `scheduled_for` with the topic's own
+  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py`. It
+  creates `pt-oneoff-<id>` at that `scheduled_for` with the topic's own
   prompt and the deliver target baked in; the sweep removes it once the
   topic is delivered.
   Never hand-build this job with `hermes cron`: measured live, a hand-built

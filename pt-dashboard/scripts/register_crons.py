@@ -26,8 +26,8 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          deliver_at                 is not delivery.hour
   pt-subscription-<id>   0 <delivery.hour> * * *   one per subscription topic
                                                    not yet cancelled
-  pt-oneoff-<id>         one-shot at the topic's   --oneoff <id>: one topic's
-                         scheduled_for             own edition; swept once the
+  pt-oneoff-<id>         one-shot at the topic's   one per pending one-off
+                         scheduled_for             still ahead; swept once the
                                                    topic is delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
                                                    demand, same prompt, no hold
@@ -520,6 +520,17 @@ def subscription_job(topic, delivery_hour, env=None):
     }
 
 
+def oneoff_job(topic):
+    """A pending one-off's own edition, one-shot at its scheduled_for."""
+    return {
+        "name": f"pt-oneoff-{topic['id']}",
+        "schedule": topic["scheduled_for"],
+        "prompt": TOPIC_PROMPT.format(tid=topic["id"], depth=topic["depth"]),
+        "skill": "pt-research",
+        "deliver": DELIVER_TARGET,
+    }
+
+
 def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
                   extra_hours=(), owner_tz=None):
     """The jobs the topic store calls for, in spec order.
@@ -528,8 +539,11 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     extra delivery time (delivery.extra_hours -- the same MAIN roster,
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
-    job per subscription. lead_minutes is the nominal lead; each slot clamps
-    it to its own owner-zone midnight.
+    job per subscription, then one per pending one-off whose scheduled_for is
+    still ahead (a naive one reads as container-local, like every schedule
+    here; a past one fired or was missed and is never re-armed).
+    lead_minutes is the nominal lead; each slot clamps it to its own
+    owner-zone midnight.
     """
     focused_hours = focused_paper_hours(topics, delivery_hour)
     require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
@@ -550,6 +564,13 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
         subscription_job(t, delivery_hour, env)
         for t in topics
         if t["kind"] == "subscription" and t["status"] != "cancelled"
+    )
+    now = datetime.now().astimezone()
+    jobs.extend(
+        oneoff_job(t)
+        for t in topics
+        if t["kind"] == "one_off" and t["status"] == "pending" and t.get("scheduled_for")
+        and datetime.fromisoformat(t["scheduled_for"]).astimezone() > now
     )
     return jobs
 
@@ -675,24 +696,29 @@ def edit_argv(job, env=None):
     return argv
 
 
-def queue_once(runner, jobs_path, name, at, prompt, env=None):
-    """A one-shot job at the instant `at`: the on-demand copy or a one-off.
+def queue_now(runner, jobs_path, lead_minutes, env=None, clock=None):
+    """The on-demand copy: the main paper's own prompt as a one-shot job.
 
-    The gateway's scheduler fires it exactly like a scheduled run -- its own
-    session, the same --deliver -- so "send me the paper now" can never be a
-    thinner or different paper, and no one-off is ever a hand-built job.
-    Names are not unique in hermes and a fired one-shot stays registered as
-    completed, so previous rows of this name are removed by id -- only after
-    the new one is created, so a failed create never cancels a paper the
-    owner was already promised.
+    The gateway's scheduler fires it exactly like the morning run -- its own
+    session, the same workspace lock, the same --deliver -- so "send me the
+    paper now" can never be a thinner or different paper. Names are not
+    unique in hermes and a fired one-shot stays registered as completed, so
+    previous rows are removed by id -- only after the new one is created, so
+    a failed create never cancels a copy the owner was already promised.
     """
-    job = {"name": name, "schedule": at.isoformat(timespec="seconds"), "prompt": prompt,
-           "skill": "pt-research", "deliver": DELIVER_TARGET}
-    previous = [j["id"] for j in _job_rows(jobs_path) if j["name"] == name]
-    _check(runner(create_argv(job, env)), f"could not queue {name}")
-    print(f"queued: {name} ({job['schedule']})")
+    at = (clock or datetime.now().astimezone()) + timedelta(minutes=1)
+    job = {
+        "name": NOW_NAME,
+        "schedule": at.isoformat(timespec="seconds"),
+        "prompt": paper_prompt(lead_minutes=lead_minutes),
+        "skill": "pt-research",
+        "deliver": DELIVER_TARGET,
+    }
+    previous = [j["id"] for j in _job_rows(jobs_path) if j["name"] == NOW_NAME]
+    _check(runner(create_argv(job, env)), f"could not queue {NOW_NAME}")
+    print(f"queued: {NOW_NAME} ({job['schedule']})")
     for job_id in previous:
-        _check(runner([HERMES, "cron", "remove", job_id]), f"could not remove the previous {name}")
+        _check(runner([HERMES, "cron", "remove", job_id]), f"could not remove the previous {NOW_NAME}")
 
 
 def _check(proc, failure):
@@ -713,9 +739,6 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
         help="after registering, queue the main paper as a one-shot a minute "
              "out -- the on-demand copy, same prompt, no send clock",
     )
-    parser.add_argument("--oneoff", metavar="ID",
-                        help="after registering, queue pending one_off topic ID's own "
-                             "edition at its scheduled_for")
     args = parser.parse_args(argv if argv is not None else [])
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
@@ -731,16 +754,6 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
-    # Validated before any scheduler change, so a bad one-off mutates nothing.
-    # A naive instant would fire on the container's clock, not the owner's.
-    oneoff = next((t for t in topics if t["id"] == args.oneoff), None) if args.oneoff else None
-    oneoff_at = (datetime.fromisoformat(oneoff["scheduled_for"])
-                 if oneoff and oneoff["scheduled_for"] else None)
-    if args.oneoff and (oneoff is None or oneoff["kind"] != "one_off"
-                        or oneoff["status"] != "pending"
-                        or oneoff_at is None or oneoff_at.utcoffset() is None):
-        raise SystemExit(f"refusing to queue: {args.oneoff} is not a pending one_off topic "
-                         "with an offset-aware scheduled_for in topics.json")
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
@@ -782,12 +795,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
         print(f"removed stale job: {name}")
 
     if args.now:
-        queue_once(runner, jobs_path, NOW_NAME,
-                   datetime.now().astimezone() + timedelta(minutes=1),
-                   paper_prompt(lead_minutes=lead_minutes), env)
-    if oneoff:
-        queue_once(runner, jobs_path, f"pt-oneoff-{oneoff['id']}", oneoff_at,
-                   TOPIC_PROMPT.format(tid=oneoff["id"], depth=oneoff["depth"]), env)
+        queue_now(runner, jobs_path, lead_minutes, env)
 
     if paused:
         raise SystemExit(
