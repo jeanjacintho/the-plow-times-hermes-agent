@@ -320,15 +320,17 @@ Four shapes, two depths:
   then it is done. An assignment never gets its own cron; it rides the daily
   paper.
 
-The canonical scheduled daily paper is one edition built from the standing
+The daily paper is one edition built from the standing
 desks (`pt-research/references/desks.md` lists them: the advisor's priority
 desk when configured, weather from the Mac's location that morning, the
 calendar, mail when configured) plus
 the news sections that belong to that hour and the day's assignments, on
 the same fixed template every time — the layout is code, you only supply
-content. Only the canonical scheduled paper runs priority. Live copies and alternate daily reruns re-research the main roster.
-Focused papers add only sections booked for their own hour.
-All reuse its priority checkpoint or gap card and begin with weather.
+content. Extra daily reruns and the on-demand copy re-research the main roster;
+focused papers add only sections booked for their own hour. One priority rule:
+a scheduled paper reuses today's accepted advisor result, else runs the tournament;
+the on-demand copy reuses the newest accepted result of any date, printed with its
+date, and runs the tournament only if none has ever been accepted.
 News blocks always use the same story shape (title, headline, body,
 sources). Weather, calendar and mail use that same shape too, each in its
 own department.
