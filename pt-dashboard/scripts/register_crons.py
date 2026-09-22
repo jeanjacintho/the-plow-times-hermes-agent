@@ -120,7 +120,7 @@ _EXTRA_DAILY_RE = re.compile(r"^pt-daily-edition-(?P<n>[2-9]\d*)$")
 # sections at 12:30 share one job and a dropped hour is sweepable by name.
 _PAPER_RE = re.compile(r"^pt-paper-(?P<hhmm>(?:[01]\d|2[0-3])[0-5]\d)$")
 # The on-demand copy (--now): a one-shot the sweep below never removes, so
-# a queued paper survives a registration run; queue_now replaces it.
+# a queued paper survives a registration run; the next --now replaces it.
 NOW_NAME = "pt-daily-edition-now"
 WORKSPACE_LOCK = "paper-workspace"
 DEFAULT_LEAD_MINUTES = 0
@@ -672,14 +672,15 @@ def edit_argv(job, env=None):
     return argv
 
 
-def queue_now(runner, registered, lead_minutes, env=None, clock=None):
+def queue_now(runner, jobs_path, lead_minutes, env=None, clock=None):
     """The on-demand copy: the main paper's own prompt as a one-shot job.
 
     The gateway's scheduler fires it exactly like the morning run -- its own
     session, the same workspace lock, the same --deliver -- so "send me the
-    paper now" can never be a thinner or different paper. A fired one-shot
-    stays registered as completed, so the previous one is removed first
-    (names are not unique in hermes).
+    paper now" can never be a thinner or different paper. Names are not
+    unique in hermes and a fired one-shot stays registered as completed, so
+    previous rows are removed by id -- only after the new one is created, so
+    a failed create never cancels a copy the owner was already promised.
     """
     at = (clock or datetime.now().astimezone()) + timedelta(minutes=1)
     job = {
@@ -689,11 +690,15 @@ def queue_now(runner, registered, lead_minutes, env=None, clock=None):
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
-    argv = create_argv(job, env)
-    if NOW_NAME in registered:
-        _check(runner([HERMES, "cron", "remove", NOW_NAME]), f"could not remove the previous {NOW_NAME}")
-    _check(runner(argv), f"could not queue {NOW_NAME}")
+    try:
+        previous = [j["id"] for j in json.loads(pathlib.Path(jobs_path).read_text())["jobs"]
+                    if j["name"] == NOW_NAME]
+    except FileNotFoundError:
+        previous = []
+    _check(runner(create_argv(job, env)), f"could not queue {NOW_NAME}")
     print(f"queued: {NOW_NAME} ({job['schedule']})")
+    for job_id in previous:
+        _check(runner([HERMES, "cron", "remove", job_id]), f"could not remove the previous {NOW_NAME}")
 
 
 def _check(proc, failure):
@@ -770,7 +775,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
         print(f"removed stale job: {name}")
 
     if args.now:
-        queue_now(runner, registered, lead_minutes, env)
+        queue_now(runner, jobs_path, lead_minutes, env)
 
     if paused:
         raise SystemExit(

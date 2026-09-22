@@ -280,11 +280,30 @@ class TestMain:
         assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
         assert "queued: pt-daily-edition-now" in capsys.readouterr().out
 
-    def test_now_replaces_the_previous_one_shot(self, tmp_path, monkeypatch, hermes):
+    @pytest.mark.parametrize("create_rc", [0, 1])
+    def test_now_removes_the_previous_one_shot_only_after_queueing_its_successor(
+            self, tmp_path, monkeypatch, hermes, create_rc):
+        # A failed create must not cancel a copy the owner was already promised.
         calls = []
-        self.run_main(tmp_path, monkeypatch, [], [job(crons.DAILY_NAME), job(crons.NOW_NAME)],
-                      calls=calls, argv=["--now"])
-        assert [c[2] for c in calls if crons.NOW_NAME in c] == ["remove", "create"]
+
+        def runner(argv):
+            calls.append(argv)
+            rc = create_rc if argv[2] == "create" and crons.NOW_NAME in argv else 0
+            return type("P", (), {"returncode": rc, "stdout": "", "stderr": ""})()
+
+        previous = {**job(crons.NOW_NAME), "id": "old123"}
+
+        def run():
+            return self.run_main(tmp_path, monkeypatch, [], [job(crons.DAILY_NAME), previous],
+                                 runner=runner, argv=["--now"])
+        if create_rc:
+            with pytest.raises(SystemExit, match="could not queue"):
+                run()
+            assert not any(c[2] == "remove" for c in calls)
+        else:
+            run()
+            now = [c[2:4] for c in calls if crons.NOW_NAME in c or "old123" in c]
+            assert [c[0] for c in now] == ["create", "remove"] and now[1][1] == "old123"
 
     def test_registration_never_sweeps_a_queued_copy(self):
         assert crons.stale_names([], {crons.NOW_NAME: True}, delivery_hour="07:00") == []
