@@ -757,7 +757,19 @@ class TestSkills:
         assert "Live copies and alternate daily reruns re-research the main roster" in soul
         assert "Focused papers add only sections booked for their own hour" in soul
         assert "the founder" in skill
-        assert "you / você" in skill
+        # The card's language is the owner's, read from config -- not inferred from this
+        # file. A lone `você` exemplar was the only language signal the culler had, and it
+        # wrote a Portuguese card for an English owner (#93).
+        assert "Everything this desk writes" in skill
+        # Free-form, not a flag: a binary en/pt branch silently gives a Mandarin owner
+        # English text, and pt-edition promises "Mandarin in, Mandarin out".
+        assert "a language to write in, never a flag to branch on" in skill
+        assert "not a language inferred from this file" in skill
+        assert "`you` in English, `você` in Portuguese" in skill
+        assert "owner.language` from `/var/lib/hermes/pt/config.json`" in skill
+        # A config with no owner.language must not send the culler back to inferring one;
+        # pt-edition owns that fallback and this desk defers to it rather than forking it.
+        assert "is `pt-edition/SKILL.md`'s case" in skill
         assert "Never omit the slot" in edition
 
     def test_soul_delegates_delivery_argv_to_the_edition_skill(self):
@@ -776,7 +788,9 @@ class TestSkills:
             "A recommendation without a supporting sourced quote is ineligible",
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
             "--tournament",
-            "rewrite every reference to the owner by name or role into direct reader voice",
+            "rewrite every reference to the owner by name or role into direct",
+            "question in the owner's language -- the literal value read during Orient",
+            "is a defect, not a style choice",
             "`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`",
             "sanitized `reads`",
             "reopens decisive public read receipts",
