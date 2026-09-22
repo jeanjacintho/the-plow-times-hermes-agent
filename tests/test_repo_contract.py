@@ -924,6 +924,19 @@ class TestSkills:
         assert (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").is_file()
         assert (ROOT / "pt-setup" / "scripts" / "convert_delivery.py").is_file()
 
+    def test_a_claim_whose_item_will_not_reopen_is_unsupported(self):
+        # A basis naming a file that does not exist kept its Answered standing
+        # across three generations, because "missing access is unknown, never
+        # disproved" is about the claim's truth and nothing spoke to its
+        # standing (issues #72, #73).
+        desk = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "unsupported" in desk
+        assert "re-open" in desk
+        # the truth rule must survive untouched — the new rule is a different axis
+        assert "unknown, never disproved" in desk
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "rowid" in intake and "confirm" in intake
+
 
 class TestDeployment:
     def test_deploy_hook_is_executable(self):
