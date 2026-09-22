@@ -195,9 +195,12 @@ HTML.** Hand-write `edition.json` under the run directory:
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
   its `priority` object from `run/desk-priority/tournament.json` without rewriting. If that
   complete checkpoint is missing, or the **As of** date in
-  `pt/advisor.md` is not today, leave the section out of
-  `edition.json`: `render_edition.py` then fills the slot with its honest
-  gap card. Never omit the slot any other way. Mail only when
+  `pt/advisor.md` is not today, write the unavailable section instead: a
+  one-line `body` and `could_not_source` copied verbatim from
+  `run/desk-priority/notes.json` (a paper that does not run priority and
+  finds no notes says today's scheduled paper has not published the card).
+  `render_edition.py` refuses a configured paper with no priority section.
+  Never omit the slot. Mail only when
   `pt/config.json` has
   `mail.configured: true` **and** `run/desk-mail/notes.json` exists;
   otherwise omit the mail block entirely so that slot stays empty.
