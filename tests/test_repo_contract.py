@@ -264,7 +264,7 @@ class TestSoul:
 
     def test_edition_post_prints_and_finalizes_itself(self):
         script = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
-        assert "maybe_print" in script
+        assert "print_page" in script
         assert "print_edition.py" in script
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "print_edition.py" in edition

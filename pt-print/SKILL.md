@@ -48,7 +48,8 @@ returns "Bad file descriptor" all live in that script — never retyped here.
 ## When it fails — and it is allowed to
 
 Any failure — the Mac unreachable, the write denied, `lp` non-zero, "no
-such printer", the script exiting non-zero — ends the same way:
+such printer", no PDF because the run fell back to text, the script exiting
+non-zero or running past 10 minutes — ends the same way:
 
 - the chat edition already delivered is the outcome; say nothing that
   implies the whole delivery failed,

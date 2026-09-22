@@ -51,14 +51,6 @@ class TestComposePayload:
             post.compose_payload("")
 
 
-class TestRunPrintEdition:
-    def test_unknown_outcome_line_is_kept_not_rewrapped_as_a_failure(self, monkeypatch):
-        line = "error: page may not have printed — lp outcome unknown: Click Allow; check the printer queue"
-        monkeypatch.setattr("subprocess.run", lambda *a, **k: types.SimpleNamespace(
-            returncode=1, stdout="", stderr=line))
-        assert post.run_print_edition("/x.pdf", "/c.json") == line
-
-
 class TestTextFileFlag:
     """`--text-file` exists so the text leg needs no shell redirect.
 
@@ -84,47 +76,71 @@ class TestTextFileFlag:
             post.read_text_file(str(f))
 
 
-class TestMaybePrint:
-    """Measured live 2026-09-18: PDF posted, edition.html existed,
-    printer.configured true (JornalVirtual), and print_edition.py was
-    never invoked — the model marked topics and NO_REPLY'd. Chat is
-    not a gate for paper; post_to_chat.py is.
-    """
+def _exits(code, stderr="", stdout=""):
+    return lambda *a, **k: types.SimpleNamespace(returncode=code, stdout=stdout, stderr=stderr)
 
-    def test_configured_printer_prints_the_pdf_with_no_html_beside_it(self, tmp_path):
-        # Measured live 2026-09-18: runs that rendered only the PDF logged
-        # "skipped: no html" -- a gate on a file the print never reads.
-        pdf = tmp_path / "edition.pdf"
-        pdf.write_bytes(b"%PDF")
+
+def _hangs(*a, **k):
+    raise subprocess.TimeoutExpired(cmd="print_edition.py", timeout=k["timeout"])
+
+
+class TestMissedPrintIsReported:
+    """Measured 2026-09-22: a configured printer, a rendered PDF, no page and
+    no word to the owner. Every miss now posts one line after the edition."""
+
+    def _main(self, tmp_path, monkeypatch, argv, run=None, configured=True, language="English"):
+        (tmp_path / "edition.json").write_text('{"date": "2026-09-22"}', encoding="utf-8")
+        (tmp_path / "edition.chat.txt").write_text("THE FOUNDER TIMES", encoding="utf-8")
         cfg = tmp_path / "config.json"
-        cfg.write_text(
-            json.dumps({"printer": {"configured": True, "name": "JornalVirtual"}}),
-            encoding="utf-8",
-        )
-        seen = []
+        cfg.write_text(json.dumps({"owner": {"language": language},
+                                   "printer": {"configured": configured, "name": "JV"}}),
+                       encoding="utf-8")
+        monkeypatch.setattr(post, "CONFIG_DEFAULT", str(cfg))
+        monkeypatch.setenv("PLOW_MCP_URL", "https://relay.invalid/mcp")
+        monkeypatch.setenv("PLOW_AGENT_TOKEN", "tok")
+        monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
+        monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
+        monkeypatch.setattr(post, "run_finalize_topics", lambda *a: "FINALIZED")
+        monkeypatch.setattr(post, "run_record_edition", lambda *a: "RECORDED")
+        if run:
+            monkeypatch.setattr(subprocess, "run", run)
+        bodies = []
+        monkeypatch.setattr(post, "post_json", lambda *a: bodies.append(a[-1]["body"]))
+        monkeypatch.setattr(sys, "argv", ["post_to_chat.py", *[
+            str(tmp_path / x) if x.startswith("edition") else x for x in argv]])
+        post.main()
+        return bodies[1:]
 
-        def runner(pdf_path, config_path):
-            seen.append((pdf_path, config_path))
-            return "page printed on JornalVirtual"
-
-        out = post.maybe_print(str(pdf), str(cfg), runner=runner)
-        assert seen == [(str(pdf.resolve()), str(cfg))]
-        assert "page printed" in out
-
-    @pytest.mark.parametrize("result, line", [
-        ("page printed on JornalVirtual", None),
-        ("skipped: printer.configured is not true", None),
-        ("error: page not printed — lp 1: no such printer\nmore detail",
-         "page not printed — lp 1: no such printer; next scheduled run retries"),
-        ("warning: something first\nerror: page not printed — latch denied",
-         "page not printed — latch denied; next scheduled run retries"),
-        ("error: page not printed — lp outcome unknown: still running",
-         "page not printed — lp outcome unknown: still running"),
-        ("error: page not printed — Mac unreachable",
-         "page not printed — Mac unreachable; next scheduled run retries"),
+    @pytest.mark.parametrize("run, notice", [
+        (_exits(0, stdout="page printed on JV"), []),
+        (_exits(0, stdout="skipped: printer.configured is not true"), []),
+        (_exits(1, "error: lp 1: no such printer"),
+         ["page not printed — lp 1: no such printer; next scheduled run retries"]),
+        (_exits(1, "warning: first\nerror: Mac unreachable"),
+         ["page not printed — Mac unreachable; next scheduled run retries"]),
+        (_exits(1, "error: lp outcome unknown: still running"),
+         ["page not printed — lp outcome unknown: still running"]),
+        (_exits(1), ["page not printed — exit 1; next scheduled run retries"]),
+        (_hangs, [f"page not printed — outcome unknown: still running after {post.PRINT_TIMEOUT}s"]),
     ])
-    def test_only_a_failed_print_owes_the_owner_a_chat_line(self, result, line):
-        assert post.print_failure_line(result) == line
+    def test_pdf_leg_posts_one_line_only_for_a_missed_page(self, tmp_path, monkeypatch, run, notice):
+        (tmp_path / "edition.pdf").write_bytes(b"%PDF")
+        assert self._main(tmp_path, monkeypatch, ["--pdf", "edition.pdf"], run) == notice
+
+    @pytest.mark.parametrize("configured, language, notice", [
+        (True, "English",
+         ["page not printed — no PDF to print at {pdf}; next scheduled run retries"]),
+        (True, "Português",
+         ["página não impressa — nenhum PDF para imprimir em {pdf}; "
+          "a próxima edição agendada tenta de novo"]),
+        (False, "English", []),
+    ])
+    def test_text_fallback_says_why_the_configured_printer_got_nothing(
+            self, tmp_path, monkeypatch, configured, language, notice):
+        # Real print_edition.py: the text leg runs when no PDF was rendered.
+        out = self._main(tmp_path, monkeypatch, ["--text-file", "edition.chat.txt"],
+                         configured=configured, language=language)
+        assert out == [n.format(pdf=tmp_path / "edition.pdf") for n in notice]
 
 
 class TestRunRecord:
@@ -154,20 +170,20 @@ class TestFinalizersRunIndependently:
             post, "run_finalize_topics",
             overrides.get("run_finalize_topics", lambda *a, **k: "FINALIZED"),
         )
-        if "maybe_print" in overrides:
-            monkeypatch.setattr(post, "maybe_print", overrides["maybe_print"])
+        if "print_page" in overrides:
+            monkeypatch.setattr(post, "print_page", overrides["print_page"])
         if "run_record_edition" in overrides:
             monkeypatch.setattr(post, "run_record_edition", overrides["run_record_edition"])
         monkeypatch.setattr(sys, "argv", ["post_to_chat.py", "--pdf", pdf_arg or str(pdf)])
 
     @pytest.mark.parametrize("topics, print_result, recorded, error", [
-        ("FINALIZED", "page printed", "RECORDED", None),
+        ("FINALIZED", None, "RECORDED", None),
         ("FINALIZED", "page not printed — lp 1", "RECORDED", None),
-        ("topics not finalized — broken", "page printed", "RECORDED",
+        ("topics not finalized — broken", None, "RECORDED",
          r"topics.py finalize-edition <edition.json>.*do not repost"),
-        ("FINALIZED", "page printed", "error: edition not recorded — broken",
+        ("FINALIZED", None, "error: edition not recorded — broken",
          r"record_edition.py <edition.json>.*do not repost"),
-        ("topics not finalized — broken", "page printed",
+        ("topics not finalized — broken", None,
          "error: edition not recorded — broken",
          r"topics.py finalize-edition <edition.json>.*record_edition.py <edition.json>.*do not repost"),
     ])
@@ -178,7 +194,7 @@ class TestFinalizersRunIndependently:
         self._mock_main(
             tmp_path, monkeypatch,
             run_finalize_topics=lambda path: paths.append(path) or order.append("finalize") or topics,
-            maybe_print=lambda *a, **k: order.append("print") or print_result,
+            print_page=lambda *a, **k: order.append("print") or print_result,
             run_record_edition=lambda path: paths.append(path) or order.append("record") or recorded,
         )
         if error:
@@ -191,10 +207,8 @@ class TestFinalizersRunIndependently:
         assert paths == [expected, expected]
 
     def test_a_print_failure_before_its_own_runner_still_records(self, tmp_path, monkeypatch):
-        # maybe_print itself is real here (not mocked): an unresolvable pdf
-        # path makes Path.resolve() raise inside maybe_print, before its
-        # runner is ever reached. main()'s own _best_effort around the call
-        # -- not one inside maybe_print -- is what has to catch this.
+        # print_page is real here: a pdf path subprocess cannot pass must
+        # still cost only the page, never the record.
         order = []
         self._mock_main(
             tmp_path, monkeypatch, pdf_arg="bad\x00path",
