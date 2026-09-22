@@ -150,9 +150,7 @@ RUN find /opt/hermes/skills -mindepth 1 -type d -exec chmod 0755 {} + \
  && install -d -o 10000 -g 10000 -m 0700 /var/lib/hermes/pt
 
 COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
-COPY image/cont-init.d/03-retire-legacy-latch-mcp /etc/cont-init.d/03-retire-legacy-latch-mcp
-RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials \
-      /etc/cont-init.d/03-retire-legacy-latch-mcp
+RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials
 
 # Hermes' billing wall concatenates the HTTP body, the provider name, a
 # billing URL and `/model`. Pin one user-facing line and fail the build if
