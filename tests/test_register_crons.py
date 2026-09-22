@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import pathlib
 
 import pytest
 
@@ -109,7 +111,7 @@ class TestDesiredJobs:
     def test_one_job_per_active_subscription(self, tmp_path):
         path = write_config(tmp_path)
         topics = [topic("t_9f2a"), topic("t_0c11")]
-        jobs = crons.desired_jobs(topics, "07:00", {"PLOW_HOME_CHANNEL": "c"})
+        jobs = crons.desired_jobs(topics, "07:00", TZ, TZ, {"PLOW_HOME_CHANNEL": "c"})
         assert [j["name"] for j in jobs] == [
             crons.DAILY_NAME,
             "pt-subscription-t_9f2a", "pt-subscription-t_0c11"]
@@ -122,7 +124,7 @@ class TestDesiredJobs:
         # The main paper's 40-minute lead must not abort registration for a
         # slot at 00:20: that slot starts at midnight, not the evening before.
         jobs = crons.desired_jobs(
-            [topic("t_9f2a", kind="section", deliver_at="12:30")], "07:00",
+            [topic("t_9f2a", kind="section", deliver_at="12:30")], "07:00", TZ, TZ,
             {"PLOW_HOME_CHANNEL": "c"}, lead_minutes=40, extra_hours=["00:20"])
         by_name = {j["name"]: j["schedule"] for j in jobs}
         assert by_name[crons.DAILY_NAME] == "20 6 * * *"
@@ -134,8 +136,8 @@ class TestDesiredJobs:
         # container. The 40-minute lead stops at owner midnight (03:00
         # container); the owner's 10:30 (13:30) keeps the full lead.
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section", deliver_at="14:30")], "00:20", {"TZ": "UTC"}, 40,
-            extra_hours=["10:30"], owner_tz="America/Sao_Paulo",
+            [topic("t_1", kind="section", deliver_at="14:30")], "00:20",
+            "America/Sao_Paulo", "UTC", {}, 40, extra_hours=["10:30"],
         )
         assert jobs[0]["schedule"] == "0 3 * * *"
         assert jobs[1]["schedule"] == "50 12 * * *"
@@ -145,7 +147,7 @@ class TestDesiredJobs:
         # The owner's 07:00 in Tokyo (+09) is 22:00 the evening before in UTC.
         jobs = crons.desired_jobs(
             [topic("t_9f2a"), topic("t_1", kind="section", deliver_at="12:00")], "07:00",
-            {"TZ": "UTC"}, owner_tz="Asia/Tokyo")
+            "Asia/Tokyo", "UTC")
         by_name = {j["name"]: j for j in jobs}
         daily = by_name[crons.DAILY_NAME]
         assert daily["schedule"] == "0 22 * * *"
@@ -156,8 +158,9 @@ class TestDesiredJobs:
         assert "--deliver-at 12:00" in paper["prompt"]
         assert paper["schedule"] == "0 3 * * *"
 
+    @pytest.mark.parametrize("interrupted", [False, True])
     def test_a_container_clock_config_moves_to_the_owners_once_and_registers_as_before(
-            self, tmp_path, monkeypatch):
+            self, tmp_path, monkeypatch, interrupted):
         # Written before hours moved to the owner's zone: container-clock
         # hours, the owner's own main hour in delivery.local_hour.
         monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
@@ -166,32 +169,43 @@ class TestDesiredJobs:
                                                     "extra_hours": ["06:00"]}})
         (tmp_path / "pt" / "topics.json").write_text(json.dumps({"topics": [
             topic("t_1", kind="section", deliver_at="03:00"), topic("t_2", kind="section")]}))
+        if interrupted:  # topics converted, then the config write dies
+            real_replace = os.replace
+
+            def crash_on_config(src, dst):
+                if pathlib.Path(dst) == path:
+                    raise OSError("killed")
+                real_replace(src, dst)
+            monkeypatch.setattr(os, "replace", crash_on_config)
+            with pytest.raises(OSError):
+                crons.adopt_owner_clock("Asia/Tokyo", "UTC", path)
+            monkeypatch.setattr(os, "replace", real_replace)
         for _ in range(2):  # idempotent: the second run finds nothing to move
             crons.adopt_owner_clock("Asia/Tokyo", "UTC", path)
         assert json.loads(path.read_text())["delivery"] == {"hour": "07:00", "extra_hours": ["15:00"]}
         topics = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"]
         assert [t.get("deliver_at") for t in topics] == ["12:00", None]
-        jobs = crons.desired_jobs(topics, "07:00", {"TZ": "UTC"},
-                                  extra_hours=["15:00"], owner_tz="Asia/Tokyo")
+        jobs = crons.desired_jobs(topics, "07:00", "Asia/Tokyo", "UTC",
+                                  extra_hours=["15:00"])
         assert [j["schedule"] for j in jobs] == ["0 22 * * *", "0 6 * * *", "0 3 * * *"]
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(
-            [topic("t_9f2a", status="cancelled")], "07:00", {})
+            [topic("t_9f2a", status="cancelled")], "07:00", TZ, TZ, {})
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
     def test_one_offs_never_get_subscription_jobs(self):
         jobs = crons.desired_jobs(
             [topic("t_0c11", kind="one_off", status="pending", depth="quick")],
-            "07:00", {})
+            "07:00", TZ, TZ, {})
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
     def test_running_subscription_still_has_its_job(self):
-        jobs = crons.desired_jobs([topic("t_9f2a", status="running")], "07:00", {})
+        jobs = crons.desired_jobs([topic("t_9f2a", status="running")], "07:00", TZ, TZ, {})
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME, "pt-subscription-t_9f2a"]
 
     def test_hour_derived_without_leading_zero(self):
-        jobs = crons.desired_jobs([topic("t_9f2a")], "23:00", {})
+        jobs = crons.desired_jobs([topic("t_9f2a")], "23:00", TZ, TZ, {})
         sub = next(j for j in jobs if j["name"] == "pt-subscription-t_9f2a")
         assert sub["schedule"] == "0 23 * * *"
 
@@ -230,7 +244,7 @@ class TestStaleNames:
 
 class TestCreateArgv:
     def test_argv_shape(self):
-        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00",
+        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00", TZ, TZ,
                                   {"PLOW_HOME_CHANNEL": "chat_123"})
         sub = next(j for j in jobs if j["name"] == "pt-subscription-t_9f2a")
         argv = crons.create_argv(sub, {"PLOW_HOME_CHANNEL": "chat_123"})
@@ -243,7 +257,7 @@ class TestCreateArgv:
 
 class TestEditArgv:
     def test_argv_updates_in_place(self):
-        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00",
+        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00", TZ, TZ,
                                   {"PLOW_HOME_CHANNEL": "chat_123"})
         daily = next(j for j in jobs if j["name"] == crons.DAILY_NAME)
         argv = crons.edit_argv(daily, {"PLOW_HOME_CHANNEL": "chat_123"})
@@ -378,7 +392,7 @@ class TestMain:
 class TestDailySchedule:
     def test_default_lead_is_zero(self):
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section")], "07:00", {})
+            [topic("t_1", kind="section")], "07:00", TZ, TZ, {})
         assert jobs[0]["schedule"] == "0 7 * * *"
         assert crons.DEFAULT_LEAD_MINUTES == 0
 
@@ -428,7 +442,7 @@ class TestExtraDailyHours:
     # unnecessary.
     def test_desired_jobs_adds_one_per_extra_hour(self):
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section")], "03:00", {"PLOW_HOME_CHANNEL": "c"},
+            [topic("t_1", kind="section")], "03:00", TZ, TZ, {"PLOW_HOME_CHANNEL": "c"},
             45, extra_hours=["10:30"],
         )
         names = [j["name"] for j in jobs]
@@ -438,18 +452,9 @@ class TestExtraDailyHours:
         assert jobs[1]["skill"] == "pt-research"
         assert jobs[1]["deliver"] == crons.DELIVER_TARGET
 
-    def test_the_cli_path_reads_the_container_zone_from_the_environment(self, monkeypatch):
-        # main() passes env=None; the zone must come from os.environ, as
-        # load_zones() reads it, or the conversion silently does not run.
-        monkeypatch.setenv("TZ", "UTC")
-        jobs = crons.desired_jobs(
-            [topic("t_1", kind="section")], "00:20", None, 40, owner_tz="America/Sao_Paulo",
-        )
-        assert jobs[0]["schedule"] == "0 3 * * *"
-
     def test_extra_job_prompt_shares_the_workspace_lock_and_has_the_pdf_leg(self):
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],
+            [topic("t_1", kind="section")], "03:00", TZ, TZ, {}, 45, extra_hours=["10:30"],
         )
         prompt = jobs[1]["prompt"]
         assert "paper-workspace-<today's date" in prompt
@@ -457,7 +462,7 @@ class TestExtraDailyHours:
         assert "NO_REPLY" in prompt
 
     def test_no_extra_hours_is_unchanged(self):
-        jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", {}, 45)
+        jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", TZ, TZ, {}, 45)
         assert [j["name"] for j in jobs] == ["pt-daily-edition"]
 
     @pytest.mark.parametrize("extra,section_hour", [
@@ -468,11 +473,11 @@ class TestExtraDailyHours:
         topics = [topic("t_1", kind="section", deliver_at=section_hour)] if section_hour else []
 
         with pytest.raises(SystemExit, match="paper times 07:00 and 09:00 are less than 180 minutes apart"):
-            crons.desired_jobs(topics, "07:00", {}, 0, extra_hours=extra)
+            crons.desired_jobs(topics, "07:00", TZ, TZ, {}, 0, extra_hours=extra)
 
     def test_multiple_extra_hours_are_numbered_in_order(self):
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section")], "03:00", {}, 45,
+            [topic("t_1", kind="section")], "03:00", TZ, TZ, {}, 45,
             extra_hours=["10:30", "16:00"],
         )
         assert [j["name"] for j in jobs] == [
@@ -515,7 +520,7 @@ class TestFocusedPapers:
                 topic("t_3", kind="section", deliver_at="12:30"),
                 topic("t_4", kind="section", deliver_at="18:00"),
             ],
-            "07:00", {}, 0,
+            "07:00", TZ, TZ, {}, 0,
         )
         names = [j["name"] for j in jobs]
         assert names == [
@@ -530,14 +535,14 @@ class TestFocusedPapers:
     def test_deliver_at_equal_to_main_hour_rides_the_daily_job(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section", deliver_at="07:00")],
-            "07:00", {}, 0,
+            "07:00", TZ, TZ, {}, 0,
         )
         assert [j["name"] for j in jobs] == ["pt-daily-edition"]
 
     def test_cancelled_timed_section_is_not_a_paper(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section", deliver_at="12:30", status="cancelled")],
-            "07:00", {}, 0,
+            "07:00", TZ, TZ, {}, 0,
         )
         assert [j["name"] for j in jobs] == ["pt-daily-edition"]
 
@@ -547,7 +552,7 @@ class TestFocusedPapers:
                 topic("t_1", kind="section", deliver_at="13:30"),
                 topic("t_9f2a"),
             ],
-            "07:00", {}, 0, extra_hours=["10:30"],
+            "07:00", TZ, TZ, {}, 0, extra_hours=["10:30"],
         )
         assert [j["name"] for j in jobs] == [
             "pt-daily-edition", "pt-daily-edition-2", "pt-paper-1330",
@@ -581,7 +586,7 @@ class TestFocusedPapers:
 class TestDailyJob:
     def test_included_when_a_section_exists(self):
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section", status="pending")], "07:00", {}, 45)
+            [topic("t_1", kind="section", status="pending")], "07:00", TZ, TZ, {}, 45)
         assert jobs[0]["name"] == crons.DAILY_NAME
         assert jobs[0]["schedule"] == "15 6 * * *"
         assert jobs[0]["deliver"] == crons.DELIVER_TARGET
@@ -590,16 +595,16 @@ class TestDailyJob:
     def test_included_when_an_assignment_is_due(self):
         jobs = crons.desired_jobs(
             [topic("t_1", kind="assignment", status="pending", run_on="2026-09-11")],
-            "07:00", {}, 45)
+            "07:00", TZ, TZ, {}, 45)
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
     def test_present_even_without_news_sections(self):
-        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00", {}, 45)
+        jobs = crons.desired_jobs([topic("t_9f2a")], "07:00", TZ, TZ, {}, 45)
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME, "pt-subscription-t_9f2a"]
 
     def test_daily_precedes_subscriptions(self):
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section"), topic("t_9f2a")], "07:00", {}, 45)
+            [topic("t_1", kind="section"), topic("t_9f2a")], "07:00", TZ, TZ, {}, 45)
         assert [j["name"] for j in jobs] == [
             crons.DAILY_NAME, "pt-subscription-t_9f2a"]
 
@@ -817,7 +822,7 @@ class TestScheduledHold:
     """Two clocks: cron starts at hour−lead; POST waits for the hour."""
 
     def test_daily_job_holds_until_delivery_hour(self):
-        jobs = crons.desired_jobs([], "07:00", {})
+        jobs = crons.desired_jobs([], "07:00", TZ, TZ, {})
         prompt = jobs[0]["prompt"]
         assert "--hold-until 07:00" in prompt
         assert "--stale-minutes 240" in prompt
@@ -830,13 +835,13 @@ class TestScheduledHold:
     def test_every_acquirer_of_the_daily_lock_outlives_the_early_start(self):
         # A scheduled run with a 40-minute lead holds the lock 40 minutes
         # before its own work; an on-demand copy must not call that stale.
-        jobs = crons.desired_jobs([topic("t_1", kind="section")], "07:00", {}, 40)
+        jobs = crons.desired_jobs([topic("t_1", kind="section")], "07:00", TZ, TZ, {}, 40)
         assert "--stale-minutes 280" in jobs[0]["prompt"]
 
     def test_paper_job_holds_until_its_hour(self):
         jobs = crons.desired_jobs(
             [topic("t_sec", kind="section", deliver_at="12:00")],
-            "07:00", {},
+            "07:00", TZ, TZ, {},
         )
         paper = next(j for j in jobs if j["name"] == "pt-paper-1200")
         assert "--hold-until 12:00" in paper["prompt"]
@@ -844,7 +849,7 @@ class TestScheduledHold:
 
     def test_extra_slot_holds_until_its_hour(self):
         jobs = crons.desired_jobs(
-            [topic("t_1", kind="section")], "03:00", {}, 45, extra_hours=["10:30"],
+            [topic("t_1", kind="section")], "03:00", TZ, TZ, {}, 45, extra_hours=["10:30"],
         )
         assert "--hold-until 03:00" in jobs[0]["prompt"]
         assert "--hold-until 10:30" in jobs[1]["prompt"]

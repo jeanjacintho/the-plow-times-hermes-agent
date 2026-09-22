@@ -258,7 +258,9 @@ def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
 
     Such a config kept delivery.hour (and extra_hours, and every section's
     deliver_at) on the container's clock, with the owner's own hour beside it
-    in delivery.local_hour. That key is the marker, and it goes last.
+    in delivery.local_hour. That key is the marker, and it goes last. A
+    retry after an interrupted run skips topics already tagged owner_clock,
+    which the same write that converts them sets.
     """
     import topics as topics_mod
 
@@ -270,13 +272,16 @@ def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
     with topics_mod.mutation_lock():
         topics = topics_mod.load_topics()
         for topic in topics:
-            if topic.get("deliver_at"):
+            if topic.get("deliver_at") and not topic.get("owner_clock"):
                 topic["deliver_at"] = _move(topic["deliver_at"], container_tz, owner_tz)
+                topic["owner_clock"] = True
         topics_mod.save_topics(topics)
-    if "extra_hours" in delivery:
-        delivery["extra_hours"] = [_move(h, container_tz, owner_tz) for h in delivery["extra_hours"]]
-    delivery["hour"] = delivery.pop("local_hour")
-    path.write_text(json.dumps(config, indent=2) + "\n")
+        if "extra_hours" in delivery:
+            delivery["extra_hours"] = [_move(h, container_tz, owner_tz) for h in delivery["extra_hours"]]
+        delivery["hour"] = delivery.pop("local_hour")
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(config, indent=2) + "\n")
+        os.replace(tmp, path)
     print(f"moved {path} onto the owner's clock ({owner_tz})")
 
 
@@ -428,10 +433,9 @@ def _slot(hour, lead_minutes, owner_tz, container_tz):
 
     Cron and --hold-until run on the container's clock. The lead is clamped
     so the run never starts before midnight on either clock -- the run's
-    lock and paper are dated in the owner's zone. Without a zone pair the
-    hour is taken as already on the container's clock.
+    lock and paper are dated in the owner's zone.
     """
-    at = _move(hour, owner_tz, container_tz) if owner_tz and container_tz else hour
+    at = _move(hour, owner_tz, container_tz)
     return at, min(lead_minutes, _minutes(hour), _minutes(at))
 
 
@@ -509,12 +513,11 @@ def require_workspace_spacing(hours):
                 )
 
 
-def paper_job(hour, lead_minutes, env=None, at=None):
+def paper_job(hour, at, lead_minutes, env=None):
     """One focused paper: desks plus sections whose deliver_at is this hour.
 
-    `at` is that hour on the container's clock, when it differs."""
+    `at` is that hour on the container's clock."""
     name = paper_job_name(hour)
-    at = at or hour
     return {
         "name": name,
         "schedule": daily_schedule(at, lead_minutes),
@@ -536,8 +539,8 @@ def subscription_job(topic, delivery_hour, env=None):
     }
 
 
-def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
-                  extra_hours=(), owner_tz=None):
+def desired_jobs(topics, delivery_hour, owner_tz, container_tz, env=None,
+                 lead_minutes=DEFAULT_LEAD_MINUTES, extra_hours=()):
     """The jobs the topic store calls for, in spec order.
 
     The daily edition comes first (it is the main paper), then one job per
@@ -551,7 +554,6 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
     focused_hours = focused_paper_hours(topics, delivery_hour)
     require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
     jobs = []
-    container_tz = (os.environ if env is None else env).get("TZ")
 
     def slot(hour):
         return _slot(hour, lead_minutes, owner_tz, container_tz)
@@ -564,7 +566,7 @@ def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINU
         jobs.append(daily_job(*slot(hour), env, name=f"{DAILY_NAME}-{n}"))
     for hour in focused_hours:
         at, lead = slot(hour)
-        jobs.append(paper_job(hour, lead, env, at=at))
+        jobs.append(paper_job(hour, at, lead, env))
     jobs.extend(
         subscription_job(t, main_at, env)
         for t in topics
@@ -759,8 +761,8 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     paused = []
     pending = []
 
-    for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours,
-                         owner_tz=owner_tz):
+    for job in desired_jobs(topics, delivery_hour, owner_tz, container_tz, env,
+                            lead_minutes, extra_hours):
         if job["name"] in registered:
             if not registered[job["name"]]:
                 print(
