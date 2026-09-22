@@ -765,6 +765,7 @@ class TestSkills:
             "A critic is a prosecutor, never a reviser",
             "exactly three grounded",
             "A recommendation without a supporting sourced quote is ineligible",
+            "The three it returns quote three different sourced lines",
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
             "--tournament",
             "rewrite every reference to the owner by name or role into direct",

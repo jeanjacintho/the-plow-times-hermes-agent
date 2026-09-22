@@ -203,6 +203,12 @@ A critic's verdict is evidence, not an elimination vote. When at least three ful
 targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
 A recommendation without a supporting sourced quote is ineligible, not a slot to pad: its quoted
 words must support the recommendation's actual proposition, not merely come from the same advisor.
+**The three it returns quote three different sourced lines.** Two winners resting on the same
+quotation is a card the renderer refuses outright (`recommendations reuse an advisor quote`), and
+it refuses at the end of the run, where a repair costs turns in a context that has already carried
+three generations -- measured 2026-09-22, that repair is what preceded the run stalling before it
+rendered anything. Settle it here, where the culler is holding all three: if two targets rest on
+one line, re-quote one from its advisor's other sourced words, or take the next-ranked target.
 Before building the candidate, rewrite every reference to the owner by name or role into direct
 reader voice in every recommendation and question. Write every headline, body, FIRST STEP and
 question in the owner's language -- the literal value read during Orient. This is a rewrite of
