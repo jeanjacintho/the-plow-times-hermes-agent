@@ -222,7 +222,7 @@ Two rules that keep the paper honest:
 
 Then write it — this script is the ONLY writer for topics.json:
 
-    /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" --kind one_off|subscription|section|assignment --depth quick|deep [--run-on YYYY-MM-DD] [--deliver-at HH:MM]
+    /var/lib/hermes/skills/pt-intake/scripts/topics.py add --text "<the topic, in the owner's words>" --kind one_off|subscription|section|assignment --depth quick|deep [--run-on YYYY-MM-DD] [--deliver-at HH:MM] [--scheduled-for <ISO-8601 with offset; required for one_off>]
 
 Adding a `section` the owner already has is a no-op: the script prints
 `{"duplicate_of": "<id>", ...}` and adds nothing, because a section is an
@@ -258,30 +258,22 @@ edition, and relaying it is the chat leg.
   date it will appear: if the target day's edition has already left by the
   time the owner asks, the assignment lands in the next one — say so, and
   remember the late tag follows it.
-- **One-off, quick** — a one-time job ~3 minutes out. Compute the local time
-  now+3m and register it as a 5-field expression with that exact minute:
-  `<min> <hour> <dom> <month> *`, name `pt-oneoff-<id>`, skill `pt-research`,
-  **`--deliver plow_chat:${PLOW_HOME_CHANNEL}`** (the same target named
-  above — restated here because this is the one path that hand-builds the
-  `hermes cron create` call instead of going through register_crons.py,
-  which bakes the deliver target in; measured live, a run built by hand
-  without it completes with a real final response that never reaches chat
-  at all — the job succeeds and the owner gets nothing), prompt "Run
-  pt-research on topic <id> now, then pt-edition for it. Render `--pdf` plus
-  `--companion`, then post the PDF with the companion via `post_to_chat.py
-  --pdf --text-file` when present. Final response is NO_REPLY. When the
-  edition is delivered, post_to_chat.py finalizes it; remove this job with
-  `hermes cron remove pt-oneoff-<id>`." Record the scheduled moment at add time via
-  `--scheduled-for`.
-- **One-off, deep** — the same, including `--deliver
-  plow_chat:${PLOW_HOME_CHANNEL}`, at the next `delivery.hour` from
-  pt/config.json (today if it has not passed, tomorrow otherwise), so the
-  result lands with the morning paper.
+- **One-off** — pick the moment: quick is now+3m; deep is the next
+  `delivery.hour` from pt/config.json, in the owner's zone (today if it has
+  not passed, tomorrow otherwise), so the result lands with the morning
+  paper. Record it at add time as an ISO-8601 instant with the owner's
+  offset via `--scheduled-for`, then run
+  `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py`. It
+  creates `pt-oneoff-<id>` at that `scheduled_for` with the topic's own
+  prompt and the deliver target baked in; the sweep removes it once the
+  topic is delivered.
+  Never hand-build this job with `hermes cron`: measured live, a hand-built
+  one-off without `--deliver` completed and the owner got nothing.
 - **Subscription** — write the topic, then run
   `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so `pt-subscription-<id>`
   exists now.
 
-If `hermes cron create`, or `register_crons.py`, fails, say so — a topic
+If `register_crons.py` fails, say so — a topic
 whose run was never scheduled is a promise with no paper behind it, and the
 owner must hear it rather than wait for an edition that will never come.
 

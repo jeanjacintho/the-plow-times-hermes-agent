@@ -12,6 +12,7 @@ from conftest import ROOT, load_module
 crons = load_module("pt_crons", "pt-dashboard/scripts/register_crons.py")
 
 TZ = "America/Los_Angeles"
+FUTURE = "2099-01-01T07:03:00-03:00"
 CONFIG = {
     "owner": {"timezone": TZ},
     "delivery": {"hour": "07:00"},
@@ -204,11 +205,18 @@ class TestDesiredJobs:
             [topic("t_9f2a", status="cancelled")], "07:00", TZ, TZ, {})
         assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
 
-    def test_one_offs_never_get_subscription_jobs(self):
-        jobs = crons.desired_jobs(
-            [topic("t_0c11", kind="one_off", status="pending", depth="quick")],
-            "07:00", TZ, TZ, {})
-        assert [j["name"] for j in jobs] == [crons.DAILY_NAME]
+    @pytest.mark.parametrize("status,scheduled_for,fires_at", [
+        ("pending", FUTURE, [FUTURE]),
+        ("pending", "2000-01-01T07:03:00-03:00", []),  # past: not re-armed
+        ("running", FUTURE, []),
+        ("delivered", FUTURE, []),
+    ])
+    def test_only_a_pending_one_off_still_ahead_gets_its_job(
+            self, status, scheduled_for, fires_at):
+        oneoff = {**topic("t_0c11", kind="one_off", status=status, depth="quick"),
+                  "scheduled_for": scheduled_for}
+        jobs = crons.desired_jobs([oneoff], "07:00", TZ, TZ, {})
+        assert [j["schedule"] for j in jobs if j["name"] == "pt-oneoff-t_0c11"] == fires_at
 
     def test_running_subscription_still_has_its_job(self):
         jobs = crons.desired_jobs([topic("t_9f2a", status="running")], "07:00", TZ, TZ, {})
@@ -353,6 +361,17 @@ class TestMain:
             run()
             now = [c[2:4] for c in calls if crons.NOW_NAME in c or "old123" in c]
             assert [c[0] for c in now] == ["create", "remove"] and now[1][1] == "old123"
+
+    def test_rebuild_recreates_a_pending_one_offs_job(self, tmp_path, monkeypatch, hermes):
+        # A rebuilt home replays jobs.json from topics.json: a one-off the
+        # owner was promised must come back like any subscription does.
+        calls = []
+        oneoff = {**topic("t_0c11", kind="one_off", depth="quick"), "scheduled_for": FUTURE}
+        self.run_main(tmp_path, monkeypatch, [oneoff], [job(crons.DAILY_NAME)], calls=calls)
+        (create,) = [c for c in calls if "pt-oneoff-t_0c11" in c]
+        assert create[2:4] == ["create", FUTURE]
+        assert "topic t_0c11 now (depth quick)" in create[4]
+        assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
 
     def test_registration_never_sweeps_a_queued_copy(self):
         assert crons.stale_names([], {crons.NOW_NAME: True}, delivery_hour="07:00") == []
