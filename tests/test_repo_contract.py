@@ -1,4 +1,4 @@
-"""Repo-level deployment contracts: plow-agents compose.yml, the image, and the leftover agent-mgr hook."""
+"""Repo-level deployment contracts: plow-agents compose.yml and the image."""
 from __future__ import annotations
 
 import json
@@ -41,7 +41,7 @@ class TestSoul:
 
     def test_soul_fits_hermes_context_file_limit(self):
         # Measured live: prompt_builder truncated SOUL.md at 20 000 because
-        # context_file_max_chars never reached plow-seed. The merge stamps
+        # context_file_max_chars never reached plow-seed. The merge carries
         # the runtime value; this bound uses the same number so a longer
         # persona fails here instead of only in docker compose logs.
         check = load_module("soul_fits_context", "checks/soul_fits_context.py")
@@ -263,7 +263,7 @@ class TestSoul:
 
     def test_edition_post_prints_and_finalizes_itself(self):
         script = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
-        assert "maybe_print" in script
+        assert "print_page" in script
         assert "print_edition.py" in script
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "print_edition.py" in edition
@@ -667,11 +667,6 @@ class TestUserStub:
         assert "not a personal profile" in text.lower()
         assert "pt-setup" in text
 
-    def test_deploy_hook_publishes_user_md(self):
-        hook = (ROOT / "deploy-hook").read_text()
-        assert "runtime/USER.md" in hook
-        assert "memories/USER.md" in hook
-
 
 class TestSkills:
     def test_every_pt_dir_carries_a_skill_manifest(self):
@@ -762,6 +757,7 @@ class TestSkills:
             "A critic is a prosecutor, never a reviser",
             "exactly three grounded",
             "A recommendation without a supporting sourced quote is ineligible",
+            "The three it returns quote three different sourced lines",
             "/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json",
             "--tournament",
             "rewrite every reference to the owner by name or role into direct",
@@ -859,7 +855,7 @@ class TestSkills:
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
-                     "record_owner_language.py", "reconcile_pt_skills.py",
+                     "record_owner_language.py",
                      "prepare_daily_run.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
@@ -958,25 +954,6 @@ class TestSkills:
 
 
 class TestDeployment:
-    def test_deploy_hook_is_executable(self):
-        mode = (ROOT / "deploy-hook").stat().st_mode
-        assert mode & stat.S_IXUSR, "deploy-hook must be executable"
-
-    def test_deploy_hook_reconciles_skills_by_origin_hash(self):
-        hook = (ROOT / "deploy-hook").read_text()
-        assert "reconcile_pt_skills.py" in hook
-        assert "keeping agent-owned" not in hook
-        script = ROOT / "pt-shared" / "scripts" / "reconcile_pt_skills.py"
-        assert script.is_file()
-        text = script.read_text()
-        assert "keeping user-modified" in text
-        assert ".the-plow-times-origin" in text
-
-    def test_agent_env_declares_hook_and_config(self):
-        env = (ROOT / "agent.env").read_text()
-        assert "AGENT_DEPLOY_HOOK=deploy-hook" in env
-        assert "AGENT_CONFIG=runtime/config.yaml" in env
-
     def test_skills_tsv_is_empty(self):
         # skills.tsv pins SHARED skills from other repos; this agent installs
         # no connectors -- Latch is the only mcp_server. Empty means exactly
@@ -1001,7 +978,7 @@ class TestDeployment:
         # Hard gate: plow_chat must not stream tool progress or mid-turn
         # assistant narration (Hermes default is both on for this platform).
         assert "interim_assistant_messages: false" in config
-        assert "tool_progress: off" in config
+        assert 'tool_progress: "off"' in config
         assert "long_running_notifications: false" in config
         assert "anthropic/claude-sonnet-5" in config
         assert "default: anthropic/claude-sonnet-5" in config
@@ -1020,7 +997,7 @@ class TestDeployment:
         assert "./plow-credentials:/var/lib/plow/credentials.host:ro" in text
         assert "agent-home:/var/lib/hermes" in text
         assert "AGENT_ID: theplowtimes" in text
-        assert "TERMINAL_CWD: /var/lib/hermes" in text
+        assert "TERMINAL_CWD" not in text
         assert "stop_grace_period: 35s" in text
         for line in text.splitlines():
             stripped = line.strip()
@@ -1050,19 +1027,12 @@ class TestDeployment:
                 re.MULTILINE,
             ), f"COPY {name}/ does not land at /opt/hermes/skills/{name}/"
             assert f"/var/lib/hermes/skills/{name}" not in dockerfile
-        assert "COPY runtime/SOUL.md /var/lib/hermes/SOUL.md" in dockerfile
         assert "COPY runtime/SOUL.md /opt/hermes/plow-seed/SOUL.md" in dockerfile
         assert "COPY runtime/USER.md /var/lib/hermes/memories/USER.md" in dockerfile
-        # Boot recopies plow-seed over home; Sonnet lives there, not only in
-        # runtime/config.yaml. Do not sed the seed onto another model.
-        assert "plow-seed/config.yaml" in dockerfile
-        assert "anthropic/claude-sonnet-5" in dockerfile
-        assert "moonshotai/kimi-k2.5" not in dockerfile
-        # plow-init writes seed display every boot; quiet chat has to be
-        # stamped there, not only in runtime/config.yaml.
+        # The home's config is built from plow-seed; runtime/config.yaml is
+        # merged onto it, and the home copy comes from that merge.
         assert "merge_pt_seed_config.py" in dockerfile
-        assert "interim_assistant_messages: false" in dockerfile
-        assert "context_file_max_chars: 40000" in dockerfile
+        assert "COPY runtime/config.yaml /var/lib/hermes" not in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()
@@ -1109,11 +1079,6 @@ class TestDeployment:
         )
         assert "@sha256:" in from_line
 
-    def test_agent_env_names_the_built_image(self):
-        env = (ROOT / "agent.env").read_text()
-        assert "AGENT_IMAGE=the-plow-times-hermes-agent:local" in env, (
-            "agent.env must name the built tag agent-mgr inspects for the contract"
-        )
 
 
 class TestImportability:

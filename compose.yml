@@ -12,11 +12,6 @@ services:
       # Who this agent is on the Agent Index. Without it the reporter stands
       # down rather than guessing a name.
       AGENT_ID: theplowtimes
-      # config.yaml sets terminal.cwd, which the gateway is supposed to bridge
-      # into TERMINAL_CWD — measured live on this agent, it does not. Relative
-      # run/<id>/edition.json writes then land in /opt/hermes. Set here so the
-      # process environment actually has it.
-      TERMINAL_CWD: /var/lib/hermes
       # The clock cron and post_to_chat.py --hold-until share. Any zone
       # works: register_crons.py converts the owner's hours (pt/config.json)
       # into it. Unset, plow-init would give cron America/Los_Angeles while
@@ -27,8 +22,8 @@ services:
       # ownership in, and the image copies the file into place as root itself.
       - ./plow-credentials:/var/lib/plow/credentials.host:ro
       # The agent's home, kept across `up`/`down` for its sessions and setup.
-      # `docker compose down -v` starts this agent fresh, and is what an edit
-      # to SOUL.md needs before the agent sees it.
+      # `docker compose up --build -d` publishes an edited SOUL.md (boot
+      # rewrites it from the image's seed); `down -v` is only a fresh setup.
       - agent-home:/var/lib/hermes
     # The agent checkpoints its session on SIGTERM and its supervisor allows
     # 30s for that, so Docker's own deadline has to sit outside that one.
