@@ -217,11 +217,12 @@ class TestSoul:
         assert "post_to_chat.py finalizes it" in intake
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "## On demand" in edition
-        # It must POINT at the cron's own recipe, never restate it: a second
+        # It must queue the cron's own job, never restate its steps: a second
         # copy of those steps is a second thing to keep in sync.
-        assert "--show-daily-recipe" in edition
+        assert "register_crons.py --now" in edition
+        assert "register_crons.py --now" in intake
         crons = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
-        assert '"--show-daily-recipe"' in crons
+        assert '"--now"' in crons
 
     def test_render_step_gives_complete_commands_not_a_merge(self):
         # Measured live: the render step showed ONE command plus a comment
@@ -261,34 +262,14 @@ class TestSoul:
         script = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
         assert '"--text-file"' in script
 
-    def test_edition_post_seals_the_owner_chat_session(self):
-        # Measured live: one plow_chat DM since 14/09 carried 150k tokens
-        # of Latch dumps into the next "gera um jornal", and Kimi spent
-        # the turn hand-patching desk JSON. post_to_chat stamps; the
-        # gateway pin rotates the session on agent:end.
+    def test_edition_post_prints_and_finalizes_itself(self):
         script = (ROOT / "pt-shared" / "scripts" / "post_to_chat.py").read_text()
-        assert "after_posted" in script
-        assert "seal_chat_session" in script
         assert "maybe_print" in script
         assert "print_edition.py" in script
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "print_edition.py" in edition
         assert "call `pt-print`" in edition
         assert "Do not mark topics after posting" in edition
-
-        seal = ROOT / "pt-shared" / "scripts" / "seal_chat_session.py"
-        assert seal.is_file()
-        import os
-        assert os.access(seal, os.X_OK)
-        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
-        assert "seal_chat_session.py" in edition or "after_posted" in edition or "new session" in edition.lower()
-        dockerfile = (ROOT / "Dockerfile").read_text()
-        assert "patch_seal_session.py" in dockerfile
-        assert "plow_seal_session.py" in dockerfile
-        assert "/opt/hermes/gateway/run_turn.py" in dockerfile
-        assert "/opt/hermes/gateway/response_filters.py" in dockerfile
-        soul = (ROOT / "runtime" / "SOUL.md").read_text()
-        assert "seal_chat_session.py" in soul or "next chat is a new session" in soul
 
 
 
@@ -530,8 +511,8 @@ class TestSoul:
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
         assert "still prints" in soul and "LANG:" in soul
         assert "record_owner_language.py" in soul
-        assert "silent between them" in soul
-        assert "--show-daily-recipe" in soul
+        assert "silent between tool calls" in soul
+        assert "register_crons.py --now" in soul
         # Issue #4: a lone no/não was recorded as a language change.
         for text in (soul, (ROOT / "pt-shared" / "SKILL.md").read_text()):
             assert "`no`" in text and "`não`" in text and "`nao`" in text
@@ -572,18 +553,14 @@ class TestSoul:
         import os
         assert os.access(script, os.X_OK)
 
-    def test_on_demand_paper_warns_the_owner_it_takes_a_few_minutes(self):
-        # Measured live: a live on-demand turn posted every research
-        # decision into chat, then attached edition.pdf. The wait line is
-        # chat_status.py --soon (a POST, not a sentence the model types),
-        # plus one --wait if the pass is still running.
+    def test_on_demand_paper_is_acknowledged_in_one_line(self):
+        # Measured live: a paper built inside the chat turn posted every
+        # research decision into chat, then attached edition.pdf. The turn
+        # now only queues the job and answers with one ⏳ line.
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
-        research = (ROOT / "pt-research" / "SKILL.md").read_text()
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
-        assert "chat_status.py --soon" in intake
-        assert "chat_status.py --wait" in research
-        assert "chat_status.py --soon" in soul
+        assert "one ⏳ line" in intake
         assert "interim_assistant_messages: false" in soul
         assert "The-Founder-Times-" in edition
         assert "--filename" in edition
@@ -603,7 +580,7 @@ class TestSoul:
         status = (ROOT / "pt-shared" / "scripts" / "chat_status.py").read_text()
         assert "CHAT_VOICE" in soul
         assert "emoji, then a space, then one or two short spoken lines" in soul
-        for mark in ("📰", "🕖", "🖨️", "⭐", "✉️", "🗞️", "⏳", "⏰"):
+        for mark in ("📰", "🕖", "🖨️", "⭐", "✉️", "🗞️", "⏳"):
             assert mark in soul
         assert "> 📰 " in setup
         assert "> 🕖 " in setup
@@ -616,7 +593,7 @@ class TestSoul:
         )
         assert "~/" not in spoken
         assert "news desk" not in spoken.lower()
-        assert '"⏳ ' in status and '"⏰ ' in status
+        assert '"⏳ ' in status
         assert "--busy" in status
 
     def test_setup_posts_a_hang_on_while_latch_work_runs(self):
@@ -792,7 +769,8 @@ class TestSkills:
         assert "reserved 150-minute window; delivery waits" in desks
         assert "ending earlier when the delivery cutoff requires it" not in desks
         assert "global batch budget starts after priority" in desks
-        assert "Every canonical scheduled execution runs a fresh tournament" in desks
+        assert "One rule for every paper, scheduled or on demand" in desks
+        assert "accepted checkpoint" in desks and "reuse it" in desks
         assert "tournament.working.json" not in text + desks
         assert "newest active run page" not in text
         qa = (ROOT / "pt-shared" / "assets" / "wiki" / "qa.md").read_text()
@@ -870,7 +848,7 @@ class TestSkills:
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
                      "record_owner_language.py", "reconcile_pt_skills.py",
-                     "seal_chat_session.py", "prepare_daily_run.py"):
+                     "prepare_daily_run.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
     def test_record_setup_is_executable_and_referenced(self):

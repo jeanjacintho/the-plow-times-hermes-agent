@@ -160,13 +160,3 @@ COPY image/hermes/patch_billing_user_message.py /opt/plow/patch_billing_user_mes
 RUN /opt/hermes/.venv/bin/python3 /opt/plow/patch_billing_user_message.py \
       /opt/hermes/agent/conversation_loop.py \
  && chmod 0644 /opt/hermes/agent/billing_user_message.py
-
-# After each paper, rotate the owner's plow_chat session so the next
-# "send me the paper" does not re-ingest Latch dumps from this turn.
-COPY image/hermes/plow_seal_session.py /opt/hermes/plow_seal_session.py
-COPY image/hermes/patch_seal_session.py /opt/plow/patch_seal_session.py
-RUN /opt/hermes/.venv/bin/python3 /opt/plow/patch_seal_session.py \
-      /opt/hermes/gateway/run_turn.py \
- && /opt/hermes/.venv/bin/python3 /opt/plow/patch_seal_session.py \
-      /opt/hermes/gateway/response_filters.py \
- && chmod 0644 /opt/hermes/plow_seal_session.py

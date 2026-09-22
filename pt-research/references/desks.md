@@ -17,21 +17,19 @@ Every Latch call is the same two tools the print path uses:
 `{"status":"pending","handle":…}`, `plow_get_result` until `ready`. A
 401/412/deny is one blocked source: log it, do not retry.
 
-## Priority — first in the canonical scheduled paper, when configured
+## Priority — first in every paper, when configured
 
-For the canonical scheduled daily paper, before starting the desks below: run
+One rule for every paper, scheduled or on demand: if `run/desk-priority/tournament.json` is today's
+accepted checkpoint (dated today, at its completed third-generation gate — what
+`render_edition.py --tournament` checks), reuse it and start below at weather. Otherwise run
 `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk`,
 then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
 `run/desk-priority/tournament.json` checkpoint. It reads the owner's sources itself and spends no
-web budget.
-Priority runs only in the canonical scheduled daily paper. Live, alternate, and focused papers
-reuse its atomic checkpoint or the honest gap card and start below at weather; they never run the
-tournament or write its state. The canonical run gives priority a reserved 150-minute window; delivery waits
-for its required third generation,
+web budget. The morning run has no checkpoint for today yet; a later paper the same day reuses it.
+The tournament gets a reserved 150-minute window; delivery waits for its required third generation,
 and the global batch budget starts after priority completes. Never stop its tournament early to
 save time for weather, calendar, mail, sports, or news; those desks use the time that remains.
-Every canonical scheduled execution runs a fresh tournament. A delivered edition dated today is generation-zero
-input on a same-day replay, never evidence that the current execution completed priority.
+A delivered edition dated today is generation-zero input, never evidence that today's checkpoint exists.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
 or news. Immediately after loading `pt-priority`, Orient and create the run's wiki state page
 before any later-desk work. After compaction, resume that page alongside the last atomic

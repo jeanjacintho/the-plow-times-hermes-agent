@@ -1,9 +1,6 @@
 ---
 name: pt-research
-description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail and Google Calendar, plow_run_applescript with pt-research/assets/calendar.applescript for Calendar.app, both per references/desks.md, plow_run_command for Mail.app fallback, plow_browser_* for every web page including weather and sports). Never Hermes web_search, web_extract, Firecrawl, Exa, Keenable, or Parallel. Producing structured sourced notes. Runs in a cron-fired session, or live in
-chat when the owner asks for a copy right now (pt-dashboard's
---show-daily-recipe) -- either way, tool calls only, no owner-facing text
-until the run is done. Stops at the budget, not when it feels done.
+description: One budget-bounded research pass — for a single topic, the main daily paper (standing desks plus unscoped news sections and assignments due today), or a focused paper at another hour (desks plus only the sections booked for that hour) — driving the owner's Mac through Latch (plow-gog for Gmail and Google Calendar, plow_run_applescript with pt-research/assets/calendar.applescript for Calendar.app, both per references/desks.md, plow_run_command for Mail.app fallback, plow_browser_* for every web page including weather and sports). Never Hermes web_search, web_extract, Firecrawl, Exa, Keenable, or Parallel. Producing structured sourced notes. Runs in a cron-fired session (an on-demand copy is a one-shot job too) -- tool calls only, no owner-facing text. Stops at the budget, not when it feels done.
 ---
 
 # pt-research — gather sourced notes within the budget
@@ -16,26 +13,11 @@ and honesty about what you could not find are the deliverable.
 
 **Run silently — every tool call in this skill is invisible to the owner,
 never a sentence saying what you're about to do or just did.** Measured
-live: an on-demand "send me a paper now" ran this exact skill live in chat,
-with the owner present, and dozens of English progress lines ("Location
-confirmed: Blumenau, SC. Now let's get calendar, weather, mail...", "Only
-preseason games listed so far... good enough for a quick pass.") reached
-them in real time — in a cron-fired run nobody sees this, but a live
-on-demand run has the owner watching for every one of them. Whether this
-run is cron-fired or live, the rule is the same: no text between tool calls,
-in any language. On a live copy, the first tool call is
-
-    /var/lib/hermes/skills/pt-shared/scripts/chat_status.py --soon
-
-(idempotent if intake already ran it). After **every** desk and **every**
-news topic, run
-
-    /var/lib/hermes/skills/pt-shared/scripts/chat_status.py --wait
-
-It prints `STATUS:too-early` / `STATUS:already` / `STATUS:wait` / `STATUS:soon`
-and is done — do not explain that print, do not add a sentence about the
-desk you just finished. Typed mid-turn text is not delivered on plow_chat.
-Cron-fired runs skip `--soon` and `--wait`.
+live: when a paper once ran inside the owner's chat, dozens of English
+progress lines ("Location confirmed: Blumenau, SC. Now let's get calendar,
+weather, mail...", "Only preseason games listed so far... good enough for a
+quick pass.") reached them in real time. Papers now always run as cron
+jobs, and the rule stays: no text between tool calls, in any language.
 
 ## The budget is the contract
 
