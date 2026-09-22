@@ -50,7 +50,10 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 Read all named advisor files, `qa.md`, `resources.md`, goals, today's desk evidence, and
 `pt/advisor.md`. Read `owner.language` from `/var/lib/hermes/pt/config.json` and keep its literal
 value in the root context: every later stage is told to write in it, and nothing else in this skill
-says where it lives. Run `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once and keep
+says where it lives. An install that has no `owner.language` at all is `pt-edition/SKILL.md`'s case
+and keeps its answer -- the language the sourced notes read most naturally in, never a hardcoded
+default -- so the two desks of one paper cannot disagree.
+Run `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once and keep
 its compact JSON in the root context; do not reopen or dump the edition archive. The newest
 delivered recommendations are generation zero. With no history, seed candidates from the named
 advisors' “Questions that change the advice.” Preserve the last fully criticized champion set as
