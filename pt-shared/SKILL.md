@@ -106,8 +106,8 @@ does not, and every run fails on the import.
   (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
 - `scripts/prepare_daily_run.py` — immediately after any paper lock is acquired,
   archives prior dated and desk scratch beside `run/` and prints `READY`.
-  Every paper passes `--preserve-priority` (desks.md decides whether today's advisor
-  checkpoint is reused); every other desk is cleared.
+  Every paper passes `--preserve-priority` (desks.md decides which advisor checkpoint
+  is reused); every other desk is cleared.
   It preserves topic workspaces, the live lock, and setup evidence. The wiki is delivered
   history; archived scratch is never today's completed work.
 - `references/config.example.json` — the config contract `pt_config_gate.py`

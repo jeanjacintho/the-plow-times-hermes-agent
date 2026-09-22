@@ -256,9 +256,9 @@ queued as a one-shot a minute out:
 
 That reconciles every job and queues `pt-daily-edition-now` with the main
 paper's own prompt and no send clock. The scheduler runs it in its own
-session and this skill delivers it from there. It never waits on a
-tournament: it prints the newest accepted advisor checkpoint, dated
-(`as_of`, below) when it is older than today.
+session and this skill delivers it from there. It prints the newest
+accepted advisor checkpoint, dated (`as_of`, below) when it is older than
+today, and waits on a tournament only when none has ever been accepted.
 
 ## Render and deliver
 

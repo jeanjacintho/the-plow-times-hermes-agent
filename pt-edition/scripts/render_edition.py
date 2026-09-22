@@ -607,17 +607,18 @@ def stale_desk_files(edition, run_root):
     today's. Every desk file must carry today's `date`: a missing one is as
     stale as a wrong one. Called only on a validated edition. A news-only
     edition (a one-topic subscription) renders no standing desk, so leftover
-    desk files cannot reach it and are not judged.
+    desk files cannot reach it and are not judged. desk-priority is kept
+    across days on purpose (the advisor checkpoint); its card is dated by
+    validate_tournament instead.
     """
     if all(desk_of(s) == "news" for s in edition["sections"]):
         return []
     stale = []
     for path in sorted(pathlib.Path(run_root).glob("desk-*/*.json")):
         data = _load_json_file(path)
-        if data is None:
+        if data is None or path.parent.name == "desk-priority":
             continue
-        due = advice_date(edition) if path.parent.name == "desk-priority" else edition["date"]
-        if data.get("date") != due:
+        if data.get("date") != edition["date"]:
             stale.append(f"{path.parent.name}/{path.name} is dated {data.get('date')!r}")
     return stale
 
@@ -1182,7 +1183,7 @@ def html_section(section, drop_cap=False, language=""):
     if priority:
         if section.get("as_of"):
             label = "Conselho de" if is_portuguese(language) else "Advice from"
-            blocks.append(f'  <p class="priority-asof">{label} {pretty_date(section["as_of"])}</p>')
+            blocks.append(f'  <p class="priority-asof">{label} {section["as_of"]}</p>')
         blocks.append(priority_block(priority))
     if skip_body:
         pass

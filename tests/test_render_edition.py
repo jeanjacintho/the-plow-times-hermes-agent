@@ -205,9 +205,9 @@ class TestValidate:
         assert render.validate(page) == ""
         assert render.validate_tournament(page, checkpoint) == ""
         output = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}")
-        assert '<p class="priority-asof">Advice from Sep 10, 2026</p>' in output
+        assert '<p class="priority-asof">Advice from 2026-09-10</p>' in output
         pt = render.render_html(page, render.DEFAULT_MASTHEAD, "{{PRIORITY}}", language="Portuguese")
-        assert "Conselho de Sep 10, 2026" in pt
+        assert "Conselho de 2026-09-10" in pt
 
     def test_same_day_reuse_needs_no_as_of_and_prints_none(self):
         page = recommendation_edition()
@@ -993,14 +993,15 @@ class TestMain:
             render.main([str(path), "--config", str(tmp_path / "none.json")])
         assert "stale desk notes" in str(exc.value)
 
-    @pytest.mark.parametrize("priority_date, stale", [("2026-09-10", []), ("2026-09-11", [
-        "desk-priority/tournament.json is dated '2026-09-11'"])])
-    def test_a_reused_advice_desk_is_judged_by_its_as_of(self, tmp_path, priority_date, stale):
-        page = recommendation_edition()
-        page["sections"][0]["as_of"] = "2026-09-10"
-        (tmp_path / "desk-priority").mkdir()
-        (tmp_path / "desk-priority" / "tournament.json").write_text(json.dumps({"date": priority_date}))
-        assert render.stale_desk_files(page, tmp_path) == stale
+    def test_a_scheduled_paper_ignores_the_retained_advisor_desk(self, tmp_path):
+        # desk-priority is kept across days so an on-demand copy can reuse it;
+        # yesterday's files there must not block today's scheduled paper.
+        path = _paper_with_desk_file(tmp_path, edition_with_priority_and_weather(),
+                                     {"date": "2026-09-11"})
+        (tmp_path / "run" / "desk-priority").mkdir()
+        (tmp_path / "run" / "desk-priority" / "card-edition.candidate.json").write_text(
+            json.dumps({"date": "2026-09-10"}))
+        render.main([str(path), "--config", str(tmp_path / "none.json")])
 
     def test_a_news_only_edition_ignores_yesterdays_desk_files(self, tmp_path):
         # A one-topic subscription renders no standing desk; a leftover file
