@@ -1,4 +1,4 @@
-"""Repo-level deployment contracts: plow-agents compose.yml, the image, and the leftover agent-mgr hook."""
+"""Repo-level deployment contracts: plow-agents compose.yml and the image."""
 from __future__ import annotations
 
 import json
@@ -691,11 +691,6 @@ class TestUserStub:
         assert "not a personal profile" in text.lower()
         assert "pt-setup" in text
 
-    def test_deploy_hook_publishes_user_md(self):
-        hook = (ROOT / "deploy-hook").read_text()
-        assert "runtime/USER.md" in hook
-        assert "memories/USER.md" in hook
-
 
 class TestSkills:
     def test_every_pt_dir_carries_a_skill_manifest(self):
@@ -869,7 +864,7 @@ class TestSkills:
         shared = ROOT / "pt-shared" / "scripts"
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
-                     "record_owner_language.py", "reconcile_pt_skills.py",
+                     "record_owner_language.py",
                      "seal_chat_session.py", "prepare_daily_run.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
 
@@ -969,25 +964,6 @@ class TestSkills:
 
 
 class TestDeployment:
-    def test_deploy_hook_is_executable(self):
-        mode = (ROOT / "deploy-hook").stat().st_mode
-        assert mode & stat.S_IXUSR, "deploy-hook must be executable"
-
-    def test_deploy_hook_reconciles_skills_by_origin_hash(self):
-        hook = (ROOT / "deploy-hook").read_text()
-        assert "reconcile_pt_skills.py" in hook
-        assert "keeping agent-owned" not in hook
-        script = ROOT / "pt-shared" / "scripts" / "reconcile_pt_skills.py"
-        assert script.is_file()
-        text = script.read_text()
-        assert "keeping user-modified" in text
-        assert ".the-plow-times-origin" in text
-
-    def test_agent_env_declares_hook_and_config(self):
-        env = (ROOT / "agent.env").read_text()
-        assert "AGENT_DEPLOY_HOOK=deploy-hook" in env
-        assert "AGENT_CONFIG=runtime/config.yaml" in env
-
     def test_skills_tsv_is_empty(self):
         # skills.tsv pins SHARED skills from other repos; this agent installs
         # no connectors -- Latch is the only mcp_server. Empty means exactly
@@ -1120,11 +1096,6 @@ class TestDeployment:
         )
         assert "@sha256:" in from_line
 
-    def test_agent_env_names_the_built_image(self):
-        env = (ROOT / "agent.env").read_text()
-        assert "AGENT_IMAGE=the-plow-times-hermes-agent:local" in env, (
-            "agent.env must name the built tag agent-mgr inspects for the contract"
-        )
 
 
 class TestImportability:

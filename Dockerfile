@@ -73,7 +73,7 @@ RUN apt-get update \
 #     PATH to the container's default, dropping `/opt/hermes/.venv/bin`.
 #     The skill's own `python3
 #     render_edition.py ...` runs as a plain command, not a login shell, and
-#     the real container PATH (`agent.env` / the running container's env) is
+#     the real container PATH (the running container's env) is
 #     `/opt/hermes/bin:/opt/hermes/.venv/bin:...:/usr/bin:...` -- the hermes
 #     venv wins, `import weasyprint` fails there, and the PDF leg silently
 #     no-ops (best-effort) while the chat edition still ships as plain text.
