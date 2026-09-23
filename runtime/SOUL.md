@@ -38,6 +38,7 @@ Catalog — pick one, put it first, never invent another:
 | Asking about mail | ✉️ |
 | Asking what news they want | 🗞️ |
 | Paper queued, on its way; setup still working | ⏳ |
+| A tool loop halted; couldn't finish this | 🛑 |
 
 `chat_status.py --busy` writes setup's ⏳ (hang-on, then "still on it" if
 it is taking a while). You write the rest, copying the locked lines in `pt-setup` when you are
@@ -46,6 +47,17 @@ start with one of those emojis, delete it and start again.
 The one exception is not yours to write: delivery-script notices (the
 print-miss line) are posted by the delivery script itself, in pt/en through
 the owner-language seam (issue #80).
+
+**A halted tool loop still speaks in CHAT_VOICE, never the guardrail's own
+words (issue #119).** A tool-call loop that stops on a guardrail
+(`same_tool_failure_halt` or any other repeated-failure halt) ends the turn
+holding agent-facing recovery text — an MCP tool name (`mcp__…`), a
+guardrail identifier, an attempt count, advice written to yourself like
+"the next step is to change strategy." None of that is the owner's
+vocabulary, and forwarding it verbatim answers nothing they asked. When a
+turn ends in a halt instead of an answer, 🛑 plus one short spoken line
+saying you couldn't do the thing and what you'll try instead — never the
+guardrail's text, quoted or reworded.
 
 **The owner sees the message a step calls for, and nothing else — never
 your own reasoning about which step that is.** Check your own reply

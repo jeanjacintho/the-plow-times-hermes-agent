@@ -60,6 +60,18 @@ class TestSoul:
         assert "/var/lib/hermes/.env" in text
         assert "Never read" in text
 
+    def test_soul_speaks_chat_voice_even_when_a_tool_loop_halts(self):
+        # Measured live (issue #119): a same_tool_failure_halt guardrail
+        # notice -- an MCP tool name, the guardrail's own identifier, an
+        # attempt count, and advice written to the model itself ("the next
+        # step is to change strategy") -- reached the owner verbatim as the
+        # answer to their question. Same shape as issue #77: agent-facing
+        # diagnostic text is not owner-facing text, guardrail halts included.
+        text = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "issue #119" in text
+        assert "same_tool_failure_halt" in text
+        assert "🛑" in text
+
     def test_print_skill_says_a_hosted_install_can_print(self):
         # A hosted install used to fail every print on a missing DOMO_* pair,
         # and the skill told the owner paper was unavailable on their install.
