@@ -290,8 +290,11 @@ this skill delivers it from that session like any other paper (no
    **not** call `pt-print` or `print_edition.py` after this. A print miss
    posts one `page not printed — …` line to chat by itself. A recorder
    failure exits non-zero after every finalizer and names the one recovery
-   command, `record_edition.py <edition.json>; do not repost`: run that
-   once; never resend the PDF.
+   command, `record_edition.py <edition.json> --now <delivered_at>; do not
+   repost` — `--now` is the moment captured right before the chat POST,
+   under the delivery-order lock, so a retry still records the true
+   delivery order rather than the moment you happen to run it. Run that
+   command once, verbatim; never resend the PDF.
 3. **Do not mark topics after posting.** On the successful POST boundary,
    `post_to_chat.py` atomically stamps only the `topic_id`s carried by its sibling
    `edition.json`: one-offs and assignments become `delivered`; sections and

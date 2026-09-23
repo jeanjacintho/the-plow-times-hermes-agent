@@ -68,6 +68,21 @@ def day(mac):
     return (mac.home / "Plow" / "wiki" / EDITIONS / "2026-09-19.md").read_text()
 
 
+class TestIsLatestEdition:
+    @pytest.mark.parametrize(("prior_at", "now", "expected"), [
+        (None, MORNING, True),  # no prior card: nothing to lose to
+        (MORNING.isoformat(timespec="seconds"), AFTERNOON, True),  # a later time wins
+        (AFTERNOON.isoformat(timespec="seconds"), MORNING, False),  # an earlier one loses
+        ("garbage", MORNING, True),  # unparseable (an owner's own edit, say): nothing to lose to
+        # An owner typing a date by hand (issue #48: the page is meant to be
+        # hand-edited) is a likelier source of a naive value than record()
+        # ever writing one; comparing it to an aware `now` must not raise.
+        ("2026-09-19T14:00:00", MORNING, True),
+    ], ids=["no-prior", "later", "earlier", "unparseable", "naive"])
+    def test_latest_edition(self, prior_at, now, expected):
+        assert rec._is_latest_edition(prior_at, now) is expected
+
+
 class TestRecord:
     def test_the_day_page_keeps_the_card_and_the_research_and_is_listed(self, mac, tmp_path):
         out = rec.record(Wiki(mac.call_tool), edition(tmp_path), "cht_1", MORNING)
@@ -111,6 +126,30 @@ class TestRecord:
         meta, body = split_page(day(mac))
         assert "## 06:04 edition" in body and "## 14:00 edition" in body
         assert meta["priority"]["headline"] == "Book the Acme demo"
+
+    def test_out_of_order_recording_still_keeps_the_chronologically_latest_card(self, mac, tmp_path):
+        # issue #48: two papers can finish recording out of order, and by a
+        # sub-second margin -- two editions the same minute, half a second
+        # apart. The later one's write lands first here; the earlier one's
+        # arrives second but must not overwrite it, and priority_at keeps
+        # full precision so the two do not compare equal.
+        earlier = AFTERNOON
+        later = AFTERNOON.replace(microsecond=500_000)
+        w = Wiki(mac.call_tool)
+        rec.record(w, edition(tmp_path, headline="Later this second"), "cht_1", later)
+        rec.record(w, edition(tmp_path, headline="Earlier this second"), "cht_1", earlier)
+        meta, body = split_page(day(mac))
+        assert body.count("## 14:00 edition") == 2
+        assert meta["priority"]["headline"] == "Later this second"
+        assert meta["priority_at"] == later.isoformat()
+
+        # A third write landing last in wall-clock time, but for an edition
+        # delivered well before both above, must not move "updated"
+        # backward either -- the page would announce an older update than
+        # the write that already landed (srosro-review, contract-drift).
+        rec.record(w, edition(tmp_path, headline="Much earlier"), "cht_1", MORNING)
+        meta = split_page(day(mac))[0]
+        assert meta["updated"] == later.isoformat(timespec="seconds")
 
     def test_the_same_edition_twice_is_recorded_once(self, mac, tmp_path):
         w, path = Wiki(mac.call_tool), edition(tmp_path)
@@ -193,3 +232,18 @@ class TestCli:
         monkeypatch.setenv("PLOW_HOME_CHANNEL", "cht_1")
         rec.main([str(path)])
         assert "## 13:30 edition" in day(mac)
+
+    def test_now_flag_uses_the_delivery_moment_instead_of_owner_now(self, mac, monkeypatch, tmp_path):
+        # issue #48: post_to_chat.py passes the timestamp it captured right
+        # after the chat POST, so a slow print step run afterward cannot
+        # stand in for this edition's own time.
+        path = edition(tmp_path)
+        monkeypatch.setattr(rec, "connect", lambda: Wiki(mac.call_tool))
+        monkeypatch.setattr(rec, "owner_now", lambda: MORNING)  # must not be used
+        monkeypatch.setenv("PLOW_HOME_CHANNEL", "cht_1")
+        rec.main([str(path), "--now", AFTERNOON.isoformat()])
+        assert "## 14:00 edition" in day(mac)
+
+    def test_an_unparseable_now_flag_is_refused_by_name(self, mac, tmp_path):
+        with pytest.raises(SystemExit, match="--now 'garbage' is not ISO8601"):
+            rec.main([str(edition(tmp_path)), "--now", "garbage"])

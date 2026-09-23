@@ -46,6 +46,7 @@ never sends.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import mimetypes
 import os
 import re
@@ -57,6 +58,7 @@ from zoneinfo import ZoneInfo
 
 from bearer_http import post_json, post_json_read, put_bytes, require
 from owner_language import is_portuguese
+from owner_time import owner_now
 from setup_needed import owner_language
 
 
@@ -235,12 +237,19 @@ def print_page(pdf_path):
 RECORD_TIMEOUT = 300
 
 
-def run_record_edition(edition_json):
+def run_record_edition(edition_json, delivered_at):
+    """delivered_at is captured once in main(), immediately before the chat
+    POST, under the same delivery-order lock, and passed through -- not a
+    fresh owner_now() here, well after whatever the print step's own
+    polling took, which would otherwise stand in for this edition's own
+    time and let it out-race an already-recorded one that posted later but
+    printed faster (issue #48)."""
     import subprocess
 
     try:
         proc = subprocess.run(
-            [sys.executable, str(RECORD_SCRIPT), edition_json],
+            [sys.executable, str(RECORD_SCRIPT), edition_json,
+             "--now", delivered_at.isoformat()],
             capture_output=True,
             text=True,
             timeout=RECORD_TIMEOUT,
@@ -364,7 +373,25 @@ def main():
         )
     body = compose_payload(text, attachment_uid)
 
-    post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
+    # Two concurrent runs (the daily job and an on-demand copy, say) can
+    # commit their messages in one order but have their HTTP responses land
+    # in the other -- owner_now() read right after each POST would then
+    # stamp the later-sent message as the earlier one, corrupting priority
+    # ordering (issue #48). Serializing the clock read together with the
+    # POST under one lock keeps send order and stamp order the same. The
+    # read comes FIRST, still inside the lock: owner_now() raises on a
+    # configured-but-invalid owner.timezone, and that has to fail before the
+    # message is actually sent, not after -- post_json() has already
+    # delivered the edition by the time any later step, finalizer, or
+    # recovery instruction could run, so a bad timezone caught only there
+    # would report a generic failure with no "do not repost" and risk a
+    # duplicate send on retry.
+    lock_path = Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt")) / "run" / "delivery-order.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        delivered_at = owner_now()
+        post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
     posted_path = args.pdf or args.text_file
     edition_json = str(Path(posted_path).parent / "edition.json") if posted_path else None
     topics_result = (
@@ -386,7 +413,7 @@ def main():
         except SystemExit as exc:
             print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     recorded = (
-        _best_effort(run_record_edition, (edition_json,), "edition not recorded")
+        _best_effort(run_record_edition, (edition_json, delivered_at), "edition not recorded")
         if edition_json else "skipped: no posted file"
     )
     print(recorded)
@@ -394,7 +421,7 @@ def main():
     if topics_result.startswith("topics not finalized"):
         recoveries.append("topics.py finalize-edition <edition.json>")
     if "edition not recorded" in recorded:
-        recoveries.append("record_edition.py <edition.json>")
+        recoveries.append(f"record_edition.py <edition.json> --now {delivered_at.isoformat()}")
     if recoveries:
         sys.exit(
             "error: post-delivery finalization failed; recover with "
