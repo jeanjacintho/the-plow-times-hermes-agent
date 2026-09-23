@@ -70,7 +70,7 @@ def age_minutes(text):
     return (now() - stamp).total_seconds() / 60.0
 
 
-def acquire(name, stale_minutes, wait_seconds=0, sleep=time.sleep):
+def acquire(name, stale_minutes, wait_seconds=0):
     """Take the lock, waiting out a fresh holder for up to wait_seconds.
 
     A one-shot on-demand run can win the race against the same day's cron
@@ -99,7 +99,7 @@ def acquire(name, stale_minutes, wait_seconds=0, sleep=time.sleep):
                 print("stale-takeover")
                 return 0
             if waited < wait_seconds:
-                sleep(1)
+                time.sleep(1)
                 waited += 1
                 continue
             print("held")
