@@ -2,15 +2,11 @@
 
 Not a flow script: a library the pt-* scripts import. `record_owner_language.py`
 writes `owner.language`; this reads it, for the mechanical lines that are
-repo-authored copy rather than model prose (the chat wait lines, the priority
-gap card, the unavailable-paper notice).
+repo-authored copy rather than model prose (the chat wait lines, the
+print-miss line, the priority card's date line).
 
-Measured 2026-09-21: the same predicate existed three times -- in
-chat_status.py, render_edition.py and print_edition.py -- and two of the three
-recognized Portuguese as membership in {"pt", "pt-br"}. So `pt-PT` and `pt_AO`
-owners got English wait lines and an English gap card while `pt-BR` owners got
-Portuguese, from the same config value. Three copies of a policy is three
-policies; this is one.
+One predicate, so `pt-PT`, `pt_AO` and `pt-BR` owners all get the same
+Portuguese copy from the same config value.
 """
 from __future__ import annotations
 

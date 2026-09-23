@@ -14,7 +14,7 @@ topic list:
 | `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 0) in the owner's zone, never before that day's midnight | one job; the **main** paper: desks, sections with no `deliver_at` (or `deliver_at` equal to this hour), and assignments due today. Cron may start early; `post_to_chat.py --hold-until` is the send clock |
 | `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | reprint of that **same main** roster later the same day — not a different newspaper |
 | `pt-paper-HHMM` | `<min> <hour> * * *` from a section `deliver_at` that is not `delivery.hour` (same lead subtraction) | one job per distinct hour; desks plus only the sections at that hour. Two sections at 12:30 share `pt-paper-1230`. A cancelled last section at that hour is pruned |
-| `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour`, converted into `TZ` | one per subscription topic not yet cancelled; created and removed as topics change |
+| `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-shot at the topic's `scheduled_for` (pt-intake: `now + 3m` quick, next `delivery.hour` deep) | one per pending one-off still ahead, so a rebuild re-creates it; a past one is not re-armed. The sweep removes it once the topic is delivered, cancelled or missing |
 | `pt-daily-edition-now` | one-shot, a minute out | `register_crons.py --now`: the main paper on demand, same prompt as `pt-daily-edition` without `--hold-until`; the next `--now` replaces it, the sweep never removes it |
 
@@ -82,12 +82,10 @@ topics. It never touches a job whose name is not one of
 `pt-daily-edition`, `pt-daily-edition-<n>`, `pt-paper-*`, `pt-subscription-*` or
 `pt-oneoff-*` with a real topic id behind it: those are not this spec's to
 interpret or remove — **hand-registering a job by shell command instead of
-adding a `delivery.extra_hours` entry and re-running this script is exactly
-the mistake this spec exists to make unnecessary**, and such a job is
-invisible to this sweep forever (measured live: a hand-made
-`pt-daily-edition-2` sat in `jobs.json` with a schedule that had nothing to
-do with the hour the owner asked for, and no one but the owner removing it
-by hand would ever fix that). Registration never deletes runtime locks or
+writing the topic or `delivery.extra_hours` and re-running this script is
+exactly the mistake this spec exists to make unnecessary**: such a job is
+invisible to this sweep forever, and a hand-built one-off without
+`--deliver` completes with nothing sent. Registration never deletes runtime locks or
 topic evidence; stale takeover belongs to `run_lock.py`, and evidence cleanup
 belongs to the producer that knows when its consumers are finished.
 
@@ -119,9 +117,7 @@ From inside the container:
 A forced run exercises the whole path a nightly fire would take once it
 starts. What it does not prove is that the running gateway loaded a
 newly-created schedule — the `source=builtin` row in `cron runs` is the only
-thing that proves that, and it takes a real scheduled fire (measured on the
-life-assistant image: the gateway does load new jobs without a restart; see
-ld-dashboard's sheet if the image has moved since).
+thing that proves that, and it takes a real scheduled fire.
 
 A subscription delivered unattended at least once is the MVP's own bar
 (docs/roadmap.md): confirm the edition in the chat, not just that the cron

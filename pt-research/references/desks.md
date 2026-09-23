@@ -32,7 +32,6 @@ web budget. The morning run has no checkpoint for today yet; a later paper the s
 The tournament gets a reserved 150-minute window; delivery waits for its required third generation,
 and the global batch budget starts after priority completes. Never stop its tournament early to
 save time for weather, calendar, mail, sports, or news; those desks use the time that remains.
-A delivered edition dated today is generation-zero input, never evidence that today's checkpoint exists.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,
 or news. Immediately after loading `pt-priority`, Orient and create the run's wiki state page
 before any later-desk work. After compaction, resume that page alongside the last atomic
@@ -45,34 +44,16 @@ refuses a configured paper with no priority section.
 ## 1. Location, then weather — every daily run
 
 Do not ask the owner for a city and do not write one into config. Read it
-from the Mac this run, through Latch's browser — not `plow_run_command`.
-
-**Why the browser, not a written-then-run script:** this used to write
-`~/Plow/pt/location.py` and run it with `plow_run_command
-["/usr/bin/python3", …]`, but measured live, on a Mac with a full Xcode
-install, that failed two different ways: `/usr/bin/python3` triggers
-`xcrun` to resolve the real interpreter, and Latch's sandbox blocked
-loading `xcrun`'s own dylib ("file system sandbox blocked open()"); a
-plain `curl` fallback (even with `network: true`) then failed too —
-`Could not resolve host` — because Latch's sandbox denies DNS resolution
-separately from general network access. Neither has a workaround from a
-tool call's own arguments; both are gaps in `plow_run_command`'s sandbox
-profile. `plow_browser_*` is a different code path (a real, unsandboxed
-browser Latch drives on the owner's own Mac) and isn't subject to either
-restriction — but measured live, even through the browser, the specific
-domain `ipapi.co` itself failed to resolve (`NS_ERROR_UNKNOWN_HOST`) on
-one owner's Mac; see the fallback list below for why this is a
-multi-provider procedure, not a single hardcoded URL.
-
-**A single provider domain can itself be dead on the owner's network** —
-measured live, `ipapi.co` came back `NS_ERROR_UNKNOWN_HOST` from inside
-the real browser (not a sandbox denial, an actual DNS lookup failure for
-that one hostname — privacy-minded DNS resolvers commonly blocklist
-IP-geolocation domains). So this is a short ordered list, not a single
-URL: try the next provider only if the current one's `goto` itself
-errors (DNS failure, timeout, connection refused) — never for an empty
-or malformed body, which is a real "can't determine" answer, not a
-dead domain.
+from the Mac this run, through Latch's browser — not `plow_run_command`,
+whose sandbox blocks `/usr/bin/python3` (loading
+`xcrun`'s own dylib) and a `curl` fallback's DNS (`Could not resolve host`),
+even with `network: true`. `plow_browser_*` is a real, unsandboxed browser
+on the owner's Mac. A single provider domain can still be dead on the
+owner's network (privacy DNS resolvers blocklist IP-geolocation domains),
+so this is a short ordered list: try the next provider only if the current
+one's `goto` itself errors (DNS failure, timeout, connection refused) —
+never for an empty or malformed body, which is a real "can't determine"
+answer.
 
 1. `plow_browser_open` **once for the whole paper** with origins covering
    location, weather, search, and sports — each host as apex, `www.`, and
@@ -86,31 +67,23 @@ dead domain.
    `*.espn.com`, `espn.com.br`, `www.espn.com.br`, `*.espn.com.br`. Goal:
    "Look up location, then weather, then news and sports for today's paper."
    **Do not close** this session after location — weather, sports, and news
-   reuse it. `plow_browser_close` only at the end of pt-research.
+   reuse it (pt-research's one-session rule).
 2. `plow_browser` `action: "goto"`, `url: "https://ipapi.co/json/"` —
    a bare JSON endpoint, no login, no page chrome to navigate. If
    `goto` errors (DNS failure, timeout, connection refused), **never retry ipapi**
    — `goto` `url: "https://ipwho.is/"` instead; if that also errors,
    `goto` `url: "https://ifconfig.co/json"`. Stop after these three — three
-   independent domains failing DNS the same way is a real network
-   problem, not something a fourth guess will fix. Measured live,
-   `ipapi.co` is `NS_ERROR_UNKNOWN_HOST` on this owner's Mac every run.
+   independent domains failing DNS (`NS_ERROR_UNKNOWN_HOST`) the same way
+   is a real network problem, not something a fourth guess will fix.
 3. `plow_browser` `action: "text"` on that session to read the raw JSON
    body back from whichever provider actually loaded. Take `city`,
    `region`, `country_name` (`ipwho.is`/`ifconfig.co` differ slightly —
    `ifconfig.co/json` uses `country` instead of `country_name`, and both
    still return `time_zone`/`timezone` as the IANA name) and the
-   timezone field exactly as the old script did (e.g.
-   `America/Sao_Paulo`); pt-setup uses it once to convert the owner's
-   delivery hour, the daily paper uses `city` for the dateline. This
-   runs on the owner's own Mac (same as the old curl-from-the-Mac
-   requirement) — never fall back to fetching this yourself from the
-   container, whose IP is not the owner's.
-4. Leave the browser session open. Location JSON is done; weather is the
-   next goto on the same session. A close here forces a reopen with a
-   short origin list, and every news host then fails as outside the
-   approved origins (measured live 2026-09-18).
-5. Source today's forecast for that city (weather.gov,
+   timezone field (IANA, e.g. `America/Sao_Paulo`); pt-setup stores it
+   once as `owner.timezone`, the daily paper uses `city` for the dateline.
+   Never fetch this yourself from the container, whose IP is not the owner's.
+4. Source today's forecast for that city (weather.gov,
    INMET, AccuWeather — whatever actually covers it). Same budget rules as
    any quick section: 3–5 sources, stop. Notes at `run/desk-weather/notes.json`.
    Source URLs are the forecast pages. If location failed, still write the
@@ -295,8 +268,6 @@ time.
 
 ## Close
 
-These Latch calls share the Mac with the browser pass. Do location,
-weather, and sports (if on) in that same `plow_browser_*` session,
-calendar (and mail if on) around it, then news topics, then
-`plow_browser_close` as pt-research already requires. Sports competes
-for the browser pass the same way weather does.
+Location, weather, and sports (if on) share the one `plow_browser_*`
+session; calendar (and mail if on) go around it, then news topics, then
+`plow_browser_close` as pt-research already requires.
