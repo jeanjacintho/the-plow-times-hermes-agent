@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import io
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -67,6 +70,63 @@ def test_release_missing_is_not_an_error(pt_home):
 def test_names_with_path_characters_refused(pt_home):
     with pytest.raises(SystemExit, match="not allowed"):
         lock.main(["acquire", "--name", "../escape"])
+
+
+def test_serialized_holds_an_exclusive_lock_for_its_duration(pt_home):
+    with lock._serialized("daily-2026-09-11"):
+        mutex = pt_home / "run" / ".daily-2026-09-11.mutex"
+        assert mutex.is_file()
+        with open(mutex) as handle:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    # released once the context exits
+    with open(mutex) as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def test_concurrent_stale_takeover_is_still_exclusive(pt_home, monkeypatch):
+    # srosro-review on b51e064: _claim() alone made publishing a lock
+    # atomic, but two processes could still each read the same stale lock,
+    # each unlink() it -- the second's unlink racing the first's
+    # already-published replacement and deleting it instead of the stale
+    # leftover -- and each reclaim the now-free path, both returning
+    # stale-takeover. A slow age_minutes() forces the interleave a real
+    # race would only sometimes produce; with the transition serialized,
+    # exactly one thread wins the takeover and the rest see its fresh claim.
+    lock_path = pt_home / "run" / "daily-2026-09-11.lock"
+    lock_path.parent.mkdir(parents=True)
+    old = (datetime.now(timezone.utc).astimezone() - timedelta(minutes=500))
+    lock_path.write_text(old.isoformat(timespec="seconds") + "\n")
+
+    real_age_minutes = lock.age_minutes
+
+    def slow_age_minutes(text):
+        time.sleep(0.05)
+        return real_age_minutes(text)
+
+    monkeypatch.setattr(lock, "age_minutes", slow_age_minutes)
+
+    results = []
+    results_lock = threading.Lock()
+
+    def record(line=""):
+        with results_lock:
+            results.append(line)
+
+    monkeypatch.setattr(lock, "print", record, raising=False)
+
+    threads = [
+        threading.Thread(target=lock.acquire, args=("daily-2026-09-11", 120))
+        for _ in range(4)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert results.count("stale-takeover") == 1
+    assert results.count("held") == 3
 
 
 class TestWaitSeconds:
