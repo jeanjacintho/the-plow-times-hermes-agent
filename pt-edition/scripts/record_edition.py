@@ -210,9 +210,10 @@ def main(argv=None):
     parser.add_argument(
         "--now", default=None,
         help="ISO8601 moment this edition was delivered (post_to_chat.py passes the "
-             "timestamp it captured right after the chat POST succeeded, so a slow "
-             "print or record step run afterward cannot masquerade as a later "
-             "edition). Defaults to owner_now() -- a manual, standalone run.",
+             "timestamp it captured right before the chat POST, under the same "
+             "delivery-order lock, so a slow print or record step run afterward "
+             "cannot masquerade as a later edition). Defaults to owner_now() -- "
+             "a manual, standalone run.",
     )
     args = parser.parse_args(argv)
     try:

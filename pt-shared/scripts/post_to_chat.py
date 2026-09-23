@@ -238,11 +238,12 @@ RECORD_TIMEOUT = 300
 
 
 def run_record_edition(edition_json, delivered_at):
-    """delivered_at is when the chat POST succeeded, captured once in main()
-    and passed through -- not a fresh owner_now() here, well after whatever
-    the print step's own polling took, which would otherwise stand in for
-    this edition's own time and let it out-race an already-recorded one
-    that posted later but printed faster (issue #48)."""
+    """delivered_at is captured once in main(), immediately before the chat
+    POST, under the same delivery-order lock, and passed through -- not a
+    fresh owner_now() here, well after whatever the print step's own
+    polling took, which would otherwise stand in for this edition's own
+    time and let it out-race an already-recorded one that posted later but
+    printed faster (issue #48)."""
     import subprocess
 
     try:
@@ -376,14 +377,21 @@ def main():
     # commit their messages in one order but have their HTTP responses land
     # in the other -- owner_now() read right after each POST would then
     # stamp the later-sent message as the earlier one, corrupting priority
-    # ordering (issue #48). Serializing the POST together with the clock
-    # read under one lock keeps send order and stamp order the same.
+    # ordering (issue #48). Serializing the clock read together with the
+    # POST under one lock keeps send order and stamp order the same. The
+    # read comes FIRST, still inside the lock: owner_now() raises on a
+    # configured-but-invalid owner.timezone, and that has to fail before the
+    # message is actually sent, not after -- post_json() has already
+    # delivered the edition by the time any later step, finalizer, or
+    # recovery instruction could run, so a bad timezone caught only there
+    # would report a generic failure with no "do not repost" and risk a
+    # duplicate send on retry.
     lock_path = Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt")) / "run" / "delivery-order.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with open(lock_path, "a") as lock_file:
         fcntl.flock(lock_file, fcntl.LOCK_EX)
-        post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
         delivered_at = owner_now()
+        post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
     posted_path = args.pdf or args.text_file
     edition_json = str(Path(posted_path).parent / "edition.json") if posted_path else None
     topics_result = (

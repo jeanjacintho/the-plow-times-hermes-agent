@@ -347,11 +347,11 @@ today, and waits on a tournament only when none has ever been accepted.
    `edition.json`. The delivery already stands, but a recorder failure exits
    non-zero after every finalizer and names the one recovery command:
    `record_edition.py <edition.json> --now <delivered_at>; do not repost` --
-   `--now` is the moment the chat POST actually succeeded, carried in the
-   recovery command itself so a retry still records the true delivery
-   order rather than the moment you happen to run it. Run that command
-   once, verbatim; never resend the PDF. This is no longer a normal step
-   you run.
+   `--now` is the moment captured right before the chat POST, under the
+   delivery-order lock, carried in the recovery command itself so a retry
+   still records the true delivery order rather than the moment you happen
+   to run it. Run that command once, verbatim; never resend the PDF. This
+   is no longer a normal step you run.
 
    **Final response is `NO_REPLY` and nothing else.** Never a recap of
    the desks or headlines — measured live, "Seu jornal foi gerado e
