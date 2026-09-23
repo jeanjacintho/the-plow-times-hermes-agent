@@ -97,8 +97,12 @@ does not, and every run fails on the import.
   two daily-paper runs can never race and deliver a hollow edition.
   Called bare, never through an interpreter:
   `/var/lib/hermes/skills/pt-shared/scripts/run_lock.py acquire --name NAME [--stale-minutes N] [--wait-seconds N]`
-  and the matching `.../run_lock.py release --name NAME`. Prints one word
-  (`acquired` / `stale-takeover` / `held`) and always exits 0 on acquire.
+  and the matching `.../run_lock.py release --name NAME --token TOKEN`.
+  `acquire` prints one word (`acquired` / `stale-takeover` / `held`) and
+  always exits 0; owning the lock (the first two) also prints a
+  `token:<token>` line right after -- keep it, `release` needs that exact
+  token and refuses (`not-owner`) without it, so a run past its own
+  stale-takeover cutoff can never delete a successor's lock by name alone.
   `--wait-seconds` polls a fresh holder instead of reporting `held` on the
   first check, so a scheduled run does not skip the day just because an
   on-demand copy won the lock a moment earlier.

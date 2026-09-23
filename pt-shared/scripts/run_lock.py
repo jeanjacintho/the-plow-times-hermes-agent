@@ -11,16 +11,19 @@ created with O_EXCL: the atomic primitive every process on the host agrees
 on.
 
   acquire --name NAME [--stale-minutes N] [--wait-seconds N]
-  release --name NAME
+  release --name NAME --token TOKEN
 
-`acquire` prints exactly one word and always exits 0, so a cron-fired
-session reads the decision instead of a status code:
+`acquire` prints one word, then -- when it now owns the lock -- a second
+`token:<token>` line, and always exits 0, so a cron-fired session reads the
+decision instead of a status code:
 
-  acquired        this process owns the run; release it when done
+  acquired        this process owns the run; release it (with the printed
+                  token) when done
   stale-takeover  a lock was there but older than --stale-minutes, so it is
                   a dead run's leftover, not a live owner; this process now
-                  owns it
+                  owns it (with a fresh token)
   held            a fresh owner is running it; stop, do not start a second
+                  -- no token line, there is nothing to release
 
 `--wait-seconds` (default 0) is for a cron-fired run that must not skip the
 day just because an on-demand copy took the lock a moment earlier (issue
@@ -28,8 +31,15 @@ day just because an on-demand copy took the lock a moment earlier (issue
 until the lock frees, goes stale, or the budget runs out, whichever comes
 first -- so `held` still means "give up," just after actually waiting.
 
-`release` removes the lock; a missing lock is not an error (the run ended
-without acquiring, or two releases raced). The lock directory is
+`release --token TOKEN` removes the lock only when TOKEN matches the token
+the lock currently holds -- a run whose own stale-takeover cutoff has
+passed can still be alive and call release after a successor's
+stale-takeover already claimed the name; without an owner check that call
+deletes the successor's lock by name alone, and a third run can then start
+while the successor is still working (srosro-review on ee74125). A missing
+lock or a token mismatch is not an error (the run ended without acquiring,
+two releases raced, or this is exactly that stale caller); either way
+nothing is deleted out from under a current owner. The lock directory is
 `$PT_HOME/run` -- the same scratch space the notes live in, default
 /var/lib/hermes/pt.
 """
@@ -41,6 +51,7 @@ import fcntl
 import os
 import pathlib
 import re
+import secrets
 import sys
 import tempfile
 import time
@@ -63,14 +74,25 @@ def now():
 
 
 def age_minutes(text):
-    """Minutes since the lock was written; None when it cannot be trusted."""
+    """Minutes since the lock was written; None when it cannot be trusted.
+
+    The timestamp is always the lock content's first line -- a claim token
+    may follow on a second line, but staleness never depends on it.
+    """
     try:
-        stamp = datetime.fromisoformat(text.strip())
-    except (ValueError, AttributeError):
+        stamp = datetime.fromisoformat(text.splitlines()[0].strip())
+    except (ValueError, AttributeError, IndexError):
         return None
     if stamp.tzinfo is None:
         return None
     return (now() - stamp).total_seconds() / 60.0
+
+
+def _read_token(text):
+    """The claim token on a lock's second line, or None (malformed or
+    missing -- a caller with no token to prove is never treated as owner)."""
+    lines = text.splitlines()
+    return lines[1].strip() if len(lines) > 1 and lines[1].strip() else None
 
 
 def _mutex_path(name):
@@ -159,13 +181,15 @@ def acquire(name, stale_minutes, wait_seconds=0):
     """
     path = lock_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
-    content = now().isoformat(timespec="seconds") + "\n"
+    token = secrets.token_hex(8)
+    content = now().isoformat(timespec="seconds") + "\n" + token + "\n"
     waited = 0
     while True:
         with _serialized(name):
             result = _attempt(path, content, stale_minutes)
         if result in ("acquired", "stale-takeover"):
             print(result)
+            print(f"token:{token}")
             return 0
         if result == "retry":
             continue
@@ -177,14 +201,26 @@ def acquire(name, stale_minutes, wait_seconds=0):
         return 0
 
 
-def release(name):
+def release(name, token):
+    """Drop the lock, but only when token matches its current claim.
+
+    Without this check, a run past its own stale-takeover cutoff can still
+    call release after a successor already reclaimed the name -- unlinking
+    by name alone would delete the successor's lock, not this run's own
+    (srosro-review on ee74125).
+    """
     path = lock_path(name)
     with _serialized(name):
         try:
-            path.unlink()
-            print("released")
+            text = path.read_text()
         except FileNotFoundError:
             print("nothing-to-release")
+            return 0
+        if _read_token(text) != token:
+            print("not-owner")
+            return 0
+        path.unlink()
+        print("released")
     return 0
 
 
@@ -200,7 +236,8 @@ def main(argv=None):
 
     rel = sub.add_parser("release", help="drop the run lock")
     rel.add_argument("--name", required=True)
-    rel.set_defaults(func=lambda a: release(a.name))
+    rel.add_argument("--token", required=True)
+    rel.set_defaults(func=lambda a: release(a.name, a.token))
 
     args = parser.parse_args(argv)
     if not NAME_RE.fullmatch(args.name):
