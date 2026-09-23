@@ -69,17 +69,14 @@ def day(mac):
 
 
 class TestIsLatestEdition:
-    def test_no_prior_is_always_latest(self):
-        assert rec._is_latest_edition(None, MORNING) is True
-
-    def test_a_later_edition_time_wins(self):
-        assert rec._is_latest_edition(MORNING.isoformat(timespec="seconds"), AFTERNOON) is True
-
-    def test_an_earlier_edition_time_loses(self):
-        assert rec._is_latest_edition(AFTERNOON.isoformat(timespec="seconds"), MORNING) is False
-
-    def test_an_unparseable_prior_has_nothing_to_lose_to(self):
-        assert rec._is_latest_edition("garbage", MORNING) is True
+    @pytest.mark.parametrize(("prior_at", "now", "expected"), [
+        (None, MORNING, True),  # no prior card: nothing to lose to
+        (MORNING.isoformat(timespec="seconds"), AFTERNOON, True),  # a later time wins
+        (AFTERNOON.isoformat(timespec="seconds"), MORNING, False),  # an earlier one loses
+        ("garbage", MORNING, True),  # unparseable (an owner's own edit, say): nothing to lose to
+    ], ids=["no-prior", "later", "earlier", "unparseable"])
+    def test_latest_edition(self, prior_at, now, expected):
+        assert rec._is_latest_edition(prior_at, now) is expected
 
 
 class TestRecord:

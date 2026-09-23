@@ -113,7 +113,11 @@ def _is_latest_edition(prior_at, now):
     say) can finish recording out of order -- an earlier delivery landing
     its write after a later one already has. Judging by edition time rather
     than write order keeps `priority` the latest card regardless (issue #48).
-    An unset or unparseable prior_at has nothing to lose to.
+    An unset or unparseable prior_at has nothing to lose to -- absent on a
+    page from before this field existed, and possibly mangled by the
+    owner's own edit (issue #48 notes the page is meant to be hand-edited in
+    Obsidian): a corrupt sentinel refusing every future write would be worse
+    than the mis-citation this function exists to fix.
     """
     if not prior_at:
         return True
