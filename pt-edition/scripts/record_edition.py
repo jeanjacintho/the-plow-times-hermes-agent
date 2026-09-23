@@ -19,7 +19,10 @@ record out of order, and the earlier one finishing second must not overwrite
 a later card with an older one; `priority_at` is that edition's timestamp,
 kept only to judge the next write). Its `sections` frontmatter is each topic
 id's own record (headline and every sourced claim), merged across the day's
-editions. history.py reads both back as history. After the write, `wiki
+editions. `updated` is monotonic for the same reason: an edition recording
+out of order must not move it backward and have the page announce an older
+update than the write that already landed. history.py reads both `priority`
+and `sections` back as history. After the write, `wiki
 validate` and `wiki index`, so the paper's page lists the day.
 
 The renderer already refused a malformed edition.json before delivery, so the
@@ -193,7 +196,13 @@ def record(wiki, edition_json, chat, now):
                 meta["priority_at"] = now.isoformat()
             elif not meta.get("description"):
                 meta["description"] = news[0].get("headline") or news[0]["title"]
-            meta["updated"] = now.isoformat(timespec="seconds")
+            # Monotonic for the same reason priority_at is: an edition that
+            # posted earlier but records after one that posted later (and
+            # already recorded) must not move "updated" backward and have
+            # the page announce an older update than the write that already
+            # landed (srosro-review, contract-drift).
+            if _is_latest_edition(meta.get("updated"), now):
+                meta["updated"] = now.isoformat(timespec="seconds")
             wiki.write(rel, join_page(meta, body.rstrip("\n") + "\n\n" + "\n".join(lines)))
     # A retry must still finish an earlier check() that failed after the
     # write landed -- the marker means "don't append again", never "don't

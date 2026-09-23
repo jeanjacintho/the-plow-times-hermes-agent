@@ -143,6 +143,14 @@ class TestRecord:
         assert meta["priority"]["headline"] == "Later this second"
         assert meta["priority_at"] == later.isoformat()
 
+        # A third write landing last in wall-clock time, but for an edition
+        # delivered well before both above, must not move "updated"
+        # backward either -- the page would announce an older update than
+        # the write that already landed (srosro-review, contract-drift).
+        rec.record(w, edition(tmp_path, headline="Much earlier"), "cht_1", MORNING)
+        meta = split_page(day(mac))[0]
+        assert meta["updated"] == later.isoformat(timespec="seconds")
+
     def test_the_same_edition_twice_is_recorded_once(self, mac, tmp_path):
         w, path = Wiki(mac.call_tool), edition(tmp_path)
         rec.record(w, path, "cht_1", MORNING)
