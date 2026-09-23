@@ -155,6 +155,22 @@ def new_id(topics):
             return candidate
 
 
+def checked_scheduled_for(args):
+    """A one-off's offset-aware ISO instant: register_crons.py schedules its
+    job from it, so a one-off without one would be a promise nothing fires."""
+    raw = (args.scheduled_for or "").strip() or None
+    if args.kind != "one_off":
+        return raw
+    try:
+        aware = datetime.fromisoformat(raw).utcoffset() is not None
+    except (TypeError, ValueError):
+        aware = False
+    if not aware:
+        sys.exit(f"error: a one_off needs --scheduled-for as an ISO-8601 instant "
+                 f"with offset, not {raw!r}")
+    return raw
+
+
 def checked_run_on(args):
     """The strict YYYY-MM-DD date, or a refusal naming why.
 
@@ -281,6 +297,7 @@ def cmd_add(args):
     topics = load_topics()
     run_on = checked_run_on(args)
     deliver_at = checked_deliver_at(args)
+    scheduled_for = checked_scheduled_for(args)
     topic = {
         "id": new_id(topics),
         "text": args.text.strip(),
@@ -291,7 +308,7 @@ def cmd_add(args):
         "last_edition_at": None,
         # One-off runs remember when their job is scheduled for, so SOUL.md
         # can answer "when will it land" from the file, not from memory.
-        "scheduled_for": args.scheduled_for.strip() if args.scheduled_for else None,
+        "scheduled_for": scheduled_for,
     }
     # Assignments carry the day their edition belongs to; sections don't
     # (they are evergreen) and the key is omitted so a section never looks

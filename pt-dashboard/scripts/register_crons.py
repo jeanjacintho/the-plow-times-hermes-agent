@@ -26,15 +26,15 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          deliver_at                 is not delivery.hour
   pt-subscription-<id>   0 <delivery.hour> * * *   one per subscription topic
                                                    not yet cancelled
-  pt-oneoff-<id>         created by pt-intake at   one-time; its own prompt
-                         the scheduled minute      self-removes after firing
+  pt-oneoff-<id>         one-shot at the topic's   one per pending one-off
+                         scheduled_for             still ahead; swept once
+                                                   delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
                                                    demand, same prompt, no hold
 
 This script therefore CREATES missing jobs and REMOVES pt-* jobs whose
-topic is gone -- cancelled, delivered one-offs their prompt failed to
-remove, or names with no topic behind them. "Created/removed as topics
-change", the design doc calls it. It never touches a job whose name does
+topic is gone -- cancelled, delivered one-offs, or names with no topic
+behind them. "Created/removed as topics change", the design doc calls it. It never touches a job whose name does
 not start with pt-: those are not this agent's to manage.
 
 It also RECONCILES drift, which create-if-missing alone does not: a job
@@ -57,24 +57,13 @@ unreadable or unexpected jobs.json aborts. Never read "I could not tell what
 is registered" as "nothing is" -- that re-registers every job and duplicates
 all of them.
 
-`delivery.hour` is always the CONTAINER's local time, "HH:MM" -- `hermes
-cron create` takes no per-job zone, so every schedule fires in the
-container's zone regardless of what `owner.timezone` says. This used to be
-enforced by
-refusing to register at all unless owner.timezone equalled the container's
-TZ (the only way delivery.hour could safely be read as the owner's own local
-hour with zero conversion). That traded a real product cost for the safety:
-an owner in a different zone than whatever the container happens to be
-running in could not get a paper at all without someone restarting the
-container first -- mid-conversation, the one thing this agent cannot do for
-itself. pt-setup now does the conversion instead: it asks the owner's real
-zone and what local time they want, computes the equivalent container-local
-hour with `zoneinfo`, and writes THAT as delivery.hour, while owner.timezone
-keeps the owner's real zone for display and for recomputing after a
-container restart changes TZ. So this script trusts delivery.hour as
-already correct for the container it is running in, the same way it always
-trusted a hand-edited "changing one setting" update to be correct -- the
-conversion risk moved to one write path (pt-setup), not away.
+Every stored hour -- delivery.hour, extra_hours, a section's deliver_at --
+is the owner's wall clock in owner.timezone. `hermes cron create` takes no
+per-job zone and fires on the container's clock (TZ), as post_to_chat.py's
+--hold-until waits on it, so this script converts each hour into TZ when it
+registers, on today's date. A config still carrying delivery.local_hour was
+written when delivery.hour was on the container's clock; adopt_owner_clock()
+retires it on the next registration.
 
 It runs INSIDE the container, where /opt/hermes/bin/hermes and that file
 live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
@@ -92,10 +81,9 @@ import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "pt-intake", "scripts"),
-)
+_SKILLS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..")
+sys.path[:0] = [os.path.join(_SKILLS, "pt-intake", "scripts"), os.path.join(_SKILLS, "pt-shared", "scripts")]
+from record_owner_language import _write_json  # noqa: E402 -- the config's atomic writer
 
 HERMES = "/opt/hermes/bin/hermes"
 # Where `hermes cron` persists its jobs -- nothing replays it on a rebuild,
@@ -139,12 +127,13 @@ STALE_RUN_MINUTES = 240
 # scheduled one past what the send-clock hold already tolerates.
 HELD_LOCK_WAIT_SECONDS = 300
 
-SUBSCRIPTION_PROMPT = (
-    "Run pt-research on topic {tid} now (depth deep), then pt-edition for it. "
+# One topic's own edition: a subscription's nightly run or a one-off.
+TOPIC_PROMPT = (
+    "Run pt-research on topic {tid} now (depth {depth}), then pt-edition for it. "
     "pt-edition writes edition.json, runs render_edition.py, and posts the PDF "
     "with post_to_chat.py --pdf plus its chat-only companion when present. "
-    "post_to_chat.py atomically records delivery and returns the subscription "
-    "to pending; do not mark it again. Final "
+    "post_to_chat.py atomically records delivery and finalizes the topic; "
+    "do not mark it again. Final "
     "response is NO_REPLY so --deliver does not send the text a second time."
 )
 
@@ -241,19 +230,11 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
 DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
 
 
-def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
-    """Refuse to register if the container or the config can't name a zone.
+def load_zones(config_path=CONFIG_FILE, env=None):
+    """(owner zone, container zone), or refuse.
 
-    NOT an owner.timezone == container TZ check anymore (see the module
-    docstring) -- pt-setup now converts the owner's stated local delivery
-    time into the container's local hour at write time, so delivery.hour is
-    trusted as already correct for whatever zone this container is running
-    in, the same way a hand-edited "changing one setting" update always was.
-    What's still refused: a container with no TZ at all (nothing here could
-    even attempt the conversion), and a config missing owner.timezone
-    entirely (pt-setup's conversion step needs it, and it's the number shown
-    back to the owner). Name kept for the smaller blast radius on callers and
-    tests; only its body changed.
+    Refused: a container with no TZ (nothing here can name the clock cron
+    fires on) and a config without owner.timezone.
     """
     env = os.environ if env is None else env
     container = (env.get("TZ") or "").strip()
@@ -266,7 +247,8 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
         )
     path = pathlib.Path(config_path)
     try:
-        owner = json.loads(path.read_text())["owner"]["timezone"]
+        config = json.loads(path.read_text())
+        owner = config["owner"]["timezone"]
     except FileNotFoundError:
         raise SystemExit(
             f"refusing to register: {path} is missing. pt-setup writes it; "
@@ -281,7 +263,27 @@ def require_timezone_agreement(config_path=CONFIG_FILE, env=None):
         raise SystemExit(
             f"refusing to register: {path} has a blank owner.timezone."
         )
-    return owner
+    return owner, container
+
+
+def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
+    """Retire delivery.local_hour, left by setup when delivery.hour was stored
+    on the container's clock. With one zone that hour already is the owner's;
+    across two zones it is not recoverable without guessing through offsets.
+    """
+    path = pathlib.Path(config_path)
+    config = json.loads(path.read_text())
+    if "local_hour" not in config["delivery"]:
+        return
+    if owner_tz != container_tz:
+        raise SystemExit(
+            f"refusing to register: {path} predates owner-clock hours and its times "
+            f"are on the container's clock ({container_tz}), not the owner's "
+            f"({owner_tz}). Ask the owner for their delivery time, extra hours and "
+            "paper times again, write them as their own clock, remove "
+            "delivery.local_hour, and re-run.")
+    del config["delivery"]["local_hour"]
+    _write_json(path, config)
 
 
 def _job_rows(jobs_path):
@@ -374,7 +376,7 @@ def load_extra_hours(config_path=CONFIG_FILE):
         ) from None
     except (OSError, ValueError) as exc:
         raise SystemExit(f"refusing to register: malformed {path} ({exc!r}).") from exc
-    hours = config.get("delivery", {}).get("extra_hours", [])
+    hours = config.get("delivery", {}).get("extra_hours") or []
     if not isinstance(hours, list) or not all(isinstance(h, str) for h in hours):
         raise SystemExit(
             f"refusing to register: {path} has delivery.extra_hours={hours!r}; "
@@ -415,23 +417,22 @@ def _hour_minute(delivery_hour):
     return int(hour_part), int(minute_part)
 
 
-def _slot_lead(hour, lead_minutes, owner_tz, container_tz):
-    """The nominal lead, clamped so this slot never starts before midnight.
+def _minutes(hhmm):
+    hour, minute = _hour_minute(hhmm)
+    return hour * 60 + minute
 
-    Cron runs on the container's clock but the run's lock and paper are dated
-    in the owner's zone, so the slot is clamped against both midnights: an
-    owner-local 00:20 that is 03:20 on the container still starts at owner
-    midnight, and a 10:30 slot keeps the full lead. Without a zone pair, only
-    the container clock applies.
+
+def _slot(hour, lead_minutes, owner_tz, container_tz):
+    """(container HH:MM, lead) for one owner-clock hour.
+
+    Cron and --hold-until run on the container's clock. The lead is clamped
+    so the run never starts before midnight on either clock -- the run's
+    lock and paper are dated in the owner's zone.
     """
     h, m = _hour_minute(hour)
-    room = h * 60 + m
-    if owner_tz and container_tz:
-        slot = datetime.now(ZoneInfo(container_tz)).replace(
-            hour=h, minute=m, second=0, microsecond=0)
-        local = slot.astimezone(ZoneInfo(owner_tz))
-        room = min(room, local.hour * 60 + local.minute)
-    return min(lead_minutes, room)
+    at = datetime.now(ZoneInfo(owner_tz)).replace(hour=h, minute=m, second=0, microsecond=0)
+    at = at.astimezone(ZoneInfo(container_tz)).strftime("%H:%M")
+    return at, min(lead_minutes, _minutes(hour), _minutes(at))
 
 
 def daily_schedule(delivery_hour, lead_minutes):
@@ -443,8 +444,7 @@ def daily_schedule(delivery_hour, lead_minutes):
     evening before and be the previous day's paper. Every job's schedule
     comes through here, so this is the one place that refuses it.
     """
-    hour, minute = _hour_minute(delivery_hour)
-    total = hour * 60 + minute - lead_minutes
+    total = _minutes(delivery_hour) - lead_minutes
     if total < 0:
         raise SystemExit(
             f"refusing to register: delivery.lead_minutes={lead_minutes} would start "
@@ -496,11 +496,8 @@ def require_workspace_spacing(hours):
     """Refuse paper starts whose shared-workspace windows can overlap."""
     minimum_minutes = 180
     for index, first in enumerate(hours):
-        first_hour, first_minute = _hour_minute(first)
-        first_total = first_hour * 60 + first_minute
         for second in hours[index + 1:]:
-            second_hour, second_minute = _hour_minute(second)
-            distance = abs(first_total - (second_hour * 60 + second_minute))
+            distance = abs(_minutes(first) - _minutes(second))
             if min(distance, 24 * 60 - distance) < minimum_minutes:
                 raise SystemExit(
                     f"refusing to register: paper times {first} and {second} are less than "
@@ -508,13 +505,15 @@ def require_workspace_spacing(hours):
                 )
 
 
-def paper_job(hour, lead_minutes, env=None):
-    """One focused paper: desks plus sections whose deliver_at is this hour."""
+def paper_job(hour, at, lead_minutes, env=None):
+    """One focused paper: desks plus sections whose deliver_at is this hour.
+
+    `at` is that hour on the container's clock."""
     name = paper_job_name(hour)
     return {
         "name": name,
-        "schedule": daily_schedule(hour, lead_minutes),
-        "prompt": paper_prompt(hold_until=hour, lead_minutes=lead_minutes, focus=hour),
+        "schedule": daily_schedule(at, lead_minutes),
+        "prompt": paper_prompt(hold_until=at, lead_minutes=lead_minutes, focus=hour),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
@@ -526,42 +525,63 @@ def subscription_job(topic, delivery_hour, env=None):
     return {
         "name": f"pt-subscription-{topic['id']}",
         "schedule": f"{minute} {hour} * * *",
-        "prompt": SUBSCRIPTION_PROMPT.format(tid=topic["id"]),
+        "prompt": TOPIC_PROMPT.format(tid=topic["id"], depth="deep"),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
 
 
-def desired_jobs(topics, delivery_hour, env=None, lead_minutes=DEFAULT_LEAD_MINUTES,
-                  extra_hours=(), owner_tz=None):
+def oneoff_job(topic):
+    """A pending one-off's own edition, one-shot at its scheduled_for."""
+    return {
+        "name": f"pt-oneoff-{topic['id']}",
+        "schedule": topic["scheduled_for"],
+        "prompt": TOPIC_PROMPT.format(tid=topic["id"], depth=topic["depth"]),
+        "skill": "pt-research",
+        "deliver": DELIVER_TARGET,
+    }
+
+
+def desired_jobs(topics, delivery_hour, owner_tz, container_tz, env=None,
+                 lead_minutes=DEFAULT_LEAD_MINUTES, extra_hours=()):
     """The jobs the topic store calls for, in spec order.
 
     The daily edition comes first (it is the main paper), then one job per
     extra delivery time (delivery.extra_hours -- the same MAIN roster,
     re-researched later the same day), then one job per distinct section
     deliver_at that is not delivery.hour (a different newspaper), then one
-    job per subscription. lead_minutes is the nominal lead; each slot clamps
-    it to its own owner-zone midnight.
+    job per subscription, then one per pending one-off at its scheduled_for
+    still ahead (topics.py refuses one without an offset; a past one is
+    not re-armed). Hours are the owner's and register on the container's
+    clock; lead_minutes is the nominal lead, clamped per slot (see _slot).
     """
     focused_hours = focused_paper_hours(topics, delivery_hour)
     require_workspace_spacing([delivery_hour, *extra_hours, *focused_hours])
     jobs = []
-    container_tz = (os.environ if env is None else env).get("TZ")
 
-    def lead(hour):
-        return _slot_lead(hour, lead_minutes, owner_tz, container_tz)
+    def slot(hour):
+        return _slot(hour, lead_minutes, owner_tz, container_tz)
 
     # The daily paper always exists once setup can register: weather and
     # calendar run even with zero news sections.
-    jobs.append(daily_job(delivery_hour, lead(delivery_hour), env))
+    main_at, main_lead = slot(delivery_hour)
+    jobs.append(daily_job(main_at, main_lead, env))
     for n, hour in enumerate(extra_hours, start=2):
-        jobs.append(daily_job(hour, lead(hour), env, name=f"{DAILY_NAME}-{n}"))
+        jobs.append(daily_job(*slot(hour), env, name=f"{DAILY_NAME}-{n}"))
     for hour in focused_hours:
-        jobs.append(paper_job(hour, lead(hour), env))
+        at, lead = slot(hour)
+        jobs.append(paper_job(hour, at, lead, env))
     jobs.extend(
-        subscription_job(t, delivery_hour, env)
+        subscription_job(t, main_at, env)
         for t in topics
         if t["kind"] == "subscription" and t["status"] != "cancelled"
+    )
+    now = datetime.now().astimezone()
+    jobs.extend(
+        oneoff_job(t)
+        for t in topics
+        if t["kind"] == "one_off" and t["status"] == "pending" and t.get("scheduled_for")
+        and datetime.fromisoformat(t["scheduled_for"]).astimezone() > now
     )
     return jobs
 
@@ -570,9 +590,9 @@ def stale_names(topics, registered, extra_hours_count=0, delivery_hour=None):
     """Registered pt-* jobs the topic store no longer calls for.
 
     A subscription job outlives only its non-cancelled topic; a one-off job
-    outlives only a topic still pending or running (its prompt self-removes
-    it after firing -- this sweep is the backstop, and prunes delivered,
-    cancelled or vanished topics' leftovers). The daily job is never stale; a
+    outlives only a topic still pending or running (a fired one-shot stays
+    registered as completed; this sweep prunes it once the topic is
+    delivered, cancelled or gone). The daily job is never stale; a
     numbered extra-daily job goes stale the moment the owner removes that
     many delivery times. A pt-paper-HHMM job outlives only an active section still at that
     hour (and not the main delivery.hour). Names not starting with pt- are
@@ -735,24 +755,24 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
 
-    owner_tz = require_timezone_agreement(config_path, env)
-    delivery_hour = load_delivery_hour(config_path)
-    extra_hours = load_extra_hours(config_path)
-    lead_minutes = load_lead_minutes(config_path)
-
+    owner_tz, container_tz = load_zones(config_path, env)
     # The topic store, via pt-intake's single reader -- so a broken
     # topics.json refuses here too, rather than reading as "no topics" and
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
+    adopt_owner_clock(owner_tz, container_tz, config_path)
+    delivery_hour = load_delivery_hour(config_path)
+    extra_hours = load_extra_hours(config_path)
+    lead_minutes = load_lead_minutes(config_path)
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
     paused = []
     pending = []
 
-    for job in desired_jobs(topics, delivery_hour, env, lead_minutes, extra_hours,
-                         owner_tz=owner_tz):
+    for job in desired_jobs(topics, delivery_hour, owner_tz, container_tz, env,
+                            lead_minutes, extra_hours):
         if job["name"] in registered:
             if not registered[job["name"]]:
                 print(

@@ -1,6 +1,6 @@
 ---
 name: pt-setup
-description: First-run interview over chat — settle the morning delivery hour, ask about a printer and probe it once through Latch, ask whether today's mail should join as a letters desk, then resolve the owner's timezone from Latch location and convert that hour for the cron. Use on the owner's first DM, including greetings (oi, oi de novo, hi, hello, hey), while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never ask their timezone, name, or a personal profile. Never in a group, never in someone else's DM, and never to change one already-stored setting.
+description: First-run interview over chat — settle the morning delivery hour, ask about a printer and probe it once through Latch, ask whether today's mail should join as a letters desk, then resolve the owner's timezone from Latch location. Use on the owner's first DM, including greetings (oi, oi de novo, hi, hello, hey), while pt/config.json is missing owner.timezone, delivery.hour or printer.configured. Never ask their timezone, name, or a personal profile. Never in a group, never in someone else's DM, and never to change one already-stored setting.
 ---
 
 # pt-setup — the first conversation
@@ -48,8 +48,7 @@ question after it.
 **This interview never needs ad-hoc Python, a heredoc, or any inline
 script, for anything — not to check state, not to read a file, not to
 double-check what you just wrote.** Every action already has a named
-script (`setup_needed.py`, `record_setup.py`, `convert_delivery.py`,
-`pt_config_gate.py`) or a named tool (`plow_run_command`,
+script (`setup_needed.py`, `record_setup.py`, `pt_config_gate.py`) or a named tool (`plow_run_command`,
 `plow_browser_*`); call the one that matches, plainly, one line, and
 nothing else. Measured live, twice, on two different turns: once a
 `record_setup.py` call for a printer name with nothing unusual in it got
@@ -131,13 +130,12 @@ from their Mac, through Latch, when this interview closes.
 
 **Changing one setting later** is not this skill: a different delivery hour,
 **a second (or third) daily delivery time** (`delivery.extra_hours`, a list
-of "HH:MM" strings alongside `delivery.hour` — convert each with
-`convert_delivery.py` using the stored `owner.timezone`, never by asking
-the zone again), **turning the letters desk
+of "HH:MM" strings alongside `delivery.hour`, each in the owner's own
+clock like `delivery.hour` itself — never ask the zone again), **turning the letters desk
 on or off** (`mail.configured`), or a new printer is a
 one-line conversation that updates `pt/config.json` directly. Before writing
-a different `delivery.hour`, convert it, then run `topics.py check-paper
---deliver-at main --main-hour <converted HH:MM>`; if it refuses, name its
+a different `delivery.hour` (the owner's own HH:MM), run `topics.py check-paper
+--deliver-at main --main-hour <HH:MM>`; if it refuses, name its
 roster and leave the setting unchanged. After a valid change, re-run the gate
 and then re-run
 `/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py` so the
@@ -507,28 +505,17 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
    the page that did load has no usable timezone field, say the paper
    cannot be scheduled until the Mac can report where they are — do not
    invent a zone, do not ask them to type one.
-2. **Convert** the draft `local_hour` into the container's clock. Never
-   subtract hours by hand:
-
-       /var/lib/hermes/skills/pt-setup/scripts/convert_delivery.py --local-hour HH:MM --owner-tz America/Sao_Paulo
-
-   The printed line is `delivery.hour`. `owner.timezone` is the IANA name
-   from step 1, unconverted. If the script says container TZ is empty, say
-   so once — setting `TZ` in `compose.yml`'s environment and restarting is
-   the fix (not `AGENT_TZ`: measured live, nothing in this image actually
-   translates `AGENT_TZ` into `TZ`, even though older docs implied it).
-3. **Write** `/var/lib/hermes/pt/config.json` — with this exact bare
+2. **Write** `/var/lib/hermes/pt/config.json` — with this exact bare
    invocation, never by composing the JSON yourself, never `write_file`:
 
        /var/lib/hermes/skills/pt-setup/scripts/finalize_setup.py /var/lib/hermes/pt/config.json --owner-tz <IANA zone from step 1>
 
-   It reads the draft, converts the hour (so step 2 is only for showing
-   your work — this does the conversion it will actually write), keeps
-   `delivery.local_hour` as the owner named it, validates against the gate
-   **before** anything lands, and prints `CONFIG:written` plus the
-   delivery line. On failure it prints why and writes nothing: an
-   unfinished interview, an unknown zone, an empty container `TZ`, or a
-   gate failure. That refusal is the answer — do not hand-write the file
+   It reads the draft, stores the hour as the owner named it (in their
+   own zone; `register_crons.py` moves it onto the container's clock),
+   validates against the gate **before** anything lands, and prints
+   `CONFIG:written` plus the delivery line. On failure it prints why and
+   writes nothing: an unfinished interview, an unknown zone, or a gate
+   failure. That refusal is the answer — do not hand-write the file
    around it. Measured live: told only "write config.json" with no command
    named, a run that had every field it needed instead ran the gate
    against a file nobody had created, got `not valid JSON` (that is what
@@ -554,7 +541,7 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
    owner an `/approve` prompt in place of their finished newspaper.
 
 Say the result in CHAT_VOICE, using the hour they named, never the
-container's zone, `TZ`, or the conversion. Portuguese:
+container's zone or `TZ`. Portuguese:
 
 > 📰 Pronto — seu jornal chega todo dia às 7h. Se quiser, manda um assunto pra eu pesquisar agora.
 

@@ -77,7 +77,6 @@ class TestSoul:
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert "A que horas quer o jornal da manhã?" in text
         assert "Qual seu fuso" not in text
-        assert "convert_delivery.py" in text
 
     def test_soul_setup_gate_is_a_bare_script_not_python_dash_c(self):
         text = (ROOT / "runtime" / "SOUL.md").read_text()
@@ -214,7 +213,6 @@ class TestSoul:
         # sections went unread: a one-off edition carries only its own topic.
         intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
         assert "not a topic" in intake, "the on-demand row is missing from the routing table"
-        assert "post_to_chat.py finalizes it" in intake
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "## On demand" in edition
         # It must queue the cron's own job, never restate its steps: a second
@@ -952,7 +950,6 @@ class TestSkills:
         # both must be seeded side by side for that to work.
         assert (ROOT / "pt-intake" / "scripts" / "topics.py").is_file()
         assert (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").is_file()
-        assert (ROOT / "pt-setup" / "scripts" / "convert_delivery.py").is_file()
 
 
 class TestDeployment:
