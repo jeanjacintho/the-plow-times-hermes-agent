@@ -157,28 +157,22 @@ class TestDesiredJobs:
         assert "--deliver-at 12:00" in paper["prompt"]
         assert paper["schedule"] == "0 3 * * *"
 
-    @pytest.mark.parametrize("owner_tz, extra_hours, deliver_at, upgraded", [
-        # The live case: one zone, so every stored hour is already the owner's.
-        ("America/Los_Angeles", ["10:00"], "13:00", True),
-        ("Asia/Tokyo", [], None, True),
-        # Zones differ and container-clock times exist: refused, not guessed.
-        ("Asia/Tokyo", ["10:00"], None, False),
-        ("Asia/Tokyo", [], "13:00", False),
-    ])
-    def test_a_config_from_before_owner_clock_hours_adopts_local_hour(
-            self, tmp_path, owner_tz, extra_hours, deliver_at, upgraded):
+    @pytest.mark.parametrize("owner_tz", ["America/Los_Angeles", "Asia/Tokyo"])
+    def test_local_hour_from_before_owner_clock_hours_is_retired_never_copied(
+            self, tmp_path, owner_tz):
+        # setup may already have written a new owner-clock hour beside the
+        # stale local_hour; adoption only ever drops the key.
         legacy = {**CONFIG, "owner": {"timezone": owner_tz},
-                  "delivery": {"hour": "12:00", "local_hour": "04:00", "extra_hours": extra_hours}}
+                  "delivery": {"hour": "05:00", "local_hour": "04:00", "extra_hours": ["10:00"]}}
         path = write_config(tmp_path, legacy)
-        topics = [topic("t_1", kind="section", deliver_at=deliver_at)]
-        if not upgraded:
+        if owner_tz != "America/Los_Angeles":
             with pytest.raises(SystemExit, match="predates owner-clock hours"):
-                crons.adopt_owner_clock(topics, owner_tz, "America/Los_Angeles", path)
+                crons.adopt_owner_clock(owner_tz, "America/Los_Angeles", path)
             assert json.loads(path.read_text()) == legacy
             return
         for _ in range(2):  # the second run finds nothing to redo
-            crons.adopt_owner_clock(topics, owner_tz, "America/Los_Angeles", path)
-        assert json.loads(path.read_text())["delivery"] == {"hour": "04:00", "extra_hours": extra_hours}
+            crons.adopt_owner_clock(owner_tz, "America/Los_Angeles", path)
+        assert json.loads(path.read_text())["delivery"] == {"hour": "05:00", "extra_hours": ["10:00"]}
 
     @pytest.mark.parametrize("delivery, hours", [
         ({"hour": "07:00"}, []),

@@ -63,7 +63,7 @@ per-job zone and fires on the container's clock (TZ), as post_to_chat.py's
 --hold-until waits on it, so this script converts each hour into TZ when it
 registers, on today's date. A config still carrying delivery.local_hour was
 written when delivery.hour was on the container's clock; adopt_owner_clock()
-upgrades it on the next registration.
+retires it on the next registration.
 
 It runs INSIDE the container, where /opt/hermes/bin/hermes and that file
 live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
@@ -81,10 +81,9 @@ import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "pt-intake", "scripts"),
-)
+_SKILLS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..")
+sys.path[:0] = [os.path.join(_SKILLS, "pt-intake", "scripts"), os.path.join(_SKILLS, "pt-shared", "scripts")]
+from record_owner_language import _write_json  # noqa: E402 -- the config's atomic writer
 
 HERMES = "/opt/hermes/bin/hermes"
 # Where `hermes cron` persists its jobs -- nothing replays it on a rebuild,
@@ -254,30 +253,24 @@ def load_zones(config_path=CONFIG_FILE, env=None):
     return owner, container
 
 
-def adopt_owner_clock(topics, owner_tz, container_tz, config_path=CONFIG_FILE):
-    """Upgrade a config written when delivery.hour was on the container's clock.
-
-    Such a config kept the owner's own main hour in delivery.local_hour, so
-    that becomes delivery.hour, in one write that a re-run finds nothing to
-    redo. Its extra hours and paper times are already the owner's when the
-    two zones match; when they differ they are refused rather than guessed
-    through today's offsets.
+def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
+    """Retire delivery.local_hour, left by setup when delivery.hour was stored
+    on the container's clock. With one zone that hour already is the owner's;
+    across two zones it is not recoverable without guessing through offsets.
     """
     path = pathlib.Path(config_path)
     config = json.loads(path.read_text())
-    delivery = config["delivery"]
-    if "local_hour" not in delivery:
+    if "local_hour" not in config["delivery"]:
         return
-    timed = delivery.get("extra_hours") or any(t.get("deliver_at") for t in topics)
-    if owner_tz != container_tz and timed:
+    if owner_tz != container_tz:
         raise SystemExit(
-            f"refusing to register: {path} predates owner-clock hours, and its extra "
-            f"hours / paper times are on the container's clock ({container_tz}), not "
-            f"the owner's ({owner_tz}). Ask the owner for those times again, write them "
-            "as their own clock, set delivery.hour to delivery.local_hour, remove "
+            f"refusing to register: {path} predates owner-clock hours and its times "
+            f"are on the container's clock ({container_tz}), not the owner's "
+            f"({owner_tz}). Ask the owner for their delivery time, extra hours and "
+            "paper times again, write them as their own clock, remove "
             "delivery.local_hour, and re-run.")
-    delivery["hour"] = delivery.pop("local_hour")
-    path.write_text(json.dumps(config, indent=2) + "\n")
+    del config["delivery"]["local_hour"]
+    _write_json(path, config)
 
 
 def _job_rows(jobs_path):
@@ -755,7 +748,7 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
-    adopt_owner_clock(topics, owner_tz, container_tz, config_path)
+    adopt_owner_clock(owner_tz, container_tz, config_path)
     delivery_hour = load_delivery_hour(config_path)
     extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)
