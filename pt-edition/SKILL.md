@@ -9,15 +9,6 @@ The edition is the product. Every rule here serves one idea: a reader on a
 phone (or holding a printed page) gets a short, sourced answer, and nothing
 in it is a guess.
 
-**Compiling, rendering and delivering happen silently — the owner sees the
-PDF and nothing about the steps
-that produced it.** Measured live, on an on-demand "send me a paper now"
-with the owner watching in real time: "PDF rendered successfully. Now
-posting it to chat.", "PDF posted. Now marking topics delivered and
-handling the print leg." — in English, mid-run, on a Portuguese setup. No
-step in this skill's recipe calls for a sentence like that; a tool call's
-own result is never something to narrate back.
-
 ## Write `edition.json`, never the layout
 
 You compile structured content; the layout is code, not text. **Never write
@@ -83,23 +74,17 @@ HTML.** Hand-write `edition.json` under the run directory:
 }
 ```
 
-- **`topic_id` is mandatory per section** — the delivery step marks each
-  topic from it. Without it, marking depends on session memory, which SOUL.md
-  forbids. `run_on` is required for an assignment.
+- **`topic_id` is mandatory per section** — `post_to_chat.py` finalizes
+  each topic from it. `run_on` is required for an assignment.
 - **The title is the topic's text**, trimmed of pleasantries; it is the
   owner's own words.
-- **Write `headline` and `body` in `pt/config.json`'s `owner.language`** —
-  Portuguese in, Portuguese out; English in, English out; Mandarin in,
-  Mandarin out, whatever pt-intake last recorded there. This is the whole
-  edition's reading language, not a translation step: research the sources
-  in whatever language they're actually in, then write the synthesis in the
-  owner's. `title` stays exactly as the owner phrased their topic (it may
-  legitimately be in a different language than today's `owner.language`
-  if they asked for it earlier, in another language — never retranslate
-  someone's own words). No `owner.language` at all (an install from before
-  pt-intake started keeping it, or one where the owner has only ever
-  written once) is the one case to fall back on the language the sourced
-  notes themselves read most naturally in, never a hardcoded default.
+- **Write `headline` and `body` in `pt/config.json`'s `owner.language`**
+  (SOUL.md's language rule): research the sources in whatever language
+  they're in, then write the synthesis in the owner's. `title` stays
+  exactly as the owner phrased their topic, even in another language —
+  never retranslate someone's own words. No `owner.language` at all is the
+  one case to fall back on the language the sourced notes themselves read
+  most naturally in, never a hardcoded default.
 - **3–6 sentences per body, every one traceable to a note.** If a claim is
   not backed by a note, cut the sentence.
 - **`could_not_source` is per section, not global** — it belongs to the block
@@ -161,25 +146,13 @@ HTML.** Hand-write `edition.json` under the run directory:
   structured field only when the notes actually give you distinct
   events, senders or games to list, not as a mandatory duplicate of the
   prose.
-- **`image` (news sections only) is optional: `{ "url", "credit" }`.**
-  `url` must be the direct link to the image file itself (ends up in an
-  `<img>` tag), `credit` is a short optional line ("Reuters", "AP
-  Photo/Jane Doe") printed under the photo. render_edition.py fetches
-  it, converts it to grayscale and crops it to a fixed ratio in Python
-  (the page's palette is ink/grey/white, and WeasyPrint doesn't
-  implement CSS `filter` or `object-fit`, so the pixels have to already
-  be right before they reach the page) — a bad URL, a timeout or a
-  non-image response just means the story prints without a photo, never
-  a broken page. **Only use an image the source itself offered for
-  reuse** — an article's own `og:image`/social-preview image or an RSS
-  item's enclosure/media:thumbnail, the same kind of thumbnail a feed
-  reader or link-preview card would show, never a photo scraped off a
-  page some other way, and never one from a paywalled or explicitly
-  restricted source. When in doubt, leave `image` out; a story with no
-  photo is the normal case, not a gap to fill. This is a small
-  single-reader paper, not a publication — that doesn't make an image's
-  own rights irrelevant, so stay inside "the kind of thumbnail the
-  publisher already serves for syndication."
+- **`image` (news sections only) is optional: `{ "url", "credit" }`** —
+  only an image pt-research captured under its reuse rule. `url` is the
+  direct link to the image file itself, `credit` a short optional line
+  ("Reuters", "AP Photo/Jane Doe") printed under the photo.
+  render_edition.py fetches, grayscales and crops it; a bad URL, a timeout
+  or a non-image response just means the story prints without a photo.
+  When in doubt, leave `image` out.
 - **Calendar and mail bodies are one item per paragraph, blank-line
   separated — never joined with periods into one run-on sentence.** The
   template renders each paragraph as its own bulleted line; "9am —
@@ -188,10 +161,8 @@ HTML.** Hand-write `edition.json` under the run directory:
   text. One event, one sender, one line each.
 - The daily paper always includes weather and calendar from
   `run/desk-*/notes.json`. If calendar notes list `could_not_source` and
-  no events, the headline says the paper could not read the agenda —
-  never "no events today" / "Nenhum evento hoje" / "the calendar is free"
-  (measured live: two real appointments, empty `events.json` after a
-  failed gather). **Priority is the same when `pt/config.json` has
+  no events, the headline says the paper could not read the agenda (never
+  a free day — desks.md §2). **Priority is the same when `pt/config.json` has
   `priority.configured: true`: always a `"desk": "priority"` section.** Copy
   its `priority` object from `run/desk-priority/tournament.json` without rewriting. An
   on-demand copy reusing an older checkpoint also sets the section's `"as_of"` to that
@@ -209,16 +180,17 @@ HTML.** Hand-write `edition.json` under the run directory:
   Sports is the same pattern: only when `pt/config.json` has
   `sports.configured: true` **and** `run/desk-sports/notes.json`
   exists; otherwise omit the sports block entirely — never fill it with
-  a generic league digest just because a desk slot exists for it. A focused
-  paper at another hour uses the same desks plus **only** the news topics
-  this run researched (the sections whose `deliver_at` is that hour). Never
-  compile a main-paper section into a noon paper, or the reverse. Owner
+  a generic league digest just because a desk slot exists for it. Compile
+  **only** the news topics this run researched (pt-research decides which
+  belong to this paper's hour). Owner
   `section` and `assignment` topics are always `"desk": "news"`. Do not put
   a news topic on the weather desk to make it look important.
-- **Let the Letter PDF paginate naturally.** Include no more than three news
-  articles. The renderer keeps every included word and may use a second page
-  instead of shrinking readable type; it never truncates or silently drops a
-  fourth article. Never hand-split copy.
+- **Include no more than three news articles, and never hand-split copy.**
+  Pagination is the renderer's job: it keeps every included word, news
+  that does not fit one Letter sheet continues on page 2+ (WeasyPrint,
+  `column-fill: auto`), each boxed desk stays whole, and the priority card
+  may continue onto page 2. It never truncates or silently drops a fourth
+  article.
 - **A desk's notes file must be dated for today's edition.** A desk that
   fails to gather leaves the previous day's `run/desk-*/notes.json` /
   `events.json` in place. `render_edition.py` refuses an edition that carries a standing desk when any
@@ -232,37 +204,21 @@ HTML.** Hand-write `edition.json` under the run directory:
   and sports may be dropped as a logged miss. While the edition still carries a standing desk, the check reads
   all the files, so dropping one desk's section without deleting its files
   still refuses.
-- **Pagination is the renderer's job.** News that does not fit one Letter
-  sheet continues on page 2+ of the PDF (WeasyPrint, `column-fill: auto`).
-  Each boxed desk stays whole; if the rail itself overflows, the next desk
-  starts on the following page. The priority card may continue onto page 2.
-  Never hand-split copy across pages.
 - **`location` is this run's city** from the Latch location step, a string,
   optional. It is the dateline, not a stored profile: if location failed,
   omit the field.
-- **`layout` remains accepted for compatibility**, but the fixed newspaper
-  template makes the longest news body the lead; article order breaks ties
-  and otherwise preserves the remaining pair.
-- **Never pad.** Three sourced sentences beat six where one is a guess. An
-  empty pass (zero sourced claims) is still an edition: the title, one honest
+- **Never pad** (SOUL.md). An empty pass (zero sourced claims) is still an edition: the title, one honest
   sentence ("nothing to report this time"), and what was tried.
   A thin weather or calendar desk is still printed; it is a department of
   the paper, not optional filler.
 
 ## On demand — "send me the paper now"
 
-The owner asking for a copy right now is **not** a new topic (see
-`pt-intake`'s routing table), and you do not build it in the chat turn.
-It is the same paper the morning job runs, sections, advisor and all,
-queued as a one-shot a minute out:
-
-    /var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --now
-
-That reconciles every job and queues `pt-daily-edition-now` with the main
-paper's own prompt and no send clock. The scheduler runs it in its own
-session and this skill delivers it from there. It prints the newest
-accepted advisor checkpoint, dated (`as_of`, below) when it is older than
-today, and waits on a tournament only when none has ever been accepted.
+Not a topic and not built in the chat turn: `pt-intake` queues the main
+paper's own prompt as a one-shot with
+`/var/lib/hermes/skills/pt-dashboard/scripts/register_crons.py --now`, and
+this skill delivers it from that session like any other paper (no
+`--hold-until`; the advisor card per desks.md, dated with `as_of` when older).
 
 ## Render and deliver
 
@@ -300,11 +256,6 @@ today, and waits on a tournament only when none has ever been accepted.
      is the PDF genuinely impossible — that costs the PDF file alone; take
      the text fallback in step 2 and do not write the edition by hand.
 
-   Measured live: a run built its own argv, passed a bare `--chat` with no
-   value (exit 2), then retried having dropped `--pdf` — rendering
-   `edition.html` and `edition.chat.txt` and no PDF at all — and posted the
-   text. The owner had asked for a copy of the paper and got a wall of
-   text, on a machine where weasyprint 62.3 was installed and working.
 2. **Send the PDF yourself, by running `post_to_chat.py --pdf`, instead of
    returning the transcript as your final response.** If the renderer wrote
    `edition.companion.txt`, it contains only the mail/sports desks omitted
@@ -326,37 +277,24 @@ today, and waits on a tournament only when none has ever been accepted.
 
        /var/lib/hermes/skills/pt-shared/scripts/post_to_chat.py --text-file run/<id>/edition.chat.txt
 
-   Use `--text-file`, never `< file`, never `/bin/sh -c`, never a pipe:
-   those are shell operators and SOUL.md's gate flags them, which hands the
-   owner an `/approve` prompt instead of their newspaper (measured live,
-   on exactly this call). Pointing `--pdf` at a file that does not exist is
+   Use `--text-file`, never `< file`, never `/bin/sh -c`, never a pipe
+   (SOUL.md: one bare line). Pointing `--pdf` at a file that does not exist is
    refused by name.
    `PLOW_API_BASE`, `PLOW_HOME_CHANNEL` and `PLOW_AGENT_TOKEN` come from the
    process environment already; nothing to pass for those.
 
-   A successful `--pdf` POST then runs `print_edition.py` itself when
-   `printer.configured` is true (the same PDF, nothing else to render). Do
-   **not** call `pt-print` or `print_edition.py` after this — measured live,
-   the model posted the PDF and skipped the print script. A print failure
-   posts one `page not printed — …` line to chat by itself and still leaves
-   the chat edition delivered; your final response stays `NO_REPLY`.
-
-   **`post_to_chat.py` also records the edition in the owner's wiki itself**,
-   the same way it already prints: after either a successful `--pdf` or
-   `--text-file` POST, it runs `record_edition.py` on the sibling
-   `edition.json`. The delivery already stands, but a recorder failure exits
-   non-zero after every finalizer and names the one recovery command:
-   `record_edition.py <edition.json>; do not repost`. Run that command once;
-   never resend the PDF. This is no longer a normal step you run.
-
-   **Final response is `NO_REPLY` and nothing else.** Never a recap of
-   the desks or headlines — measured live, "Seu jornal foi gerado e
-   entregue" plus a bullet list landed after the PDF. The PDF is the
-   delivery. The cron job still
-   carries `--deliver`, and a final response that is the chat transcript
-   would send the text a second time (or as a second message). `NO_REPLY`
-   is the token the gateway already treats as silence. Never return the
-   renderer’s chat output as the turn’s last line once the PDF has posted.
+   After either POST, `post_to_chat.py` prints the run's PDF itself when
+   `printer.configured` is true (the text leg too, so a missing PDF is
+   reported), records the edition in the owner's wiki (`record_edition.py`
+   on the sibling `edition.json`), and finalizes the carried topics. Do
+   **not** call `pt-print` or `print_edition.py` after this. A print miss
+   posts one `page not printed — …` line to chat by itself. A recorder
+   failure exits non-zero after every finalizer and names the one recovery
+   command, `record_edition.py <edition.json> --now <delivered_at>; do not
+   repost` — `--now` is the moment captured right before the chat POST,
+   under the delivery-order lock, so a retry still records the true
+   delivery order rather than the moment you happen to run it. Run that
+   command once, verbatim; never resend the PDF.
 3. **Do not mark topics after posting.** On the successful POST boundary,
    `post_to_chat.py` atomically stamps only the `topic_id`s carried by its sibling
    `edition.json`: one-offs and assignments become `delivered`; sections and

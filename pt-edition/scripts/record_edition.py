@@ -13,11 +13,17 @@ topic_id) with its body, the evidence its research notes hold
 calendar, mail and sports stay out: they are the day's reads of the owner's
 own accounts, and the wiki is every agent's recall.
 
-The page's `priority` frontmatter is the last card printed that day; its
-`sections` frontmatter is each topic id's own record (headline and every
-sourced claim), merged across the day's editions. history.py reads both back
-as history. After the write, `wiki validate` and `wiki index`, so the
-paper's page lists the day.
+The page's `priority` frontmatter is the card of the day's chronologically
+latest edition (by its own `HH:MM`, not by write order -- two papers can
+record out of order, and the earlier one finishing second must not overwrite
+a later card with an older one; `priority_at` is that edition's timestamp,
+kept only to judge the next write). Its `sections` frontmatter is each topic
+id's own record (headline and every sourced claim), merged across the day's
+editions. `updated` is monotonic for the same reason: an edition recording
+out of order must not move it backward and have the page announce an older
+update than the write that already landed. history.py reads both `priority`
+and `sections` back as history. After the write, `wiki
+validate` and `wiki index`, so the paper's page lists the day.
 
 The renderer already refused a malformed edition.json before delivery, so the
 fields it requires are read directly.
@@ -33,6 +39,7 @@ import hashlib
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pt-shared" / "scripts"))
@@ -102,6 +109,30 @@ def _section_record(section, notes, prior):
     return {"headline": headline, "printed": printed}
 
 
+def _is_latest_edition(prior_at, now):
+    """Whether `now` is the day's newest edition time seen so far.
+
+    Two papers of the same day (the daily job and a focused pt-paper-HHMM,
+    say) can finish recording out of order -- an earlier delivery landing
+    its write after a later one already has. Judging by edition time rather
+    than write order keeps `priority` the latest card regardless (issue #48).
+    An unset or unparseable prior_at has nothing to lose to -- absent on a
+    page from before this field existed, and possibly mangled by the
+    owner's own edit (issue #48 notes the page is meant to be hand-edited in
+    Obsidian): a corrupt sentinel refusing every future write would be worse
+    than the mis-citation this function exists to fix.
+    """
+    if not prior_at:
+        return True
+    try:
+        return now >= datetime.fromisoformat(prior_at)
+    except (ValueError, TypeError):
+        # ValueError: not an ISO string at all. TypeError: parsed but naive
+        # (no offset) against an aware `now` -- an owner typing a date by
+        # hand is a likelier source than a fresh guess at the missing zone.
+        return True
+
+
 def record(wiki, edition_json, chat, now):
     run_dir = Path(edition_json).parent
     raw = Path(edition_json).read_bytes()
@@ -156,12 +187,22 @@ def record(wiki, edition_json, chat, now):
             cited = {s["resource"] for s in meta["sources"]}
             meta["sources"] += [{"resource": u} for u in dict.fromkeys(urls) if u not in cited]
             meta["sources"] = meta["sources"] or [{"resource": f"plow-chat:{chat}"}]
-            if card:
+            if card and _is_latest_edition(meta.get("priority_at"), now):
                 meta["description"] = card["recommendations"][0]["headline"]
                 meta["priority"] = card
+                # Full precision: two edits landing under the same second's
+                # truncation would otherwise compare equal and let whichever
+                # writes second win regardless of which was actually later.
+                meta["priority_at"] = now.isoformat()
             elif not meta.get("description"):
                 meta["description"] = news[0].get("headline") or news[0]["title"]
-            meta["updated"] = now.isoformat(timespec="seconds")
+            # Monotonic for the same reason priority_at is: an edition that
+            # posted earlier but records after one that posted later (and
+            # already recorded) must not move "updated" backward and have
+            # the page announce an older update than the write that already
+            # landed (srosro-review, contract-drift).
+            if _is_latest_edition(meta.get("updated"), now):
+                meta["updated"] = now.isoformat(timespec="seconds")
             wiki.write(rel, join_page(meta, body.rstrip("\n") + "\n\n" + "\n".join(lines)))
     # A retry must still finish an earlier check() that failed after the
     # write landed -- the marker means "don't append again", never "don't
@@ -175,9 +216,21 @@ def record(wiki, edition_json, chat, now):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Put a delivered edition into the owner's wiki.")
     parser.add_argument("edition_json")
+    parser.add_argument(
+        "--now", default=None,
+        help="ISO8601 moment this edition was delivered (post_to_chat.py passes the "
+             "timestamp it captured right before the chat POST, under the same "
+             "delivery-order lock, so a slow print or record step run afterward "
+             "cannot masquerade as a later edition). Defaults to owner_now() -- "
+             "a manual, standalone run.",
+    )
     args = parser.parse_args(argv)
     try:
-        print(record(connect(), args.edition_json, require("PLOW_HOME_CHANNEL"), owner_now()))
+        now = datetime.fromisoformat(args.now) if args.now else owner_now()
+    except ValueError as exc:
+        sys.exit(f"error: --now {args.now!r} is not ISO8601 ({exc})")
+    try:
+        print(record(connect(), args.edition_json, require("PLOW_HOME_CHANNEL"), now))
     except (LatchError, OSError, ValueError, KeyError, TypeError) as exc:
         sys.exit(f"error: edition not recorded — {exc}")
 

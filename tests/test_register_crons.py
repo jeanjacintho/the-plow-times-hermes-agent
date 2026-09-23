@@ -874,26 +874,25 @@ class TestScheduledHold:
         assert "--hold-until 10:30" in jobs[1]["prompt"]
 
 
-class TestPrintLegSurvivesIntoTheRunPrompts:
-    """Paper must still happen even when the model skips pt-print.
-
-    Measured live 2026-09-17: prompts named only step 2 and Latch never
-    saw `lp`. Measured live 2026-09-18: the prompt named step 4 and the
-    model still skipped print_edition.py after posting the PDF.
-    post_to_chat.py is the gate; the prompt must not tell the model to
-    invoke pt-print itself (that would double-print, or become the only
-    path again).
+class TestRunPromptsDelegateDelivery:
+    """post_to_chat.py prints, records and finalizes after its POST, so the
+    model has no print step to skip. The prompts point at pt-edition step 2
+    for delivery and never tell the model to print (that would double-print).
     """
 
-    def test_paper_prompt_carries_the_print_leg(self):
-        p = crons.paper_prompt()
-        assert "print_edition.py" in p
-        assert "post_to_chat.py already runs" in p
-        assert "post_to_chat.py already finalizes every carried topic" in p
-        assert "sections delivered then pending" not in p
-        assert "printer.configured" in p
-        assert "Do not invoke pt-print" in p
-        assert "reopen-sections" in p
+    @pytest.mark.parametrize("p", [
+        crons.paper_prompt(),
+        crons.paper_prompt(focus="12:00"),
+        crons.TOPIC_PROMPT,
+    ])
+    def test_prompt_delegates_delivery_to_the_edition_skill(self, p):
+        assert "pt-edition/SKILL.md step 2" in p
+        assert "post_to_chat.py" in p
+        assert "pt-print" not in p and "print_edition" not in p
+        assert "NO_REPLY" in p
+
+    def test_paper_prompt_reopens_sections(self):
+        assert "reopen-sections" in crons.paper_prompt()
 
     def test_all_papers_share_a_lock_longer_than_the_tournament(self):
         for prompt in (crons.paper_prompt("07:00"), crons.paper_prompt(focus="12:00")):
@@ -917,19 +916,6 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         assert "only if none has ever been accepted" in prompt
         assert "reuse today's" not in prompt
 
-    def test_paper_prompt_forbids_origin_retry_loops(self):
-        p = crons.paper_prompt()
-        assert "plow_browser_open" in p
-        assert "needs origins" in p or "apex" in p
-
-    def test_hour_paper_prompt_carries_the_print_leg(self):
-        p = crons.paper_prompt(focus="12:00")
-        assert "print_edition.py" in p
-        assert "post_to_chat.py already runs" in p
-        assert "post_to_chat.py already finalizes every carried topic" in p
-        assert "sections delivered then pending" not in p
-        assert "printer.configured" in p
-
     @pytest.mark.parametrize("prompt", [
         crons.paper_prompt(),
         crons.paper_prompt(focus="12:00"),
@@ -941,7 +927,3 @@ class TestPrintLegSurvivesIntoTheRunPrompts:
         release = prompt.index("run_lock.py release", refusal)
         research = prompt.index("Then run pt-research")
         assert refusal < release < research
-
-    def test_print_leg_is_best_effort_and_after_the_chat_edition(self):
-        p = crons.paper_prompt()
-        assert "best-effort" in p or "best effort" in p
