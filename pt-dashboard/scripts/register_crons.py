@@ -117,6 +117,14 @@ DEFAULT_LEAD_MINUTES = 0
 # start and the held POST. Every paper shares the workspace lock, so a smaller
 # number could call the scheduled run dead and start a competing paper.
 STALE_RUN_MINUTES = 240
+# The priority desk's own floor (pt-priority/SKILL.md Orient): below this
+# many minutes before delivery, a fresh three-generation tournament cannot
+# finish before any desk, render, or print work that still has to follow --
+# a near-midnight delivery.hour can clamp _slot()'s lead well under the
+# nominal 150 (issue #115). Stated in the prompt so the desk knows its own
+# window without re-deriving it, and can write its unavailable card instead
+# of starting a tournament with no chance of finishing.
+MIN_TOURNAMENT_MINUTES = 50
 
 # One topic's own edition: a subscription's nightly run or a one-off.
 TOPIC_PROMPT = (
@@ -167,8 +175,11 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
     )
     lock = "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py"
     advice = (
-        "reuse today's accepted checkpoint in run/desk-priority/tournament.json when "
-        "there is one, else run the tournament"
+        f"reuse today's accepted checkpoint in run/desk-priority/tournament.json when "
+        f"there is one, else run the tournament -- it has {lead_minutes} minutes before "
+        f"{hold_until} today (delivery.lead_minutes, clamped so the run never starts "
+        f"before midnight); below {MIN_TOURNAMENT_MINUTES} minutes, write the desk's own "
+        f"unavailable card per pt-priority/SKILL.md instead of starting one"
         if hold_until else
         "reuse the newest accepted checkpoint in run/desk-priority/tournament.json whatever "
         "its date -- an older one prints with \"as_of\" per pt-edition -- and run the "

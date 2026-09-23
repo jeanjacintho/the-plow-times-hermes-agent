@@ -774,6 +774,26 @@ class TestSkills:
         assert "current sourced facts" in qa
         assert "at most 1,200 characters" not in text
 
+    def test_priority_desk_writes_its_own_reason_for_a_near_midnight_lead(self):
+        # issue #115: a delivery hour near midnight clamps register_crons.py's
+        # per-slot lead well under the tournament's nominal 150-minute window
+        # (see _slot() in pt-dashboard/scripts/register_crons.py). Nothing
+        # refused that (issue #42 deliberately removed a similar validation
+        # rule), so the fix is visibility: the desk learns its own window
+        # from the prompt and writes its own could_not_source reason instead
+        # of either grinding through a tournament with no time to finish, or
+        # falling through to render_edition.py's generic PRIORITY_UNAVAILABLE
+        # gap card (that card is the last resort for a desk that truly wedges
+        # mid-run, not for this predictable case).
+        priority = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "Check the tournament window before anything else" in priority
+        assert "issue #115" in priority
+        assert "under 50 minutes" in priority
+        assert "too little tournament window" in priority
+        crons = (ROOT / "pt-dashboard" / "scripts" / "register_crons.py").read_text()
+        assert "MIN_TOURNAMENT_MINUTES = 50" in crons
+        assert "write the desk's own" in crons and "unavailable card" in crons
+
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"
         markdown = sorted(p.name for p in advisor_dir.glob("*.md") if p.name != "README.md")

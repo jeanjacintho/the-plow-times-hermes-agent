@@ -49,6 +49,18 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 
 ## Orient
 
+**Check the tournament window before anything else.** A scheduled run's prompt states how many
+minutes it has before delivery: `pt-dashboard/SKILL.md`'s per-slot lead, clamped so cron never
+starts before midnight -- a delivery hour close to midnight can clamp it well under the nominal
+150 (issue #115). With no accepted checkpoint for today and that window under 50 minutes -- not
+enough for the required three generations before any desk, render, or print work still has to
+follow -- skip straight to the unavailable card: write
+`/var/lib/hermes/pt/run/desk-priority/notes.json` per the Card below with the real reason (e.g.
+"delivery hour left only ~20 min for a process that needs ~50") and stop before the mechanical
+loop. Do not start a tournament that cannot finish; a checkpoint from an earlier run this same day
+is still reused as usual. An on-demand run's prompt states no window (it never waits on a fresh
+tournament) and is never subject to this check.
+
 Read all named advisor files, `qa.md`, `resources.md`, goals, today's desk evidence, and
 `pt/advisor.md`. Read `owner.language` from `/var/lib/hermes/pt/config.json` and keep its literal
 value in the root context: every later stage is told to write in it, and nothing else in this skill
@@ -246,7 +258,8 @@ the quote. The card is:
 {"desk":"priority","status":"ok","priority":{"recommendations":[…],"questions":["Q<n> — …"]}}
 ```
 
-When the desk cannot publish (Orient blocked, no checkpoint when time runs out), it writes
+When the desk cannot publish (Orient blocked, too little tournament window, no checkpoint when
+time runs out), it writes
 `/var/lib/hermes/pt/run/desk-priority/notes.json` as
 `{"date":"<edition date>","could_not_source":["<what failed and why>"]}`; the edition prints
 that reason as the unavailable card.
