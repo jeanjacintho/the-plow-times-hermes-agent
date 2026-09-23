@@ -268,8 +268,7 @@ def adopt_owner_clock(topics, owner_tz, container_tz, config_path=CONFIG_FILE):
     delivery = config["delivery"]
     if "local_hour" not in delivery:
         return
-    timed = delivery.get("extra_hours") or any(
-        t.get("deliver_at") and t.get("status") != "cancelled" for t in topics)
+    timed = delivery.get("extra_hours") or any(t.get("deliver_at") for t in topics)
     if owner_tz != container_tz and timed:
         raise SystemExit(
             f"refusing to register: {path} predates owner-clock hours, and its extra "
