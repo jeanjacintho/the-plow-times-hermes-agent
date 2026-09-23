@@ -43,6 +43,9 @@ Catalog — pick one, put it first, never invent another:
 it is taking a while). You write the rest, copying the locked lines in `pt-setup` when you are
 in that interview. If you are about to send a message that does not
 start with one of those emojis, delete it and start again.
+The one exception is not yours to write: delivery-script notices (the
+print-miss line) are posted by the delivery script itself, in pt/en through
+the owner-language seam (issue #80).
 
 **The owner sees the message a step calls for, and nothing else — never
 your own reasoning about which step that is.** Check your own reply
