@@ -74,15 +74,13 @@ class TestIsLatestEdition:
         (MORNING.isoformat(timespec="seconds"), AFTERNOON, True),  # a later time wins
         (AFTERNOON.isoformat(timespec="seconds"), MORNING, False),  # an earlier one loses
         ("garbage", MORNING, True),  # unparseable (an owner's own edit, say): nothing to lose to
-    ], ids=["no-prior", "later", "earlier", "unparseable"])
-    def test_latest_edition(self, prior_at, now, expected):
-        assert rec._is_latest_edition(prior_at, now) is expected
-
-    def test_a_naive_prior_at_has_nothing_to_lose_to(self):
         # An owner typing a date by hand (issue #48: the page is meant to be
         # hand-edited) is a likelier source of a naive value than record()
         # ever writing one; comparing it to an aware `now` must not raise.
-        assert rec._is_latest_edition("2026-09-19T14:00:00", MORNING) is True
+        ("2026-09-19T14:00:00", MORNING, True),
+    ], ids=["no-prior", "later", "earlier", "unparseable", "naive"])
+    def test_latest_edition(self, prior_at, now, expected):
+        assert rec._is_latest_edition(prior_at, now) is expected
 
 
 class TestRecord:
@@ -130,26 +128,18 @@ class TestRecord:
         assert meta["priority"]["headline"] == "Book the Acme demo"
 
     def test_out_of_order_recording_still_keeps_the_chronologically_latest_card(self, mac, tmp_path):
-        # issue #48: two papers can finish recording out of order. The
-        # afternoon edition's write lands first here; the morning one's
-        # arrives second but must not overwrite the afternoon's card.
-        w = Wiki(mac.call_tool)
-        rec.record(w, edition(tmp_path, headline="Book the Acme demo"), "cht_1", AFTERNOON)
-        rec.record(w, edition(tmp_path), "cht_1", MORNING)
-        meta, body = split_page(day(mac))
-        assert "## 06:04 edition" in body and "## 14:00 edition" in body
-        assert meta["priority"]["headline"] == "Book the Acme demo"
-
-    def test_priority_at_keeps_sub_second_precision(self, mac, tmp_path):
-        # Two editions half a second apart, same minute: truncating priority_at
-        # to whole seconds would compare them equal and let whichever writes
-        # second win regardless of which one is actually later.
+        # issue #48: two papers can finish recording out of order, and by a
+        # sub-second margin -- two editions the same minute, half a second
+        # apart. The later one's write lands first here; the earlier one's
+        # arrives second but must not overwrite it, and priority_at keeps
+        # full precision so the two do not compare equal.
         earlier = AFTERNOON
         later = AFTERNOON.replace(microsecond=500_000)
         w = Wiki(mac.call_tool)
-        rec.record(w, edition(tmp_path, headline="Earlier this second"), "cht_1", earlier)
         rec.record(w, edition(tmp_path, headline="Later this second"), "cht_1", later)
-        meta = split_page(day(mac))[0]
+        rec.record(w, edition(tmp_path, headline="Earlier this second"), "cht_1", earlier)
+        meta, body = split_page(day(mac))
+        assert body.count("## 14:00 edition") == 2
         assert meta["priority"]["headline"] == "Later this second"
         assert meta["priority_at"] == later.isoformat()
 

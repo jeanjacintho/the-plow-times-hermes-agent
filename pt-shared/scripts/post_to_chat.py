@@ -46,6 +46,7 @@ never sends.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import mimetypes
 import os
 import re
@@ -371,8 +372,18 @@ def main():
         )
     body = compose_payload(text, attachment_uid)
 
-    post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    delivered_at = owner_now()
+    # Two concurrent runs (the daily job and an on-demand copy, say) can
+    # commit their messages in one order but have their HTTP responses land
+    # in the other -- owner_now() read right after each POST would then
+    # stamp the later-sent message as the earlier one, corrupting priority
+    # ordering (issue #48). Serializing the POST together with the clock
+    # read under one lock keeps send order and stamp order the same.
+    lock_path = Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt")) / "run" / "delivery-order.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
+        delivered_at = owner_now()
     posted_path = args.pdf or args.text_file
     edition_json = str(Path(posted_path).parent / "edition.json") if posted_path else None
     topics_result = (
@@ -402,7 +413,7 @@ def main():
     if topics_result.startswith("topics not finalized"):
         recoveries.append("topics.py finalize-edition <edition.json>")
     if "edition not recorded" in recorded:
-        recoveries.append("record_edition.py <edition.json>")
+        recoveries.append(f"record_edition.py <edition.json> --now {delivered_at.isoformat()}")
     if recoveries:
         sys.exit(
             "error: post-delivery finalization failed; recover with "

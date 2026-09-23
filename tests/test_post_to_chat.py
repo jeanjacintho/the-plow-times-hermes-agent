@@ -101,6 +101,7 @@ class TestMissedPrintIsReported:
         monkeypatch.setattr(post, "CONFIG_DEFAULT", str(cfg))
         monkeypatch.setenv("PLOW_MCP_URL", "https://relay.invalid/mcp")
         monkeypatch.setenv("PLOW_AGENT_TOKEN", "tok")
+        monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
         monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
         monkeypatch.setattr(post, "run_finalize_topics", lambda *a: "FINALIZED")
@@ -174,6 +175,7 @@ class TestFinalizersRunIndependently:
     def _mock_main(self, tmp_path, monkeypatch, pdf_arg=None, **overrides):
         pdf = tmp_path / "edition.pdf"
         pdf.write_bytes(b"%PDF")
+        monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
         monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
         monkeypatch.setattr(post, "read_message", lambda: "")
         monkeypatch.setattr(post, "declare_and_upload", lambda *a, **k: "att_1")
@@ -194,10 +196,10 @@ class TestFinalizersRunIndependently:
         ("topics not finalized — broken", None, "RECORDED",
          r"topics.py finalize-edition <edition.json>.*do not repost"),
         ("FINALIZED", None, "error: edition not recorded — broken",
-         r"record_edition.py <edition.json>.*do not repost"),
+         r"record_edition.py <edition.json> --now \S+.*do not repost"),
         ("topics not finalized — broken", None,
          "error: edition not recorded — broken",
-         r"topics.py finalize-edition <edition.json>.*record_edition.py <edition.json>.*do not repost"),
+         r"topics.py finalize-edition <edition.json>.*record_edition.py <edition.json> --now \S+.*do not repost"),
     ])
     def test_finalizers_continue_in_order(self, tmp_path, monkeypatch,
                                           topics, print_result, recorded, error):
