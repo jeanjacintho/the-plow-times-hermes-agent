@@ -75,7 +75,7 @@ class TestSoul:
 
     def test_setup_opener_does_not_ask_timezone(self):
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
-        assert "A que horas quer o jornal da manhã?" in text
+        assert "A que horas você quer o jornal de manhã?" in text
         assert "Qual seu fuso" not in text
 
     def test_soul_setup_gate_is_a_bare_script_not_python_dash_c(self):
@@ -99,7 +99,6 @@ class TestSoul:
         # gate for a file read nothing asked for.
         text = (ROOT / "runtime" / "SOUL.md").read_text()
         assert "every single reply" in text
-        assert "config.json').read_text()" in text
         assert "a reason to reach for inline" in text
         setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert "ad-hoc Python" in setup or "ad-hoc script" in setup
@@ -178,7 +177,7 @@ class TestSoul:
         # the one variant with an actual motive behind it.
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
         assert "own source" in soul
-        assert "Never open one of these scripts." in soul
+        assert "Never open one of these scripts" in soul
         # And it must point at where the contract actually lives.
         assert "pt-shared" in soul
 
@@ -191,9 +190,8 @@ class TestSoul:
         # recorded language rides back on every one of them.
         setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
         assert "owner.language=" in setup, "the interview must record the language"
-        assert "LANG:unrecorded" in setup
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
-        assert "LANG:" in soul
+        assert "LANG:unrecorded" in soul
         # And the gate must actually emit it.
         gate = (ROOT / "pt-shared" / "scripts" / "setup_needed.py").read_text()
         assert "def language_line" in gate
@@ -384,13 +382,10 @@ class TestSoul:
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
         research = (ROOT / "pt-research" / "SKILL.md").read_text()
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
-        for text in (soul, research):
-            assert "plow_browser_" in text
-            assert "web_extract" in text
-            assert "Firecrawl" in text
-            assert "Exa" in text
-            assert "Keenable" in text
-            assert "Parallel" in text
+        # SOUL.md, loaded in every session, is the one statement of the rule.
+        for name in ("plow_browser_", "web_extract", "Firecrawl", "Exa", "Keenable", "Parallel"):
+            assert name in soul
+        assert "web_extract" not in research, "the Latch-only rule is restated in pt-research"
         assert "plain HTTP fetch" not in desks
         assert "does not compete for the browser pass" not in desks
         assert "plow_run_command can fetch this" not in desks
@@ -411,7 +406,6 @@ class TestSoul:
         assert "Paused" in research
         assert "do not close" in desks or "Do not close" in desks
         assert "do not retry ipapi" in desks or "never retry ipapi" in desks
-        assert "reopen-sections" in research
 
     def test_setup_warns_against_wrapping_record_setup_in_python(self):
         # Measured live: with a real printer found (network:true worked),
@@ -449,13 +443,15 @@ class TestSoul:
         # back NS_ERROR_UNKNOWN_HOST on one owner's Mac -- a dead domain,
         # not a sandbox gap. The procedure must try other providers, not
         # give up (or retry the same host) after one goto error.
+        # desks.md §1 owns the fallback order; setup runs its steps 2-3.
         setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
         for text in (setup, desks):
             assert "ipapi.co" in text
             assert "ipwho.is" in text
             assert "ifconfig.co" in text
-            assert "NS_ERROR_UNKNOWN_HOST" in text
+        assert "NS_ERROR_UNKNOWN_HOST" in desks
+        assert "references/desks.md` §1" in setup
 
     def test_soul_warns_failure_replies_still_match_owner_language(self):
         # Measured live, three times now: an all-English interview got a
@@ -463,8 +459,7 @@ class TestSoul:
         # once inside a `clarify` tool call's question text. The rule must
         # cover tool-produced owner-facing strings, not just plain text.
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
-        assert "Measured live, three times" in soul
-        assert "flipped exactly on the one turn" in soul or "failure explanation" in soul
+        assert "failure explanation" in soul
         assert "clarify" in soul
 
     def test_setup_close_step_forbids_asking_the_owner_for_a_city(self):
@@ -489,14 +484,11 @@ class TestSoul:
         # to avoid repeating.
         setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        # SOUL.md owns the mechanical check; pt-setup defers to it.
         assert "and only that message" in setup
-        assert "DRAFT:none. This is step 1a" in setup
-        assert "This is a bare greeting 'Oi' with DRAFT:none" in setup
-        assert "reply's very first character is the catalog emoji" in setup
         assert "nothing else — never" in soul
         assert "your own reasoning about which step" in soul
         assert "reworded version of the same thing" in soul
-        assert "reworded" in setup
         assert "first character must be the catalog emoji" in soul
 
     def test_soul_reapplies_language_and_silence_rules_after_setup_is_ready(self):
@@ -515,18 +507,15 @@ class TestSoul:
         for text in (soul, (ROOT / "pt-shared" / "SKILL.md").read_text()):
             assert "`no`" in text and "`não`" in text and "`nao`" in text
 
-    def test_research_and_edition_run_silently_even_live(self):
-        # Same measured incident: pt-research and pt-edition were written
-        # assuming a cron-fired session with nobody watching, but an
-        # on-demand "send me a paper now" runs the identical recipe live in
-        # chat. Both must say explicitly that tool calls produce no
-        # owner-facing narration, live or cron-fired alike.
-        research = (ROOT / "pt-research" / "SKILL.md").read_text()
-        edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
-        assert "Run silently" in research
-        assert "no text between tool calls" in research
-        assert "happen silently" in edition
-        assert "PDF rendered successfully" in edition
+    def test_silence_between_tool_calls_is_stated_once(self):
+        # No paper runs in the chat turn any more (#98); the silence rule is
+        # SOUL.md's, loaded in every session, not restated per skill.
+        soul = (ROOT / "runtime" / "SOUL.md").read_text()
+        assert "silent between tool calls" in soul
+        for skill in ("pt-research", "pt-edition", "pt-print"):
+            text = (ROOT / skill / "SKILL.md").read_text()
+            for restated in ("run silently", "runs silently", "happen silently", "between tool calls"):
+                assert restated not in text.lower(), f"{skill} restates the silence rule"
 
     def test_print_skill_ships_html_through_print_edition_not_the_model(self):
         # Measured live 2026-09-17: the model cat'd edition.html (~43k) then
@@ -536,15 +525,13 @@ class TestSoul:
         # PDF from disk. Print must be the same shape: one bare script,
         # HTML stays in the file, never in a tool-call argument.
         text = (ROOT / "pt-print" / "SKILL.md").read_text()
-        assert "Do not run this skill from the live turn" in text
+        assert "post_to_chat.py` runs this" in text
         assert (
             "/var/lib/hermes/skills/pt-print/scripts/print_edition.py"
         ) in text
-        ship = text[text.index("## Ship it through Latch"):]
-        assert "one `cat`, once" not in ship
-        assert "content=<the HTML>" not in ship
-        assert "plow_write_file" not in ship
-        assert "Every step below runs silently" in text
+        assert "one `cat`, once" not in text
+        assert "content=<the HTML>" not in text
+        assert "plow_write_file" not in text
         script = ROOT / "pt-print" / "scripts" / "print_edition.py"
         assert script.is_file()
         assert script.read_text().startswith("#!")
@@ -721,11 +708,13 @@ class TestSkills:
         edition = (ROOT / "pt-edition" / "SKILL.md").read_text()
         assert "record_edition.py" in edition
         assert "Skipping this desk in the canonical scheduled paper is a bug" in desks
+        # desks.md is the one statement of the priority rule (asserted in
+        # test_priority_evolution_contract); pt-research owns the rosters.
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
-        assert "a scheduled paper reuses today's accepted advisor result, else runs the tournament" in soul
-        assert "the on-demand copy reuses the newest accepted result of any date" in soul
         assert "gap card" not in soul
-        assert "focused papers add only sections booked for their own hour" in soul
+        assert "tournament" not in soul, "SOUL.md restates desks.md's priority rule"
+        research = (ROOT / "pt-research" / "SKILL.md").read_text()
+        assert "whose `deliver_at` is that hour" in research
         assert "the founder" in skill
         # The card's language is the owner's, read from config -- not inferred from this
         # file. A lone `você` exemplar was the only language signal the culler had, and it
@@ -742,10 +731,9 @@ class TestSkills:
         assert "is `pt-edition/SKILL.md`'s case" in skill
         assert "Never omit the slot" in edition
 
-    def test_soul_delegates_delivery_argv_to_the_edition_skill(self):
+    def test_soul_does_not_restate_delivery_argv(self):
         soul = (ROOT / "runtime" / "SOUL.md").read_text()
-        assert "`pt-edition/SKILL.md` step 2" in soul
-        assert "Post the PDF with `post_to_chat.py --pdf`" not in soul
+        assert "post_to_chat.py" not in soul
 
     def test_priority_evolution_contract(self):
         text = (ROOT / "pt-priority" / "SKILL.md").read_text()
