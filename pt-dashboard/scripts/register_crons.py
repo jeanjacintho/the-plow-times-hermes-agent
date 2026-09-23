@@ -120,11 +120,8 @@ STALE_RUN_MINUTES = 240
 
 # One topic's own edition: a subscription's nightly run or a one-off.
 TOPIC_PROMPT = (
-    "Run pt-research on topic {tid} now (depth {depth}), then pt-edition for it. "
-    "pt-edition writes edition.json, runs render_edition.py, and posts the PDF "
-    "with post_to_chat.py --pdf plus its chat-only companion when present. "
-    "post_to_chat.py atomically records delivery and finalizes the topic; "
-    "do not mark it again. Final "
+    "Run pt-research on topic {tid} now (depth {depth}), then pt-edition for it, "
+    "delivering with post_to_chat.py per pt-edition/SKILL.md step 2. Final "
     "response is NO_REPLY so --deliver does not send the text a second time."
 )
 
@@ -146,10 +143,9 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
     of any date, printed with its as-of date, and runs the tournament only
     when none has ever been accepted.
 
-    The print leg used to be a separate skill step the model could skip:
-    measured live 2026-09-17 Latch saw no `lp`; measured live 2026-09-18
-    the PDF posted and print_edition.py was never invoked. It is inside
-    post_to_chat.py now.
+    The prompt carries only what the run cannot read from its skills: the
+    lock, the roster, the advice rule and the send clock. Delivery, print
+    and topic finalization are pt-edition step 2's, never restated here.
     """
     if focus is None:
         title, check = "the daily edition", "--deliver-at main --as-of <today's YYYY-MM-DD>"
@@ -192,23 +188,9 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
         f"release --name the same {WORKSPACE_LOCK}-<date>, and stop before research. "
         f"Then run pt-research: first the priority desk exactly as "
         f"pt-research/references/desks.md says ({advice}), "
-        f"then every other standing desk it lists, in its order, then {roster}, "
-        f"writing each topic's notes under run/<id>/ and desk notes under run/desk-*. "
-        f"One plow_browser_open for the whole paper (apex + www + *.host on "
-        f"each origin). Never plow_browser_request without origins (Latch "
-        f"returns 'needs origins'); never retry a host after NS_ERROR_UNKNOWN_HOST "
-        f"or 'Paused for'. "
-        f"Then run pt-edition for the batch -- it compiles edition.json from "
-        f"those notes (each run/desk-* notes file as its own desk, then news), "
-        f"renders it (--pdf plus --companion, then "
-        f"post_to_chat.py --pdf with that companion per pt-edition/SKILL.md step 2{hold} -- do not skip the "
-        f"PDF leg just because this is a rerun; do not pipe the chat text). "
-        f"post_to_chat.py already runs print_edition.py when printer.configured "
-        f"is true (best-effort: a print failure costs only the page, never the "
-        f"chat edition, and never re-runs research). Do not invoke pt-print "
-        f"yourself. "
-        f"post_to_chat.py already finalizes every carried topic; do not mark "
-        f"topics or desks after posting. "
+        f"then every other standing desk it lists, in its order, then {roster}. "
+        f"Then run pt-edition for the batch, delivering with post_to_chat.py "
+        f"per pt-edition/SKILL.md step 2{hold}. "
         f"Release the lock with {lock} release --name the same {WORKSPACE_LOCK}-<date>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
