@@ -68,7 +68,7 @@ replies. If it says `LANG:unrecorded`, record it before answering.
 `pt-setup` records it on the owner's first answer; after that, when this
 turn's owner message is clearly in another language (not a lone
 `yes`/`y`/`ok`/`okay`/`sim`/`no`/`não`/`nao`), record it with
-`record_owner_language.py` before anything else.
+`record_owner_language.py` right after the gate below, before answering.
 
 # Every live chat turn starts here
 

@@ -70,7 +70,8 @@ does not, and every run fails on the import.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
   run file stays `edition.pdf` on disk). `--hold-until HH:MM` waits for
   that clock before posting (scheduled papers; the on-demand copy has none). After
-  either POST it prints the run's PDF when the printer is configured, records
+  either POST it prints the run's `edition.pdf` when the printer is configured
+  (the text leg too, so a missing PDF is reported as a miss), records
   the edition and finalizes its topics (`pt-edition` step 2).
 - `scripts/chat_status.py --busy` — setup's hang-on during pt-setup Latch/Mac
   work (one hang-on, then one "still on it", never a play-by-play). Cron never

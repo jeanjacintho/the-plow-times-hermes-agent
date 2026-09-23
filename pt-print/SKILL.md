@@ -11,8 +11,9 @@ costs the page.
 
 ## Who runs it
 
-`post_to_chat.py` runs this after every chat POST (`pt-edition` step 2);
-a second invocation would double-print. The one command it runs:
+`post_to_chat.py` runs this after every chat POST (`pt-edition` step 2) on
+the run's `edition.pdf` — after the text fallback too, where a missing PDF
+is a reported miss; a second invocation would double-print. The one command it runs:
 
     /var/lib/hermes/skills/pt-print/scripts/print_edition.py /var/lib/hermes/pt/run/<id>/edition.pdf /var/lib/hermes/pt/config.json
 
