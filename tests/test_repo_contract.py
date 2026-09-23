@@ -843,8 +843,30 @@ class TestSkills:
         for name in ("pt_config_gate.py", "post_to_chat.py", "bearer_http.py",
                      "run_lock.py", "setup_needed.py", "record_setup.py",
                      "record_owner_language.py",
-                     "prepare_daily_run.py"):
+                     "prepare_daily_run.py", "chat_message_id.py"):
             assert (shared / name).is_file(), f"pt-shared/scripts/{name} missing"
+
+    def test_chat_message_id_is_executable_and_referenced(self):
+        # issue #85: the plow_chat item handle for a line with no Messages or
+        # mail counterpart -- documented in pt-shared/SKILL.md's per-script
+        # contract list, and wired into both places that write an owner item.
+        script = ROOT / "pt-shared" / "scripts" / "chat_message_id.py"
+        assert script.stat().st_mode & stat.S_IXUSR, "chat_message_id.py must be executable"
+        shared = (ROOT / "pt-shared" / "SKILL.md").read_text()
+        assert "scripts/chat_message_id.py" in shared and "HANDLE:" in shared
+        priority = (ROOT / "pt-priority" / "SKILL.md").read_text()
+        assert "chat_message_id.py" in priority and "plow_chat` message's own uid" in priority
+        intake = (ROOT / "pt-intake" / "SKILL.md").read_text()
+        assert "chat_message_id.py" in intake
+        assert "plow_chat message <uid>" in intake
+        assert "HANDLE:none" in intake
+        # the phone/mail path this desk already practices must survive untouched
+        assert "a Messages chat plus rowid, or a named mail reader's message id" in intake
+        setup = (ROOT / "pt-setup" / "SKILL.md").read_text()
+        assert "chat_message_id.py" in setup
+        assert "plow_chat message <uid>" in setup
+        assert "HANDLE:none" in setup
+        assert "a Messages chat plus rowid, a" in setup and "named mail reader's message id" in setup
 
     def test_record_setup_is_executable_and_referenced(self):
         script = ROOT / "pt-shared" / "scripts" / "record_setup.py"

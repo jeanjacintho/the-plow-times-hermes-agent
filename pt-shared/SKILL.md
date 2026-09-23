@@ -76,6 +76,14 @@ does not, and every run fails on the import.
 - `scripts/chat_status.py --busy` — setup's hang-on during pt-setup Latch/Mac
   work (one hang-on, then one "still on it", never a play-by-play). Cron never
   calls it.
+- `scripts/chat_message_id.py` — issue #85's item for a `plow_chat` message with no
+  Messages or mail counterpart: the owner's own latest message's uid on the home
+  channel, read back through the same Plow Chat API `post_to_chat.py` posts through.
+  Bare, no arguments. Prints `HANDLE:<uid>` or `HANDLE:none` (the API could not be
+  read, or answered with nothing usable) and always exits 0; a caller treats
+  `HANDLE:none` exactly like a phone/mail line with no handle. Read-only. Called
+  synchronously while processing the owner's own message, so the channel's latest
+  entry is that message. **This bullet is the contract.**
 - `scripts/owner_time.py` — the owner's own clock, not the container's:
   `owner_now()` (an aware datetime) and `owner_today()`, from `owner.timezone`
   in `pt/config.json`. Falls back to the container's clock only when the
