@@ -26,8 +26,8 @@ def test_every_runtime_key_lands_on_the_seed(tmp_path):
     merge.main([str(seed), str(ROOT / "runtime" / "config.yaml")])
     out = yaml.safe_load(seed.read_text())
 
-    assert out["model"]["default"] == "openai/gpt-6-astra"
-    assert set(out["providers"]["plow"]["models"]) == {"z-ai/glm-5.2", "openai/gpt-6-astra"}
+    assert out["model"]["default"] == "anthropic/claude-opus-5"
+    assert set(out["providers"]["plow"]["models"]) == {"z-ai/glm-5.2", "anthropic/claude-opus-5"}
     assert out["context_file_max_chars"] == 40000
     assert out["cron"] == {"model_drift_guard": False, "wrap_response": False}
     assert out["agent"] == {"disabled_toolsets": ["clarify", "web", "search", "browser"],
