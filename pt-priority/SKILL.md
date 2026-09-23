@@ -38,7 +38,7 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
   re-open is **unsupported**: not disproved, and not a fact this page may rest on.
 - Everything this desk writes -- headline, body, first step, questions -- is in the owner's
   language: the value read during Orient, not a language inferred from this file, whose examples
-  are not a hint. `owner.language` is free-form (pt-edition/SKILL.md: "Mandarin in, Mandarin
+  are not a hint. `owner.language` is free-form (SOUL.md: "Mandarin in, Mandarin
   out"), so it is a language to write in, never a flag to branch on. It speaks to the reader
   directly in it (`you` in English, `você` in Portuguese), never about them by name;
   “the founder” appears only when discussing the advisor's general framework, never as a label
@@ -204,10 +204,9 @@ targets reach Cull, the culler returns exactly three; it may overrule every pros
 A recommendation without a supporting sourced quote is ineligible, not a slot to pad: its quoted
 words must support the recommendation's actual proposition, not merely come from the same advisor.
 **The three it returns quote three different sourced lines.** Two winners resting on the same
-quotation is a card the renderer refuses outright (`recommendations reuse an advisor quote`), and
-it refuses at the end of the run, where a repair costs turns in a context that has already carried
-three generations -- measured 2026-09-22, that repair is what preceded the run stalling before it
-rendered anything. Settle it here, where the culler is holding all three: if two targets rest on
+quotation is a card the renderer refuses outright (`recommendations reuse an advisor quote`), at
+the end of the run, where a repair costs turns in a context that has already carried three
+generations. Settle it here, where the culler is holding all three: if two targets rest on
 one line, re-quote one from its advisor's other sourced words, or take the next-ranked target.
 Before building the candidate, rewrite every reference to the owner by name or role into direct
 reader voice in every recommendation and question. Write every headline, body, FIRST STEP and

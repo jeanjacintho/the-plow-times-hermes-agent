@@ -12,6 +12,7 @@ import pytest
 from conftest import load_module
 
 topics = load_module("topics", "pt-intake/scripts/topics.py")
+ONE_OFF = ["--kind", "one_off", "--scheduled-for", "2099-01-01T07:03:00-03:00"]
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def test_mutating_commands_hold_the_topic_store_lock(pt_home, monkeypatch):
 
     monkeypatch.setattr(topics, "cmd_add", assert_locked)
     assert topics.main([
-        "add", "--text", "x", "--kind", "one_off", "--depth", "quick",
+        "add", "--text", "x", *ONE_OFF, "--depth", "quick",
     ]) == 0
 
 
@@ -53,17 +54,17 @@ class TestAdd:
         assert added["last_edition_at"] is None
 
     def test_add_prints_envelope(self, pt_home, capsys):
-        topics.main(["add", "--text", "x", "--kind", "one_off", "--depth", "quick"])
+        topics.main(["add", "--text", "x", *ONE_OFF, "--depth", "quick"])
         envelope = json.loads(capsys.readouterr().out)
         assert envelope["kind"] == "one_off"
 
     def test_blank_text_refused(self, pt_home):
         with pytest.raises(SystemExit):
-            topics.main(["add", "--text", "   ", "--kind", "one_off",
+            topics.main(["add", "--text", "   ", *ONE_OFF,
                          "--depth", "quick"])
 
     def test_add_preserves_existing_topics(self, pt_home):
-        topics.main(["add", "--text", "first", "--kind", "one_off", "--depth", "quick"])
+        topics.main(["add", "--text", "first", *ONE_OFF, "--depth", "quick"])
         topics.main(["add", "--text", "second", "--kind", "subscription",
                      "--depth", "deep"])
         assert len(read_store(pt_home)) == 2
@@ -71,7 +72,7 @@ class TestAdd:
     def test_ids_are_unique(self, pt_home):
         seen = set()
         for i in range(40):
-            topics.main(["add", "--text", f"t{i}", "--kind", "one_off",
+            topics.main(["add", "--text", f"t{i}", *ONE_OFF,
                          "--depth", "quick"])
         for topic in read_store(pt_home):
             assert topic["id"] not in seen
@@ -80,7 +81,8 @@ class TestAdd:
 
 class TestTransitions:
     def add(self, kind, pt_home):
-        topics.main(["add", "--text", "x", "--kind", kind,
+        flags = ONE_OFF if kind == "one_off" else ["--kind", kind]
+        topics.main(["add", "--text", "x", *flags,
                      "--depth", "quick" if kind == "one_off" else "deep"])
         return read_store(pt_home)[-1]["id"]
 
@@ -130,7 +132,7 @@ class TestTransitions:
 
 class TestResolve:
     def test_unique_prefix_matches(self, pt_home, capsys):
-        topics.main(["add", "--text", "x", "--kind", "one_off", "--depth", "quick"])
+        topics.main(["add", "--text", "x", *ONE_OFF, "--depth", "quick"])
         tid = read_store(pt_home)[0]["id"]
         capsys.readouterr()
         topics.main(["mark", tid[:3], "--status", "running"])
@@ -210,11 +212,17 @@ class TestSections:
             topics.main(["add", "--text", "x", "--kind", "subscription",
                          "--depth", "deep", "--deliver-at", "12:30"])
 
-    @pytest.mark.parametrize("bad", ["12:3", "25:00", "12:60", "noon", "7:00"])
-    def test_malformed_deliver_at_refused(self, pt_home, bad):
-        with pytest.raises(SystemExit, match="strict HH:MM"):
-            topics.main(["add", "--text", "sports", "--kind", "section",
-                         "--depth", "quick", "--deliver-at", bad])
+    @pytest.mark.parametrize("flags, match", [
+        *((["--kind", "section", "--deliver-at", bad], "strict HH:MM")
+          for bad in ["12:3", "25:00", "12:60", "noon", "7:00"]),
+        # register_crons.py schedules a one-off from this instant alone.
+        (["--kind", "one_off"], "with offset"),
+        (["--kind", "one_off", "--scheduled-for", "2099-01-01T07:03:00"], "with offset"),
+        (["--kind", "one_off", "--scheduled-for", "soon"], "with offset"),
+    ])
+    def test_malformed_add_refused(self, pt_home, flags, match):
+        with pytest.raises(SystemExit, match=match):
+            topics.main(["add", "--text", "sports", *flags, "--depth", "quick"])
 
     def test_run_on_refused_on_non_assignment(self, pt_home):
         with pytest.raises(SystemExit, match="only meaningful for an assignment"):
@@ -360,7 +368,7 @@ class TestSectionsDoNotDuplicate:
 
         return topics.cmd_add(argparse.Namespace(
             text=text, kind=kind, depth=depth, run_on=None,
-            deliver_at=None, scheduled_for=None,
+            deliver_at=None, scheduled_for=ONE_OFF[-1],
         ))
 
     def test_adding_the_same_section_twice_keeps_one(self, tmp_path, monkeypatch, capsys):
@@ -411,7 +419,7 @@ class TestReopenSections:
     def test_delivered_and_running_sections_become_pending(self, pt_home, capsys):
         topics.main(["add", "--text", "AI", "--kind", "section", "--depth", "quick"])
         topics.main(["add", "--text", "F1", "--kind", "section", "--depth", "quick"])
-        topics.main(["add", "--text", "once", "--kind", "one_off", "--depth", "quick"])
+        topics.main(["add", "--text", "once", *ONE_OFF, "--depth", "quick"])
         ai, f1, once = (t["id"] for t in read_store(pt_home))
         topics.main(["mark", ai, "--status", "running"])
         topics.main(["mark", ai, "--status", "delivered"])
@@ -468,7 +476,7 @@ class TestConcurrentWriters:
         script = str(pathlib.Path(topics.__file__))
         env = {**os.environ, "PT_HOME": str(pt_home)}
         procs = [subprocess.Popen([sys.executable, script, "add", "--text", f"t{i}",
-                                   "--kind", "one_off", "--depth", "quick"],
+                                   *ONE_OFF, "--depth", "quick"],
                                   env=env, stdout=subprocess.DEVNULL)
                  for i in range(8)]
         assert all(p.wait() == 0 for p in procs)

@@ -27,13 +27,6 @@ COMPLETE = {
 }
 
 
-@pytest.fixture(autouse=True)
-def container_tz(monkeypatch):
-    """Every run has a container clock; the image sets TZ. Tests that care
-    about the conversion override it."""
-    monkeypatch.setenv("TZ", "America/Sao_Paulo")
-
-
 def seed(tmp_path, draft=None):
     (tmp_path / ".setup-draft.json").write_text(
         json.dumps(COMPLETE if draft is None else draft), encoding="utf-8"
@@ -56,29 +49,28 @@ class TestWritesAValidConfig:
         assert written["delivery"]["lead_minutes"] == 0
         assert "CONFIG:written" in out
 
-    @pytest.mark.parametrize(("hour", "lead"), [("07:00", 40), ("00:20", 40)])
+    @pytest.mark.parametrize(("hour", "lead"), [("07:00", 150), ("00:20", 150)])
     def test_priority_lead_minutes(self, tmp_path, hour, lead):
-        # Advisor pass is ~40 minutes; start the cron that early. The nominal lead is stored
-        # unclamped; registration clamps it per slot. Chat still waits for the hour: lead is the
-        # start clock, not the send clock.
+        # The lead covers pt-priority's three mandatory generations, so it is the tournament's own
+        # 150-minute window. The nominal lead is stored unclamped -- 00:20 keeps its 150 here and
+        # registration clamps it per slot. Chat still waits for the hour: lead is the start clock,
+        # not the send clock.
         config = seed(tmp_path, dict(COMPLETE, local_hour=hour, priority={"configured": True}))
         finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
         assert json.loads(config.read_text())["delivery"]["lead_minutes"] == lead
 
-    def test_keeps_the_hour_the_owner_named(self, tmp_path):
+    @pytest.mark.parametrize("container_tz", ["UTC", "", "Asia/Tokyo"])
+    def test_stores_the_hour_the_owner_named_whatever_the_container_clock(
+            self, tmp_path, monkeypatch, container_tz):
+        # register_crons.py converts at registration; the config holds the
+        # owner's wall clock and no container-clock copy of it.
+        monkeypatch.setenv("TZ", container_tz)
         config = seed(tmp_path)
-        finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
+        assert finalize.main(
+            ["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"]) == 0
         written = json.loads(config.read_text())
-        assert written["delivery"]["local_hour"] == "07:00"
-
-    def test_converts_the_hour_into_the_container_clock(self, tmp_path, monkeypatch):
-        # Owner in Sao Paulo (-03), container on UTC: 07:00 local is 10:00.
-        monkeypatch.setenv("TZ", "UTC")
-        config = seed(tmp_path)
-        finalize.main(["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"])
-        written = json.loads(config.read_text())
-        assert written["delivery"]["hour"] == "10:00"
-        assert written["delivery"]["local_hour"] == "07:00"
+        assert written["delivery"]["hour"] == "07:00"
+        assert "local_hour" not in written["delivery"]
 
     def test_printer_not_configured_writes_null_name(self, tmp_path):
         draft = dict(COMPLETE, printer={"configured": False})
@@ -123,22 +115,6 @@ class TestRefusesRatherThanWriteGarbage:
         )
         assert rc == 1
         assert "printer.name" in capsys.readouterr().err
-
-
-class TestContainerClock:
-    def test_refuses_when_the_container_tz_is_empty(self, tmp_path, monkeypatch, capsys):
-        # register_crons.py refuses unless the container TZ equals
-        # owner.timezone, so a config written against an empty clock is a
-        # schedule that never fires. Say the actual fix, once.
-        monkeypatch.setenv("TZ", "")
-        config = seed(tmp_path)
-        rc = finalize.main(
-            ["finalize_setup.py", str(config), "--owner-tz", "America/Sao_Paulo"]
-        )
-        assert rc == 1
-        assert not config.exists()
-        err = capsys.readouterr().err
-        assert "TZ" in err and "AGENT_TZ" in err
 
 
 class TestCarriesTheLanguage:

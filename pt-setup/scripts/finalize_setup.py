@@ -12,17 +12,16 @@ told the setup "hit a configuration error". Nothing was wrong with the data.
 
 This script is the fix, the same shape record_setup.py is for the draft:
 one named command that owns the file, so the close step never has to
-improvise a write. It reads the draft, converts the hour, writes the config,
-and validates it -- refusing, without leaving a partial file behind, rather
+improvise a write. It reads the draft, writes the config, and validates it -- refusing, without leaving a partial file behind, rather
 than writing something the gate would reject.
 
 Usage:
 
     finalize_setup.py <config.json path> --owner-tz <IANA zone>
 
-The zone is step 1's answer (from the browser), unconverted. The hour comes
-from the draft and is converted into the container's clock by
-convert_delivery.py's own function -- never by hand. Prints CONFIG:written
+The zone is step 1's answer (from the browser). The hour is the draft's, the
+owner's own wall clock; register_crons.py moves it onto the container's
+clock when it registers. Prints CONFIG:written
 plus the delivery line on success; on failure prints why, on stderr, and
 writes nothing.
 """
@@ -30,21 +29,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE.parent.parent / "pt-shared" / "scripts"))
-import convert_delivery as _convert  # noqa: E402 -- sibling script
 import pt_config_gate as _gate  # noqa: E402 -- the contract this must satisfy
 import record_setup as _record  # noqa: E402 -- next_question, the completeness rule
 
 
-def build(draft, owner_tz, container_tz):
+def build(draft, owner_tz):
     """The config.json body for a completed draft. Pure: no I/O."""
-    hour = _convert.convert(draft["local_hour"], owner_tz, container_tz)
     printer = draft.get("printer") or {}
     # owner.language is gate check 7 and what a SCHEDULED edition writes in.
     # pt-intake keeps it current from live chat, but the first paper can land
@@ -59,10 +56,7 @@ def build(draft, owner_tz, container_tz):
     config = {
         "owner": owner,
         "delivery": {
-            "hour": hour,
-            # Kept so a later edit can reason in the owner's own clock
-            # rather than re-deriving it from the container's.
-            "local_hour": draft["local_hour"],
+            "hour": draft["local_hour"],
             "lead_minutes": PRIORITY_LEAD_MINUTES if priority.get("configured") else 0,
         },
         "printer": {
@@ -76,9 +70,15 @@ def build(draft, owner_tz, container_tz):
     return config
 
 
-# The advisor pass takes ~40 minutes; cron starts that early. Stored nominal:
-# register_crons clamps it per slot against the owner's midnight.
-PRIORITY_LEAD_MINUTES = 40
+# The tournament, not a single advisor pass, is what the lead has to cover:
+# pt-priority requires three full generations before the paper may be
+# delivered, and only generation four and later are gated by its 150-minute
+# window. Three generations measured ~50 minutes with nothing yet rendered,
+# so 150 -- the window pt-priority already names -- is the lead that fits its
+# own budget, with the tournament's delivery.hour-30 rule holding the render
+# and print legs in the tail. Stored nominal: register_crons clamps it per
+# slot against the owner's midnight.
+PRIORITY_LEAD_MINUTES = 150
 
 
 def main(argv=None):
@@ -106,19 +106,12 @@ def main(argv=None):
         )
         return 1
 
-    container_tz = os.environ.get("TZ", "").strip()
-    if not container_tz:
-        print(
-            "error: the container's TZ is empty -- set TZ in compose.yml's "
-            "environment and restart (not AGENT_TZ)",
-            file=sys.stderr,
-        )
-        return 1
     try:
-        config = build(draft, args.owner_tz, container_tz)
-    except SystemExit as exc:  # convert_delivery exits on a bad hour/zone
-        print(str(exc), file=sys.stderr)
+        ZoneInfo(args.owner_tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        print(f"error: unknown owner timezone {args.owner_tz!r}", file=sys.stderr)
         return 1
+    config = build(draft, args.owner_tz)
 
     # Validated BEFORE it lands: a config the gate would reject must never
     # become the file the daily run reads.
@@ -130,7 +123,7 @@ def main(argv=None):
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print("CONFIG:written")
-    print(f"delivery.hour={config['delivery']['hour']} (owner {config['delivery']['local_hour']})")
+    print(f"delivery.hour={config['delivery']['hour']} ({args.owner_tz})")
     return 0
 
 

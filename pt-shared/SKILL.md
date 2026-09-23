@@ -1,17 +1,14 @@
 ---
 name: pt-shared
-description: The helper library every pt-* skill imports — the pt-config gate, the bearer-HTTP helpers, the chat delivery POST, the owner's wiki and the Latch print reference. Not a task; nothing here is invoked on its own. Read the references when a skill's SKILL.md points at one.
+description: The helper library every pt-* skill imports — the pt-config gate, the bearer-HTTP helpers, the chat delivery POST and the owner's wiki, each script's calling contract one bullet each. Not a task; nothing here is invoked on its own.
 ---
 
 # pt-shared — the pt-* skills' shared helpers
 
 Every pt-* skill's scripts reach this directory by its absolute deploy path,
-`/var/lib/hermes/skills/pt-shared/scripts` — every pt-* SKILL.md invokes
-its sibling scripts that way now, not by a `../../` relative path off
-whatever the terminal's cwd happens to be (measured live: `terminal.cwd` is
-unset on this agent, defaulting to the Hermes install tree, so a relative
-path off the calling skill's own directory never resolved and none of these
-scripts ever ran). This skill still has to land beside its siblings in the
+`/var/lib/hermes/skills/pt-shared/scripts`, never a `../../` relative path
+(`terminal.cwd` is unset on this agent, so a relative path never
+resolves). This skill still has to land beside its siblings in the
 agent's skills store, and it carries a `SKILL.md` for the same reason
 `ld-shared` does: the boot reconcile copies a bundled directory into the home
 only when it carries one, and without this file the producers seed and this
@@ -50,12 +47,10 @@ does not, and every run fails on the import.
   names what did not happen. The print leg and the wiki scripts both use it.
   `connect()` uses the `PLOW_MCP_URL` / `PLOW_AGENT_TOKEN` the pinned base
   publishes to every service at boot, on both install shapes and with no
-  second path to prefer over it. There is no static DOMO_* branch: that pair
-  used to win here, and a stale one then answered 401 on every call while the
-  agent's own key sat unused beside it.
+  second path to prefer over it.
 - `scripts/owner_language.py` — `is_portuguese(language)`, the one place that
-  reads `owner.language` for repo-authored copy (the chat wait lines and the
-  priority card's "Advice from" line). A library, not a flow
+  reads `owner.language` for repo-authored copy (the chat wait lines, the
+  print-miss line and the priority card's "Advice from" line). A library, not a flow
   script: nothing invokes it, the pt-* scripts import it.
 - `scripts/wiki.py` — the paper's pages in the owner's wiki (`~/Plow/wiki`, plow-wiki):
   the root `projects/theplowtimes` (writer `theplowtimes`), the shared
@@ -74,9 +69,10 @@ does not, and every run fails on the import.
   chat-only mail/sports companion when present, or chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
   run file stays `edition.pdf` on disk). `--hold-until HH:MM` waits for
-  that clock before posting (scheduled papers; the on-demand copy has none). A successful
-  `--pdf` POST then runs `print_edition.py` when the printer
-  is configured (best-effort; a print failure does not undo the chat).
+  that clock before posting (scheduled papers; the on-demand copy has none). After
+  either POST it prints the run's `edition.pdf` when the printer is configured
+  (the text leg too, so a missing PDF is reported as a miss), records
+  the edition and finalizes its topics (`pt-edition` step 2).
 - `scripts/chat_status.py --busy` — setup's hang-on during pt-setup Latch/Mac
   work (one hang-on, then one "still on it", never a play-by-play). Cron never
   calls it.
@@ -108,6 +104,3 @@ does not, and every run fails on the import.
 - `references/config.example.json` — the config contract `pt_config_gate.py`
   enforces (including the optional `delivery.lead_minutes`, default 0, and
   optional `mail.configured`, default off)
-- `references/latch-delivery.md` — how the printed edition reaches the owner's
-  printer over Latch (`print_edition.py` is the handoff; this file is the
-  contract that script holds to)
