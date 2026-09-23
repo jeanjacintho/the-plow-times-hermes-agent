@@ -866,6 +866,30 @@ class TestScheduledHold:
         assert "--hold-until 03:00" in jobs[0]["prompt"]
         assert "--hold-until 10:30" in jobs[1]["prompt"]
 
+    def test_scheduled_prompt_states_its_tournament_window(self):
+        # issue #115: the desk needs its own effective lead to know whether
+        # a fresh tournament can finish, since nothing here refuses a lead
+        # too small to run one (issue #42 removed that kind of validation).
+        p = crons.paper_prompt(hold_until="07:00", lead_minutes=150)
+        assert "it has 150 minutes before 07:00" in p
+        assert f"below {crons.MIN_TOURNAMENT_MINUTES} minutes" in p
+        assert "unavailable card" in p
+
+    def test_on_demand_prompt_carries_no_tournament_window(self):
+        # The on-demand copy never waits on a fresh tournament (it reuses
+        # any accepted checkpoint), so it states no window to check against.
+        p = crons.paper_prompt(lead_minutes=40)
+        assert "minutes before" not in p
+        assert "unavailable card" not in p
+
+    def test_a_near_midnight_delivery_hour_states_the_clamped_window(self):
+        # _slot() clamps a 150-minute nominal lead down to the minutes still
+        # left before midnight; the prompt must carry that clamped number,
+        # not the nominal one, or the desk would think it has time it does not.
+        jobs = crons.desired_jobs([], "00:20", TZ, TZ, {}, 150)
+        prompt = jobs[0]["prompt"]
+        assert "it has 20 minutes before 00:20" in prompt
+
 
 class TestRunPromptsDelegateDelivery:
     """post_to_chat.py prints, records and finalizes after its POST, so the
