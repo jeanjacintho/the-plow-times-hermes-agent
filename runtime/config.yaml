@@ -32,6 +32,18 @@ providers:
 # Hermes truncates SOUL.md at 20 000 chars without this.
 context_file_max_chars: 40000
 
+# The seed compacts at 128 000 tokens, which was right for the Sonnet 5 it was
+# written against. Measured against the model this paper pins, the ceiling is
+# 1 000 000 -- the API's own refusal names it: "prompt is too long: 1311067
+# tokens > 1000000 maximum". Compacting at 128k spends 12.8% of the window and
+# then pays to summarize, and a tournament that must complete three generations
+# in one session is exactly the workload that loses its own evidence that way:
+# the 2026-09-22 11:32 run reached generation three and died after eight
+# compactions, on time it had. 400 000 leaves 600 000 of headroom against the
+# hard limit while removing the compaction churn from a normal run.
+compression:
+  threshold_tokens: 400000
+
 # No `mcp_servers` key on purpose. Reaching the owner's Mac over the Plow
 # relay is the whole point of this agent -- the browser it researches with is
 # the operator's Mac, not this container -- but the base image already
