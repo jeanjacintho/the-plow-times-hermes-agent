@@ -40,6 +40,7 @@ import os
 import pathlib
 import re
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 
@@ -70,6 +71,28 @@ def age_minutes(text):
     return (now() - stamp).total_seconds() / 60.0
 
 
+def _claim(path, content):
+    """Publish path atomically, pre-filled with content -- never an empty file
+    a concurrent acquirer could read mid-creation. Written to a temp inode in
+    the same directory, then claimed with an exclusive link: link fails if
+    path already exists, so exactly one caller among racing claimants wins.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
+    try:
+        with os.fdopen(fd, "w") as handle:
+            handle.write(content)
+        try:
+            os.link(tmp_name, path)
+            return True
+        except FileExistsError:
+            return False
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+
+
 def acquire(name, stale_minutes, wait_seconds=0):
     """Take the lock, waiting out a fresh holder for up to wait_seconds.
 
@@ -80,36 +103,36 @@ def acquire(name, stale_minutes, wait_seconds=0):
     """
     path = lock_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
+    content = now().isoformat(timespec="seconds") + "\n"
     waited = 0
     while True:
+        if _claim(path, content):
+            print("acquired")
+            return 0
         try:
-            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-        except FileExistsError:
+            text = path.read_text()
+        except OSError:
+            text = ""
+        age = age_minutes(text)
+        if age is None or age > stale_minutes:
+            # A lock we cannot parse, or one older than the whole run
+            # budget, is a dead run's leftover -- taking it over beats
+            # blocking the paper forever. A parsed-and-fresh lock is a
+            # live owner: held, unless there is still time to wait it out.
             try:
-                text = path.read_text()
-            except OSError:
-                text = ""
-            age = age_minutes(text)
-            if age is None or age > stale_minutes:
-                # A lock we cannot parse, or one older than the whole run
-                # budget, is a dead run's leftover -- taking it over beats
-                # blocking the paper forever. A parsed-and-fresh lock is a
-                # live owner: held, unless there is still time to wait it out.
-                path.write_text(now().isoformat(timespec="seconds") + "\n")
+                path.unlink()
+            except FileNotFoundError:
+                continue  # another process already took it over
+            if _claim(path, content):
                 print("stale-takeover")
                 return 0
-            if waited < wait_seconds:
-                time.sleep(1)
-                waited += 1
-                continue
-            print("held")
-            return 0
-        else:
-            break
-    with os.fdopen(fd, "w") as handle:
-        handle.write(now().isoformat(timespec="seconds") + "\n")
-    print("acquired")
-    return 0
+            continue  # a fresh claim beat us right after our unlink
+        if waited < wait_seconds:
+            time.sleep(1)
+            waited += 1
+            continue
+        print("held")
+        return 0
 
 
 def release(name):

@@ -86,10 +86,8 @@ class TestWaitSeconds:
                 lock_path.unlink()
 
         monkeypatch.setattr(lock.time, "sleep", fake_sleep)
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = lock.acquire("daily-2026-09-11", 120, wait_seconds=5)
-        assert code == 0 and buf.getvalue().strip() == "acquired"
+        code, text = out(["acquire", "--name", "daily-2026-09-11", "--wait-seconds", "5"])
+        assert code == 0 and text == "acquired"
         assert calls == [1, 1]
 
     def test_gives_up_as_held_once_the_wait_budget_runs_out(self, pt_home, monkeypatch):
@@ -99,10 +97,8 @@ class TestWaitSeconds:
         calls = []
 
         monkeypatch.setattr(lock.time, "sleep", calls.append)
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = lock.acquire("daily-2026-09-11", 120, wait_seconds=3)
-        assert code == 0 and buf.getvalue().strip() == "held"
+        code, text = out(["acquire", "--name", "daily-2026-09-11", "--wait-seconds", "3"])
+        assert code == 0 and text == "held"
         assert calls == [1, 1, 1]
 
     def test_a_lock_that_goes_stale_mid_wait_is_taken_over_without_using_the_full_budget(self, pt_home, monkeypatch):
@@ -121,8 +117,6 @@ class TestWaitSeconds:
             )
 
         monkeypatch.setattr(lock.time, "sleep", fake_sleep)
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = lock.acquire("daily-2026-09-11", 120, wait_seconds=60)
-        assert code == 0 and buf.getvalue().strip() == "stale-takeover"
+        code, text = out(["acquire", "--name", "daily-2026-09-11", "--wait-seconds", "60"])
+        assert code == 0 and text == "stale-takeover"
         assert len(calls) < 60

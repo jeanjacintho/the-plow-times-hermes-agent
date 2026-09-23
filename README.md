@@ -71,6 +71,13 @@ docker compose down -v       # wipe local memory (new setup)
 plow-agents revoke           # retire the line in plow-credentials
 ```
 
+Upgrading an existing install (`docker compose up --build -d` on a running
+instance): the restarted agent keeps its old `jobs.json` as-is, so a change
+to a prompt or schedule in this release will not take effect until the
+crons are re-registered. Text the agent to run `register_crons.py` again
+once it is back up, and check the output it pastes back — see
+[pt-dashboard/SKILL.md](pt-dashboard/SKILL.md) for what that step reconciles.
+
 `plow-credentials` is gitignored. Do not commit it.
 
 ## Known limitations
