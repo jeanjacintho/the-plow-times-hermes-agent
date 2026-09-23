@@ -16,7 +16,7 @@
 # chat and no groups (design doc §3.2), so the image default is fine.
 
 model:
-  default: anthropic/claude-sonnet-5
+  default: anthropic/claude-opus-5
   provider: plow
   base_url: "${PLOW_API_BASE}/v1"
   key_env: HERMES_CUSTOM_PLOW_API_KEY
@@ -27,7 +27,7 @@ providers:
     key_env: HERMES_CUSTOM_PLOW_API_KEY
     stale_timeout_seconds: 55
     models:
-      anthropic/claude-sonnet-5: {}
+      anthropic/claude-opus-5: {}
 
 # Hermes truncates SOUL.md at 20 000 chars without this.
 context_file_max_chars: 40000

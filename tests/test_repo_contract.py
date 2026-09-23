@@ -979,9 +979,9 @@ class TestDeployment:
         assert "interim_assistant_messages: false" in config
         assert 'tool_progress: "off"' in config
         assert "long_running_notifications: false" in config
-        assert "anthropic/claude-sonnet-5" in config
-        assert "default: anthropic/claude-sonnet-5" in config
-        assert "anthropic/claude-sonnet-5: {}" in config
+        assert "anthropic/claude-opus-5" in config
+        assert "default: anthropic/claude-opus-5" in config
+        assert "anthropic/claude-opus-5: {}" in config
 
     def test_compose_yml_is_the_plow_agents_surface(self):
         # plow-agents' compose.example.yml: service `agent`, credential drop-in,
