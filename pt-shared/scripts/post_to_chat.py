@@ -57,6 +57,7 @@ from zoneinfo import ZoneInfo
 
 from bearer_http import post_json, post_json_read, put_bytes, require
 from owner_language import is_portuguese
+from owner_time import owner_now
 from setup_needed import owner_language
 
 
@@ -235,12 +236,18 @@ def print_page(pdf_path):
 RECORD_TIMEOUT = 300
 
 
-def run_record_edition(edition_json):
+def run_record_edition(edition_json, delivered_at):
+    """delivered_at is when the chat POST succeeded, captured once in main()
+    and passed through -- not a fresh owner_now() here, well after whatever
+    the print step's own polling took, which would otherwise stand in for
+    this edition's own time and let it out-race an already-recorded one
+    that posted later but printed faster (issue #48)."""
     import subprocess
 
     try:
         proc = subprocess.run(
-            [sys.executable, str(RECORD_SCRIPT), edition_json],
+            [sys.executable, str(RECORD_SCRIPT), edition_json,
+             "--now", delivered_at.isoformat()],
             capture_output=True,
             text=True,
             timeout=RECORD_TIMEOUT,
@@ -365,6 +372,7 @@ def main():
     body = compose_payload(text, attachment_uid)
 
     post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
+    delivered_at = owner_now()
     posted_path = args.pdf or args.text_file
     edition_json = str(Path(posted_path).parent / "edition.json") if posted_path else None
     topics_result = (
@@ -386,7 +394,7 @@ def main():
         except SystemExit as exc:
             print(f"print-failure notice not posted: {exc}", file=sys.stderr)
     recorded = (
-        _best_effort(run_record_edition, (edition_json,), "edition not recorded")
+        _best_effort(run_record_edition, (edition_json, delivered_at), "edition not recorded")
         if edition_json else "skipped: no posted file"
     )
     print(recorded)

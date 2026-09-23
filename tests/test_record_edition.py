@@ -78,6 +78,12 @@ class TestIsLatestEdition:
     def test_latest_edition(self, prior_at, now, expected):
         assert rec._is_latest_edition(prior_at, now) is expected
 
+    def test_a_naive_prior_at_has_nothing_to_lose_to(self):
+        # An owner typing a date by hand (issue #48: the page is meant to be
+        # hand-edited) is a likelier source of a naive value than record()
+        # ever writing one; comparing it to an aware `now` must not raise.
+        assert rec._is_latest_edition("2026-09-19T14:00:00", MORNING) is True
+
 
 class TestRecord:
     def test_the_day_page_keeps_the_card_and_the_research_and_is_listed(self, mac, tmp_path):
@@ -133,6 +139,19 @@ class TestRecord:
         meta, body = split_page(day(mac))
         assert "## 06:04 edition" in body and "## 14:00 edition" in body
         assert meta["priority"]["headline"] == "Book the Acme demo"
+
+    def test_priority_at_keeps_sub_second_precision(self, mac, tmp_path):
+        # Two editions half a second apart, same minute: truncating priority_at
+        # to whole seconds would compare them equal and let whichever writes
+        # second win regardless of which one is actually later.
+        earlier = AFTERNOON
+        later = AFTERNOON.replace(microsecond=500_000)
+        w = Wiki(mac.call_tool)
+        rec.record(w, edition(tmp_path, headline="Earlier this second"), "cht_1", earlier)
+        rec.record(w, edition(tmp_path, headline="Later this second"), "cht_1", later)
+        meta = split_page(day(mac))[0]
+        assert meta["priority"]["headline"] == "Later this second"
+        assert meta["priority_at"] == later.isoformat()
 
     def test_the_same_edition_twice_is_recorded_once(self, mac, tmp_path):
         w, path = Wiki(mac.call_tool), edition(tmp_path)
@@ -215,3 +234,18 @@ class TestCli:
         monkeypatch.setenv("PLOW_HOME_CHANNEL", "cht_1")
         rec.main([str(path)])
         assert "## 13:30 edition" in day(mac)
+
+    def test_now_flag_uses_the_delivery_moment_instead_of_owner_now(self, mac, monkeypatch, tmp_path):
+        # issue #48: post_to_chat.py passes the timestamp it captured right
+        # after the chat POST, so a slow print step run afterward cannot
+        # stand in for this edition's own time.
+        path = edition(tmp_path)
+        monkeypatch.setattr(rec, "connect", lambda: Wiki(mac.call_tool))
+        monkeypatch.setattr(rec, "owner_now", lambda: MORNING)  # must not be used
+        monkeypatch.setenv("PLOW_HOME_CHANNEL", "cht_1")
+        rec.main([str(path), "--now", AFTERNOON.isoformat()])
+        assert "## 14:00 edition" in day(mac)
+
+    def test_an_unparseable_now_flag_is_refused_by_name(self, mac, tmp_path):
+        with pytest.raises(SystemExit, match="--now 'garbage' is not ISO8601"):
+            rec.main([str(edition(tmp_path)), "--now", "garbage"])

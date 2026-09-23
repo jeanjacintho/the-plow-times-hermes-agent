@@ -122,10 +122,12 @@ def _is_latest_edition(prior_at, now):
     if not prior_at:
         return True
     try:
-        prior = datetime.fromisoformat(prior_at)
-    except ValueError:
+        return now >= datetime.fromisoformat(prior_at)
+    except (ValueError, TypeError):
+        # ValueError: not an ISO string at all. TypeError: parsed but naive
+        # (no offset) against an aware `now` -- an owner typing a date by
+        # hand is a likelier source than a fresh guess at the missing zone.
         return True
-    return now >= prior
 
 
 def record(wiki, edition_json, chat, now):
@@ -185,7 +187,10 @@ def record(wiki, edition_json, chat, now):
             if card and _is_latest_edition(meta.get("priority_at"), now):
                 meta["description"] = card["recommendations"][0]["headline"]
                 meta["priority"] = card
-                meta["priority_at"] = now.isoformat(timespec="seconds")
+                # Full precision: two edits landing under the same second's
+                # truncation would otherwise compare equal and let whichever
+                # writes second win regardless of which was actually later.
+                meta["priority_at"] = now.isoformat()
             elif not meta.get("description"):
                 meta["description"] = news[0].get("headline") or news[0]["title"]
             meta["updated"] = now.isoformat(timespec="seconds")
@@ -202,9 +207,20 @@ def record(wiki, edition_json, chat, now):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Put a delivered edition into the owner's wiki.")
     parser.add_argument("edition_json")
+    parser.add_argument(
+        "--now", default=None,
+        help="ISO8601 moment this edition was delivered (post_to_chat.py passes the "
+             "timestamp it captured right after the chat POST succeeded, so a slow "
+             "print or record step run afterward cannot masquerade as a later "
+             "edition). Defaults to owner_now() -- a manual, standalone run.",
+    )
     args = parser.parse_args(argv)
     try:
-        print(record(connect(), args.edition_json, require("PLOW_HOME_CHANNEL"), owner_now()))
+        now = datetime.fromisoformat(args.now) if args.now else owner_now()
+    except ValueError as exc:
+        sys.exit(f"error: --now {args.now!r} is not ISO8601 ({exc})")
+    try:
+        print(record(connect(), args.edition_json, require("PLOW_HOME_CHANNEL"), now))
     except (LatchError, OSError, ValueError, KeyError, TypeError) as exc:
         sys.exit(f"error: edition not recorded — {exc}")
 

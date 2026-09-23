@@ -15,6 +15,9 @@ from conftest import ROOT, load_module
 sys.path.insert(0, str(ROOT / "pt-shared" / "scripts"))
 post = load_module("post_to_chat", "pt-shared/scripts/post_to_chat.py")
 
+MORNING = datetime(2026, 9, 19, 6, 4, tzinfo=ZoneInfo("America/Sao_Paulo"))
+AFTERNOON = datetime(2026, 9, 19, 14, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
+
 
 class TestComposePayload:
     @pytest.mark.parametrize("text", ["Mail summary", ""])
@@ -151,8 +154,17 @@ class TestRunRecord:
             raise subprocess.TimeoutExpired(cmd="record_edition.py", timeout=kwargs.get("timeout"))
 
         monkeypatch.setattr(subprocess, "run", fake_run)
-        out = post.run_record_edition("run/1/edition.json")
+        out = post.run_record_edition("run/1/edition.json", MORNING)
         assert out == f"edition not recorded — timed out after {post.RECORD_TIMEOUT}s"
+
+    def test_passes_the_delivered_at_it_was_given_as_the_now_flag(self, monkeypatch):
+        # issue #48: this must be the timestamp captured right after the chat
+        # POST, not a fresh clock read taken here after other finalizers run.
+        argv = []
+        monkeypatch.setattr(subprocess, "run", lambda a, **k: argv.extend(a) or
+                             types.SimpleNamespace(returncode=0, stdout="RECORDED x.md", stderr=""))
+        post.run_record_edition("run/1/edition.json", MORNING)
+        assert argv[-2:] == ["--now", MORNING.isoformat()]
 
 
 class TestFinalizersRunIndependently:
@@ -195,7 +207,7 @@ class TestFinalizersRunIndependently:
             tmp_path, monkeypatch,
             run_finalize_topics=lambda path: paths.append(path) or order.append("finalize") or topics,
             print_page=lambda *a, **k: order.append("print") or print_result,
-            run_record_edition=lambda path: paths.append(path) or order.append("record") or recorded,
+            run_record_edition=lambda path, delivered_at: paths.append(path) or order.append("record") or recorded,
         )
         if error:
             with pytest.raises(SystemExit, match=error):
@@ -216,6 +228,28 @@ class TestFinalizersRunIndependently:
         )
         post.main()
         assert order == ["record"]
+
+    def test_record_gets_the_post_moment_not_a_clock_read_after_the_slow_print_step(
+            self, tmp_path, monkeypatch):
+        # issue #48: the print step can poll for minutes; record_edition.py's
+        # own now must not be sampled after it, or a fast-printing edition
+        # could out-race an already-recorded one that posted first but
+        # printed slower.
+        clock = iter([MORNING, AFTERNOON])  # captured at POST, then print "later"
+        monkeypatch.setattr(post, "owner_now", lambda: next(clock))
+        seen = []
+
+        def fake_print_page(*a, **k):
+            post.owner_now()  # simulates the slow print step's own clock read
+            return "page printed"
+
+        self._mock_main(
+            tmp_path, monkeypatch,
+            print_page=fake_print_page,
+            run_record_edition=lambda path, at: seen.append(at) or "RECORDED",
+        )
+        post.main()
+        assert seen == [MORNING]
 
     def test_delivery_has_no_duplicate_path_adapters(self):
         assert not hasattr(post, "maybe_finalize_topics")
