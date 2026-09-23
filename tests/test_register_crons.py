@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
-import pathlib
 
 import pytest
 
@@ -159,46 +157,37 @@ class TestDesiredJobs:
         assert "--deliver-at 12:00" in paper["prompt"]
         assert paper["schedule"] == "0 3 * * *"
 
-    @pytest.mark.parametrize("interrupted", [False, True])
-    def test_a_container_clock_config_moves_to_the_owners_at_boot_and_registers_as_before(
-            self, tmp_path, monkeypatch, interrupted):
-        # Written before hours moved to the owner's zone: container-clock
-        # hours, the owner's own main hour in delivery.local_hour.
-        monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
-        path = write_config(tmp_path, {**CONFIG, "owner": {"timezone": "Asia/Tokyo"},
-                                       "delivery": {"hour": "22:00", "local_hour": "07:00",
-                                                    "extra_hours": ["06:00"]}})
-        (tmp_path / "pt" / "topics.json").write_text(json.dumps({"topics": [
-            topic("t_1", kind="section", deliver_at="03:00"), topic("t_2", kind="section")]}))
+    @pytest.mark.parametrize("owner_tz, extra_hours, deliver_at, upgraded", [
+        # The live case: one zone, so every stored hour is already the owner's.
+        ("America/Los_Angeles", ["10:00"], "13:00", True),
+        ("Asia/Tokyo", [], None, True),
+        # Zones differ and container-clock times exist: refused, not guessed.
+        ("Asia/Tokyo", ["10:00"], None, False),
+        ("Asia/Tokyo", [], "13:00", False),
+    ])
+    def test_a_config_from_before_owner_clock_hours_adopts_local_hour(
+            self, tmp_path, owner_tz, extra_hours, deliver_at, upgraded):
+        legacy = {**CONFIG, "owner": {"timezone": owner_tz},
+                  "delivery": {"hour": "12:00", "local_hour": "04:00", "extra_hours": extra_hours}}
+        path = write_config(tmp_path, legacy)
+        topics = [topic("t_1", kind="section", deliver_at=deliver_at)]
+        if not upgraded:
+            with pytest.raises(SystemExit, match="predates owner-clock hours"):
+                crons.adopt_owner_clock(topics, owner_tz, "America/Los_Angeles", path)
+            assert json.loads(path.read_text()) == legacy
+            return
+        for _ in range(2):  # the second run finds nothing to redo
+            crons.adopt_owner_clock(topics, owner_tz, "America/Los_Angeles", path)
+        assert json.loads(path.read_text())["delivery"] == {"hour": "04:00", "extra_hours": extra_hours}
 
-        def boot():  # image/cont-init.d/03-pt-owner-clock
-            assert crons.main(["--owner-clock"], config_path=path, env={"TZ": "UTC"}) == 0
-
-        if interrupted:  # topics converted, then the config write dies
-            real_replace = os.replace
-
-            def crash_on_config(src, dst):
-                if pathlib.Path(dst) == path:
-                    raise OSError("killed")
-                real_replace(src, dst)
-            monkeypatch.setattr(os, "replace", crash_on_config)
-            with pytest.raises(OSError):
-                boot()
-            monkeypatch.setattr(os, "replace", real_replace)
-        boot()
-        assert json.loads(path.read_text())["delivery"] == {"hour": "07:00", "extra_hours": ["15:00"]}
-        # After the upgrade the owner books an 18:00 paper through intake,
-        # and the agent restarts before registering: nothing moves twice.
-        import topics as topics_mod
-        topics_mod.main(["add", "--text", "evening", "--kind", "section",
-                         "--depth", "quick", "--deliver-at", "18:00"])
-        boot()
-        topics = json.loads((tmp_path / "pt" / "topics.json").read_text())["topics"]
-        assert [t.get("deliver_at") for t in topics] == ["12:00", None, "18:00"]
-        jobs = crons.desired_jobs(topics, "07:00", "Asia/Tokyo", "UTC",
-                                  extra_hours=["15:00"])
-        assert [j["schedule"] for j in jobs] == [
-            "0 22 * * *", "0 6 * * *", "0 3 * * *", "0 9 * * *"]
+    @pytest.mark.parametrize("delivery, hours", [
+        ({"hour": "07:00"}, []),
+        ({"hour": "07:00", "extra_hours": None}, []),
+        ({"hour": "07:00", "extra_hours": ["10:30"]}, ["10:30"]),
+    ])
+    def test_extra_hours_absent_or_null_is_none(self, tmp_path, delivery, hours):
+        path = write_config(tmp_path, {**CONFIG, "delivery": delivery})
+        assert crons.load_extra_hours(path) == hours
 
     def test_cancelled_subscription_gets_no_job(self):
         jobs = crons.desired_jobs(

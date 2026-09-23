@@ -62,9 +62,8 @@ is the owner's wall clock in owner.timezone. `hermes cron create` takes no
 per-job zone and fires on the container's clock (TZ), as post_to_chat.py's
 --hold-until waits on it, so this script converts each hour into TZ when it
 registers, on today's date. A config still carrying delivery.local_hour was
-written when hours were stored on the container's clock; adopt_owner_clock()
-moves them onto the owner's at boot (--owner-clock), before the agent can
-write an owner-clock hour beside them.
+written when delivery.hour was on the container's clock; adopt_owner_clock()
+upgrades it on the next registration.
 
 It runs INSIDE the container, where /opt/hermes/bin/hermes and that file
 live -- from a turn, which inherits PLOW_HOME_CHANNEL from the gateway.
@@ -255,36 +254,31 @@ def load_zones(config_path=CONFIG_FILE, env=None):
     return owner, container
 
 
-def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
-    """Move a pre-owner-clock install's hours onto the owner's clock, once.
+def adopt_owner_clock(topics, owner_tz, container_tz, config_path=CONFIG_FILE):
+    """Upgrade a config written when delivery.hour was on the container's clock.
 
-    Such a config kept delivery.hour (and extra_hours, and every section's
-    deliver_at) on the container's clock, with the owner's own hour beside it
-    in delivery.local_hour. That key is the marker, and it goes last. A
-    retry after an interrupted run skips topics already tagged owner_clock,
-    which the same write that converts them sets.
+    Such a config kept the owner's own main hour in delivery.local_hour, so
+    that becomes delivery.hour, in one write that a re-run finds nothing to
+    redo. Its extra hours and paper times are already the owner's when the
+    two zones match; when they differ they are refused rather than guessed
+    through today's offsets.
     """
-    import topics as topics_mod
-
     path = pathlib.Path(config_path)
-    with topics_mod.mutation_lock():
-        config = json.loads(path.read_text())
-        delivery = config["delivery"]
-        if "local_hour" not in delivery:
-            return
-        topics = topics_mod.load_topics()
-        for topic in topics:
-            if topic.get("deliver_at") and not topic.get("owner_clock"):
-                topic["deliver_at"] = _move(topic["deliver_at"], container_tz, owner_tz)
-                topic["owner_clock"] = True
-        topics_mod.save_topics(topics)
-        if delivery.get("extra_hours"):
-            delivery["extra_hours"] = [_move(h, container_tz, owner_tz) for h in delivery["extra_hours"]]
-        delivery["hour"] = delivery.pop("local_hour")
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(config, indent=2) + "\n")
-        os.replace(tmp, path)
-    print(f"moved {path} onto the owner's clock ({owner_tz})")
+    config = json.loads(path.read_text())
+    delivery = config["delivery"]
+    if "local_hour" not in delivery:
+        return
+    timed = delivery.get("extra_hours") or any(
+        t.get("deliver_at") and t.get("status") != "cancelled" for t in topics)
+    if owner_tz != container_tz and timed:
+        raise SystemExit(
+            f"refusing to register: {path} predates owner-clock hours, and its extra "
+            f"hours / paper times are on the container's clock ({container_tz}), not "
+            f"the owner's ({owner_tz}). Ask the owner for those times again, write them "
+            "as their own clock, set delivery.hour to delivery.local_hour, remove "
+            "delivery.local_hour, and re-run.")
+    delivery["hour"] = delivery.pop("local_hour")
+    path.write_text(json.dumps(config, indent=2) + "\n")
 
 
 def _job_rows(jobs_path):
@@ -377,7 +371,7 @@ def load_extra_hours(config_path=CONFIG_FILE):
         ) from None
     except (OSError, ValueError) as exc:
         raise SystemExit(f"refusing to register: malformed {path} ({exc!r}).") from exc
-    hours = config.get("delivery", {}).get("extra_hours", [])
+    hours = config.get("delivery", {}).get("extra_hours") or []
     if not isinstance(hours, list) or not all(isinstance(h, str) for h in hours):
         raise SystemExit(
             f"refusing to register: {path} has delivery.extra_hours={hours!r}; "
@@ -423,13 +417,6 @@ def _minutes(hhmm):
     return hour * 60 + minute
 
 
-def _move(hour, from_tz, to_tz):
-    """HH:MM on today's date in from_tz, read on to_tz's clock."""
-    h, m = _hour_minute(hour)
-    at = datetime.now(ZoneInfo(from_tz)).replace(hour=h, minute=m, second=0, microsecond=0)
-    return at.astimezone(ZoneInfo(to_tz)).strftime("%H:%M")
-
-
 def _slot(hour, lead_minutes, owner_tz, container_tz):
     """(container HH:MM, lead) for one owner-clock hour.
 
@@ -437,7 +424,9 @@ def _slot(hour, lead_minutes, owner_tz, container_tz):
     so the run never starts before midnight on either clock -- the run's
     lock and paper are dated in the owner's zone.
     """
-    at = _move(hour, owner_tz, container_tz)
+    h, m = _hour_minute(hour)
+    at = datetime.now(ZoneInfo(owner_tz)).replace(hour=h, minute=m, second=0, microsecond=0)
+    at = at.astimezone(ZoneInfo(container_tz)).strftime("%H:%M")
     return at, min(lead_minutes, _minutes(hour), _minutes(at))
 
 
@@ -756,29 +745,21 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
         help="after registering, queue the main paper as a one-shot a minute "
              "out -- the on-demand copy, same prompt, no send clock",
     )
-    parser.add_argument(
-        "--owner-clock", action="store_true",
-        help="only move an older install's hours onto the owner's clock "
-             "(image/cont-init.d/03-pt-owner-clock, every boot)",
-    )
     args = parser.parse_args(argv if argv is not None else [])
-    if args.owner_clock:
-        adopt_owner_clock(*load_zones(config_path, env), config_path)
-        return 0
 
     if not shutil.which(HERMES) and not os.path.exists(HERMES):
         raise SystemExit(f"{HERMES} not found -- run this inside the agent container")
 
     owner_tz, container_tz = load_zones(config_path, env)
-    delivery_hour = load_delivery_hour(config_path)
-    extra_hours = load_extra_hours(config_path)
-    lead_minutes = load_lead_minutes(config_path)
-
     # The topic store, via pt-intake's single reader -- so a broken
     # topics.json refuses here too, rather than reading as "no topics" and
     # pruning every subscription job this run could have kept.
     import topics as topics_mod
     topics = topics_mod.load_topics()
+    adopt_owner_clock(topics, owner_tz, container_tz, config_path)
+    delivery_hour = load_delivery_hour(config_path)
+    extra_hours = load_extra_hours(config_path)
+    lead_minutes = load_lead_minutes(config_path)
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
