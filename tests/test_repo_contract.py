@@ -979,7 +979,6 @@ class TestDeployment:
         assert "interim_assistant_messages: false" in config
         assert 'tool_progress: "off"' in config
         assert "long_running_notifications: false" in config
-        assert "openai/gpt-6-astra" in config
         assert "default: openai/gpt-6-astra" in config
         assert "openai/gpt-6-astra: {}" in config
 
