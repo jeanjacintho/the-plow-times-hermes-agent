@@ -181,10 +181,16 @@ def acquire(name, stale_minutes, wait_seconds=0):
     """
     path = lock_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
-    token = secrets.token_hex(8)
-    content = now().isoformat(timespec="seconds") + "\n" + token + "\n"
     waited = 0
     while True:
+        # Built fresh on every attempt, not once before the wait loop: a
+        # waiter that sleeps up to wait_seconds before finally claiming
+        # would otherwise stamp the lock with when it started waiting, not
+        # when it actually claimed it -- understating its own age against
+        # --stale-minutes and letting a concurrent acquirer take it over
+        # before this run's real lifetime is up (srosro-review on a6508a0).
+        token = secrets.token_hex(8)
+        content = now().isoformat(timespec="seconds") + "\n" + token + "\n"
         with _serialized(name):
             result = _attempt(path, content, stale_minutes)
         if result in ("acquired", "stale-takeover"):
