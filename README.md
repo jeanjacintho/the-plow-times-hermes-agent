@@ -75,9 +75,10 @@ plow-agents revoke           # retire the line in plow-credentials
 
 ## Known limitations
 
-The daily cron is computed from the delivery hour on the date setup ran.
-Time zones that change for daylight saving can land one hour off until the
-owner changes the hour in chat.
+The daily cron is computed from the delivery hour on the date the crons were
+last registered. When the owner's zone and the container's shift for daylight
+saving on different dates, the paper can land one hour off until the next
+registration (any schedule change in chat re-registers).
 
 An edition delivered while the Mac is unreachable is not recorded in the
 wiki, and the next morning's advisor has no "yesterday" for it.

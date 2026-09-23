@@ -14,7 +14,7 @@ topic list:
 | `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 0) in the owner's zone, never before that day's midnight | one job; the **main** paper: desks, sections with no `deliver_at` (or `deliver_at` equal to this hour), and assignments due today. Cron may start early; `post_to_chat.py --hold-until` is the send clock |
 | `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | reprint of that **same main** roster later the same day — not a different newspaper |
 | `pt-paper-HHMM` | `<min> <hour> * * *` from a section `deliver_at` that is not `delivery.hour` (same lead subtraction) | one job per distinct hour; desks plus only the sections at that hour. Two sections at 12:30 share `pt-paper-1230`. A cancelled last section at that hour is pruned |
-| `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` (container TZ, both parts) | one per subscription topic not yet cancelled; created and removed as topics change |
+| `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour`, converted into `TZ` | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-shot at the topic's `scheduled_for` (pt-intake: `now + 3m` quick, next `delivery.hour` deep) | one per pending one-off still ahead, so a rebuild re-creates it; a past one is not re-armed. The sweep removes it once the topic is delivered, cancelled or missing |
 | `pt-daily-edition-now` | one-shot, a minute out | `register_crons.py --now`: the main paper on demand, same prompt as `pt-daily-edition` without `--hold-until`; the next `--now` replaces it, the sweep never removes it |
 
@@ -53,7 +53,7 @@ cancels a subscription, section or assignment.
 
 **Then paste its output verbatim and report its exit status. The run is not
 done until you have.** The script signals every refusal it has — a missing
-or unusable config, an `owner.timezone` that is not the container's zone, an
+or unusable config, a blank `owner.timezone`, an
 empty `TZ`, a blank `PLOW_HOME_CHANNEL`, a failed `cron create`, `edit` or `remove`,
 a registered-but-PAUSED job — through its output and a non-zero exit, and a
 turn does not propagate an exit code. If you summarise instead of pasting,
@@ -98,14 +98,11 @@ is a script and not a habit:
   not tell what is registered" as "nothing is" — that re-registers every
   job and duplicates all of them.
 - **The container's `TZ` and `owner.timezone` must both be nameable.**
-  `hermes cron create` takes no per-job zone, so every schedule fires in the
-  container's own zone, always — `owner.timezone` no longer has to equal it:
-  pt-setup converts the owner's stated local time into the container's local
-  time with `zoneinfo` before writing `delivery.hour`, so this script trusts
-  `delivery.hour` as already correct for the zone it is running in. What it
-  still refuses is an empty container `TZ` (nothing here could even attempt
-  the conversion) or a blank `owner.timezone` (pt-setup's conversion step,
-  and every reply that names it back to the owner, need it).
+  Stored hours are the owner's clock; `hermes cron create` takes no per-job
+  zone, so the script converts each hour into `TZ` as it registers. A config
+  still carrying `delivery.local_hour` (an older install) has that key
+  dropped when `TZ` equals `owner.timezone`; otherwise the script refuses and
+  names how to re-state the owner's times.
 
 A paused job is neither skipped nor duplicated: it is left alone, named, and
 the run exits non-zero after everything else finishes — the same contract
