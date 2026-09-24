@@ -74,6 +74,8 @@ does not, and every run fails on the import.
   has none). After either POST it prints the run's `edition.pdf` when the
   printer is configured (the text leg too, so a missing PDF is reported as a miss), records
   the edition and finalizes its topics (`pt-edition` step 2).
+- `scripts/hermes_cron.py` — the one reader of Hermes's `cron/jobs.json` and its
+  runnable rule (enabled, not paused), for `register_crons.py` and `post_to_chat.py`.
 - `scripts/pt_deliver.py` — `pt-deliver`'s no-agent hook: `register_crons.py` installs a
   copy in Hermes's scripts dir; it runs `post_to_chat.py --flush-outbox`. Never run it.
 - `scripts/chat_status.py --busy` — setup's hang-on during pt-setup Latch/Mac

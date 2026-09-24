@@ -87,11 +87,9 @@ from zoneinfo import ZoneInfo
 _SKILLS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..")
 sys.path[:0] = [os.path.join(_SKILLS, "pt-intake", "scripts"), os.path.join(_SKILLS, "pt-shared", "scripts")]
 from record_owner_language import _write_json  # noqa: E402 -- the config's atomic writer
+from hermes_cron import JOBS_FILE, job_rows, registered_jobs  # noqa: E402
 
 HERMES = "/opt/hermes/bin/hermes"
-# Where `hermes cron` persists its jobs -- nothing replays it on a rebuild,
-# which is the reason this script exists.
-JOBS_FILE = "/var/lib/hermes/cron/jobs.json"
 CONFIG_FILE = "/var/lib/hermes/pt/config.json"
 # The only job names this spec owns. Pinned as a fullmatch so a name that
 # does not parse is never interpreted, and a half-matching id never removes
@@ -269,34 +267,6 @@ def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
             "delivery.local_hour, and re-run.")
     del config["delivery"]["local_hour"]
     _write_json(path, config)
-
-
-def _job_rows(jobs_path):
-    """hermes's persisted job rows; only a missing file means none."""
-    try:
-        return json.loads(pathlib.Path(jobs_path).read_text())["jobs"]
-    except FileNotFoundError:
-        return []
-
-
-def registered_jobs(jobs_path=JOBS_FILE):
-    """What is already scheduled, from hermes's own persisted state.
-
-    Reads the file `hermes cron` writes rather than parsing `hermes cron
-    list` -- a human rendering nothing pins. Returns {name: is_runnable};
-    a paused job is registered but will never fire, and the caller must
-    tell those apart (re-registering duplicates it, skipping it silently
-    strands it).
-
-    The invariant with teeth: never read "I could not tell what is
-    registered" as "nothing is". Only FileNotFoundError means empty -- an
-    unreadable or unexpected file raises and stops the run.
-    """
-    jobs = _job_rows(jobs_path)
-    return {
-        job["name"]: bool(job["enabled"]) and not job["paused_at"]
-        for job in jobs
-    }
 
 
 def resolve_deliver(deliver, env=None):
@@ -643,7 +613,7 @@ def registered_specs(jobs_path=JOBS_FILE):
     rather than recreating on a guess (older rows, and the test fixtures,
     carry no schedule).
     """
-    jobs = _job_rows(jobs_path)
+    jobs = job_rows(jobs_path)
     return {
         job["name"]: {
             "schedule": _persisted_schedule_expr(job),
@@ -717,7 +687,7 @@ def queue_now(runner, jobs_path, lead_minutes, env=None, clock=None):
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
-    previous = [j["id"] for j in _job_rows(jobs_path) if j["name"] == NOW_NAME]
+    previous = [j["id"] for j in job_rows(jobs_path) if j["name"] == NOW_NAME]
     _check(runner(create_argv(job, env)), f"could not queue {NOW_NAME}")
     print(f"queued: {NOW_NAME} ({job['schedule']})")
     for job_id in previous:

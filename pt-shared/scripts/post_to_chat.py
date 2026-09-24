@@ -66,6 +66,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from bearer_http import post_json, post_json_read, put_bytes, require
+from hermes_cron import JOBS_FILE, registered_jobs
 from owner_language import is_portuguese
 from owner_time import owner_now
 from setup_needed import owner_language
@@ -120,18 +121,6 @@ def seconds_until_hhmm(hhmm, now=None):
     # is an hour off across a DST change.
     remaining = target.timestamp() - now.timestamp()
     return max(0.0, remaining)
-
-
-JOBS_FILE = Path("/var/lib/hermes/cron/jobs.json")
-
-
-def deliver_job_runs():
-    """Whether Hermes will fire pt-deliver: registered, enabled, not paused."""
-    try:
-        jobs = json.loads(JOBS_FILE.read_text())["jobs"]
-    except FileNotFoundError:
-        return False
-    return any(j["name"] == "pt-deliver" and j["enabled"] and not j["paused_at"] for j in jobs)
 
 
 def _pt_home():
@@ -509,7 +498,7 @@ def main():
 
     if args.hold_until:
         remaining = seconds_until_hhmm(args.hold_until)
-        if remaining > 0 and deliver_job_runs():
+        if remaining > 0 and registered_jobs(JOBS_FILE).get("pt-deliver"):
             stage(args.hold_until, remaining, text, args.pdf, args.text_file, args.filename)
             print(f"held for {args.hold_until} — pt-deliver posts it")
             return
