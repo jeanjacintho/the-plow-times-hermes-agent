@@ -292,7 +292,7 @@ class TestHoldUntil:
     staged in the outbox, and pt-deliver's --flush-outbox posts it.
     """
 
-    def _run(self, tmp_path, monkeypatch, capsys, remaining, hook=True):
+    def _run(self, tmp_path, monkeypatch, capsys, remaining, deliver_job=(True, None)):
         run = tmp_path / "run"
         run.mkdir()
         (run / "edition.json").write_text('{"date": "2026-09-24"}', encoding="utf-8")
@@ -301,9 +301,11 @@ class TestHoldUntil:
         monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
         monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
         monkeypatch.setattr(post, "seconds_until_hhmm", lambda hhmm: remaining)
-        monkeypatch.setattr(post, "DELIVER_HOOK", tmp_path / "pt-deliver.py")
-        if hook:
-            post.DELIVER_HOOK.touch()
+        monkeypatch.setattr(post, "JOBS_FILE", tmp_path / "jobs.json")
+        if deliver_job:
+            enabled, paused_at = deliver_job
+            post.JOBS_FILE.write_text(json.dumps({"jobs": [
+                {"name": "pt-deliver", "enabled": enabled, "paused_at": paused_at}]}))
         sent = []
         monkeypatch.setattr(post, "declare_and_upload", lambda b, u, t, pdf, filename: sent.append(
             ("upload", Path(pdf).read_bytes(), filename)) or "att_1")
@@ -327,12 +329,16 @@ class TestHoldUntil:
         ("print", b"%PDF-held"),
     ]
 
-    @pytest.mark.parametrize("remaining, hook", [
-        (0, True),  # the hour already passed
-        (3600, False),  # upgraded home, pt-deliver not registered yet: early, never stranded
+    @pytest.mark.parametrize("remaining, deliver_job", [
+        (0, (True, None)),  # the hour already passed
+        # Nothing would flush the outbox: early, never stranded.
+        (3600, None),  # upgraded home, pt-deliver not registered yet
+        (3600, (False, None)),  # disabled
+        (3600, (True, "2026-09-24T01:00:00")),  # paused
     ])
-    def test_posts_now(self, tmp_path, monkeypatch, capsys, remaining, hook):
-        sent, outbox, _ = self._run(tmp_path, monkeypatch, capsys, remaining=remaining, hook=hook)
+    def test_posts_now(self, tmp_path, monkeypatch, capsys, remaining, deliver_job):
+        sent, outbox, _ = self._run(tmp_path, monkeypatch, capsys, remaining=remaining,
+                                    deliver_job=deliver_job)
         assert sent == self.DELIVERED
         assert not outbox.exists()
 
