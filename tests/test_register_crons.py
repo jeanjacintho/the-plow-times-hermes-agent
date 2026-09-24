@@ -47,6 +47,11 @@ def job(name, enabled=True, paused_at=None):
     return {"name": name, "enabled": enabled, "paused_at": paused_at}
 
 
+# pt-deliver as hermes persists it: a registered, undrifted row.
+DELIVER_ROW = {**job("pt-deliver"), "schedule": {"kind": "cron", "expr": "* * * * *"},
+               "prompt": "", "skill": None, "script": "pt-deliver.py"}
+
+
 class TestRegisteredJobs:
     def test_missing_file_is_the_only_empty_answer(self, tmp_path):
         assert crons.registered_jobs(tmp_path / "jobs.json") == {}
@@ -269,6 +274,13 @@ class TestEditArgv:
         assert argv[argv.index("--deliver") + 1] == "plow_chat:chat_123"
         assert argv[2] == "edit"
 
+    def test_a_moved_script_is_edited_in_place_with_no_agent(self):
+        spec = {"schedule": "* * * * *", "prompt": "", "skill": None, "script": "old.py"}
+        assert crons.job_drift(crons.DELIVER_JOB, spec)
+        argv = crons.edit_argv(crons.DELIVER_JOB, {"PLOW_HOME_CHANNEL": "chat_123"})
+        assert argv[4:8] == ["--schedule", "* * * * *", "--script", "pt-deliver.py"]
+        assert "--no-agent" in argv and "--prompt" not in argv
+
 
 
 class TestMain:
@@ -302,6 +314,7 @@ class TestMain:
             config_path=pt_home / "config.json",
             env=env if env is not None else {"TZ": TZ, "PLOW_HOME_CHANNEL": "chat_123"},
             runner=runner,
+            scripts_dir=tmp_path / "scripts",
         )
 
     def test_now_queues_the_main_papers_own_prompt_as_a_one_shot(
@@ -370,10 +383,27 @@ class TestMain:
     def test_idempotent_run_skips_present(self, tmp_path, monkeypatch, hermes):
         calls = []
         code = self.run_main(tmp_path, monkeypatch, [topic("t_9f2a")],
-                             [job(crons.DAILY_NAME), job("pt-subscription-t_9f2a")],
+                             [DELIVER_ROW, job(crons.DAILY_NAME), job("pt-subscription-t_9f2a")],
                              calls=calls)
         assert code == 0
         assert calls == []  # nothing created, nothing removed
+
+    def test_registers_pt_deliver_as_a_no_agent_script_it_installs(
+            self, tmp_path, monkeypatch, hermes):
+        # Issue #125: a held paper is posted by this job, not by a session
+        # sleeping until its hour. Hermes runs only a real file in its
+        # scripts dir, and delivers its stdout to the chat.
+        calls = []
+        self.run_main(tmp_path, monkeypatch, [], [job(crons.DAILY_NAME)], calls=calls)
+        (create,) = [c for c in calls if "pt-deliver" in c]
+        assert create[2:8] == ["create", "* * * * *", "--script", "pt-deliver.py",
+                               "--no-agent", "--name"]
+        assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
+        assert "--skill" not in create
+        installed = (tmp_path / "scripts" / "pt-deliver.py").read_text()
+        assert installed == (ROOT / "pt-shared" / "scripts" / "pt_deliver.py").read_text()
+        assert "post_to_chat.py" in installed and "--flush-outbox" in installed
+        assert crons.stale_names([], {"pt-deliver": True}, delivery_hour="07:00") == []
 
     def test_removes_stale_and_creates_missing(
             self, tmp_path, monkeypatch, hermes):
@@ -735,6 +765,7 @@ class TestDriftMain:
             config_path=pt_home / "config.json",
             env=env if env is not None else {"TZ": TZ, "PLOW_HOME_CHANNEL": "chat_123"},
             runner=runner,
+            scripts_dir=tmp_path / "scripts",
         )
 
     def test_drifted_job_edited_in_place(self, tmp_path, monkeypatch, hermes):
@@ -745,8 +776,8 @@ class TestDriftMain:
         code = self.run_main(
             tmp_path, monkeypatch,
             [topic("t_1", kind="section")],
-            [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
-              "schedule": "15 6 * * *", "skill": "pt-research"}],
+            [DELIVER_ROW, {"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
+                           "schedule": "15 6 * * *", "skill": "pt-research"}],
             runner)
         assert code == 0
         assert any("edit" in c for c in calls)
@@ -764,8 +795,8 @@ class TestDriftMain:
             self.run_main(
                 tmp_path, monkeypatch,
                 [topic("t_1", kind="section")],
-                [{"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
-                  "schedule": "15 6 * * *", "skill": "pt-research"}],
+                [DELIVER_ROW, {"name": crons.DAILY_NAME, "enabled": True, "paused_at": None,
+                               "schedule": "15 6 * * *", "skill": "pt-research"}],
                 runner=failing,
             )
 

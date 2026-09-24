@@ -6,8 +6,8 @@ description: The Founder Times' cron spec — one nightly job per active subscri
 # The Founder Times — the cron spec
 
 Two shapes plus the paper, all derived from `/var/lib/hermes/pt/topics.json`
-at run time — unlike `ld-dashboard`'s fixed seven rows, this spec is the
-topic list:
+at run time (plus the static `pt-deliver`) — unlike `ld-dashboard`'s fixed
+seven rows, this spec is the topic list:
 
 | job | schedule | notes |
 |---|---|---|
@@ -17,6 +17,7 @@ topic list:
 | `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-shot at the topic's `scheduled_for` (pt-intake: `now + 3m` quick, next `delivery.hour` deep) | one per pending one-off still ahead, so a rebuild re-creates it; a past one is not re-armed. The sweep removes it once the topic is delivered, cancelled or missing |
 | `pt-daily-edition-now` | one-shot, a minute out | `register_crons.py --now`: the main paper on demand, same prompt as `pt-daily-edition` without `--hold-until`; the next `--now` replaces it, the sweep never removes it |
+| `pt-deliver` | `* * * * *` | static and never swept; `--no-agent --script pt-deliver.py` (installed by registration) runs `post_to_chat.py --flush-outbox`, which posts each paper `--hold-until` staged once its hour comes. Its stdout is the chat message, so it is empty unless a post fails |
 
 The daily schedule is computed in minutes, so `00:00 − 0min` is `0 0 * * *`
 (midnight itself). A lead that would reach back past midnight, such as
