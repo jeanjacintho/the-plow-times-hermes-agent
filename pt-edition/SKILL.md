@@ -267,9 +267,11 @@ this skill delivers it from that session like any other paper (no
    an empty body, the same envelope used for attachment-only sends.
 
    A **scheduled** paper's cron prompt adds `--hold-until HH:MM` (that job's
-   delivery hour). Honor it: the script sleeps until that clock in `TZ`, and
-   if the hour has already passed it posts immediately (never until tomorrow).
-   The on-demand copy's prompt carries none.
+   delivery hour). Honor it: with that clock in `TZ` still ahead the script
+   prints `held for HH:MM — pt-deliver posts it` and exits, and the
+   `pt-deliver` job posts, prints and records it at the hour; if the hour has
+   already passed it posts immediately (never until tomorrow). The on-demand
+   copy's prompt carries none.
 
    Omit `--pdf` **only** when step 1 established that weasyprint is
    genuinely absent — never because your own command failed. In that one
