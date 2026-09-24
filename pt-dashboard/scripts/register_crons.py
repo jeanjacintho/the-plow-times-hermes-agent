@@ -759,8 +759,9 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)
     pathlib.Path(scripts_dir).mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(os.path.join(_SKILLS, "pt-shared", "scripts", "pt_deliver.py"),
-                    os.path.join(scripts_dir, DELIVER_JOB["script"]))
+    hook = os.path.join(scripts_dir, DELIVER_JOB["script"])  # replaced whole: it runs every minute
+    shutil.copyfile(os.path.join(_SKILLS, "pt-shared", "scripts", "pt_deliver.py"), hook + ".tmp")
+    os.replace(hook + ".tmp", hook)
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
