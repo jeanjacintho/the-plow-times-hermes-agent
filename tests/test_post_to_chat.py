@@ -292,7 +292,7 @@ class TestHoldUntil:
     staged in the outbox, and pt-deliver's --flush-outbox posts it.
     """
 
-    def _run(self, tmp_path, monkeypatch, capsys, remaining):
+    def _run(self, tmp_path, monkeypatch, capsys, remaining, hook=True):
         run = tmp_path / "run"
         run.mkdir()
         (run / "edition.json").write_text('{"date": "2026-09-24"}', encoding="utf-8")
@@ -301,6 +301,9 @@ class TestHoldUntil:
         monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
         monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
         monkeypatch.setattr(post, "seconds_until_hhmm", lambda hhmm: remaining)
+        monkeypatch.setattr(post, "DELIVER_HOOK", tmp_path / "pt-deliver.py")
+        if hook:
+            post.DELIVER_HOOK.touch()
         sent = []
         monkeypatch.setattr(post, "declare_and_upload", lambda b, u, t, pdf, filename: sent.append(
             ("upload", Path(pdf).read_bytes(), filename)) or "att_1")
@@ -324,8 +327,12 @@ class TestHoldUntil:
         ("print", b"%PDF-held"),
     ]
 
-    def test_an_hour_already_passed_posts_now(self, tmp_path, monkeypatch, capsys):
-        sent, outbox, _ = self._run(tmp_path, monkeypatch, capsys, remaining=0)
+    @pytest.mark.parametrize("remaining, hook", [
+        (0, True),  # the hour already passed
+        (3600, False),  # upgraded home, pt-deliver not registered yet: early, never stranded
+    ])
+    def test_posts_now(self, tmp_path, monkeypatch, capsys, remaining, hook):
+        sent, outbox, _ = self._run(tmp_path, monkeypatch, capsys, remaining=remaining, hook=hook)
         assert sent == self.DELIVERED
         assert not outbox.exists()
 

@@ -36,7 +36,9 @@ attachment_uids) and optionally sends the companion as its body.
 stages copies of the files in the outbox and exits, and `--flush-outbox`
 (Hermes's no-agent `pt-deliver` job, every minute) posts each entry once its
 hour has come. Sleeping in the session was killed by Hermes's idle reaper
-(issue #125). If the hour has already passed, it posts now.
+(issue #125). If the hour has already passed, or pt-deliver's hook is not
+installed yet (an upgraded home before register_crons.py re-runs), it posts
+now: early beats a paper stranded in an outbox nothing flushes.
 After a successful POST, three
 finalizers run independently and best-effort: finalize exactly the topics carried by
 `edition.json`, print the run's PDF via print_edition.py when configured (a
@@ -117,6 +119,10 @@ def seconds_until_hhmm(hhmm, now=None):
     # is an hour off across a DST change.
     remaining = target.timestamp() - now.timestamp()
     return max(0.0, remaining)
+
+
+# register_crons.py installs this with the pt-deliver job; no hook, no flush.
+DELIVER_HOOK = Path("/var/lib/hermes/scripts/pt-deliver.py")
 
 
 def _pt_home():
@@ -494,7 +500,7 @@ def main():
 
     if args.hold_until:
         remaining = seconds_until_hhmm(args.hold_until)
-        if remaining > 0:
+        if remaining > 0 and DELIVER_HOOK.exists():
             stage(args.hold_until, remaining, text, args.pdf, args.text_file, args.filename)
             print(f"held for {args.hold_until} — pt-deliver posts it")
             return
