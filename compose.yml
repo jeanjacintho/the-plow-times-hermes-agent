@@ -18,6 +18,11 @@ services:
       # into it. Unset, plow-init would give cron America/Los_Angeles while
       # --hold-until read UTC. Changing it needs register_crons.py re-run.
       TZ: ${PT_TZ:-America/Sao_Paulo}
+      # Cron interrupts a session after this many idle seconds (default 600).
+      # A leaf wedged inside one tool stops the delegation heartbeat after
+      # 1200s, so 600 would end a five-hour paper on one stuck call. It stays
+      # finite so a truly dead run still frees its lock.
+      HERMES_CRON_TIMEOUT: "3600"
     volumes:
       # `.host`, not the path the agent reads: a bind carries this machine's
       # ownership in, and the image copies the file into place as root itself.

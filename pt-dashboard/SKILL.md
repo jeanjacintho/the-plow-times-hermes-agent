@@ -11,12 +11,12 @@ seven rows, this spec is the topic list:
 
 | job | schedule | notes |
 |---|---|---|
-| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 0) in the owner's zone, never before that day's midnight | one job; the **main** paper: desks, sections with no `deliver_at` (or `deliver_at` equal to this hour), and assignments due today. Cron may start early; `post_to_chat.py --hold-until` is the send clock |
-| `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | reprint of that **same main** roster later the same day — not a different newspaper |
+| `pt-daily-edition` | `<min> <hour> * * *`, computed as `delivery.hour − delivery.lead_minutes` (default 0) in the owner's zone, never before that day's midnight | one job; the **main** paper: desks, sections with no `deliver_at` (or `deliver_at` equal to this hour), and assignments due today. It starts `lead_minutes` early and posts when done: `delivery.hour` is its deadline, not a send clock |
+| `pt-daily-edition-<n>` (n ≥ 2) | same computation, against `delivery.extra_hours[n-2]` | reprint of that **same main** roster later the same day — not a different newspaper; `--hold-until` its hour |
 | `pt-paper-HHMM` | `<min> <hour> * * *` from a section `deliver_at` that is not `delivery.hour` (same lead subtraction) | one job per distinct hour; desks plus only the sections at that hour. Two sections at 12:30 share `pt-paper-1230`. A cancelled last section at that hour is pruned |
 | `pt-subscription-<id>` | `<min> <hour> * * *` from `delivery.hour` | one per subscription topic not yet cancelled; created and removed as topics change |
 | `pt-oneoff-<id>` | one-shot at the topic's `scheduled_for` (pt-intake: `now + 3m` quick, next `delivery.hour` deep) | one per pending one-off still ahead, so a rebuild re-creates it; a past one is not re-armed. The sweep removes it once the topic is delivered, cancelled or missing |
-| `pt-daily-edition-now` | one-shot, a minute out | `register_crons.py --now`: the main paper on demand, same prompt as `pt-daily-edition` without `--hold-until`; the next `--now` replaces it, the sweep never removes it |
+| `pt-daily-edition-now` | one-shot, a minute out | `register_crons.py --now`: the main paper on demand, reusing the newest accepted advice of any date; the next `--now` replaces it, the sweep never removes it |
 | `pt-deliver` | `* * * * *` | static and never swept; `--no-agent --script pt-deliver.py` (installed by registration) runs `post_to_chat.py --flush-outbox`, which posts each paper `--hold-until` staged once its hour comes. Its stdout is the chat message, so it is empty unless a post fails |
 
 The daily schedule is computed in minutes, so `00:00 − 0min` is `0 0 * * *`
@@ -26,10 +26,10 @@ The daily schedule is computed in minutes, so `00:00 − 0min` is `0 0 * * *`
 Every row still carries `--deliver plow_chat:${PLOW_HOME_CHANNEL}` (an
 unset or blank `PLOW_HOME_CHANNEL` refuses the registration by name). The
 edition itself is posted mid-run as the PDF plus any chat-only mail/sports
-companion (`post_to_chat.py --pdf --text-file`). Scheduled papers add
+companion (`post_to_chat.py --pdf --text-file`). Extra and focused papers add
 `--hold-until` at that job's hour so a
-recipe that finished early does not send before the clock; the on-demand
-copy has none. The job's final response is `NO_REPLY` so that `--deliver`
+recipe that finished early does not send before the clock; the main paper
+and the on-demand copy have none. The job's final response is `NO_REPLY` so that `--deliver`
 does not also send the research transcript. An empty target is a chat
 leg that silently delivers nowhere.
 

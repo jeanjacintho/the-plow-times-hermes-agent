@@ -71,14 +71,12 @@ def build(draft, owner_tz):
 
 
 # The tournament, not a single advisor pass, is what the lead has to cover:
-# pt-priority requires three full generations before the paper may be
-# delivered, and only generation four and later are gated by its 150-minute
-# window. Three generations measured ~50 minutes with nothing yet rendered,
-# so 150 -- the window pt-priority already names -- is the lead that fits its
-# own budget, with the tournament's delivery.hour-30 rule holding the render
-# and print legs in the tail. Stored nominal: register_crons clamps it per
-# slot against the owner's midnight.
-PRIORITY_LEAD_MINUTES = 150
+# pt-priority fills the window from the run's start to delivery.hour with
+# investigations and generations, so the lead is the desk's research time.
+# About five hours is the thorough overnight run the desk is designed for
+# (#129). Stored nominal: register_crons clamps it per slot against the
+# owner's midnight.
+PRIORITY_LEAD_MINUTES = 300
 
 
 def main(argv=None):

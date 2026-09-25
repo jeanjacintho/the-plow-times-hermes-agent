@@ -46,6 +46,12 @@ context_file_max_chars: 40000
 compression:
   threshold_tokens: 400000
 
+# The paper run is a thin conductor that hands each advisor-desk stage to a
+# coordinator child, which spawns its own investigators, writers and critics
+# (pt-priority/SKILL.md). Coordinators need depth 2; the default is 1.
+delegation:
+  max_spawn_depth: 2
+
 # No `mcp_servers` key on purpose. Reaching the owner's Mac over the Plow
 # relay is the whole point of this agent -- the browser it researches with is
 # the operator's Mac, not this container -- but the base image already

@@ -155,7 +155,7 @@ class TestDesiredJobs:
         by_name = {j["name"]: j for j in jobs}
         daily = by_name[crons.DAILY_NAME]
         assert daily["schedule"] == "0 22 * * *"
-        assert "--hold-until 22:00 " in daily["prompt"]
+        assert "--hold-until" not in daily["prompt"]
         assert by_name["pt-subscription-t_9f2a"]["schedule"] == "0 22 * * *"
         # The focused paper keeps the owner's hour as its name and roster key.
         paper = by_name[crons.paper_job_name("12:00")]
@@ -329,7 +329,7 @@ class TestMain:
         (create,) = [c for c in calls if crons.NOW_NAME in c]
         schedule, prompt = create[3], create[4]
         assert "T" in schedule  # an ISO instant: hermes fires it once
-        assert prompt == crons.paper_prompt()
+        assert prompt == crons.paper_prompt(on_demand=True)
         assert create[create.index("--deliver") + 1] == "plow_chat:chat_123"
         assert "queued: pt-daily-edition-now" in capsys.readouterr().out
 
@@ -507,15 +507,17 @@ class TestExtraDailyHours:
         jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", TZ, TZ, {}, 45)
         assert [j["name"] for j in jobs] == ["pt-daily-edition"]
 
-    @pytest.mark.parametrize("extra,section_hour", [
-        (["09:00"], None),
-        ([], "09:00"),
+    @pytest.mark.parametrize("extra,section_hour,lead,refusal", [
+        (["09:00"], None, 0, "07:00 and 09:00 are less than 180"),
+        ([], "09:00", 0, "07:00 and 09:00 are less than 180"),
+        # A paper fills its lead, so the next one may not start inside it.
+        (["11:00"], None, 300, "07:00 and 11:00 are less than 300"),
     ])
-    def test_papers_less_than_three_hours_apart_are_refused(self, extra, section_hour):
+    def test_papers_closer_than_a_run_are_refused(self, extra, section_hour, lead, refusal):
         topics = [topic("t_1", kind="section", deliver_at=section_hour)] if section_hour else []
 
-        with pytest.raises(SystemExit, match="paper times 07:00 and 09:00 are less than 180 minutes apart"):
-            crons.desired_jobs(topics, "07:00", TZ, TZ, {}, 0, extra_hours=extra)
+        with pytest.raises(SystemExit, match=f"paper times {refusal} minutes apart"):
+            crons.desired_jobs(topics, "07:00", TZ, TZ, {}, lead, extra_hours=extra)
 
     def test_multiple_extra_hours_are_numbered_in_order(self):
         jobs = crons.desired_jobs(
@@ -862,16 +864,14 @@ class TestCliPassesItsArguments:
 
 
 class TestScheduledHold:
-    """Two clocks: cron starts at hour−lead; POST waits for the hour."""
+    """The main paper prints when done: delivery.hour is its deadline, not a
+    send clock (#129). Extra and focused papers still hold for their hour."""
 
-    def test_daily_job_holds_until_delivery_hour(self):
+    def test_main_paper_prints_when_done(self):
         jobs = crons.desired_jobs([], "07:00", TZ, TZ, {})
-        prompt = jobs[0]["prompt"]
-        assert "--hold-until 07:00" in prompt
-        assert "--stale-minutes 240" in prompt
-
-    def test_on_demand_copy_does_not_hold(self):
-        p = crons.paper_prompt(lead_minutes=40)
+        assert "--hold-until" not in jobs[0]["prompt"]
+        assert "--stale-minutes 240" in jobs[0]["prompt"]
+        p = crons.paper_prompt(lead_minutes=40, on_demand=True)
         assert "--hold-until" not in p
         assert "--stale-minutes 280" in p
 
@@ -894,7 +894,7 @@ class TestScheduledHold:
         jobs = crons.desired_jobs(
             [topic("t_1", kind="section")], "03:00", TZ, TZ, {}, 45, extra_hours=["10:30"],
         )
-        assert "--hold-until 03:00" in jobs[0]["prompt"]
+        assert "--hold-until" not in jobs[0]["prompt"]
         assert "--hold-until 10:30" in jobs[1]["prompt"]
 
 
@@ -933,7 +933,7 @@ class TestRunPromptsDelegateDelivery:
         # Owner's call: the copy reuses the newest accepted advice of any
         # date, printed with its as-of date; only a paper that has never had
         # accepted advice runs the tournament.
-        prompt = crons.paper_prompt()
+        prompt = crons.paper_prompt(on_demand=True)
         assert "prepare_daily_run.py --preserve-priority" in prompt
         assert "newest accepted checkpoint" in prompt and "whatever its date" in prompt
         assert '"as_of"' in prompt
