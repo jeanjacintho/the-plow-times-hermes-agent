@@ -32,8 +32,14 @@ BY NAME, before anything posts, so a half-delivered run cannot happen.
 
 `--pdf PATH` attaches that file (declare -> upload -> message-with-
 attachment_uids) and optionally sends the companion as its body.
-`--hold-until HH:MM` waits until
-that clock in TZ before posting; if it has already passed, posts now.
+`--hold-until HH:MM` with that clock in TZ still ahead does not wait: it
+stages copies of the files in the outbox and exits, and `--flush-outbox`
+(Hermes's no-agent `pt-deliver` job, every minute) posts each entry once its
+hour has come. Sleeping in the session was killed by Hermes's idle reaper
+(issue #125). If the hour has already passed, or Hermes has no runnable
+pt-deliver job (an upgraded home before register_crons.py re-runs, a failed
+registration, a paused job), it posts now: early beats a paper stranded in
+an outbox nothing flushes.
 After a successful POST, three
 finalizers run independently and best-effort: finalize exactly the topics carried by
 `edition.json`, print the run's PDF via print_edition.py when configured (a
@@ -47,16 +53,20 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import json
 import mimetypes
 import os
 import re
+import shutil
 import sys
-import time
-from datetime import datetime
+import tempfile
+from contextlib import redirect_stdout
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from bearer_http import post_json, post_json_read, put_bytes, require
+from hermes_cron import JOBS_FILE, registered_jobs
 from owner_language import is_portuguese
 from owner_time import owner_now
 from setup_needed import owner_language
@@ -113,11 +123,58 @@ def seconds_until_hhmm(hhmm, now=None):
     return max(0.0, remaining)
 
 
-def hold_until(hhmm, sleep=time.sleep, now=None):
-    """Block until HH:MM today, or return immediately if that hour is past."""
-    remaining = seconds_until_hhmm(hhmm, now=now)
-    if remaining > 0:
-        sleep(remaining)
+def _pt_home():
+    return Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt"))
+
+
+def stage(hhmm, remaining, text, pdf=None, text_file=None, filename=None):
+    """Put a held paper in the outbox for --flush-outbox to post at HH:MM.
+
+    The entry holds copies, never paths into run/: the session's lock is
+    released right after, and the next paper's prepare_daily_run archives
+    run/. It is built under a dot-name and renamed into place, so a flush
+    never sees half an entry.
+    """
+    outbox = _pt_home() / "outbox"
+    outbox.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(prefix=".", dir=outbox))
+    if pdf:
+        shutil.copyfile(pdf, tmp / "edition.pdf")
+    if text:
+        (tmp / "edition.txt").write_text(text, encoding="utf-8")
+    if pdf or text_file:
+        shutil.copyfile(Path(pdf or text_file).parent / "edition.json", tmp / "edition.json")
+    now = datetime.now(timezone.utc)
+    due = now + timedelta(seconds=remaining)
+    (tmp / "delivery.json").write_text(json.dumps({
+        "due": due.isoformat(),
+        "filename": attachment_filename(pdf, filename) if pdf else None,
+    }))
+    os.rename(tmp, outbox / f"{now.astimezone(_hold_zone()):%Y-%m-%d}-{hhmm.replace(':', '')}")
+
+
+def flush_outbox(base, uid, token, now=None):
+    """pt-deliver's job: post every staged paper whose hour has come, oldest
+    first; a day-old entry is a late catch-up, not a skip.
+
+    Hermes delivers this job's stdout to chat, so success prints nothing
+    there. The entry stops being pending the moment its POST returns, before
+    the finalizers, so nothing posts twice; its files stay for them.
+    """
+    now = now or datetime.now(timezone.utc)
+    with redirect_stdout(sys.stderr):
+        for meta_path in sorted((_pt_home() / "outbox").glob("[!.]*/delivery.json")):
+            meta = json.loads(meta_path.read_text())
+            if datetime.fromisoformat(meta["due"]) > now:
+                continue
+            entry = meta_path.parent
+            pdf, txt = entry / "edition.pdf", entry / "edition.txt"
+            text = txt.read_text(encoding="utf-8") if txt.exists() else ""
+            deliver(base, uid, token, text,
+                    pdf=str(pdf) if pdf.exists() else None,
+                    text_file=str(txt) if txt.exists() else None,
+                    filename=meta["filename"], on_posted=meta_path.unlink)
+            shutil.rmtree(entry)
 
 
 def resolve_chat():
@@ -314,62 +371,13 @@ def declare_and_upload(base, uid, token, pdf_path, filename=None):
     return declared["uid"]
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Post an edition to the owner's Plow Chat.")
-    parser.add_argument(
-        "--pdf", default=None,
-        help="path to a PDF to attach (declare -> upload -> attach, same call the "
-             "platform's own adapter makes); omit to post text only",
-    )
-    parser.add_argument(
-        "--text-file", default=None,
-        help="read the chat edition, or a PDF's chat-only desk companion, "
-             "from this file instead of stdin (no shell redirect needed)",
-    )
-    parser.add_argument(
-        "--filename", default=None,
-        help="attachment name shown in chat (basename). Default is the PDF's "
-             "own basename, which for a run file is edition.pdf",
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="print the request instead of sending it"
-    )
-    parser.add_argument(
-        "--hold-until", default=None, metavar="HH:MM",
-        help="wait until this clock in TZ before posting; if it has already "
-             "passed, post immediately (scheduled papers only)",
-    )
-    args = parser.parse_args()
-
-    base, uid, token = resolve_chat()
-    if args.text_file:
-        text = read_text_file(args.text_file)
-    elif args.pdf:
-        text = ""
-    else:
-        text = read_message()
-    if not args.pdf and not text:
-        sys.exit("error: no edition text on stdin")
-
-    if args.dry_run:
-        attach_note = f" + attach {args.pdf}" if args.pdf else ""
-        if args.pdf:
-            attach_note += f" as {attachment_filename(args.pdf, args.filename)}"
-        kind = (f"pdf + {len(text)} chars" if args.pdf and text else "pdf-only") \
-            if args.pdf else f"{len(text)} chars"
-        print(
-            f"dry-run: would POST {kind} to {base}/v1/chats/{uid}/messages"
-            f'{attach_note}'
-        )
-        return
-
-    if args.hold_until:
-        hold_until(args.hold_until)
-
+def deliver(base, uid, token, text, pdf=None, text_file=None, filename=None,
+            on_posted=None):
+    """POST the edition, then run the three finalizers (module docstring)."""
     attachment_uid = None
-    if args.pdf:
+    if pdf:
         attachment_uid = declare_and_upload(
-            base, uid, token, args.pdf, filename=args.filename,
+            base, uid, token, pdf, filename=filename,
         )
     body = compose_payload(text, attachment_uid)
 
@@ -386,26 +394,28 @@ def main():
     # recovery instruction could run, so a bad timezone caught only there
     # would report a generic failure with no "do not repost" and risk a
     # duplicate send on retry.
-    lock_path = Path(os.environ.get("PT_HOME", "/var/lib/hermes/pt")) / "run" / "delivery-order.lock"
+    lock_path = _pt_home() / "run" / "delivery-order.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with open(lock_path, "a") as lock_file:
         fcntl.flock(lock_file, fcntl.LOCK_EX)
         delivered_at = owner_now()
         post_json(base, f"/v1/chats/{uid}/messages", token, "Plow Chat", body)
-    posted_path = args.pdf or args.text_file
+    if on_posted:
+        on_posted()
+    posted_path = pdf or text_file
     edition_json = str(Path(posted_path).parent / "edition.json") if posted_path else None
     topics_result = (
         _best_effort(run_finalize_topics, (edition_json,), "topics not finalized")
         if edition_json else "skipped: no posted file"
     )
     print(topics_result)
-    if args.pdf:
+    if pdf:
         suffix = " + companion" if text else " only"
-        print(f"chat edition posted (pdf{suffix}) {args.pdf}")
+        print(f"chat edition posted (pdf{suffix}) {pdf}")
     else:
         print(f"chat edition posted ({len(text)} chars)")
     # The text leg prints its run's PDF too: absent, the owner hears why.
-    pdf = args.pdf or (str(Path(args.text_file).parent / "edition.pdf") if args.text_file else None)
+    pdf = pdf or (str(Path(text_file).parent / "edition.pdf") if text_file else None)
     line = print_page(pdf) if pdf else None
     if line:
         try:  # the edition already posted: exit 0 must keep meaning that
@@ -428,6 +438,73 @@ def main():
             + "; ".join(recoveries)
             + "; do not repost"
         )
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Post an edition to the owner's Plow Chat.")
+    parser.add_argument(
+        "--pdf", default=None,
+        help="path to a PDF to attach (declare -> upload -> attach, same call the "
+             "platform's own adapter makes); omit to post text only",
+    )
+    parser.add_argument(
+        "--text-file", default=None,
+        help="read the chat edition, or a PDF's chat-only desk companion, "
+             "from this file instead of stdin (no shell redirect needed)",
+    )
+    parser.add_argument(
+        "--filename", default=None,
+        help="attachment name shown in chat (basename). Default is the PDF's "
+             "own basename, which for a run file is edition.pdf",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="print the request instead of sending it"
+    )
+    parser.add_argument(
+        "--hold-until", default=None, metavar="HH:MM",
+        help="stage the paper for pt-deliver to post at this clock in TZ; if "
+             "it has already passed, post immediately (scheduled papers only)",
+    )
+    parser.add_argument(
+        "--flush-outbox", action="store_true",
+        help="post every staged paper whose hour has come (the pt-deliver job)",
+    )
+    args = parser.parse_args()
+
+    base, uid, token = resolve_chat()
+    if args.flush_outbox:
+        flush_outbox(base, uid, token)
+        return
+    if args.text_file:
+        text = read_text_file(args.text_file)
+    elif args.pdf:
+        text = ""
+    else:
+        text = read_message()
+    if not args.pdf and not text:
+        sys.exit("error: no edition text on stdin")
+
+    if args.dry_run:
+        attach_note = f" + attach {args.pdf}" if args.pdf else ""
+        if args.pdf:
+            attach_note += f" as {attachment_filename(args.pdf, args.filename)}"
+        kind = (f"pdf + {len(text)} chars" if args.pdf and text else "pdf-only") \
+            if args.pdf else f"{len(text)} chars"
+        print(
+            f"dry-run: would POST {kind} to {base}/v1/chats/{uid}/messages"
+            f'{attach_note}'
+        )
+        return
+
+    if args.hold_until:
+        remaining = seconds_until_hhmm(args.hold_until)
+        if remaining > 0 and registered_jobs(JOBS_FILE).get("pt-deliver"):
+            stage(args.hold_until, remaining, text, args.pdf, args.text_file, args.filename)
+            print(f"held for {args.hold_until} — pt-deliver posts it")
+            return
+
+    deliver(base, uid, token, text, pdf=args.pdf, text_file=args.text_file,
+            filename=args.filename)
 
 
 if __name__ == "__main__":

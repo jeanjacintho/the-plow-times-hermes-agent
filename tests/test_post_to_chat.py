@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import shutil
 import types
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -283,8 +285,92 @@ class TestHoldUntil:
     Measured live: lead_minutes alone started research at hour−lead, then
     post_to_chat sent the PDF the moment the recipe finished — not at the
     hour the owner named. --hold-until is the send clock. If that hour has
-    already passed, send now; never sleep until tomorrow.
+    already passed, send now; never wait until tomorrow.
+
+    Issue #125: sleeping in the session was killed by Hermes's idle reaper,
+    so a paper held 79 minutes never posted or printed. A held paper is
+    staged in the outbox, and pt-deliver's --flush-outbox posts it.
     """
+
+    def _run(self, tmp_path, monkeypatch, capsys, remaining, deliver_job=(True, None)):
+        run = tmp_path / "run"
+        run.mkdir()
+        (run / "edition.json").write_text('{"date": "2026-09-24"}', encoding="utf-8")
+        (run / "edition.pdf").write_bytes(b"%PDF-held")
+        (run / "edition.companion.txt").write_text("Mail desk", encoding="utf-8")
+        monkeypatch.setenv("PT_HOME", str(tmp_path / "pt"))
+        monkeypatch.setattr(post, "resolve_chat", lambda: ("https://api.example", "cht_1", "tok"))
+        monkeypatch.setattr(post, "seconds_until_hhmm", lambda hhmm: remaining)
+        monkeypatch.setattr(post, "JOBS_FILE", tmp_path / "jobs.json")
+        if deliver_job:
+            enabled, paused_at = deliver_job
+            post.JOBS_FILE.write_text(json.dumps({"jobs": [
+                {"name": "pt-deliver", "enabled": enabled, "paused_at": paused_at}]}))
+        sent = []
+        monkeypatch.setattr(post, "declare_and_upload", lambda b, u, t, pdf, filename: sent.append(
+            ("upload", Path(pdf).read_bytes(), filename)) or "att_1")
+        monkeypatch.setattr(post, "post_json", lambda *a: sent.append(("post", a[-1])))
+        monkeypatch.setattr(post, "run_finalize_topics", lambda path: sent.append(
+            ("finalize", Path(path).read_text())) or "FINALIZED")
+        monkeypatch.setattr(post, "run_record_edition", lambda *a: "RECORDED")
+        monkeypatch.setattr(post, "print_page", lambda pdf: sent.append(("print", Path(pdf).read_bytes())))
+        monkeypatch.setattr(sys, "argv", [
+            "post_to_chat.py", "--pdf", str(run / "edition.pdf"),
+            "--text-file", str(run / "edition.companion.txt"),
+            "--filename", "The-Founder-Times-2026-09-24.pdf", "--hold-until", "07:00"])
+        post.main()
+        shutil.rmtree(run)  # the next paper's prepare_daily_run archives run/
+        return sent, tmp_path / "pt" / "outbox", capsys.readouterr().out
+
+    DELIVERED = [
+        ("upload", b"%PDF-held", "The-Founder-Times-2026-09-24.pdf"),
+        ("post", {"body": "Mail desk", "attachment_uids": ["att_1"]}),
+        ("finalize", '{"date": "2026-09-24"}'),
+        ("print", b"%PDF-held"),
+    ]
+
+    @pytest.mark.parametrize("remaining, deliver_job", [
+        (0, (True, None)),  # the hour already passed
+        # Nothing would flush the outbox: early, never stranded.
+        (3600, None),  # upgraded home, pt-deliver not registered yet
+        (3600, (False, None)),  # disabled
+        (3600, (True, "2026-09-24T01:00:00")),  # paused
+    ])
+    def test_posts_now(self, tmp_path, monkeypatch, capsys, remaining, deliver_job):
+        sent, outbox, _ = self._run(tmp_path, monkeypatch, capsys, remaining=remaining,
+                                    deliver_job=deliver_job)
+        assert sent == self.DELIVERED
+        assert not outbox.exists()
+
+    @pytest.mark.parametrize("flush_after, posted", [
+        (timedelta(minutes=-1), False),  # not yet due: left alone
+        (timedelta(minutes=1), True),
+        (timedelta(days=1), True),  # a missed day is a late catch-up
+    ])
+    def test_a_held_paper_posts_once_from_the_outbox(
+            self, tmp_path, monkeypatch, capsys, flush_after, posted):
+        sent, outbox, out = self._run(tmp_path, monkeypatch, capsys, remaining=3600)
+        assert sent == []
+        assert out == "held for 07:00 — pt-deliver posts it\n"
+        (entry,) = outbox.iterdir()
+        assert sorted(p.name for p in entry.iterdir()) == [
+            "delivery.json", "edition.json", "edition.pdf", "edition.txt"]
+        due = datetime.fromisoformat(json.loads((entry / "delivery.json").read_text())["due"])
+        for _ in range(2):
+            post.flush_outbox("https://api.example", "cht_1", "tok", now=due + flush_after)
+        assert sent == (self.DELIVERED if posted else [])
+        assert list(outbox.iterdir()) == ([] if posted else [entry])
+        assert capsys.readouterr().out == ""  # Hermes delivers stdout to chat
+
+    def test_a_failed_post_stays_in_the_outbox_for_the_next_minute(
+            self, tmp_path, monkeypatch, capsys):
+        self._run(tmp_path, monkeypatch, capsys, remaining=60)
+        monkeypatch.setattr(post, "post_json", lambda *a: sys.exit("error: Plow Chat 503"))
+        with pytest.raises(SystemExit, match="503"):
+            post.flush_outbox("https://api.example", "cht_1", "tok",
+                              now=datetime.now(timezone.utc) + timedelta(minutes=2))
+        assert list((tmp_path / "pt" / "outbox").glob("*/delivery.json"))
+
 
     @pytest.mark.parametrize("tz, now, hour, expected", [
         ("America/Sao_Paulo", datetime(2026, 9, 20, 6, 20), "07:00", 40 * 60),
@@ -296,16 +382,6 @@ class TestHoldUntil:
     def test_seconds_until_hour(self, monkeypatch, tz, now, hour, expected):
         monkeypatch.setenv("TZ", tz)
         assert post.seconds_until_hhmm(hour, now=now.replace(tzinfo=ZoneInfo(tz))) == expected
-
-    @pytest.mark.parametrize("now, expected", [
-        (datetime(2026, 9, 20, 6, 59, 30), [30]),
-        (datetime(2026, 9, 20, 8, 0, 0), []),  # already due: no sleep
-    ])
-    def test_hold_sleeps_only_the_remaining_seconds(self, monkeypatch, now, expected):
-        monkeypatch.setenv("TZ", "UTC")
-        slept = []
-        post.hold_until("07:00", sleep=slept.append, now=now.replace(tzinfo=ZoneInfo("UTC")))
-        assert slept == expected
 
     def test_bad_clock_is_refused(self):
         with pytest.raises(SystemExit, match="hold-until"):

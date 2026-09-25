@@ -31,6 +31,9 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                                                    delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
                                                    demand, same prompt, no hold
+  pt-deliver             * * * * *                 static, no agent: posts the
+                                                   held papers post_to_chat.py
+                                                   staged; never stale
 
 This script therefore CREATES missing jobs and REMOVES pt-* jobs whose
 topic is gone -- cancelled, delivered one-offs, or names with no topic
@@ -84,11 +87,9 @@ from zoneinfo import ZoneInfo
 _SKILLS = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..")
 sys.path[:0] = [os.path.join(_SKILLS, "pt-intake", "scripts"), os.path.join(_SKILLS, "pt-shared", "scripts")]
 from record_owner_language import _write_json  # noqa: E402 -- the config's atomic writer
+from hermes_cron import JOBS_FILE, job_rows, registered_jobs  # noqa: E402
 
 HERMES = "/opt/hermes/bin/hermes"
-# Where `hermes cron` persists its jobs -- nothing replays it on a rebuild,
-# which is the reason this script exists.
-JOBS_FILE = "/var/lib/hermes/cron/jobs.json"
 CONFIG_FILE = "/var/lib/hermes/pt/config.json"
 # The only job names this spec owns. Pinned as a fullmatch so a name that
 # does not parse is never interpreted, and a half-matching id never removes
@@ -114,7 +115,7 @@ WORKSPACE_LOCK = "paper-workspace"
 DEFAULT_LEAD_MINUTES = 0
 # Every acquirer of a lock uses one lifetime: the run itself plus
 # delivery.lead_minutes, since a scheduled run holds the lock through its early
-# start and the held POST. Every paper shares the workspace lock, so a smaller
+# start. Every paper shares the workspace lock, so a smaller
 # number could call the scheduled run dead and start a competing paper.
 STALE_RUN_MINUTES = 240
 
@@ -197,6 +198,19 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
 
 
 DELIVER_TARGET = "plow_chat:${PLOW_HOME_CHANNEL}"
+# Hermes runs a --script only from its own scripts dir, and resolves symlinks
+# out of it, so registration installs a real copy of pt_deliver.py there.
+HERMES_SCRIPTS = "/var/lib/hermes/scripts"
+# The no-agent job that posts held papers (post_to_chat.py --flush-outbox).
+# prompt "" and skill None are what hermes persists for a script job.
+DELIVER_JOB = {
+    "name": "pt-deliver",
+    "schedule": "* * * * *",
+    "prompt": "",
+    "skill": None,
+    "script": "pt-deliver.py",
+    "deliver": DELIVER_TARGET,
+}
 
 
 def load_zones(config_path=CONFIG_FILE, env=None):
@@ -253,34 +267,6 @@ def adopt_owner_clock(owner_tz, container_tz, config_path=CONFIG_FILE):
             "delivery.local_hour, and re-run.")
     del config["delivery"]["local_hour"]
     _write_json(path, config)
-
-
-def _job_rows(jobs_path):
-    """hermes's persisted job rows; only a missing file means none."""
-    try:
-        return json.loads(pathlib.Path(jobs_path).read_text())["jobs"]
-    except FileNotFoundError:
-        return []
-
-
-def registered_jobs(jobs_path=JOBS_FILE):
-    """What is already scheduled, from hermes's own persisted state.
-
-    Reads the file `hermes cron` writes rather than parsing `hermes cron
-    list` -- a human rendering nothing pins. Returns {name: is_runnable};
-    a paused job is registered but will never fire, and the caller must
-    tell those apart (re-registering duplicates it, skipping it silently
-    strands it).
-
-    The invariant with teeth: never read "I could not tell what is
-    registered" as "nothing is". Only FileNotFoundError means empty -- an
-    unreadable or unexpected file raises and stops the run.
-    """
-    jobs = _job_rows(jobs_path)
-    return {
-        job["name"]: bool(job["enabled"]) and not job["paused_at"]
-        for job in jobs
-    }
 
 
 def resolve_deliver(deliver, env=None):
@@ -627,12 +613,13 @@ def registered_specs(jobs_path=JOBS_FILE):
     rather than recreating on a guess (older rows, and the test fixtures,
     carry no schedule).
     """
-    jobs = _job_rows(jobs_path)
+    jobs = job_rows(jobs_path)
     return {
         job["name"]: {
             "schedule": _persisted_schedule_expr(job),
             "skill": job.get("skill"),
             "prompt": job.get("prompt"),
+            "script": job.get("script"),
             "deliver": job.get("deliver"),
         }
         for job in jobs
@@ -645,20 +632,25 @@ def job_drift(job, spec):
     Only a field that is BOTH persisted and different is a drift; an absent
     field is silence, not a mismatch. Schedule, skill and prompt are the
     fields a spec change actually moves (the delivery hour, the lead, the
-    PDF-only vs transcript contract); deliver is not compared because its
+    PDF-only vs transcript contract), and script is pt-deliver's; deliver is not compared because its
     resolved form depends on the turn's environment and a false drift would
     edit every job on every run.
     """
-    for key in ("schedule", "skill", "prompt"):
+    for key in ("schedule", "skill", "prompt", "script"):
         stored = spec.get(key)
-        if stored is not None and stored != job[key]:
+        if stored is not None and stored != job.get(key):
             return True
     return False
 
 
 def create_argv(job, env=None):
-    argv = [HERMES, "cron", "create", job["schedule"], job["prompt"],
-            "--name", job["name"], "--skill", job["skill"]]
+    if job.get("script"):
+        argv = [HERMES, "cron", "create", job["schedule"],
+                "--script", job["script"], "--no-agent"]
+    else:
+        argv = [HERMES, "cron", "create", job["schedule"], job["prompt"],
+                "--skill", job["skill"]]
+    argv += ["--name", job["name"]]
     if job["deliver"]:
         argv += ["--deliver", resolve_deliver(job["deliver"], env)]
     return argv
@@ -667,10 +659,11 @@ def create_argv(job, env=None):
 def edit_argv(job, env=None):
     """Update a registered job in place. `hermes cron edit` takes the name
     (or id); never remove-then-create, or a failed create leaves no job."""
-    argv = [HERMES, "cron", "edit", job["name"],
-            "--schedule", job["schedule"],
-            "--prompt", job["prompt"],
-            "--skill", job["skill"]]
+    argv = [HERMES, "cron", "edit", job["name"], "--schedule", job["schedule"]]
+    if job.get("script"):
+        argv += ["--script", job["script"], "--no-agent"]
+    else:
+        argv += ["--prompt", job["prompt"], "--skill", job["skill"]]
     if job["deliver"]:
         argv += ["--deliver", resolve_deliver(job["deliver"], env)]
     return argv
@@ -694,7 +687,7 @@ def queue_now(runner, jobs_path, lead_minutes, env=None, clock=None):
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
-    previous = [j["id"] for j in _job_rows(jobs_path) if j["name"] == NOW_NAME]
+    previous = [j["id"] for j in job_rows(jobs_path) if j["name"] == NOW_NAME]
     _check(runner(create_argv(job, env)), f"could not queue {NOW_NAME}")
     print(f"queued: {NOW_NAME} ({job['schedule']})")
     for job_id in previous:
@@ -710,7 +703,8 @@ def _run(argv):
     return subprocess.run(argv, capture_output=True, text=True)
 
 
-def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, env=None):
+def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, env=None,
+         scripts_dir=HERMES_SCRIPTS):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     # parse_args(None) on the CLI is sys.argv[1:], but in-process callers
     # pass [] so argparse never reads the test runner's argv.
@@ -734,14 +728,18 @@ def main(argv=None, runner=_run, jobs_path=JOBS_FILE, config_path=CONFIG_FILE, e
     delivery_hour = load_delivery_hour(config_path)
     extra_hours = load_extra_hours(config_path)
     lead_minutes = load_lead_minutes(config_path)
+    pathlib.Path(scripts_dir).mkdir(parents=True, exist_ok=True)
+    hook = os.path.join(scripts_dir, DELIVER_JOB["script"])  # replaced whole: it runs every minute
+    shutil.copyfile(os.path.join(_SKILLS, "pt-shared", "scripts", "pt_deliver.py"), hook + ".tmp")
+    os.replace(hook + ".tmp", hook)
 
     registered = registered_jobs(jobs_path)
     specs = registered_specs(jobs_path)
     paused = []
     pending = []
 
-    for job in desired_jobs(topics, delivery_hour, owner_tz, container_tz, env,
-                            lead_minutes, extra_hours):
+    for job in [DELIVER_JOB, *desired_jobs(topics, delivery_hour, owner_tz, container_tz, env,
+                                           lead_minutes, extra_hours)]:
         if job["name"] in registered:
             if not registered[job["name"]]:
                 print(

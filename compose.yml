@@ -12,7 +12,8 @@ services:
       # Who this agent is on the Agent Index. Without it the reporter stands
       # down rather than guessing a name.
       AGENT_ID: theplowtimes
-      # The clock cron and post_to_chat.py --hold-until share. Any zone
+      # The clock cron and post_to_chat.py --hold-until share (the held
+      # paper is staged and posted by the pt-deliver job). Any zone
       # works: register_crons.py converts the owner's hours (pt/config.json)
       # into it. Unset, plow-init would give cron America/Los_Angeles while
       # --hold-until read UTC. Changing it needs register_crons.py re-run.

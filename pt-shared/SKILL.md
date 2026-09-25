@@ -68,11 +68,16 @@ does not, and every run fails on the import.
 - `scripts/post_to_chat.py` — the edition's chat leg: POST the PDF plus its
   chat-only mail/sports companion when present, or chat text if there is no PDF.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
-  run file stays `edition.pdf` on disk). `--hold-until HH:MM` waits for
-  that clock before posting (scheduled papers; the on-demand copy has none). After
-  either POST it prints the run's `edition.pdf` when the printer is configured
-  (the text leg too, so a missing PDF is reported as a miss), records
+  run file stays `edition.pdf` on disk). `--hold-until HH:MM` with that clock
+  still ahead stages copies in `pt/outbox/` and exits; `--flush-outbox` (the
+  `pt-deliver` job) posts them at the hour (scheduled papers; the on-demand copy
+  has none). After either POST it prints the run's `edition.pdf` when the
+  printer is configured (the text leg too, so a missing PDF is reported as a miss), records
   the edition and finalizes its topics (`pt-edition` step 2).
+- `scripts/hermes_cron.py` — the one reader of Hermes's `cron/jobs.json` and its
+  runnable rule (enabled, not paused), for `register_crons.py` and `post_to_chat.py`.
+- `scripts/pt_deliver.py` — `pt-deliver`'s no-agent hook: `register_crons.py` installs a
+  copy in Hermes's scripts dir; it runs `post_to_chat.py --flush-outbox`. Never run it.
 - `scripts/chat_status.py --busy` — setup's hang-on during pt-setup Latch/Mac
   work (one hang-on, then one "still on it", never a play-by-play). Cron never
   calls it.
