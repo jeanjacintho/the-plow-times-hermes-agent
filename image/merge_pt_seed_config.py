@@ -13,6 +13,7 @@ value in ours replaces the seed's.
 from __future__ import annotations
 
 import os
+import stat
 import sys
 
 
@@ -41,7 +42,7 @@ def main(argv=None):
         yaml.safe_dump(deep_merge(seed, ours), handle, sort_keys=False)
     st = os.stat(seed_path)
     os.chown(tmp, st.st_uid, st.st_gid)
-    os.chmod(tmp, st.st_mode)
+    os.chmod(tmp, stat.S_IMODE(st.st_mode))
     os.replace(tmp, seed_path)
 
 
