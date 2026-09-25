@@ -30,7 +30,7 @@ The spec (design doc §3.6 and the personalized-paper plan §3.3/§6):
                          scheduled_for             still ahead; swept once
                                                    delivered
   pt-daily-edition-now   one-shot, a minute out    --now: the main paper on
-                                                   demand, same prompt, no hold
+                                                   demand; reuses the newest advice
   pt-deliver             * * * * *                 static, no agent: posts the
                                                    held papers post_to_chat.py
                                                    staged; never stale
@@ -127,7 +127,7 @@ TOPIC_PROMPT = (
 )
 
 
-def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
+def paper_prompt(hold_until=None, lead_minutes=0, focus=None, on_demand=False):
     """The one run prompt every paper is built from, scheduled or on demand.
 
     focus=None is the MAIN paper: every active section with no deliver_at
@@ -137,12 +137,13 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
     scratch is shared. A scheduled paper reuses today's accepted advisor
     checkpoint when one exists, else runs the tournament.
 
-    hold_until is the send clock (delivery.hour / an extra or focused hour).
-    Cron may start earlier via lead_minutes; POST must still wait. The
-    on-demand copy (--now) passes none, posts when done, and never waits
-    ~150 minutes on a tournament: it reuses the newest accepted checkpoint
-    of any date, printed with its as-of date, and runs the tournament only
-    when none has ever been accepted.
+    hold_until is the send clock of an extra or focused hour: cron may
+    start earlier via lead_minutes, and POST still waits for it. The main
+    daily paper passes none: delivery.hour is its deadline, not a send
+    clock, so it posts when done. The on-demand copy (--now) posts when
+    done and never waits on a tournament: it reuses the newest accepted
+    checkpoint of any date, printed with its as-of date, and runs the
+    tournament only when none has ever been accepted.
 
     The prompt carries only what the run cannot read from its skills: the
     lock, the roster, the advice rule and the send clock. Delivery, print
@@ -170,7 +171,7 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
     advice = (
         "reuse today's accepted checkpoint in run/desk-priority/tournament.json when "
         "there is one, else run the tournament"
-        if hold_until else
+        if not on_demand else
         "reuse the newest accepted checkpoint in run/desk-priority/tournament.json whatever "
         "its date -- an older one prints with \"as_of\" per pt-edition -- and run the "
         "tournament only if none has ever been accepted"
@@ -408,11 +409,14 @@ def daily_schedule(delivery_hour, lead_minutes):
 
 
 def daily_job(delivery_hour, lead_minutes, env=None, *, name=DAILY_NAME):
-    """One full-paper delivery job -- the canonical slot, or an extra one."""
+    """One full-paper delivery job -- the canonical slot, or an extra one.
+
+    Only an extra slot holds: the canonical paper prints when done."""
     return {
         "name": name,
         "schedule": daily_schedule(delivery_hour, lead_minutes),
-        "prompt": paper_prompt(hold_until=delivery_hour, lead_minutes=lead_minutes),
+        "prompt": paper_prompt(hold_until=None if name == DAILY_NAME else delivery_hour,
+                               lead_minutes=lead_minutes),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }
@@ -683,7 +687,7 @@ def queue_now(runner, jobs_path, lead_minutes, env=None, clock=None):
     job = {
         "name": NOW_NAME,
         "schedule": at.isoformat(timespec="seconds"),
-        "prompt": paper_prompt(lead_minutes=lead_minutes),
+        "prompt": paper_prompt(lead_minutes=lead_minutes, on_demand=True),
         "skill": "pt-research",
         "deliver": DELIVER_TARGET,
     }

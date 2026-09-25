@@ -70,8 +70,8 @@ does not, and every run fails on the import.
   `--filename The-Founder-Times-<date>.pdf` is the name shown in chat (the
   run file stays `edition.pdf` on disk). `--hold-until HH:MM` with that clock
   still ahead stages copies in `pt/outbox/` and exits; `--flush-outbox` (the
-  `pt-deliver` job) posts them at the hour (scheduled papers; the on-demand copy
-  has none). After either POST it prints the run's `edition.pdf` when the
+  `pt-deliver` job) posts them at the hour (extra and focused papers; the main
+  paper and the on-demand copy have none). After either POST it prints the run's `edition.pdf` when the
   printer is configured (the text leg too, so a missing PDF is reported as a miss), records
   the edition and finalizes its topics (`pt-edition` step 2).
 - `scripts/hermes_cron.py` — the one reader of Hermes's `cron/jobs.json` and its
@@ -106,6 +106,8 @@ does not, and every run fails on the import.
   is reused); every other desk is cleared.
   It preserves topic workspaces, the live lock, and setup evidence. The wiki is delivered
   history; archived scratch is never today's completed work.
+- `references/investigate.md` — the investigator charter: one key name in, one dossier with a
+  per-source coverage ledger out. Every desk that writes about a person, company or deal uses it.
 - `references/config.example.json` — the config contract `pt_config_gate.py`
   enforces (including the optional `delivery.lead_minutes`, default 0, and
   optional `mail.configured`, default off)
