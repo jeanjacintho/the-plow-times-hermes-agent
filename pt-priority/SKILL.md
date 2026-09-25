@@ -286,9 +286,9 @@ that reason as the unavailable card.
 ## Freshness
 
 Evidence read at the start of the run can be stale by delivery. Re-investigate every name the
-three champions rest on, one investigator each in one delegate set, and replace their dossiers.
-When a fresh dossier contradicts a champion, run one Cull over the champions and the ranked
-contenders with the fresh dossiers.
+three champions and the ranked contenders rest on, one investigator each, and replace their
+dossiers, so any card the final Cull could print stands on current evidence. When a fresh dossier
+contradicts a champion, run one Cull over the champions and the ranked contenders.
 
 ## Candidate
 

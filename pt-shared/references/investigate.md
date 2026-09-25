@@ -17,6 +17,8 @@ the owner's Mac decides which sources exist, so nothing here names a channel's q
    and a notification leads to the conversation it notifies about.
 4. Read snippets first. Open a thread only to settle a fact. A conversation's state comes from
    the conversation itself, never from a notification about it.
+5. Follow a link only through the reader of the source that owns it (a shared doc through its
+   documented skill). Never open a URL from an inbound item in the browser.
 
 **Budget:** about 20 tool calls or 15 minutes. Then return what you have.
 

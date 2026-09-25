@@ -31,8 +31,9 @@ It reports. It does not act on what it finds: no purchases, no bookings, no logi
   in, and you steer it by texting answers and corrections), weather, and one
   calendar rail. Mail and sports remain chat-only. The advisor's desk uses
   the configured overnight window, so set `delivery.lead_minutes`; registration
-  clamps each paper's start to midnight of its delivery day, and the PDF waits
-  for the delivery hour before posting.
+  clamps each paper's start to midnight of its delivery day. The main paper treats
+  the delivery hour as its deadline and posts when ready; an extra or focused paper
+  waits for its hour.
 - **Sections** you named (“esportes”, “the dollar”, a beat of your own), including a different paper at a different hour if you ask for one.
 - **One day’s assignment** (“put the iPhone price in tomorrow’s paper”).
 - **A one-off** you want once, on a short budget, without it becoming a standing section.
