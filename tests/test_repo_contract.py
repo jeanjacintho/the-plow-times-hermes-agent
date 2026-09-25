@@ -77,7 +77,7 @@ class TestSoul:
 
     def test_setup_opener_does_not_ask_timezone(self):
         text = (ROOT / "pt-setup" / "SKILL.md").read_text()
-        assert "A que horas você quer o jornal de manhã?" in text
+        assert "Até que horas você quer o jornal de manhã?" in text
         assert "Qual seu fuso" not in text
 
     def test_soul_setup_gate_is_a_bare_script_not_python_dash_c(self):

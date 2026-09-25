@@ -67,11 +67,11 @@ chat.
 **Opener — send this, then stop and wait.** Copy it. Match the owner's language.
 Portuguese:
 
-> 📰 Oi! Eu sou o The Founder Times (inspired by Mayfield), o seu jornal. A que horas você quer ele de manhã? Se não disser nada, mando às 7h.
+> 📰 Oi! Eu sou o The Founder Times (inspired by Mayfield), o seu jornal. Até que horas você quer ele de manhã? Se não disser nada, chega até as 7h.
 
 English:
 
-> 📰 Hi — I'm The Founder Times (inspired by Mayfield), your newspaper. What time should it land each morning? If you don't say, I'll send it at 7:00.
+> 📰 Hi — I'm The Founder Times (inspired by Mayfield), your newspaper. What time should it be ready by each morning? If you don't say, it lands by 7:00.
 
 **Changing one setting later** is not this skill: a different delivery hour,
 **a second (or third) daily delivery time** (`delivery.extra_hours`, a list
@@ -105,11 +105,11 @@ only this, then stop.
 
 Portuguese:
 
-> 🕖 A que horas você quer o jornal de manhã? Se não disser nada, mando às 7h.
+> 🕖 Até que horas você quer o jornal de manhã? Se não disser nada, chega até as 7h.
 
 English:
 
-> 🕖 What time should the morning paper land? If you don't say, I'll send it at 7:00.
+> 🕖 What time should the morning paper be ready by? If you don't say, it lands by 7:00.
 
 **1b. On their next message**, treat any of "yes", "y", "sim", "ok",
 "okay", "that", "default", "7", "7h", "7:00", "07:00", "pode", "isso", or
@@ -396,10 +396,10 @@ Do not write `pt/config.json` until `NEXT_QUESTION` says `close`:
 Say the result in CHAT_VOICE, using the hour they named, never the
 container's zone or `TZ`. Portuguese:
 
-> 📰 Pronto — seu jornal chega todo dia às 7h. Se quiser, manda um assunto pra eu pesquisar agora.
+> 📰 Pronto — seu jornal chega todo dia até as 7h. Se quiser, manda um assunto pra eu pesquisar agora.
 
 English:
 
-> 📰 All set — your paper lands every morning at 7:00. Want me to look something up right now?
+> 📰 All set — your paper lands every morning by 7:00. Want me to look something up right now?
 
 Swap in the hour they chose. A first research job is still pt-intake's.
