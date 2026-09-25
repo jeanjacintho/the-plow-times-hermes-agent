@@ -507,15 +507,17 @@ class TestExtraDailyHours:
         jobs = crons.desired_jobs([topic("t_1", kind="section")], "03:00", TZ, TZ, {}, 45)
         assert [j["name"] for j in jobs] == ["pt-daily-edition"]
 
-    @pytest.mark.parametrize("extra,section_hour", [
-        (["09:00"], None),
-        ([], "09:00"),
+    @pytest.mark.parametrize("extra,section_hour,lead,refusal", [
+        (["09:00"], None, 0, "07:00 and 09:00 are less than 180"),
+        ([], "09:00", 0, "07:00 and 09:00 are less than 180"),
+        # A paper fills its lead, so the next one may not start inside it.
+        (["11:00"], None, 300, "07:00 and 11:00 are less than 300"),
     ])
-    def test_papers_less_than_three_hours_apart_are_refused(self, extra, section_hour):
+    def test_papers_closer_than_a_run_are_refused(self, extra, section_hour, lead, refusal):
         topics = [topic("t_1", kind="section", deliver_at=section_hour)] if section_hour else []
 
-        with pytest.raises(SystemExit, match="paper times 07:00 and 09:00 are less than 180 minutes apart"):
-            crons.desired_jobs(topics, "07:00", TZ, TZ, {}, 0, extra_hours=extra)
+        with pytest.raises(SystemExit, match=f"paper times {refusal} minutes apart"):
+            crons.desired_jobs(topics, "07:00", TZ, TZ, {}, lead, extra_hours=extra)
 
     def test_multiple_extra_hours_are_numbered_in_order(self):
         jobs = crons.desired_jobs(

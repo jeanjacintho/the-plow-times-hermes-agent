@@ -76,8 +76,9 @@ run.** On a compacted or restated turn, the conductor's first action is to read 
 its `Stage`. Never infer the active page from timestamps or re-run a stage recorded there as
 complete. The conductor's only Latch operation is that read; it never researches.
 
-**Fill the window.** The window ends at `delivery.hour` for a scheduled paper, and
-`delivery.lead_minutes` after Orient began for an on-demand one. Complete at least three generations. After that, start another only
+**Fill the window.** The window ends at the paper's own hour for a scheduled paper (`delivery.hour`,
+or the `--hold-until` hour an extra or focused paper carries), and `delivery.lead_minutes` after
+Orient began for an on-demand one. Complete at least three generations. After that, start another only
 when one as long as the longest so far still ends 45 minutes before the window closes, which is the
 time Freshness, Candidate, the other desks and render need. A late paper beats a cut-off one: never
 abandon a started stage to make the clock.
