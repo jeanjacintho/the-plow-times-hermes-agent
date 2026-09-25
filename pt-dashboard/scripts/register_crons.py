@@ -451,7 +451,7 @@ def focused_paper_hours(topics, delivery_hour):
     return sorted(hours)
 
 
-def require_workspace_spacing(hours, lead_minutes=DEFAULT_LEAD_MINUTES):
+def require_workspace_spacing(hours, lead_minutes):
     """Refuse paper starts whose shared-workspace windows can overlap: a
     paper fills its lead, so the next may not start inside it."""
     minimum_minutes = max(180, lead_minutes)
