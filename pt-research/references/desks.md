@@ -17,6 +17,10 @@ Every Latch call is the same two tools the print path uses:
 `{"status":"pending","handle":…}`, `plow_get_result` until `ready`. A
 401/412/deny is one blocked source: log it, do not retry.
 
+**People.** The calendar and letters desks say nothing about a person, company or deal beyond
+the event or letter itself except from its dossier: the advisor desk's `RUN_PAGE` `## Dossiers`,
+or, in a paper with no advisor desk, one they run per `pt-shared/references/investigate.md`.
+
 ## Priority — first in every paper, when configured
 
 One rule for every scheduled paper: if `run/desk-priority/tournament.json` is today's
@@ -29,7 +33,7 @@ paper; none ever accepted for the on-demand copy), run
 then load `pt-priority` and follow it. `pt-priority` alone writes the atomic
 `run/desk-priority/tournament.json` checkpoint. It reads the owner's sources itself and spends no
 web budget. The morning run has no checkpoint for today yet; a later paper the same day reuses it.
-The tournament gets a reserved 150-minute window; delivery waits for its required third generation,
+The tournament fills the window `pt-priority` defines; delivery waits for its third generation,
 and the global batch budget starts after priority completes. Never stop its tournament early to
 save time for weather, calendar, mail, sports, or news; those desks use the time that remains.
 Complete this desk before opening the shared browser or starting weather, calendar, mail, sports,

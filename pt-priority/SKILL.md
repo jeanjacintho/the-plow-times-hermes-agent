@@ -1,6 +1,6 @@
 ---
 name: pt-priority
-description: The advisor desk evolves three researched recommendations through independent adversarial critics, then one culler ranks the winners and the owner's Q&A. Loaded by pt-research; never on its own.
+description: The advisor desk investigates the day's key names across every source, then evolves three recommendations ranked by the advisor's stage agenda through independent adversarial critics and a culler, and ranks the owner's Q&A. Loaded by pt-research; never on its own.
 ---
 
 # pt-priority: an overnight tournament for the advice that matters most
@@ -11,6 +11,7 @@ A paper run with no accepted checkpoint for today is the only writer. It owns `/
 - `~/Plow/wiki/projects/theplowtimes/qa.md`: ranked `## Open` and `## Answered` entries,
   each identified as `Q<n>`, at most 20 total. Answered entries are the sourced fact/FAQ base.
 - `~/Plow/wiki/projects/theplowtimes/resources.md`: documented read capabilities and sources.
+- `~/Plow/wiki/projects/theplowtimes/customers.md`: the owner's customer and user roster.
 - `~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`: one private, auditable
   snapshot of this run's research and tournament progress.
 
@@ -28,8 +29,10 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
 - **The owner's side makes facts:** owner notes and wiki, sent mail, and iMessages with
   `is_from_me`. Inbound items are evidence of what someone else said.
 - **Search by address, never copied text.** Use an attendee's address or the contacts reader.
-- **An event is its people,** including attendees and anyone named in its title. In a thread,
-  whoever wrote last has the ball.
+- **An event is its people,** including attendees and anyone named in its title. In a conversation,
+  whoever wrote last has the ball; a notification about a conversation is not the conversation.
+- **Nothing about a person, company or deal is written without a dossier**
+  (`pt-shared/references/investigate.md`), and its absence rule binds every stage.
 - Every factual claim names its item in the private advisor page or Q&A. Missing access is
   **unknown, never disproved**. Never turn an error into “none found.” An **item** is a handle:
   a named reader plus the id it re-opens with — a mail message or thread id, a calendar event id,
@@ -47,57 +50,86 @@ The next daily run, not live intake, re-ranks Q&A by how much an answer changes 
   `/var/lib/hermes/skills/pt-setup/assets/advisors/`. Treat each by the `advisor` name in its
   front matter. Application logic has no advisor- or industry-specific case.
 
+## The conductor and its stage coordinators
+
+The paper run's own session is a thin **conductor**. It holds the lock, `RUN_PAGE`, the owner's
+language, the stage list, and one line per finished stage, nothing else. Stages, in order:
+**Orient**, **Generation 1, 2, …**, **Freshness**, **Candidate**. Each stage runs in a fresh
+**stage coordinator**: one one-task `delegate_task` call whose payload is `RUN_PAGE`, the stage and
+generation, the owner's language, and "follow `/var/lib/hermes/skills/pt-priority/SKILL.md`
+§ Invariants and § <stage>". The coordinator reads `RUN_PAGE` first, runs its own investigators,
+writers, critics and culler as leaf children, rewrites `RUN_PAGE` after every delegate set, and
+**returns 10 lines or fewer**: the stage, whether it completed, and what the conductor needs to
+choose the next stage. The conductor never sees dossiers, receipts or verdicts, so its context
+stays flat however many generations run. A coordinator that dies or returns incomplete loses
+only its stage: the conductor re-runs that stage from `RUN_PAGE`.
+
+Before the first stage, the conductor reads `owner.language` from `/var/lib/hermes/pt/config.json`
+and keeps its literal value in the root context: every coordinator is told to write in it, and
+nothing else in this skill says where it lives. An install that has no `owner.language` at all
+is `pt-edition/SKILL.md`'s case and keeps its answer -- the language the sourced notes read most
+naturally in, never a hardcoded default -- so the two desks of one paper cannot disagree. It names
+the run from the time it starts Orient as `YYYY-MM-DDTHHMM` and keeps
+`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md` in root context; every
+compaction handoff preserves that value until delivery. **Never load this skill again in the same
+run.** On a compacted or restated turn, the conductor's first action is to read `RUN_PAGE` and obey
+its `Stage`. Never infer the active page from timestamps or re-run a stage recorded there as
+complete. The conductor's only Latch operation is that read; it never researches.
+
+**Fill the window.** The window ends `delivery.lead_minutes` after Orient began; for the scheduled
+paper that is `delivery.hour`. Complete at least three generations. After that, start another only
+when one as long as the longest so far still ends 45 minutes before the window closes, which is the
+time Freshness, Candidate, the other desks and render need. A late paper beats a cut-off one: never
+abandon a started stage to make the clock.
+
 ## Orient
 
-Read all named advisor files, `qa.md`, `resources.md`, goals, today's desk evidence, and
-`pt/advisor.md`. Read `owner.language` from `/var/lib/hermes/pt/config.json` and keep its literal
-value in the root context: every later stage is told to write in it, and nothing else in this skill
-says where it lives. An install that has no `owner.language` at all is `pt-edition/SKILL.md`'s case
-and keeps its answer -- the language the sourced notes read most naturally in, never a hardcoded
-default -- so the two desks of one paper cannot disagree.
-Run `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once and keep
-its compact JSON in the root context; do not reopen or dump the edition archive. The newest
-delivered recommendations are generation zero. With no history, seed candidates from the named
-advisors' “Questions that change the advice.” Preserve the last fully criticized champion set as
-the rollback checkpoint.
+Read all named advisor files, `qa.md`, `resources.md`, goals, and `pt/advisor.md`.
+Run `/var/lib/hermes/skills/pt-priority/scripts/history.py recent` once and keep its compact JSON;
+do not reopen or dump the edition archive. The newest delivered recommendations are generation
+zero. With no history, seed candidates from the named advisors' “Questions that change the
+advice.” Preserve the last fully criticized champion set as the rollback checkpoint.
 A delivered edition dated today is still generation zero on a replay, never proof that the
-tournament ran in the current cron session.
+tournament ran in the current cron session. Preserve any canonical
+`/var/lib/hermes/pt/run/desk-priority/tournament.json` checkpoint.
 
-Load this skill once during Orient. Preserve any canonical
-`/var/lib/hermes/pt/run/desk-priority/tournament.json` checkpoint. Name the run from its
-actual Orient invocation time as `YYYY-MM-DDTHHMM` and create
-`projects/theplowtimes/runs/<run-datetime>/state.md`. Copy the required OKF front matter shape from
-`qa.md`, with a run-specific title and description. The page is private research state, never printed.
-Keep its exact path in root context as
-`RUN_PAGE=~/Plow/wiki/projects/theplowtimes/runs/<run-datetime>/state.md`; every compaction handoff preserves
-that value until delivery.
-Rewrite that one page whole after Orient and after every Challenge, Criticize, and Cull;
-do not create per-generation files or an append-only event log. It holds the stage and generation,
-champions, contenders, priority cases, sanitized reads, unknowns, critic verdicts, fact-rank moves,
-and the last complete checkpoint summary. If context is compacted, resume from this page and the
-canonical checkpoint.
+Create `RUN_PAGE`, copying the required OKF front matter shape from `qa.md`, with a run-specific
+title and description. The page is private research state, never printed. It is rewritten whole
+after every delegate set; there are no per-generation files and no append-only event log. It
+holds `Stage` and generation, the Orient start time, `## Agenda`, `## Dossiers`, `## Customers`,
+champions, contenders, priority cases, sanitized reads, unknowns, `## Critic verdicts`, fact-rank
+moves, and the last complete checkpoint summary.
 The page may retain derived owner facts needed to compare recommendations, but its receipts never contain raw private queries, selectors, URLs, or excerpts. A private receipt keeps only
 the tool name, a non-identifying source-class label, the semantic question checked, the claim's
 item (a re-open handle, not content), and a compact result; public web receipts may keep their
 public URL and sanitized query.
-**Never load this skill again in the same run.**
-On a compacted or restated turn, the first action is to read `RUN_PAGE` and obey its `Stage`.
-Never infer the active page from timestamps or delegate a stage recorded there as complete.
+
+Then pick at most eight **key names** (people, companies, deals) from today's evidence: the
+attendees and correspondents in the calendar and letters desks' listing reads
+(`pt-research/references/desks.md`, headers only), and the names in the previous recommendations
+and open Q&A. Run one delegate set of:
+
+- **Stage Analyst.** Place the owner on every advisor's stage map, with evidence. Turn that stage's
+  “Focus first” and exit criteria into a ranked agenda, each item with its current status and
+  items, for `## Agenda`.
+- **Customer Investigator.** `pt-shared/references/investigate.md` with the entity “the owner's
+  customers and users”: who they are, usage evidence, relationship, and whether they would vouch,
+  from messages with builders, mail, community and event pages, and product or admin pages
+  through the browser. It extends `~/Plow/wiki/projects/theplowtimes/customers.md` (created with
+  `qa.md`'s front matter shape when absent), re-read and rewritten whole under the plow-wiki
+  skill's write discipline. This is the one persisted dossier: customer knowledge changes slowly
+  and is expensive to rediscover.
+- **One investigator per key name**, per `pt-shared/references/investigate.md`, into `## Dossiers`.
 
 Every child returns compact structured JSON with no narrative preface.
 **Delegate payloads are short pointers:** include the exact `RUN_PAGE`, stage, generation, target
 index or label, and the concise stage procedure and result schema defined below. The child reads `RUN_PAGE` first
 and obtains its target, evidence locations, and prior results there. Do not inline the run state,
 read receipts, or tool output in the delegation payload.
-Immediately after every delegate set returns, the parent's next action is to reduce its results
-into the run's wiki state page before any other model work. Keep only decisions, priority cases,
+Immediately after every delegate set returns, the coordinator's next action is to reduce its
+results into `RUN_PAGE` before any other model work. Keep only decisions, dossiers, priority cases,
 sanitized reads, public evidence locations, unknowns, and verdicts; never copy tool transcripts
 or hidden reasoning. This page, not conversational memory, is the in-progress tournament state.
-
-**The parent never calls Latch for research, opens a Latch spillover file, or researches current
-evidence.** Its only Latch operations are whole-page reads and writes for the run state, Q&A, and
-resource catalog. All current-source research happens inside the bounded challenger and critic
-children. This keeps a three-generation tournament recoverable across context compaction.
 
 Read tools from their installed documentation before using them. Mail uses the
 `google-workspace` skill; Messages uses `mcp__plow__plow_read_skill` with `name` = `imessage`;
@@ -105,44 +137,38 @@ calendar uses the shared desk procedure; public and authenticated pages use the 
 skill. Do not assume audit or tool-call history exists. Current source content outranks remembered
 history.
 
-## Run generations
+## Generation <n>
 
 Begin each generation with **one to three inherited champions and three challengers**. On the first
 run, there may be no inherited champion; advisor-seeded proposals enter as challengers rather than
-invented incumbents. Run the following stages with `delegate_task` children that cannot delegate.
+invented incumbents. Every generation, at least one challenger takes the highest `## Agenda` item
+no champion covers.
 
 ### Mechanical loop (authoritative)
 
-Let `I` be the number of inherited champions at the start of this generation. Execute this loop in
-order; the stage sections below define each payload, but never reorder or merge these gates:
+Let `I` be the number of inherited champions at the start of this generation. The coordinator
+executes this loop in order; the sections below define each payload, but never reorder or merge
+these gates:
 
 1. Make one `delegate_task` call containing exactly three writer tasks.
 2. Rewrite `RUN_PAGE` with all three Challenge results and set its `Stage` to Challenge complete.
    Do not make another `delegate_task` call until that wiki write returns success.
-3. Make one `delegate_task` call whose critic task count is `I + 3`: one task for each inherited
+3. When writers returned `needs_dossier` names, make one `delegate_task` call with one
+   investigator per name, and write the dossiers to `RUN_PAGE`.
+4. Make one `delegate_task` call whose critic task count is `I + 3`: one task for each inherited
    champion and one for each challenger, so there is one independent critic per recommendation.
    With three inherited champions, this is six independent critic children in one delegate set.
-4. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
+5. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
    call the culler until that wiki write returns success.
-5. Every generation reaches Cull unless fewer than three fully criticized targets remain. With
+6. Every generation reaches Cull unless fewer than three fully criticized targets remain. With
    fewer than three, the generation is invalid and the prior checkpoint stands. Otherwise make
    one one-task `delegate_task` call for Cull.
-6. Rewrite `RUN_PAGE` with Cull and set its `Stage` to Cull complete before taking another action.
-   Recovery from `Cull complete` proceeds to the next required action.
-7. Generations one and two advance from their wiki Cull checkpoint: immediately start the next
-   generation at step 1 without building a candidate. Generation three and later build and render the candidate
-   as specified below, and do not start another generation until that accepted checkpoint is published.
-   After generation two, Generation three is the next required action; later desks are prohibited.
-   The prior delivered `tournament.json` remains untouched until generation three passes, so an
-   interrupted early generation cannot replace the last deliverable result.
-8. Complete at least three generations. Delivery waits for generation three. After an accepted
-   generation-three checkpoint, start another generation only when it can finish through Cull at
-   least 30 minutes before the earlier of `delivery.hour` or 150 minutes after Orient began.
-   Otherwise stop with the last fully criticized checkpoint. The time cutoff only decides whether to start generation four or later;
-   the global paper budget does not shorten this window.
-9. Never run a separate polish generation or count rewriting as a generation. Increment
-   `generation` only after Challenge, Research, Criticize, and Cull complete; generation three and
-   later also require the candidate gate and publish.
+7. Rewrite `RUN_PAGE` with Cull and set its `Stage` to `Generation <n> complete` before returning.
+   The last fully criticized champion set on `RUN_PAGE` is the checkpoint an interrupted later
+   generation falls back to.
+
+Never run a separate polish generation or count rewriting as a generation. A generation counts
+only after Challenge, Criticize, and Cull complete.
 
 ### 1. Challenge + research
 
@@ -150,6 +176,8 @@ Each writer proposes and researches one contender. It targets a different
 available champion when there is one; otherwise it starts from a distinct named-advisor question.
 It must name what it tries to beat or seed, the decision it changes, the evidence needed, and the advisor principle it applies.
 Novel wording is not diversity; different owner decisions are.
+Writers argue from `## Dossiers`: a claim about a person, company or deal rests on that name's
+dossier, and a name with none is returned in `needs_dossier` for the coordinator to investigate.
 The payload names the contender's target; from `RUN_PAGE` the child gets public evidence locations
 and semantic questions plus source-class labels for private evidence. Allow at most twelve tool calls,
 all for research, and return after fifteen minutes with what it has. Do not list or rediscover directories,
@@ -180,7 +208,12 @@ question with the named source class, then uses Latch research to make the stron
 - false, weak, or date-mismatched data;
 - misapplied advisor advice or stage;
 - infeasible now or lower leverage than another action;
-- duplicate of or subsumed by another contender.
+- duplicate of or subsumed by another contender;
+- contradicted by a source: attack the dossiers' `coverage` gaps and any fact dated after the
+  claim's anchor.
+
+A time-sensitive claim (“still waiting”, “hasn't replied”, “none”) without receipts from more
+than one source is culled or rewritten as unknown.
 
 A critic has a writer's research budget. Each critic also returns its own `reads` in the writer
 receipt shape, plus checked claims, contrary evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
@@ -192,12 +225,13 @@ do not copy tool transcripts or claim a critic that did not return a verdict.
 
 The culler reads from `RUN_PAGE` the available targets,
 their priority cases, sanitized reads, source-backed research, and all prosecutions. It selects and ranks exactly three grounded,
-distinct champions by decision impact, specificity, advisor fidelity, evidence, feasibility, and
-survival of criticism. It explicitly compares why each action matters now, what it displaces, and
+distinct champions, first by how far each advances the exit criteria of the `## Agenda` stage,
+then by decision impact, specificity, evidence, feasibility, and survival of criticism. An urgent
+card off the agenda must beat the top agenda item explicitly, on the record. It explicitly compares why each action matters now, what it displaces, and
 the cost of waiting. Incumbency gives continuity, not immunity. A challenger wins only by beating
 an incumbent on the decision the owner should make now.
-The parent's first action after the culler returns is to rewrite the run page with the Cull result
-and proposed fact-rank moves. Only then may it build or validate candidate files.
+The coordinator's first action after the culler returns is to rewrite the run page with the Cull
+result and proposed fact-rank moves.
 
 A critic's verdict is evidence, not an elimination vote. When at least three fully criticized
 targets reach Cull, the culler returns exactly three; it may overrule every prosecution. Never say fewer is fine, and never pad with an uncriticized target.
@@ -251,6 +285,15 @@ When the desk cannot publish (Orient blocked, no checkpoint when time runs out),
 `{"date":"<edition date>","could_not_source":["<what failed and why>"]}`; the edition prints
 that reason as the unavailable card.
 
+## Freshness
+
+Evidence read at the start of the run can be stale by delivery. Re-investigate every name the
+three champions rest on, one investigator each in one delegate set, and replace their dossiers.
+When a fresh dossier contradicts a champion, run one Cull over the champions and the ranked
+contenders with the fresh dossiers.
+
+## Candidate
+
 Write the complete candidate checkpoint to
 `/var/lib/hermes/pt/run/desk-priority/tournament.candidate.json` and copy its
 `priority` object into the priority section of
@@ -268,8 +311,7 @@ the checkpoint `stage` is exactly
 
 Only after that exits zero, atomically move `tournament.candidate.json` over
 `tournament.json`, then refresh the run's wiki state from it. A failed gate leaves the previous
-checkpoint untouched and returns to Cull
-while time permits. Never split the card and tournament metadata across separate canonical files.
+checkpoint untouched; run one Cull leaf on the refusal and gate again. Never split the card and tournament metadata across separate canonical files.
 Apply the final proposed Q&A and resource changes once, only after the renderer succeeds and `tournament.json` is atomically published.
 Re-read each whole page and fold owner edits into it
 immediately before writing. If either write fails, retry only that wiki write from the accepted

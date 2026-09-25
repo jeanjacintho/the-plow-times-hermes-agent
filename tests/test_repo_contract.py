@@ -6,6 +6,8 @@ import os
 import pathlib
 import stat
 
+import pytest
+
 from conftest import ROOT, load_module
 
 
@@ -759,8 +761,8 @@ class TestSkills:
         ):
             assert clause in text
         desks = (ROOT / "pt-research" / "references" / "desks.md").read_text()
-        assert "reserved 150-minute window" in desks
-        assert "reserved 150-minute window; delivery waits" in desks
+        assert "fills the window `pt-priority` defines; delivery waits" in desks
+        assert "150" not in text, "the parent-context cap is gone with the conductor (#129)"
         assert "ending earlier when the delivery cutoff requires it" not in desks
         assert "global batch budget starts after priority" in desks
         assert "One rule for every scheduled paper" in desks
@@ -773,6 +775,26 @@ class TestSkills:
         assert "one adjacent position" in qa
         assert "current sourced facts" in qa
         assert "at most 1,200 characters" not in text
+
+    @pytest.mark.parametrize("path, clause", [
+        # Absence is only "not found in <sources> between <dates>" (#129's investor card).
+        ("pt-shared/references/investigate.md", "not found in <sources> between <dates>"),
+        ("pt-shared/references/investigate.md", "No source is skipped silently."),
+        ("pt-shared/references/investigate.md", "is `unreadable`, never \"no reply\""),
+        ("pt-priority/SKILL.md", "**returns 10 lines or fewer**"),
+        ("pt-priority/SKILL.md", "first by how far each advances the exit criteria of the `## Agenda` stage"),
+        ("pt-priority/SKILL.md", "at least one challenger takes the highest `## Agenda` item"),
+        ("pt-priority/SKILL.md", "is culled or rewritten as unknown"),
+        ("pt-priority/SKILL.md", "never\nabandon a started stage"),
+        ("pt-priority/SKILL.md", "## Freshness"),
+        ("pt-research/references/desks.md", "one they run per `pt-shared/references/investigate.md`"),
+        # Coordinators delegate; a flat tree would make every stage a leaf.
+        ("runtime/config.yaml", "delegation:\n  max_spawn_depth: 2"),
+        # A 600s idle cutoff ends a five-hour paper on one wedged tool call.
+        ("compose.yml", 'HERMES_CRON_TIMEOUT: "3600"'),
+    ])
+    def test_advisor_desk_investigates_before_it_argues(self, path, clause):
+        assert clause in (ROOT / path).read_text()
 
     def test_bundled_advisors_are_one_named_markdown_file_each(self):
         advisor_dir = ROOT / "pt-setup" / "assets" / "advisors"
