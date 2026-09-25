@@ -1,0 +1,10 @@
+#!/bin/sh
+# runtime/config.yaml onto a home that already has a config.yaml. cont-init
+# seeds only an absent one, so without this an existing agent keeps the
+# shape it was created with, and a key added later never reaches it
+# (delegation.max_spawn_depth missed the live install, #129). plow-init
+# runs after this and re-stamps the keys it owns.
+set -eu
+home=/var/lib/hermes/config.yaml
+[ -f "$home" ] || exit 0
+/opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py "$home" /opt/plow/pt-runtime-config.yaml

@@ -17,12 +17,12 @@ FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-67021a7029e33e80bcb27899be65
 # The home's config is /opt/hermes/plow-seed/config.yaml: the base ships a
 # copy as the home's, cont-init copies it into a home that has none, and
 # plow-init re-stamps its model, display and terminal.cwd every boot. So
-# runtime/config.yaml is deep-merged onto the seed, and the home copy is
-# refreshed from the result. Do not pin HERMES_MODEL in compose.yml.
-COPY runtime/config.yaml /tmp/pt-runtime-config.yaml
+# runtime/config.yaml is deep-merged onto the seed here, and onto an existing
+# home every boot (cont-init.d/03). Do not pin HERMES_MODEL in compose.yml.
+COPY runtime/config.yaml /opt/plow/pt-runtime-config.yaml
 COPY image/merge_pt_seed_config.py /opt/plow/merge_pt_seed_config.py
 RUN /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
-      /opt/hermes/plow-seed/config.yaml /tmp/pt-runtime-config.yaml \
+      /opt/hermes/plow-seed/config.yaml /opt/plow/pt-runtime-config.yaml \
  && install -o hermes -g hermes -m 0640 /opt/hermes/plow-seed/config.yaml /var/lib/hermes/config.yaml
 
 # Boot also recomposes $HOME/SOUL.md from this seed. COPY to the home is
@@ -136,8 +136,8 @@ RUN find /opt/hermes/skills -mindepth 1 -type d -exec chmod 0755 {} + \
  && chmod 0644 /var/lib/hermes/memories/USER.md \
  && install -d -o 10000 -g 10000 -m 0700 /var/lib/hermes/pt
 
-COPY image/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/02-copy-plow-credentials
-RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials
+COPY image/cont-init.d/02-copy-plow-credentials image/cont-init.d/03-merge-pt-runtime-config /etc/cont-init.d/
+RUN chmod 0755 /etc/cont-init.d/02-copy-plow-credentials /etc/cont-init.d/03-merge-pt-runtime-config
 
 # Hermes' billing wall concatenates the HTTP body, the provider name, a
 # billing URL and `/model`. Pin one user-facing line and fail the build if
