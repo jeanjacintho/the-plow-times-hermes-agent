@@ -151,8 +151,8 @@ available champion when there is one; otherwise it starts from a distinct named-
 It must name what it tries to beat or seed, the decision it changes, the evidence needed, and the advisor principle it applies.
 Novel wording is not diversity; different owner decisions are.
 The payload names the contender's target; from `RUN_PAGE` the child gets public evidence locations
-and semantic questions plus source-class labels for private evidence. Allow at most six tool calls,
-all for research, and return after eight minutes with what it has. Do not list or rediscover directories,
+and semantic questions plus source-class labels for private evidence. Allow at most twelve tool calls,
+all for research, and return after fifteen minutes with what it has. Do not list or rediscover directories,
 dump history, or search the whole wiki inside a child. Use only documented read-only Latch
 operations. Each result is a claim/item pair, contrary evidence, unknowns, and sanitized
 discoveries. Revisit owner-named sources, including URLs in `resources.md`; a URL received
@@ -182,8 +182,8 @@ question with the named source class, then uses Latch research to make the stron
 - infeasible now or lower leverage than another action;
 - duplicate of or subsumed by another contender.
 
-Each critic also returns its own `reads` in the writer receipt shape, plus checked claims, contrary
-evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
+A critic has a writer's research budget. Each critic also returns its own `reads` in the writer
+receipt shape, plus checked claims, contrary evidence, unknowns, and a cull argument. A critic is a prosecutor, never a reviser.
 It may not repair or rewrite its target. An inherited champion without fresh criticism invalidates the generation; a challenger critic failure invalidates it whenever fewer than three fully criticized targets remain. When a checkpoint exists, the prior fully criticized champion set stands; retry only when time permits. Without a checkpoint, the desk is unavailable (see Card).
 After the critic set returns, preserve every returned verdict in the run page's `## Critic verdicts` section;
 do not copy tool transcripts or claim a critic that did not return a verdict.
