@@ -118,6 +118,15 @@ DEFAULT_LEAD_MINUTES = 0
 # start. Every paper shares the workspace lock, so a smaller
 # number could call the scheduled run dead and start a competing paper.
 STALE_RUN_MINUTES = 240
+# A scheduled paper waits out a fresh holder instead of skipping the whole
+# day: measured live, an on-demand copy (--now) queued a minute out won the
+# workspace lock just ahead of the same day's cron fire, and the scheduled
+# run saw 'held' and gave up before ever writing a page (issue #30). Bounded
+# to the on-demand run's own early, lock-guarded setup (prepare, reopen,
+# check-paper -- which releases the lock right back on a refusal) rather than
+# its whole session, so a long-running on-demand paper does not stall today's
+# scheduled one past what the send-clock hold already tolerates.
+HELD_LOCK_WAIT_SECONDS = 300
 
 # One topic's own edition: a subscription's nightly run or a one-off.
 TOPIC_PROMPT = (
@@ -166,6 +175,10 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
         f"(if that hour has already passed, post immediately; never wait until tomorrow)"
         if hold_until else ""
     )
+    # Only a scheduled paper waits out a fresh holder (issue #30); the
+    # on-demand copy is the one usually winning that race, and should not
+    # wait on itself.
+    wait = f" --wait-seconds {HELD_LOCK_WAIT_SECONDS}" if hold_until else ""
     lock = "/var/lib/hermes/skills/pt-shared/scripts/run_lock.py"
     advice = (
         "reuse today's accepted checkpoint in run/desk-priority/tournament.json when "
@@ -178,21 +191,25 @@ def paper_prompt(hold_until=None, lead_minutes=0, focus=None):
     return (
         f"Run {title} now, in one session. First run {lock} acquire "
         f"--name {WORKSPACE_LOCK}-<today's date in the owner's "
-        f"zone> --stale-minutes {STALE_RUN_MINUTES + lead_minutes}; if its output is 'held', "
-        f"another paper owns the workspace -- say NO_REPLY and stop. Then "
+        f"zone> --stale-minutes {STALE_RUN_MINUTES + lead_minutes}{wait}; if its output is "
+        f"'held', another paper owns the workspace -- say NO_REPLY and stop. Otherwise "
+        f"keep the 'token:<token>' line it printed -- every release of this same lock "
+        f"below needs that exact token. Then "
         f"/var/lib/hermes/skills/pt-shared/scripts/prepare_daily_run.py --preserve-priority "
         f"(it archives prior scratch after the lock; do not inspect or reuse old run files). Then "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py reopen-sections "
         f"(delivered sections are yesterday's paper, not a skip). Run "
         f"/var/lib/hermes/skills/pt-intake/scripts/topics.py check-paper {check}. "
         f"If it refuses, repeat its named roster, run {lock} "
-        f"release --name the same {WORKSPACE_LOCK}-<date>, and stop before research. "
+        f"release --name the same {WORKSPACE_LOCK}-<date> --token <the token from "
+        f"acquire's output>, and stop before research. "
         f"Then run pt-research: first the priority desk exactly as "
         f"pt-research/references/desks.md says ({advice}), "
         f"then every other standing desk it lists, in its order, then {roster}. "
         f"Then run pt-edition for the batch, delivering with post_to_chat.py "
         f"per pt-edition/SKILL.md step 2{hold}. "
-        f"Release the lock with {lock} release --name the same {WORKSPACE_LOCK}-<date>. "
+        f"Release the lock with {lock} release --name the same {WORKSPACE_LOCK}-<date> "
+        f"--token <the token from acquire's output>. "
         f"Final response is NO_REPLY so --deliver does not send the transcript."
     )
 

@@ -865,15 +865,21 @@ class TestScheduledHold:
     """Two clocks: cron starts at hour−lead; POST waits for the hour."""
 
     def test_daily_job_holds_until_delivery_hour(self):
+        # issue #30: an on-demand copy winning the lock a moment before cron
+        # fires must not make the scheduled run skip the whole day.
         jobs = crons.desired_jobs([], "07:00", TZ, TZ, {})
         prompt = jobs[0]["prompt"]
         assert "--hold-until 07:00" in prompt
         assert "--stale-minutes 240" in prompt
+        assert f"--wait-seconds {crons.HELD_LOCK_WAIT_SECONDS}" in prompt
 
     def test_on_demand_copy_does_not_hold(self):
+        # It is the one usually winning that lock race; waiting on itself
+        # would just be the same "held" story with extra steps.
         p = crons.paper_prompt(lead_minutes=40)
         assert "--hold-until" not in p
         assert "--stale-minutes 280" in p
+        assert "--wait-seconds" not in p
 
     def test_every_acquirer_of_the_daily_lock_outlives_the_early_start(self):
         # A scheduled run with a 40-minute lead holds the lock 40 minutes
@@ -889,6 +895,7 @@ class TestScheduledHold:
         paper = next(j for j in jobs if j["name"] == "pt-paper-1200")
         assert "--hold-until 12:00" in paper["prompt"]
         assert "--stale-minutes 240" in paper["prompt"]
+        assert f"--wait-seconds {crons.HELD_LOCK_WAIT_SECONDS}" in paper["prompt"]
 
     def test_extra_slot_holds_until_its_hour(self):
         jobs = crons.desired_jobs(
