@@ -12,6 +12,7 @@ value in ours replaces the seed's.
 """
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -33,8 +34,15 @@ def main(argv=None):
         seed = yaml.safe_load(handle)
     with open(ours_path) as handle:
         ours = yaml.safe_load(handle)
-    with open(seed_path, "w") as handle:
+    # Atomic, with the file's owner and mode: this also rewrites a live
+    # home's config at every boot, and a torn write would break the next.
+    tmp = f"{seed_path}.tmp"
+    with open(tmp, "w") as handle:
         yaml.safe_dump(deep_merge(seed, ours), handle, sort_keys=False)
+    st = os.stat(seed_path)
+    os.chown(tmp, st.st_uid, st.st_gid)
+    os.chmod(tmp, st.st_mode)
+    os.replace(tmp, seed_path)
 
 
 if __name__ == "__main__":
