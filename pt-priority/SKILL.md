@@ -148,18 +148,16 @@ no champion covers.
 
 Let `I` be the number of inherited champions at the start of this generation. The coordinator
 executes this loop in order; the sections below define each payload, but never reorder or merge
-these gates:
+these gates, and never make a `delegate_task` call until the previous `RUN_PAGE` write returned success:
 
 1. Make one `delegate_task` call containing exactly three writer tasks.
 2. Rewrite `RUN_PAGE` with all three Challenge results and set its `Stage` to Challenge complete.
-   Do not make another `delegate_task` call until that wiki write returns success.
 3. When writers returned `needs_dossier` names, make one `delegate_task` call with one
    investigator per name, and write the dossiers to `RUN_PAGE`.
 4. Make one `delegate_task` call whose critic task count is `I + 3`: one task for each inherited
    champion and one for each challenger, so there is one independent critic per recommendation.
    With three inherited champions, this is six independent critic children in one delegate set.
-5. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete. Do not
-   call the culler until that wiki write returns success.
+5. Rewrite `RUN_PAGE` with every critic result and set its `Stage` to Criticize complete.
 6. Every generation reaches Cull unless fewer than three fully criticized targets remain. With
    fewer than three, the generation is invalid and the prior checkpoint stands. Otherwise make
    one one-task `delegate_task` call for Cull.
