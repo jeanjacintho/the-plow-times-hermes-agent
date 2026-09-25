@@ -121,7 +121,8 @@ and open Q&A. Run one delegate set of:
   and is expensive to rediscover.
 - **One investigator per key name**, per `pt-shared/references/investigate.md`, into `## Dossiers`.
 
-Every child returns compact structured JSON with no narrative preface.
+Every child returns compact structured JSON with no narrative preface. One `delegate_task` call
+holds at most ten tasks (Hermes refuses more), so a larger set is split into several calls.
 **Delegate payloads are short pointers:** include the exact `RUN_PAGE`, stage, generation, target
 index or label, and the concise stage procedure and result schema defined below. The child reads `RUN_PAGE` first
 and obtains its target, evidence locations, and prior results there. Do not inline the run state,
@@ -286,7 +287,7 @@ that reason as the unavailable card.
 ## Freshness
 
 Evidence read at the start of the run can be stale by delivery. Re-investigate every name the
-three champions and the ranked contenders rest on, one investigator each, and replace their
+three champions and the ranked contenders rest on, one investigator each in delegate sets, and replace their
 dossiers, so any card the final Cull could print stands on current evidence. When a fresh dossier
 contradicts a champion, run one Cull over the champions and the ranked contenders.
 
