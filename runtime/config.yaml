@@ -37,9 +37,10 @@ providers:
 context_file_max_chars: 40000
 
 # The seed compacts at 128 000 tokens, which was right for the Sonnet 5 it was
-# written against. Measured against the model this paper pins, the ceiling is
-# 1 000 000 -- the API's own refusal names it: "prompt is too long: 1311067
-# tokens > 1000000 maximum". Compacting at 128k spends 12.8% of the window and
+# written against. Every model this paper can pin carries at least 1 000 000:
+# Anthropic's refusal names its own ("prompt is too long: 1311067 tokens >
+# 1000000 maximum") and Plow declares 1 050 000 for the GPT-6 entries.
+# Compacting at 128k spends under 13% of the window and
 # then pays to summarize, and a tournament that must complete three generations
 # in one session is exactly the workload that loses its own evidence that way:
 # the 2026-09-22 11:32 run reached generation three and died after eight
