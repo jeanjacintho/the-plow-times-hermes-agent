@@ -4,7 +4,7 @@
 The seed is the one config this agent's home is built from: cont-init copies
 it into a home that has none, and plow-init re-stamps its display, model,
 provider and terminal.cwd onto the home every boot. Merging every key keeps
-the Opus 5 pin, the quiet plow_chat block and the rest of runtime/config.yaml
+the GPT-6 Sol pin, the quiet plow_chat block and the rest of runtime/config.yaml
 (cron.wrap_response, agent.disabled_toolsets, context_file_max_chars, ...)
 from falling back to the base's on either path. Mappings merge; any other
 value in ours replaces the seed's.

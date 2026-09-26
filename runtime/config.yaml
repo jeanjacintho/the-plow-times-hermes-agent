@@ -7,10 +7,12 @@
 # (image/merge_pt_seed_config.py), the config a home is built from and
 # plow-init re-stamps every boot; editing it needs an image rebuild.
 #
-# Default model is Claude Opus 5 on the Plow provider — a paper pin,
-# not the fleet seed (base-ef00193 defaults to z-ai/glm-5.2). GPT-6 Astra held
-# this pin for one edition; it wrote a shorter paper, hand-rolled a render step
-# the repo already owns, and answered the owner in a guardrail's voice (#119).
+# Default model is GPT-6 Sol on the Plow provider — a paper pin, not the
+# fleet seed (base-ef00193 defaults to z-ai/glm-5.2). Plow serves it through
+# OpenRouter with a 1 050 000 context window, so the compaction threshold below
+# still sits inside it. GPT-6 Astra held this pin for one edition; it wrote a
+# shorter paper, hand-rolled a render step the repo already owns, and answered
+# the owner in a guardrail's voice (#119). Opus 5 held it after that.
 # It has to be listed under providers.plow.models too, not only as
 # model.default, or Hermes keeps offering the previous catalog entry.
 #
@@ -18,7 +20,7 @@
 # chat and no groups (design doc §3.2), so the image default is fine.
 
 model:
-  default: anthropic/claude-opus-5
+  default: openai/gpt-6-sol
   provider: plow
   base_url: "${PLOW_API_BASE}/v1"
   key_env: HERMES_CUSTOM_PLOW_API_KEY
@@ -29,7 +31,7 @@ providers:
     key_env: HERMES_CUSTOM_PLOW_API_KEY
     stale_timeout_seconds: 55
     models:
-      anthropic/claude-opus-5: {}
+      openai/gpt-6-sol: {}
 
 # Hermes truncates SOUL.md at 20 000 chars without this.
 context_file_max_chars: 40000

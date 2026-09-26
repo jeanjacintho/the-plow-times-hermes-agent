@@ -991,8 +991,8 @@ class TestDeployment:
         assert "interim_assistant_messages: false" in config
         assert 'tool_progress: "off"' in config
         assert "long_running_notifications: false" in config
-        assert "default: anthropic/claude-opus-5" in config
-        assert "anthropic/claude-opus-5: {}" in config
+        assert "default: openai/gpt-6-sol" in config
+        assert "openai/gpt-6-sol: {}" in config
 
     def test_compose_yml_is_the_plow_agents_surface(self):
         # plow-agents' compose.example.yml: service `agent`, credential drop-in,
