@@ -41,3 +41,15 @@ def test_every_runtime_key_lands_on_the_seed(tmp_path):
     assert out["display"]["live_status"] == "off" and pc["live_status"] == "off"
     assert pc["interim_assistant_messages"] is False
     assert pc["long_running_notifications"] is False
+
+
+def test_a_symlinked_config_is_replaced_not_written_through(tmp_path):
+    target = tmp_path / "not-the-agents.yaml"
+    target.write_text(yaml.safe_dump(BASE_SEED))
+    home = tmp_path / "config.yaml"
+    home.symlink_to(target)
+    merge.main([str(home), str(ROOT / "runtime" / "config.yaml")])
+
+    assert yaml.safe_load(target.read_text()) == BASE_SEED
+    assert not home.is_symlink()
+    assert yaml.safe_load(home.read_text())["model"]["default"] == "openai/gpt-6-sol"
