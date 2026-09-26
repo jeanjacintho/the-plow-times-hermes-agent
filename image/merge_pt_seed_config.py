@@ -14,6 +14,7 @@ value in ours replaces the seed's.
 """
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -35,8 +36,13 @@ def main(argv=None):
         seed = yaml.safe_load(handle)
     with open(ours_path) as handle:
         ours = yaml.safe_load(handle)
-    with open(seed_path, "w") as handle:
+    # A sibling, then a rename, as plow-init writes it: truncating in place
+    # leaves a half-written config if the boot dies mid-dump.
+    temporary = seed_path + ".tmp"
+    with open(temporary, "w") as handle:
+        os.fchmod(handle.fileno(), os.stat(seed_path).st_mode & 0o777)
         yaml.safe_dump(deep_merge(seed, ours), handle, sort_keys=False)
+    os.replace(temporary, seed_path)
 
 
 if __name__ == "__main__":

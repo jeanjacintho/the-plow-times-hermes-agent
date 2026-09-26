@@ -4,6 +4,8 @@
 # runtime/config.yaml stopped at the image for an existing home. Measured on
 # Alder, 2026-09-25: agent.disabled_toolsets and cron.model were absent from
 # the home the paper ran on. Re-merged every boot; plow-init runs after this.
+# As hermes, never root: the config is the agent's, and a symlink left at that
+# path must fail as a permission error, not steer a root write.
 set -eu
-exec /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
+exec /command/s6-setuidgid hermes /opt/hermes/.venv/bin/python3 /opt/plow/merge_pt_seed_config.py \
   /var/lib/hermes/config.yaml /opt/plow/pt-runtime-config.yaml
