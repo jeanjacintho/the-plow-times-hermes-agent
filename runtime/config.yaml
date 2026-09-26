@@ -31,7 +31,10 @@ providers:
     key_env: HERMES_CUSTOM_PLOW_API_KEY
     stale_timeout_seconds: 55
     models:
-      openai/gpt-6-sol: {}
+      # Hermes has no metadata for this id and falls back to 256 000 tokens,
+      # under the compaction threshold below. Plow declares 1 050 000.
+      openai/gpt-6-sol:
+        context_length: 1050000
 
 # Hermes truncates SOUL.md at 20 000 chars without this.
 context_file_max_chars: 40000
