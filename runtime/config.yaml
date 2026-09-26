@@ -20,7 +20,7 @@
 # chat and no groups (design doc §3.2), so the image default is fine.
 
 model:
-  default: openai/gpt-6-sol
+  default: &pin openai/gpt-6-sol
   provider: plow
   base_url: "${PLOW_API_BASE}/v1"
   key_env: HERMES_CUSTOM_PLOW_API_KEY
@@ -80,8 +80,13 @@ delegation:
 # SKILL.md's whole promise is that the chat text is the renderer's output
 # pasted verbatim -- the wrapper breaks that promise on every single delivery,
 # not as an edge case. Disabled here, not worked around per-skill.
+#
+# A cron job otherwise runs on the model it was created under (Hermes
+# snapshots it, cron/jobs.py) so the paper crons would stay on the old pin
+# after every model change here. cron.model outranks that snapshot.
 cron:
   wrap_response: false
+  model: *pin
 # Unset, terminal.cwd falls back to the Hermes INSTALL tree (/opt/hermes) --
 # confirmed live, every turn: "working-directory resolution fell back to the
 # Hermes install tree". Every pt-* SKILL.md now uses absolute script paths

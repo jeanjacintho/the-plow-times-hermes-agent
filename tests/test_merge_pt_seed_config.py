@@ -29,7 +29,8 @@ def test_every_runtime_key_lands_on_the_seed(tmp_path):
     assert out["model"]["default"] == "openai/gpt-6-sol"
     assert set(out["providers"]["plow"]["models"]) == {"z-ai/glm-5.2", "openai/gpt-6-sol"}
     assert out["context_file_max_chars"] == 40000
-    assert out["cron"] == {"model_drift_guard": False, "wrap_response": False}
+    assert out["cron"] == {"model_drift_guard": False, "wrap_response": False,
+                           "model": "openai/gpt-6-sol"}
     assert out["agent"] == {"disabled_toolsets": ["clarify", "web", "search", "browser"],
                             "api_max_retries": 9}
     assert out["terminal"] == {"backend": "local", "cwd": "/var/lib/hermes"}
