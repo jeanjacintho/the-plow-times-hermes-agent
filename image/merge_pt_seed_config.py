@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Deep-merge runtime/config.yaml onto plow-seed/config.yaml, ours winning.
+"""Deep-merge runtime/config.yaml onto a config, ours winning.
+
+The build merges it onto plow-seed/config.yaml; 03-merge-pt-runtime-config
+merges it onto the home's config.yaml every boot.
 
 The seed is the one config this agent's home is built from: cont-init copies
 it into a home that has none, and plow-init re-stamps its display, model,
 provider and terminal.cwd onto the home every boot. Merging every key keeps
-the Opus 5 pin, the quiet plow_chat block and the rest of runtime/config.yaml
+the paper's model pin, the quiet plow_chat block and the rest of runtime/config.yaml
 (cron.wrap_response, agent.disabled_toolsets, context_file_max_chars, ...)
 from falling back to the base's on either path. Mappings merge; any other
 value in ours replaces the seed's.
 """
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -32,8 +36,13 @@ def main(argv=None):
         seed = yaml.safe_load(handle)
     with open(ours_path) as handle:
         ours = yaml.safe_load(handle)
-    with open(seed_path, "w") as handle:
+    # A sibling, then a rename, as plow-init writes it: truncating in place
+    # leaves a half-written config if the boot dies mid-dump.
+    temporary = seed_path + ".tmp"
+    with open(temporary, "w") as handle:
+        os.fchmod(handle.fileno(), os.stat(seed_path).st_mode & 0o777)
         yaml.safe_dump(deep_merge(seed, ours), handle, sort_keys=False)
+    os.replace(temporary, seed_path)
 
 
 if __name__ == "__main__":

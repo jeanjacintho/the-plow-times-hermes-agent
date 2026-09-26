@@ -4,13 +4,16 @@
 # rather than a frozen snapshot of them.
 #
 # The image deep-merges this whole file onto plow-seed/config.yaml
-# (image/merge_pt_seed_config.py), the config a home is built from and
-# plow-init re-stamps every boot; editing it needs an image rebuild.
+# (image/merge_pt_seed_config.py), the config a home is built from, and
+# again onto the home itself every boot (03-merge-pt-runtime-config), before
+# plow-init re-stamps the keys it owns; editing it needs an image rebuild.
 #
-# Default model is Claude Opus 5 on the Plow provider — a paper pin,
-# not the fleet seed (base-ef00193 defaults to z-ai/glm-5.2). GPT-6 Astra held
-# this pin for one edition; it wrote a shorter paper, hand-rolled a render step
-# the repo already owns, and answered the owner in a guardrail's voice (#119).
+# Default model is GPT-6 Sol on the Plow provider — a paper pin, not the
+# fleet seed (base-ef00193 defaults to z-ai/glm-5.2). Plow serves it through
+# OpenRouter with a 1 050 000 context window, so the compaction threshold below
+# still sits inside it. GPT-6 Astra held this pin for one edition; it wrote a
+# shorter paper, hand-rolled a render step the repo already owns, and answered
+# the owner in a guardrail's voice (#119). Opus 5 held it after that.
 # It has to be listed under providers.plow.models too, not only as
 # model.default, or Hermes keeps offering the previous catalog entry.
 #
@@ -18,7 +21,11 @@
 # chat and no groups (design doc §3.2), so the image default is fine.
 
 model:
-  default: anthropic/claude-opus-5
+  default: &pin openai/gpt-6-sol
+  # Hermes has no metadata for this id and falls back to 256 000 tokens,
+  # under the compaction threshold below; Plow declares 1 050 000. Here, not
+  # under providers.plow.models: plow-init rewrites that entry every boot.
+  context_length: 1050000
   provider: plow
   base_url: "${PLOW_API_BASE}/v1"
   key_env: HERMES_CUSTOM_PLOW_API_KEY
@@ -29,15 +36,16 @@ providers:
     key_env: HERMES_CUSTOM_PLOW_API_KEY
     stale_timeout_seconds: 55
     models:
-      anthropic/claude-opus-5: {}
+      openai/gpt-6-sol: {}
 
 # Hermes truncates SOUL.md at 20 000 chars without this.
 context_file_max_chars: 40000
 
 # The seed compacts at 128 000 tokens, which was right for the Sonnet 5 it was
-# written against. Measured against the model this paper pins, the ceiling is
-# 1 000 000 -- the API's own refusal names it: "prompt is too long: 1311067
-# tokens > 1000000 maximum". Compacting at 128k spends 12.8% of the window and
+# written against. Every model this paper can pin carries at least 1 000 000:
+# Anthropic's refusal names its own ("prompt is too long: 1311067 tokens >
+# 1000000 maximum") and Plow declares 1 050 000 for the GPT-6 entries.
+# Compacting at 128k spends under 13% of the window and
 # then pays to summarize, and a tournament that must complete three generations
 # in one session is exactly the workload that loses its own evidence that way:
 # the 2026-09-22 11:32 run reached generation three and died after eight
@@ -77,8 +85,13 @@ delegation:
 # SKILL.md's whole promise is that the chat text is the renderer's output
 # pasted verbatim -- the wrapper breaks that promise on every single delivery,
 # not as an edge case. Disabled here, not worked around per-skill.
+#
+# A cron job otherwise runs on the model it was created under (Hermes
+# snapshots it, cron/jobs.py) so the paper crons would stay on the old pin
+# after every model change here. cron.model outranks that snapshot.
 cron:
   wrap_response: false
+  model: *pin
 # Unset, terminal.cwd falls back to the Hermes INSTALL tree (/opt/hermes) --
 # confirmed live, every turn: "working-directory resolution fell back to the
 # Hermes install tree". Every pt-* SKILL.md now uses absolute script paths
