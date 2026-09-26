@@ -4,8 +4,9 @@
 # rather than a frozen snapshot of them.
 #
 # The image deep-merges this whole file onto plow-seed/config.yaml
-# (image/merge_pt_seed_config.py), the config a home is built from and
-# plow-init re-stamps every boot; editing it needs an image rebuild.
+# (image/merge_pt_seed_config.py), the config a home is built from, and
+# again onto the home itself every boot (03-merge-pt-runtime-config), before
+# plow-init re-stamps the keys it owns; editing it needs an image rebuild.
 #
 # Default model is GPT-6 Sol on the Plow provider — a paper pin, not the
 # fleet seed (base-ef00193 defaults to z-ai/glm-5.2). Plow serves it through
@@ -21,6 +22,10 @@
 
 model:
   default: &pin openai/gpt-6-sol
+  # Hermes has no metadata for this id and falls back to 256 000 tokens,
+  # under the compaction threshold below; Plow declares 1 050 000. Here, not
+  # under providers.plow.models: plow-init rewrites that entry every boot.
+  context_length: 1050000
   provider: plow
   base_url: "${PLOW_API_BASE}/v1"
   key_env: HERMES_CUSTOM_PLOW_API_KEY
@@ -31,10 +36,7 @@ providers:
     key_env: HERMES_CUSTOM_PLOW_API_KEY
     stale_timeout_seconds: 55
     models:
-      # Hermes has no metadata for this id and falls back to 256 000 tokens,
-      # under the compaction threshold below. Plow declares 1 050 000.
-      openai/gpt-6-sol:
-        context_length: 1050000
+      openai/gpt-6-sol: {}
 
 # Hermes truncates SOUL.md at 20 000 chars without this.
 context_file_max_chars: 40000

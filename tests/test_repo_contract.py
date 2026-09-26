@@ -1042,6 +1042,9 @@ class TestDeployment:
         assert "merge_pt_seed_config.py" in dockerfile
         assert "COPY runtime/config.yaml /var/lib/hermes" not in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
+        # ...and re-merged onto an existing home every boot, or a key added
+        # after the home was created never reaches it.
+        assert "03-merge-pt-runtime-config" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()
 

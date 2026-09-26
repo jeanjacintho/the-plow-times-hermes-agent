@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Deep-merge runtime/config.yaml onto plow-seed/config.yaml, ours winning.
+"""Deep-merge runtime/config.yaml onto a config, ours winning.
+
+The build merges it onto plow-seed/config.yaml; 03-merge-pt-runtime-config
+merges it onto the home's config.yaml every boot.
 
 The seed is the one config this agent's home is built from: cont-init copies
 it into a home that has none, and plow-init re-stamps its display, model,
