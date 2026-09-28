@@ -94,12 +94,16 @@ my cousin, not a customer", "stop telling me to hire", "we signed our first pilo
 is not a topic. Run `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk` first
 (idempotent; it seeds or carries over the page) — an `error:` line means the Mac's wiki
 isn't reachable: say so in one line and write nothing, the correction will need resending.
-Then `mcp__plow__plow_read_file` `~/Plow/wiki/entities/owner/goals.md`, append one line
+Then run `/var/lib/hermes/skills/pt-shared/scripts/chat_message_id.py` (bare) and keep its
+`HANDLE:` line — issue #85's item for a line with no Messages or mail counterpart, read below.
+`mcp__plow__plow_read_file` `~/Plow/wiki/entities/owner/goals.md`, append one line
 dated today (`- YYYY-MM-DD: …`, an answer starting with its `Q<n>`) ending with its item, the
 same shape the Q&A uses: a Messages chat plus rowid, or a named mail reader's message id, of the owner's own
-message that carried the correction — a correction made in chat **is** a re-openable item only when
-that message carries a handle (the item pt-priority/SKILL.md defines), so the line pins it rather
-than restating it; where it does not (issue #85's non-phone-backed line), say so in one line and
+message that carried the correction; with neither (an `<name>@plow.co` line, say),
+`plow_chat message <uid>` from that `HANDLE:<uid>` line is the item instead — the same Plow Chat
+API this agent already posts through is the reader, so it still pins the message rather than
+restating it. Only `HANDLE:none` (the API could not be read, or answered with nothing usable)
+leaves the message with no handle at all: say so in one line and
 write nothing — an unsupported correction is not one the line may pin. File it under `## Goals`, `## Not now` or `## Notes`,
 whichever fits, set `updated:` to today. Read it again immediately before the write and fold
 whatever changed since the first read into what you write — the owner edits this page in
@@ -116,6 +120,11 @@ A retraction reads, in shape:
 
 `- 2026-03-04: the Q7 headcount figure is not mine — treat it as retracted. Basis: iMessage
 chat +15550100 rowid 100200, 2026-03-04.`
+
+On a non-phone-backed line the same retraction instead reads:
+
+`- 2026-03-04: the Q7 headcount figure is not mine — treat it as retracted. Basis: plow_chat
+message msg_9f2a, 2026-03-04.`
 
 ## New topic — classify, then write
 

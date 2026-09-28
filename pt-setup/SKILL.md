@@ -249,18 +249,22 @@ Stop. On their next message:
   first Latch call and after each write; do not type that you are writing anything.
   1. `/var/lib/hermes/skills/pt-shared/scripts/wiki_setup.py --desk` — it makes
      `~/Plow/wiki` ready (creating it when the Mac has none) and prints `WIKI:…`.
-  2. `mcp__plow__plow_read_file` `path=~/Plow/wiki/entities/owner/goals.md`; add
+  2. `/var/lib/hermes/skills/pt-shared/scripts/chat_message_id.py` (bare) — keep its
+     `HANDLE:` line; it is the item for an answer with no Messages or mail counterpart
+     (issue #85's non-phone-backed line), read at step 3 below.
+  3. `mcp__plow__plow_read_file` `path=~/Plow/wiki/entities/owner/goals.md`; add
      their answer as one `- ` line under `## Goals` unless it is already there, ending
-     with its item — the shape intake's corrections use: a Messages chat plus rowid, or
-     a named mail reader's message id, of the owner's own message; every setup answer
-     arrives as one, so this is never optional. Set `updated:` to today. Read it again
+     with its item — the shape intake's corrections use: a Messages chat plus rowid, a
+     named mail reader's message id, or — with neither — `plow_chat message <uid>` from
+     step 2's `HANDLE:<uid>` line, of the owner's own message; every setup answer
+     arrives as one of these, so this is never optional. Set `updated:` to today. Read it again
      immediately before the write and fold whatever
      changed since the first read into what you write — the owner edits this page in
      Obsidian, and their line is evidence of what they say, never something a pass
      drops. Then `mcp__plow__plow_write_file` it back. Every other line, frontmatter
      included, stays as it was. Never paste the page back in chat.
   Only once the goal is on the page: `record_setup.py <config path> priority.configured=true`.
-  No re-openable handle for that message (issue #85's non-phone-backed line) → same as
+  Step 2 printed `HANDLE:none` and there is no Messages/mail counterpart either → same as
   No, no wiki write: the goal isn't supportable, so the desk stays unconfigured rather
   than stand on nothing — the paper still prints its other desks.
   An `error:` from step 1, or a denied or failed write → say so in one line and record

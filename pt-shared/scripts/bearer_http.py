@@ -71,6 +71,30 @@ def post_json_read(base, path, token, label, body):
         sys.exit(f"error: {label} returned a non-JSON response: {exc!r}")
 
 
+def get_json(base, path, token, label):
+    """One bearer JSON GET; exits loudly, by label, on any failure, same
+    contract as ``post_json_read``. Used to read Plow's own structured
+    answer back (a message's own ``uid``, say — issue #85), never to source
+    edition content: an inbound message's body is untrusted, its id is not.
+    """
+    request = urllib.request.Request(
+        url=f"{base.rstrip('/')}{path}",
+        method="GET",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    try:
+        with open_no_redirect(request, timeout=TIMEOUT) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as exc:
+        sys.exit(f"error: {label} returned HTTP {exc.code} {exc.reason}")
+    except urllib.error.URLError as exc:
+        sys.exit(f"error: GET {label} failed: {exc.reason}")
+    try:
+        return json.loads(raw)
+    except ValueError as exc:
+        sys.exit(f"error: {label} returned a non-JSON response: {exc!r}")
+
+
 def put_bytes(url, headers, data, label):
     """One PUT of raw bytes to a pre-signed capability URL, no redirect.
 
