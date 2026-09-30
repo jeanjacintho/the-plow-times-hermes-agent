@@ -991,8 +991,6 @@ class TestDeployment:
         assert "interim_assistant_messages: false" in config
         assert 'tool_progress: "off"' in config
         assert "long_running_notifications: false" in config
-        assert "default: anthropic/claude-opus-5" in config
-        assert "anthropic/claude-opus-5: {}" in config
 
     def test_compose_yml_is_the_plow_agents_surface(self):
         # plow-agents' compose.example.yml: service `agent`, credential drop-in,
@@ -1044,6 +1042,9 @@ class TestDeployment:
         assert "merge_pt_seed_config.py" in dockerfile
         assert "COPY runtime/config.yaml /var/lib/hermes" not in dockerfile
         assert "02-copy-plow-credentials" in dockerfile
+        # ...and re-merged onto an existing home every boot, or a key added
+        # after the home was created never reaches it.
+        assert "03-merge-pt-runtime-config" in dockerfile
         assert "plow-credentials" in (ROOT / ".dockerignore").read_text()
         assert "plow-credentials" in (ROOT / ".gitignore").read_text()
 

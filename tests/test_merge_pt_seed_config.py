@@ -26,10 +26,12 @@ def test_every_runtime_key_lands_on_the_seed(tmp_path):
     merge.main([str(seed), str(ROOT / "runtime" / "config.yaml")])
     out = yaml.safe_load(seed.read_text())
 
-    assert out["model"]["default"] == "anthropic/claude-opus-5"
-    assert set(out["providers"]["plow"]["models"]) == {"z-ai/glm-5.2", "anthropic/claude-opus-5"}
+    assert out["model"]["default"] == "openai/gpt-6-sol"
+    assert set(out["providers"]["plow"]["models"]) == {"z-ai/glm-5.2", "openai/gpt-6-sol"}
+    assert out["model"]["context_length"] == 1050000
     assert out["context_file_max_chars"] == 40000
-    assert out["cron"] == {"model_drift_guard": False, "wrap_response": False}
+    assert out["cron"] == {"model_drift_guard": False, "wrap_response": False,
+                           "model": "openai/gpt-6-sol"}
     assert out["agent"] == {"disabled_toolsets": ["clarify", "web", "search", "browser"],
                             "api_max_retries": 9}
     assert out["terminal"] == {"backend": "local", "cwd": "/var/lib/hermes"}
@@ -39,3 +41,15 @@ def test_every_runtime_key_lands_on_the_seed(tmp_path):
     assert out["display"]["live_status"] == "off" and pc["live_status"] == "off"
     assert pc["interim_assistant_messages"] is False
     assert pc["long_running_notifications"] is False
+
+
+def test_a_symlinked_config_is_replaced_not_written_through(tmp_path):
+    target = tmp_path / "not-the-agents.yaml"
+    target.write_text(yaml.safe_dump(BASE_SEED))
+    home = tmp_path / "config.yaml"
+    home.symlink_to(target)
+    merge.main([str(home), str(ROOT / "runtime" / "config.yaml")])
+
+    assert yaml.safe_load(target.read_text()) == BASE_SEED
+    assert not home.is_symlink()
+    assert yaml.safe_load(home.read_text())["model"]["default"] == "openai/gpt-6-sol"
