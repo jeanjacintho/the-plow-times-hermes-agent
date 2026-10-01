@@ -316,6 +316,8 @@ Apply the final proposed Q&A and resource changes once, only after the renderer 
 Re-read each whole page and fold owner edits into it
 immediately before writing. If either write fails, retry only that wiki write from the accepted
 run-state proposal; never re-run Cull or apply another rank move.
+After both writes, run argv `["wiki", "validate", "--writer", "theplowtimes"]` through
+`plow_run_command`; exit 1 prints `path: problem` lines — fix each page it names and validate again.
 
 ## Accepted checkpoint consistency
 
