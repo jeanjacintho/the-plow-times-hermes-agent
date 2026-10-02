@@ -16,12 +16,29 @@ and the image that bakes them onto a pinned base. The runtime underneath
 `README.md` owns the product prose; this file restates none of it. Flag drift
 between that prose and the code, in either direction.
 
-**Stage:** pre-PMF, early — a handful of installs, each one owner's paper
-running in Docker against their own Plow line. The agent holds that owner's
+**Operating point:** pre-PMF, a handful of installs, each one owner's paper
+running in Docker against their own Plow line. One owner, one container, one paper a day:
+there is no shared state, no concurrency between owners and no scale to
+design for. So the dominant lens is **YAGNI**. Decline remedies that add
+retries, fallbacks, locks, caches, multi-tenant or concurrency guards, or
+abstractions for a second caller that does not exist; prefer the deletion or
+the inline version. A finding must name what breaks for one owner today. A
+reliability guess about load this repo will not see is at most `[low]`.
+
+**Security findings name a reachable loss.** The owner trusts their own
+agent. "A prompt-injected or misbehaving agent could do X with the owner's
+own data" is not blocking unless X reaches another person, spends money, or
+moves the owner's data out of their Mac and chat. Before labeling a finding
+`[blocking] security`, state the concrete loss if it fired today; without one
+it is at most `[low]`, worded as a question. Do not prescribe sandboxes,
+allowlists or validation layers for threats this operating point does not
+face.
+
+**The one carve-out is the owner's data.** The agent holds that owner's
 credential and reaches their mail, calendar, browser and printer through
 Latch, so a credential, a chat id, an account name or a real person's data
-anywhere under the tracked tree is blocking. That includes the edition
-renders under `index/`, which are drawn from synthetic data.
+anywhere in the tracked tree is blocking. That includes the edition renders
+under `index/`, which are drawn from synthetic data.
 
 Skills, prompts and comments are in English. The paper is not: it is written
 in the language the owner writes in, which `pt-intake` records through
@@ -55,5 +72,5 @@ and worth the reviewer's attention ahead of anything else:
 |---|---|
 | Flag a section, a default, the advisor's desk or its sources for being **specific to one owner's paper**. Being one person's paper is this repo's whole reason to exist; generality here is the bloat, not the fix. | Flag a change that a **sibling repo owns** per [`plow-hermes-agent` README § The repos](https://github.com/plow-pbc/plow-hermes-agent#the-repos): a base fix — boot, `plow-init`, the gateway config seed — is `plow-hermes-agent`; per-turn framing or a Plow tool is `hermes-plugin-plow`; a fix to the Agent Index client is `agent-index-client`, which this repo only pins; account, login, mint or revoke is `plow-agents`. `post_to_chat.py` already mirrors the plugin's chat adapter and `print_edition.py` drives Latch's `write_file` over the relay — keep each in step with its owner rather than growing either into a second client. The test is who else would have to change if the fact changed. |
 
-**Update cadence:** edit when the stage changes. Product and architecture edits
+**Update cadence:** edit when the operating point moves. Product and architecture edits
 belong in `README.md`, not here.
