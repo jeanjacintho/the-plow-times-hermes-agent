@@ -23,9 +23,11 @@
 # `gateway/response_filters.py` and `agent/conversation_loop.py` at build: a
 # reviewer of a patch needs the function it anchors on.
 #
-# `plow-pbc/plow` stays out although the chat and print scripts call its API:
-# it is private and this repo is public, so a citation into it would publish
-# private paths. `hermes-plugin-plow` makes the same API calls in public.
+# `plow-pbc/plow` is the server for every `/v1/...` call this repo makes, so a
+# reviewer checks those calls against the real routes, not only against
+# another client. It is private and this repo is public: cite it by
+# `path:line`, don't quote its code. The exposure is accepted, as it is for
+# latch, hermes-plugin-plow and the other public plow-pbc repos that list it.
 
 plow-pbc/plow-hermes-agent
 plow-pbc/hermes-plugin-plow
@@ -35,3 +37,4 @@ plow-pbc/plow-agents
 plow-pbc/plow-wiki
 NousResearch/hermes-gateway
 NousResearch/hermes-agent-core
+plow-pbc/plow
